@@ -1,4 +1,6 @@
-<form action="{{ route('admin.users.update', $user->id) }}" method="POST">
+{{-- resources/views/admin/users/edit.blade.php --}}
+
+<form action="{{ route('admin.users.roles.update', $user->id) }}" method="POST">
     @csrf
     @method('PUT')
 
@@ -16,3 +18,5 @@
 
     <button type="submit">Salva Ruoli</button>
 </form>
+
+<a href="{{ route('admin.users.index') }}">← Torna alla lista utenti</a>

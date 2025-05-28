@@ -1,7 +1,13 @@
-import './bootstrap';
+// resources/js/app.js
 
-import Alpine from 'alpinejs';
+// 1) Carica bootstrap.js (che registra CSRF, axios, ecc.)
+require('./bootstrap');
 
-window.Alpine = Alpine;
+// 2) Carica Tabler e demo (UMD / IIFE già pronti)
+require('./vendor/demo.min.js');
+require('./vendor/demo-theme.min.js');
+require('./vendor/tabler.min.js');
 
-Alpine.start();
+// 3) Carica Alpine.js come CommonJS
+window.Alpine = require('alpinejs');
+window.Alpine.start();
