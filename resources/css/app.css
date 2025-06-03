@@ -1,0 +1,28 @@
+/* resources/css/app.css */
+
+/*
+ |--------------------------------------------------------------------------
+ | Your custom styles
+ |--------------------------------------------------------------------------
+ |
+ | Qui puoi mettere le tue regole, le sovrascritture di Tabler ecc. 
+ | Se non ti serve nulla di custom, puoi anche lasciarlo vuoto.
+ |
+ */
+
+/* Esempio: cambia sfondo body */
+body {
+  background-color: #f8f9fa;
+}
+
+/* Titoli in rosso ANPAS */
+h1, h2, h3 {
+  color: #d23228;
+  
+}
+
+/* Qualche margine generale */
+.container-xl {
+  padding-top: 1.5rem;
+  padding-bottom: 1.5rem;
+}
