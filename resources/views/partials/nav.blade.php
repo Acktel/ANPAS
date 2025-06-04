@@ -1,9 +1,9 @@
 {{-- resources/views/partials/nav.blade.php --}}
-
 {{-- Banner di impersonificazione --}}
 @if(session()->has('impersonate_original_user'))
     <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-2 text-center">
         Sei in impersonificazione come 
+        
         <strong>{{ Auth::user()->firstname }} {{ Auth::user()->lastname }}</strong>.
         <form method="POST" action="{{ route('impersonate.stop') }}" class="d-inline ms-2">
             @csrf
@@ -34,26 +34,17 @@
                 @auth
                     @php
                         $user = Auth::user();
-                        $isImpersonating = session()->has('impersonate_original_user');
+                        $isImpersonating = session()->has('impersonate_original_user');                      
                     @endphp
 
                     {{-- Caso 1: sto impersonificando → “Utenti” (utenti della stessa associazione) --}}
-                    @if($isImpersonating)
+                    @if($isImpersonating || $user->hasRole('AdminUser') || $user ->hasRole('User'))
                         <li class="nav-item">
                             <a class="nav-link" href="{{ route('my-users.index') }}">
                                 Utenti
                             </a>
                         </li>
-
-                    {{-- Caso 2: sono SuperAdmin e non impersonifico → “Utenti” (lista di tutti gli utenti) --}}
-                    @elseif($user->hasRole('SuperAdmin'))
-                        <li class="nav-item">
-                            <a class="nav-link" href="{{ route('all-users.index') }}">
-                                Utenti
-                            </a>
-                        </li>
-
-                    {{-- Altrimenti: Admin, Supervisor o AdminUser --}}
+                   
                     @else
                         {{-- Chi può gestire tutte le associazioni --}}
                         @can('manage-all-associations')
