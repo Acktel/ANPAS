@@ -1,7 +1,7 @@
 @extends('layouts.app')
 
 @section('content')
-  <div class="container-xl">
+  <div class="container-fluid">
     <h1>Tutti gli Utenti (Admin/Supervisor)</h1>
 
     <table id="allUsersTable" class="table table-bordered table-striped table-hover">

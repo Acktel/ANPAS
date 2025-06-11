@@ -17,8 +17,7 @@ class Associazione
         // 1) Query base: left join con users per recuperare chi ha role_id 1, 2 o 3
         $base = DB::table(self::TABLE . ' as a')
             ->leftJoin('users as u', function($join) {
-                $join->on('a.IdAssociazione', '=', 'u.IdAssociazione')
-                     ->whereIn('u.role_id', [1, 2, 3]);
+                $join->on('a.IdAssociazione', '=', 'u.IdAssociazione');
             })
             ->select(
                 'a.IdAssociazione',
@@ -28,9 +27,18 @@ class Associazione
                 'a.citta',
                 'a.active',
                 'a.deleted_at',
-                'u.id as supervisor_user_id'
+                DB::raw('MIN(u.id) as supervisor_user_id')
             )
-            ->whereNull('a.deleted_at');
+            ->whereNull('a.deleted_at')
+            ->groupBy(
+                'a.IdAssociazione',
+                'a.Associazione',
+                'a.email',
+                'a.provincia',
+                'a.citta',
+                'a.active',
+                'a.deleted_at'
+            );
 
         // 2) Filtro ricerca
         if ($val = $request->input('search.value')) {
@@ -117,5 +125,12 @@ class Associazione
         DB::table(self::TABLE)
             ->where('IdAssociazione', $id)
             ->update(['deleted_at' => Carbon::now()]);
+    }
+
+    public static function getById(int $idAssociazione)
+    {
+        return DB::table(self::TABLE)
+            ->where('idAssociazione', $idAssociazione)
+            ->first();
     }
 }

@@ -16,10 +16,11 @@ return new class extends Migration
             $table->foreignId('idAssociazione')
                   ->constrained('associazioni', 'idAssociazione')
                   ->cascadeOnDelete();
-            $table->foreignId('idAnno')
-                  ->constrained('anni', 'idAnno')
-                  ->cascadeOnDelete();
+            $table->unsignedBigInteger('idAnno');
             $table->string('Convenzione', 100);
+            $table->string('lettera_identificativa', 5)
+                ->default('')
+                ->comment('Lettera di identificazione del servizio / convenzione');
             $table->timestamps();
         });
     }

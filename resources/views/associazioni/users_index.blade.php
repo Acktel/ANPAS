@@ -13,36 +13,21 @@
         @endcan
     </div>
 
-    {{-- Tabella (DataTable) dei “tutti gli utenti” --}}
+    {{-- Tabella (DataTable) degli utenti della stessa associazione --}}
     <table id="allUsersTable" class="table table-striped">
         <thead>
             <tr>
                 <th>ID</th>
                 <th>Nome</th>
                 <th>Email</th>
-                <th>Associazione</th>
+                <th>Username</th>
+                <th>Attivo</th>
+                <th>Creato il</th>
                 <th>Azioni</th>
             </tr>
         </thead>
         <tbody>
-            @foreach($users as $u)
-                <tr>
-                    <td>{{ $u->id }}</td>
-                    <td>{{ $u->firstname }} {{ $u->lastname }}</td>
-                    <td>{{ $u->email }}</td>
-                    <td>{{ $u->association_name }}</td>
-                    <td>
-                        {{-- Qui puoi mettere eventuali pulsanti Modifica/Elimina, es:
-                            <a href="{{ route('all-users.edit', $u->id) }}" class="btn btn-sm btn-warning">Modifica</a>
-                            <form action="{{ route('all-users.destroy', $u->id) }}" method="POST" style="display:inline">
-                                @csrf
-                                @method('DELETE')
-                                <button class="btn btn-sm btn-danger">Elimina</button>
-                            </form>
-                        --}}
-                    </td>
-                </tr>
-            @endforeach
+            {{-- Viene popolato via AJAX --}}
         </tbody>
     </table>
 </div>
@@ -50,18 +35,70 @@
 
 @push('scripts')
 <script>
-    // Se usi DataTables lato JS, qui puoi inizializzare la tabella:
-    $(document).ready(function() {
+    document.addEventListener('DOMContentLoaded', function () {
         $('#allUsersTable').DataTable({
-            // se vuoi caricare via AJAX, sostituisci la sezione <tbody> con:
-            // ajax: "{{ route('all-users.data') }}",
-            // columns: [
-            //     { data: 'id' },
-            //     { data: 'firstname', render: data => data + ' ' + row.lastname },
-            //     { data: 'email' },
-            //     { data: 'association_name' },
-            //     { data: 'actions', orderable: false, searchable: false }
-            // ]
+            processing: true,
+            serverSide: true,
+            ajax: "{{ route('my-users.data') }}",
+            columns: [
+                { data: 'id', name: 'id' },
+                { 
+                  data: null, 
+                  name: 'nome',
+                  render: function (row) {
+                    return row.firstname + ' ' + row.lastname;
+                  }
+                },
+                { data: 'email', name: 'email' },
+                { data: 'username', name: 'username' },
+                { 
+                  data: 'active', 
+                  name: 'active',
+                  render: function (val) {
+                    return val ? 'Sì' : 'No';
+                  }
+                },
+                { 
+                  data: 'created_at', 
+                  name: 'created_at',
+                  render: function (val) {
+                    // opzionale: formattazione preliminare
+                    return new Date(val).toLocaleDateString('it-IT', {
+                      year: 'numeric', month: '2-digit', day: '2-digit'
+                    });
+                  }
+                },
+                { 
+                  data: null,
+                  orderable: false,
+                  searchable: false,
+                  render: function (row) {
+                    let html = '';
+                    @can('manage-own-association')
+                        html += `
+                          <a href="/my-users/${row.id}/edit" 
+                             class="btn btn-sm btn-warning me-1">
+                            Modifica
+                          </a>
+                          <form action="/my-users/${row.id}" method="POST" 
+                                style="display:inline-block">
+                            @csrf
+                            @method('DELETE')
+                            <button type="submit" class="btn btn-sm btn-danger">
+                              Elimina
+                            </button>
+                          </form>`;
+                    @endcan
+                    return html;
+                  }
+                }
+            ],
+            language: {
+              url: "https://cdn.datatables.net/plug-ins/1.11.3/i18n/Italian.json"
+            },
+            paging: true,
+            searching: true,
+            ordering: true
         });
     });
 </script>

@@ -1,7 +1,7 @@
 @extends('layouts.app')
 
 @section('content')
-  <div class="container-xl">
+  <div class="container-fluid">
     <h1>Crea Nuovo Utente per la Mia Associazione</h1>
 
     <form action="{{ route('my-users.store') }}" method="POST">

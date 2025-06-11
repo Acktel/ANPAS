@@ -1,7 +1,7 @@
 @extends('layouts.app')
 
 @section('content')
-  <div class="container-xl">
+  <div class="container-fluid">
     <h1>Associazioni</h1>
     <a href="{{ route('associazioni.create') }}" class="btn btn-primary mb-3">Aggiungi Associazione</a>
 

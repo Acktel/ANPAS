@@ -17,6 +17,9 @@ class DatabaseSeeder extends Seeder
         $this->call(createAssociazioni::class);
         $this->call(SuperAdminSeeder::class);
         $this->call(createRole::class);
+        $this->call(AnniSeeder::class);
+        $this->call(ConvenzioniSeeder::class);
+        $this->call(AutomezziSeeder::class);
     }
 
 }

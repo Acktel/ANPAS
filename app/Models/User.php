@@ -1,131 +1,104 @@
-{{-- resources/views/partials/nav.blade.php --}}
+<?php
 
-{{-- Banner di impersonificazione --}}
-@if(session()->has('impersonate_original_user'))
-    <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-2 text-center">
-        Sei in impersonificazione come 
-        <strong>{{ Auth::user()->firstname }} {{ Auth::user()->lastname }}</strong>.
-        <form method="POST" action="{{ route('impersonate.stop') }}" class="d-inline ms-2">
-            @csrf
-            <button type="submit" class="btn btn-sm btn-outline-danger">Interrompi impersonificazione</button>
-        </form>
-    </div>
-@endif
+namespace App\Models;
 
-<nav class="navbar navbar-expand-lg navbar-light bg-white">
-    <div class="container">
-        <a class="navbar-brand" href="{{ route('dashboard') }}">
-            <img src="{{ asset('images/logo.png') }}" alt="ANPAS" style="height: 60px;">
-        </a>
-        <button class="navbar-toggler" type="button" 
-                data-bs-toggle="collapse" data-bs-target="#navbarNav"
-                aria-controls="navbarNav" aria-expanded="false" 
-                aria-label="Toggle navigation">
-            <span class="navbar-toggler-icon"></span>
-        </button>
+use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Notifications\Notifiable;
+use Spatie\Permission\Traits\HasRoles;
+use Illuminate\Support\Facades\DB;
 
-        <div class="collapse navbar-collapse" id="navbarNav">
-            <ul class="navbar-nav me-auto">
-                {{-- Dashboard: sempre visibile --}}
-                <li class="nav-item">
-                    <a class="nav-link" href="{{ route('dashboard') }}">Dashboard</a>
-                </li>
+class User extends Authenticatable
+{
+    use HasFactory, Notifiable, HasRoles;
 
-                @auth
-                    @php
-                        $user = Auth::user();
-                        $isImpersonating = session()->has('impersonate_original_user');
-                    @endphp
+    /**
+     * Attributi che si possono assegnare in massa
+     */
+    protected $fillable = [
+        'firstname',
+        'lastname',
+        'username',
+        'email',
+        'password',
+        'role_id',
+        'active',
+        'IdAssociazione',
+    ];
 
-                    {{-- Caso 1: sto impersonificando o sono AdminUser/User → “Utenti” + pulsante “Nuovo Utente” --}}
-                    @if($isImpersonating || $user->hasRole('AdminUser') || $user->hasRole('User'))
-                        <li class="nav-item">
-                            <a class="nav-link" href="{{ route('my-users.index') }}">
-                                Utenti
-                            </a>
-                        </li>
-                        {{-- Pulsante per creare un nuovo utente --}}
-                        <li class="nav-item">
-                            <a class="btn btn-sm btn-success ms-2" href="{{ route('my-users.create') }}">
-                                Nuovo Utente
-                            </a>
-                        </li>
+    /**
+     * Attributi da nascondere nelle serializzazioni (es. JSON)
+     */
+    protected $hidden = [
+        'password',
+        'remember_token',
+    ];
 
-                    @else
-                        {{-- Chi può gestire tutte le associazioni --}}
-                        @can('manage-all-associations')
-                            <li class="nav-item">
-                                <a class="nav-link" href="{{ route('associazioni.index') }}">
-                                    Associazioni
-                                </a>
-                            </li>
-                        @endcan
+    /**
+     * Casting automatici di alcuni campi
+     */
+    protected $casts = [
+        'email_verified_at' => 'datetime',
+        'active'            => 'boolean',
+    ];
 
-                        {{-- Chi può gestire gli utenti della propria associazione --}}
-                        @can('manage-own-association')
-                            <li class="nav-item">
-                                <a class="nav-link" href="{{ route('my-users.index') }}">
-                                    I miei Utenti
-                                </a>
-                            </li>
-                            {{-- Qui si può aggiungere, se lo si desidera, lo stesso pulsante “Nuovo Utente” --}}
-                            <li class="nav-item">
-                                <a class="btn btn-sm btn-success ms-2" href="{{ route('my-users.create') }}">
-                                    Nuovo Utente
-                                </a>
-                            </li>
-                        @endcan
-                    @endif
-                @endauth
+    /**
+     * Recupera tutti gli utenti (per Admin/Supervisor) in formato DataTable.
+     * Restituisce un array con chiavi: draw, recordsTotal, recordsFiltered, data.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return array
+     */
+    public static function getDataTableForAdmin($request)
+    {
+        // 1) Query base: selezioniamo utenti e join con associazioni
+        $base = DB::table('users as u')
+            ->select(
+                'u.id',
+                'u.firstname',
+                'u.lastname',
+                'u.username',
+                'u.email',
+                'u.active',
+                'u.created_at',
+                'a.Associazione as association_name'
+            )
+            ->leftJoin('associazioni as a', 'u.IdAssociazione', '=', 'a.IdAssociazione');
 
-                {{-- Altri link generici (visibili a chiunque sia autenticato) --}}
-                @auth
-                    <li class="nav-item">
-                        <a class="nav-link" href="#">Servizi</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="#">Mezzi</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="#">Persone</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="#">Costi fissi</a>
-                    </li>
-                @endauth
-            </ul>
+        // 2) Filtraggio (search di DataTables)
+        if ($val = $request->input('search.value')) {
+            $base->where(function($q) use ($val) {
+                $q->where('u.firstname', 'like', "%{$val}%")
+                  ->orWhere('u.lastname', 'like', "%{$val}%")
+                  ->orWhere('u.email', 'like', "%{$val}%")
+                  ->orWhere('u.username', 'like', "%{$val}%")
+                  ->orWhere('a.Associazione', 'like', "%{$val}%");
+            });
+        }
 
-            {{-- Voci a destra: Profilo / Logout --}}
-            <ul class="navbar-nav ms-auto">
-                @auth
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" id="userMenu" 
-                           role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                            {{ Auth::user()->firstname }}
-                        </a>
-                        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userMenu">
-                            <li>
-                                <a class="dropdown-item" href="{{ route('profile.edit') }}">
-                                    Profilo
-                                </a>
-                            </li>
-                            <li>
-                                <hr class="dropdown-divider">
-                            </li>
-                            <li>
-                                <form method="POST" action="{{ route('logout') }}">
-                                    @csrf
-                                    <button type="submit" class="dropdown-item">Logout</button>
-                                </form>
-                            </li>
-                        </ul>
-                    </li>
-                @else
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ route('login') }}">Login</a>
-                    </li>
-                @endauth
-            </ul>
-        </div>
-    </div>
-</nav>
+        // 3) Conteggi (totale + filtrati)
+        $total    = DB::table('users')->count();
+        $filtered = (clone $base)->count();
+
+        // 4) Ordinamento (se specificato da DataTables)
+        if ($order = $request->input('order.0')) {
+            $col = $request->input("columns.{$order['column']}.data");
+            $dir = $order['dir'];
+            $base->orderBy($col, $dir);
+        }
+
+        // 5) Paginazione (start, length)
+        $start  = max(0, (int)$request->input('start', 0));
+        $length = max(1, (int)$request->input('length', 10));
+        $data   = $base->skip($start)->take($length)->get();
+
+        // 6) Restituiamo l’array formattato per DataTables
+        return [
+            'draw'            => (int)$request->input('draw', 1),
+            'recordsTotal'    => $total,
+            'recordsFiltered' => $filtered,
+            'data'            => $data,
+        ];
+    }
+}

@@ -24,6 +24,7 @@ return new class extends Migration
             $table->string('Targa', 20);
             $table->string('CodiceIdentificativo', 50)->nullable();
             $table->year('AnnoPrimaImmatricolazione')->nullable();
+            $table->year('AnnoAcquisto')->nullable();
             $table->string('Modello', 100);
             $table->string('TipoVeicolo', 50);
             $table->integer('KmRiferimento')->default(0);

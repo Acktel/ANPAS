@@ -27,7 +27,7 @@
     @include('partials.nav')
 
     <main class="page-wrapper">
-      <div class="container-xl">
+      <div class="container-fluid">
         @if(session('status'))
           <div class="alert alert-success">{{ session('status') }}</div>
         @endif
@@ -39,6 +39,8 @@
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
   <script src="https://cdn.datatables.net/1.13.5/js/jquery.dataTables.min.js"></script>
   <link  href="https://cdn.datatables.net/1.13.5/css/jquery.dataTables.min.css" rel="stylesheet"/>
+  <!-- Include Moment.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.4/moment.min.js"></script>
 
   <!-- il tuo bundle compilato -->
   <script type="module" src="{{ mix('js/app.js') }}"></script>

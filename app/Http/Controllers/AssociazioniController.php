@@ -59,9 +59,9 @@ class AssociazioniController extends Controller
         // 3) crea l’utente adminuser (assegnando role_id anziché type)
         $password = Str::random(10);
         $user = User::create([
-            'firstname'       => $data['adminuser_name'],
+            'firstname'       => '',
             'lastname'        => '',
-            'username'        => $data['adminuser_email'],
+            'username'        => $data['adminuser_name'],
             'email'           => $data['adminuser_email'],
             'password'        => Hash::make($password),
             'role_id'         => $adminuserRole->id,
@@ -109,4 +109,5 @@ class AssociazioniController extends Controller
     {
         return view('associazioni.create');
     }
+    
 }

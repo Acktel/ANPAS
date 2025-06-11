@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Session;
+use Illuminate\Support\Facades\Log;
 
 class ImpersonationController extends Controller
 {
@@ -14,20 +16,22 @@ class ImpersonationController extends Controller
     {
         $admin = Auth::user();
 
-        // Se stai già impersonando, blocca
-        if (session()->has('impersonate')) {
+        if (Session::has('impersonate')) {
             return redirect()->back()->with('error', 'Sei già in modalità impersonazione.');
         }
 
-        // Salva l’ID dell’admin originale nella chiave "impersonate"
-        session(['impersonate' => $admin->id]);
+        // 1) Salva in sessione l’ID dell’admin originale
+        Session::put('impersonate', $admin->id);
+        Log::info("DEBUG start(): salvato in sessione impersonate = {$admin->id}");
 
-        // Fai login come l’utente target
+        // 2) Esegui login come utente target
         Auth::loginUsingId($userId);
+        Log::info("DEBUG start(): login come utente #{$userId}. Auth::id() ora = " . Auth::id());
 
+        // 3) Redirect alla dashboard come utente impersonato
         return redirect()
             ->route('dashboard')
-            ->with('success', 'Ora stai impersonando l’utente #'.$userId);
+            ->with('success', 'Ora stai impersonando l’utente #' . $userId);
     }
 
     /**
@@ -35,20 +39,30 @@ class ImpersonationController extends Controller
      */
     public function stop()
     {
-        // Se non c’è la chiave "impersonate" in sessione, non sei in impersonazione
-        if (! session()->has('impersonate')) {
+        Log::info("DEBUG stop(): chiamato. Auth::id() attuale = " . Auth::id());
+        Log::info("DEBUG stop(): session('impersonate') = " . (Session::has('impersonate') ? Session::get('impersonate') : 'NO-KEY'));
+
+        // 1) Verifica che la chiave "impersonate" esista in sessione
+        if (! Session::has('impersonate')) {
+            Log::warning("DEBUG stop(): nessuna chiave 'impersonate' in sessione, torno indietro.");
             return redirect()->back()->with('error', 'Non sei in modalità impersonazione.');
         }
 
-        // Recupera l’ID originale e rimuovi la chiave dalla sessione
-        $originalId = session('impersonate');
-        session()->forget('impersonate');
+        // 2) Preleva e rimuove la chiave "impersonate"
+        $originalId = Session::pull('impersonate');
+        Log::info("DEBUG stop(): recuperato originalId = {$originalId} e tolta la chiave sessione.");
 
-        // Fai login come l’utente originale
+        // 3) Esegui login come utente originale
         Auth::loginUsingId($originalId);
+        Log::info("DEBUG stop(): eseguito login come utente originale #{$originalId}. Auth::id() ora = " . Auth::id());
 
+        // 4) Rigenera la sessione per pulire eventuali dati residui
+        Session::regenerate();
+        Log::info("DEBUG stop(): sessione rigenerata.");
+
+        // 5) Redirect definitivo alla dashboard del SuperAdmin
         return redirect()
             ->route('dashboard')
-            ->with('success', 'Hai terminato l’impersonazione.');
+            ->with('success', 'Hai terminato l’impersonazione e sei tornato come SuperAdmin.');
     }
 }
