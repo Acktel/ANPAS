@@ -5,7 +5,7 @@
     <h1>Associazioni</h1>
     <a href="{{ route('associazioni.create') }}" class="btn btn-primary mb-3">Aggiungi Associazione</a>
 
-    <table id="associazioniTable" class="table table-bordered table-striped table-hover">
+    <table id="associazioniTable" class="table table-bordered table-striped table-hover dt-responsive nowrap w-100">
       <thead>
         <tr>
           <th>Associazione</th>

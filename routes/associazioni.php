@@ -32,9 +32,11 @@ Route::middleware('can:manage-all-associations')->group(function() {
 
 // 2) Rotte per chi ha gate “manage-own-association” (solo AdminUser)
 Route::middleware('can:manage-own-association')->group(function() {
-    Route::get('/my-users',       [AssociationUsersController::class, 'index'])->name('my-users.index');
-    Route::get('/my-users/data',  [AssociationUsersController::class, 'getData'])->name('my-users.data');
-    Route::get('/my-users/create',[AssociationUsersController::class, 'create'])->name('my-users.create');
-    Route::post('/my-users',      [AssociationUsersController::class, 'store'])->name('my-users.store');
-    Route::delete('/my-users/{id}', [AssociationUsersController::class, 'destroy'])->name('my-users.destroy');
+    Route::get('/my-users',            [AssociationUsersController::class, 'index'])->name('my-users.index');
+    Route::get('/my-users/data',       [AssociationUsersController::class, 'getData'])->name('my-users.data');
+    Route::get('/my-users/create',     [AssociationUsersController::class, 'create'])->name('my-users.create');
+    Route::post('/my-users',           [AssociationUsersController::class, 'store'])->name('my-users.store');
+    Route::get('/my-users/{id}/edit',  [AssociationUsersController::class, 'edit'])->name('my-users.edit');     // ✅ AGGIUNTA
+    Route::put('/my-users/{id}',       [AssociationUsersController::class, 'update'])->name('my-users.update'); // ✅ AGGIUNTA
+    Route::delete('/my-users/{id}',    [AssociationUsersController::class, 'destroy'])->name('my-users.destroy');
 });

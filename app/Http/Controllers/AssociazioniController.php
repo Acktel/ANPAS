@@ -22,68 +22,77 @@ class AssociazioniController extends Controller
     }
 
     /** GET /associazioni */
-    public function index(){
-       
-        // Qui Auth::user() NON è null, perché siamo già in un metodo protetto da auth()
-        Log::info("Entrato in AssociazioniController@index"); 
+    public function index()
+    {
+        $user = Auth::user();
+        $anno = session('anno_riferimento', now()->year); // 🧠 Anno dinamico
+
+        Log::info("Entrato in AssociazioniController@index");
 
         $associazioni = collect(Associazione::getAll(request()));
-        return view('associazioni.index', compact('associazioni'));
+
+        return view('associazioni.index', compact('associazioni', 'anno'));
     }
 
     /** GET /associazioni/data */
-    public function getData(Request $request)
-    {
-        $data = Associazione::getAll($request);
-        return response()->json($data);
-    }
+public function getData(Request $request)
+{
+    $anno = session('anno_riferimento', now()->year); // 🧠 recupero anno
 
-    /** POST /associazioni */
-    public function store(Request $request)
-    {
-        $data = $request->validate([
-            'Associazione'      => 'required|string|max:255',
-            'email'             => 'required|email|unique:associazioni,email',
-            'provincia'         => 'required|string|max:100',
-            'citta'             => 'required|string|max:100',
-            'adminuser_name'   => 'required|string|max:255',
-            'adminuser_email'  => 'required|email|unique:users,email',
-        ]);
+    // Se vuoi filtrare per anno (es: idAnno), lo passi a getAll
+    $data = Associazione::getAll($request, $anno);
 
-        // 1) crea l’associazione
-        $associazioneId = Associazione::createAssociation($data);
+    return response()->json($data);
+}
 
-        // 2) recupera l'ID del ruolo "AdminUser"
-        $adminuserRole = Role::where('name', 'AdminUser')->first();
+public function store(Request $request)
+{
+    $data = $request->validate([
+        'Associazione'      => 'required|string|max:255',
+        'email'             => 'required|email|unique:associazioni,email',
+        'provincia'         => 'required|string|max:100',
+        'citta'             => 'required|string|max:100',
+        'indirizzo'         => 'required|string|max:255',
+        'adminuser_name'    => 'required|string|max:255',
+        'adminuser_email'   => 'required|email|unique:users,email',
+    ]);
 
-        // 3) crea l’utente adminuser (assegnando role_id anziché type)
-        $password = Str::random(10);
-        $user = User::create([
-            'firstname'       => '',
-            'lastname'        => '',
-            'username'        => $data['adminuser_name'],
-            'email'           => $data['adminuser_email'],
-            'password'        => Hash::make($password),
-            'role_id'         => $adminuserRole->id,
-            'active'          => true,
-            'IdAssociazione'  => $associazioneId,
-        ]);
+    // 1) crea l’associazione
+    $associazioneId = Associazione::createAssociation($data);
 
-        // 4) assegna il ruolo tramite Spatie (popola la pivot model_has_roles)
-        $user->assignRole($adminuserRole);
+    // 2) controlla se è la PRIMA associazione
+    $isFirst = Associazione::count() === 1;
+    $roleName = $isFirst ? 'AdminUser' : 'User';
+    $role = Role::where('name', $roleName)->firstOrFail();
 
-        // 5) invia email di reset password
-        $token = Password::createToken($user);
-        $resetUrl = url(route('password.reset', [
-            'token' => $token, 
-            'email' => $user->email,
-        ], false));
-        Mail::to($user)->send(new AdminUserInvite($user, $resetUrl));
+    // 3) crea l’utente (AdminUser solo se prima associazione)
+    $password = Str::random(10);
+    $user = User::create([
+        'firstname'       => '',
+        'lastname'        => '',
+        'username'        => $data['adminuser_name'],
+        'email'           => $data['adminuser_email'],
+        'password'        => Hash::make($password),
+        'role_id'         => $role->id,
+        'active'          => true,
+        'IdAssociazione'  => $associazioneId,
+    ]);
 
-        return redirect()
-            ->route('dashboard')
-            ->with('success', "Associazione e AdminUser creati. Controlla la mail di {$user->email}.");
-    }
+    // 4) assegna ruolo con Spatie
+    $user->assignRole($role);
+
+    // 5) invia email con link reset password
+    $token = Password::createToken($user);
+    $resetUrl = url(route('password.reset', [
+        'token' => $token, 
+        'email' => $user->email,
+    ], false));
+    Mail::to($user)->send(new AdminUserInvite($user, $resetUrl));
+
+    return redirect()
+        ->route('dashboard')
+        ->with('success', "Associazione e utente creati. Controlla la mail di {$user->email}.");
+}
 
     /** POST /associazioni/{id}/toggle-active */
     public function toggleActive($id)

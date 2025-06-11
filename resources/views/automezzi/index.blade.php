@@ -1,7 +1,7 @@
 @extends('layouts.app')
 
 @php
-    $user = Auth::user();
+$user = Auth::user();
 @endphp
 
 @section('content')
@@ -10,15 +10,25 @@
 
 
   @if(session('success'))
-    <div class="alert alert-success">{{ session('success') }}</div>
+  <div class="alert alert-success">{{ session('success') }}</div>
   @endif
 
   <a href="{{ route('automezzi.create') }}" class="btn btn-primary mb-3">
     + Nuovo Automezzo
   </a>
 
-  <table class="table table-striped">
-    <thead>
+  <div id="noDataMessage" class="alert alert-info d-none">
+    Nessun automezzo presente per l’anno {{ session('anno_riferimento', now()->year) }}.<br>
+    Vuoi importare gli automezzi dall’anno precedente?
+    <div class="mt-2">
+      <button id="btn-duplica-si" class="btn btn-sm btn-success">Sì</button>
+      <button id="btn-duplica-no" class="btn btn-sm btn-secondary">No</button>
+    </div>
+  </div>
+
+
+  <table id="automezziTable" class="table table-bordered table-striped table-hover w-100">
+    <thead class="table-light">
       <tr>
         <th>ID</th>
         <th>Associazione</th>
@@ -29,7 +39,7 @@
         <th>Immatricolazione</th>
         <th>Modello</th>
         <th>Tipo Veicolo</th>
-        <th>Km Riferimento</th>
+        <th>Km Rif.</th>
         <th>Km Totali</th>
         <th>Carburante</th>
         <th>Ult. Aut. Sanitaria</th>
@@ -38,53 +48,104 @@
       </tr>
     </thead>
     <tbody>
-    
-      @forelse($automezzi as $a)
-        <tr>
-          <td>{{ $a->idAutomezzo }}</td>
-          <td>{{ $a->Associazione }}</td>
-          <td>{{ $a->anno ?? $a->idAnno }}</td>
-          <td>{{ $a->Automezzo }}</td>
-          <td>{{ $a->Targa }}</td>
-          <td>{{ $a->CodiceIdentificativo }}</td>
-          <td>{{ $a->AnnoPrimaImmatricolazione }}</td>
-          <td>{{ $a->Modello }}</td>
-          <td>{{ $a->TipoVeicolo }}</td>
-          <td>{{ $a->KmRiferimento }}</td>
-          <td>{{ $a->KmTotali }}</td>
-          <td>{{ $a->TipoCarburante }}</td>
-          <td>{{ optional(\Carbon\Carbon::parse($a->DataUltimaAutorizzazioneSanitaria))->format('d/m/Y') }}</td>
-          <td>{{ optional(\Carbon\Carbon::parse($a->DataUltimoCollaudo))->format('d/m/Y') }}</td>
-          <td>
-            <a href="{{ route('automezzi.show', $a->idAutomezzo) }}"
-               class="btn btn-sm btn-info" title="Dettagli">
-              <i class="bi bi-eye"></i>
-              Dettagli
-            </a>
-            <a href="{{ route('automezzi.edit', $a->idAutomezzo) }}"
-               class="btn btn-sm btn-warning" title="Modifica">
-               Modifica
-              <i class="bi bi-pencil-square"></i>
-            </a>
-            <form action="{{ route('automezzi.destroy', $a->idAutomezzo) }}"
-                  method="POST"
-                  style="display:inline;"
-                  onsubmit="return confirm('Sei sicuro di voler eliminare questo automezzo?');">
-              @csrf
-              @method('DELETE')
-              <button type="submit" class="btn btn-sm btn-danger" title="Elimina">
-                <i class="bi bi-trash"></i>
-                Elimina
-              </button>
-            </form>
-          </td>
-        </tr>
-      @empty
-        <tr>
-          <td colspan="15" class="text-center">Nessun automezzo trovato.</td>
-        </tr>
-      @endforelse
+      @foreach($automezzi as $a)
+      <tr>
+        <td>{{ $a->idAutomezzo }}</td>
+        <td>{{ $a->Associazione }}</td>
+        <td>{{ $a->anno ?? $a->idAnno }}</td>
+        <td>{{ $a->Automezzo }}</td>
+        <td>{{ $a->Targa }}</td>
+        <td>{{ $a->CodiceIdentificativo }}</td>
+        <td>{{ $a->AnnoPrimaImmatricolazione }}</td>
+        <td>{{ $a->Modello }}</td>
+        <td>{{ $a->TipoVeicolo }}</td>
+        <td>{{ $a->KmRiferimento }}</td>
+        <td>{{ $a->KmTotali }}</td>
+        <td>{{ $a->TipoCarburante }}</td>
+        <td>{{ optional(\Carbon\Carbon::parse($a->DataUltimaAutorizzazioneSanitaria))->format('d/m/Y') }}</td>
+        <td>{{ optional(\Carbon\Carbon::parse($a->DataUltimoCollaudo))->format('d/m/Y') }}</td>
+        <td>
+          <a href="{{ route('automezzi.show', $a->idAutomezzo) }}"
+            class="btn btn-sm btn-primary me-1">
+            Dettagli
+          </a>
+
+          <a href="{{ route('automezzi.edit', $a->idAutomezzo) }}"
+            class="btn btn-sm btn-warning me-1">
+            Modifica
+          </a>
+
+          <form action="{{ route('automezzi.destroy', $a->idAutomezzo) }}"
+            method="POST"
+            style="display:inline-block"
+            onsubmit="return confirm('Sei sicuro di voler eliminare questo automezzo?');">
+            @csrf
+            @method('DELETE')
+            <button type="submit" class="btn btn-sm btn-danger">
+              Elimina
+            </button>
+          </form>
+        </td>
+
+
+      </tr>
+      @endforeach
     </tbody>
   </table>
 </div>
 @endsection
+@push('scripts')
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+
+    if (!csrfToken) {
+      console.error('CSRF token non trovato nel meta tag.');
+      return;
+    }
+
+    // ✅ Check duplicazione all'avvio
+    fetch("{{ route('automezzi.checkDuplicazione') }}")
+      .then(res => res.json())
+      .then(data => {
+        if (data.mostraMessaggio) {
+          document.getElementById('noDataMessage')?.classList.remove('d-none');
+        }
+      })
+      .catch(err => console.error('Errore durante il check duplicazione:', err));
+
+    // ✅ Listener bottone "Sì"
+    document.getElementById('btn-duplica-si')?.addEventListener('click', function() {
+      const btn = this;
+      btn.disabled = true;
+      btn.innerText = 'Duplicazione...';
+
+      fetch("{{ route('automezzi.duplica') }}", {
+          method: 'POST',
+          headers: {
+            'X-CSRF-TOKEN': csrfToken,
+            'Accept': 'application/json'
+          }
+        })
+        .then(async res => {
+          if (!res.ok) {
+            const errJson = await res.json();
+            throw new Error(errJson.message || 'Errore durante la duplicazione.');
+          }
+          location.reload(); // 🔄 reload dopo successo
+        })
+        .catch(err => {
+          alert(err.message || 'Errore di rete.');
+          console.error('Duplicazione fallita:', err);
+          btn.disabled = false;
+          btn.innerText = 'Sì';
+        });
+    });
+
+    // ✅ Listener bottone "No"
+    document.getElementById('btn-duplica-no')?.addEventListener('click', function() {
+      document.getElementById('noDataMessage')?.classList.add('d-none');
+    });
+  });
+</script>
+@endpush

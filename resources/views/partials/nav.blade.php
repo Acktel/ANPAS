@@ -1,10 +1,14 @@
 {{-- resources/views/partials/nav.blade.php --}}
 {{-- Banner di impersonificazione --}}
+
+@auth
 @php
 $assocCorr = \App\Models\Associazione::getById(Auth::user()->IdAssociazione)->Associazione;
 
 @endphp
+@endauth
 
+{{-- Mostra il banner di impersonificazione solo se l'utente sta impersonificando un altro utente --}}
 @if(session()->has('impersonate'))
 <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-2 text-center">
    Stai impersonificando l'Admin dell' associazione
@@ -30,24 +34,6 @@ $assocCorr = \App\Models\Associazione::getById(Auth::user()->IdAssociazione)->As
         <div class="collapse navbar-collapse" id="navbarNav">
             <ul class="navbar-nav me-auto">
                 {{-- Dashboard: sempre visibile --}}
-                <li class="nav-item d-flex align-items-center me-3">
-                    <form method="POST" action="{{ route('anno.set') }}" class="d-flex align-items-center">
-                        @csrf
-                        <label for="idAnno" class="form-label me-2"> &nbsp;&nbsp;Anno di riferimento:</label>
-                        <input
-                            type="number"
-                            name="anno_riferimento"
-                            id="idAnno"
-                            class="form-control form-control-sm"
-                            min="2020"
-                            max="{{ date('Y') + 5 }}"
-                            step="1"
-                            value="{{ session('anno_riferimento', date('Y')) }}"
-                            style="width: 100px;">
-                        <button type="submit" class="btn btn-sm btn-outline-primary ms-2">↺</button>
-                    </form>
-                </li>
-
                 <li class="nav-item">
                     <a class="nav-link" href="{{ route('dashboard') }}">Dashboard</a>
                 </li>
@@ -89,7 +75,7 @@ $assocCorr = \App\Models\Associazione::getById(Auth::user()->IdAssociazione)->As
 
                     <a class="nav-link dropdown-toggle" href="#" id="riepiloghiDropdown" role="button"
                         data-bs-toggle="dropdown" aria-expanded="false">
-                        Riepiloghi
+                        Voci di bilancio
                     </a>
                     <ul class="dropdown-menu" aria-labelledby="riepiloghiDropdown">
                         <li>
@@ -169,9 +155,9 @@ $assocCorr = \App\Models\Associazione::getById(Auth::user()->IdAssociazione)->As
             @endauth
             {{-- Altri link generici (visibili a chiunque sia autenticato) --}}
             @auth
-            <li class="nav-item">
+            <!--<li class="nav-item">
                 <a class="nav-link" href="#">Servizi</a>
-            </li>
+            </li>-->
             <li class="nav-item dropdown">
                 <a class="nav-link dropdown-toggle" href="#" id="automezziDropdown" role="button"
                     data-bs-toggle="dropdown" aria-expanded="false">
@@ -244,9 +230,9 @@ $assocCorr = \App\Models\Associazione::getById(Auth::user()->IdAssociazione)->As
             </li>
 
 
-            <li class="nav-item">
+            <!--<li class="nav-item">
                 <a class="nav-link" href="#">Costi fissi</a>
-            </li>
+            </li>-->
             @endauth
             </ul>
 

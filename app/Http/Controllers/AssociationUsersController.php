@@ -8,21 +8,18 @@ use Illuminate\Support\Facades\Hash;
 use App\Models\User;
 use Spatie\Permission\Models\Role;
 
-class AssociationUsersController extends Controller
-{
-    public function __construct()
-    {
+class AssociationUsersController extends Controller {
+    public function __construct() {
         $this->middleware('auth');
         // Solo chi è Supervisor o Admin può accedere a queste rotte
-        $this->middleware('can:impersonate-users'); 
+        $this->middleware('can:impersonate-users');
     }
 
     /** 
      * GET /my-users 
      * Mostra la pagina con DataTable degli utenti nella stessa associazione 
      */
-    public function index()
-    {
+    public function index() {
         return view('associazioni.users_index');
     }
 
@@ -30,8 +27,7 @@ class AssociationUsersController extends Controller
      * GET /my-users/data 
      * Restituisce JSON per DataTables, filtrato solo sugli utenti della stessa associazione 
      */
-    public function getData(Request $request)
-    {
+    public function getData(Request $request) {
         $assocId = auth()->user()->IdAssociazione;
 
         // Base query: prendo solo gli utenti con stesso IdAssociazione e non cancellati
@@ -41,10 +37,10 @@ class AssociationUsersController extends Controller
 
         // Filtro ricerca
         if ($val = $request->input('search.value')) {
-            $base->where(function($q) use ($val) {
+            $base->where(function ($q) use ($val) {
                 $q->where('firstname', 'like', "%{$val}%")
-                  ->orWhere('lastname', 'like', "%{$val}%")
-                  ->orWhere('email', 'like', "%{$val}%");
+                    ->orWhere('lastname', 'like', "%{$val}%")
+                    ->orWhere('email', 'like', "%{$val}%");
             });
         }
 
@@ -76,17 +72,14 @@ class AssociationUsersController extends Controller
      * GET /my-users/create
      * Mostra il form per creare un nuovo utente nell'associazione
      */
-    public function create()
-    {
+    public function create() {
         return view('associazioni.users_create');
     }
-
     /**
      * POST /my-users
      * Salva il nuovo utente legato all'associazione corrente
      */
-    public function store(Request $request)
-    {
+    public function store(Request $request) {
         $assocId = auth()->user()->IdAssociazione;
 
         $data = $request->validate([
@@ -106,7 +99,7 @@ class AssociationUsersController extends Controller
             'username'        => $data['username'],
             'email'           => $data['email'],
             'password'        => Hash::make($data['password']),
-            'role_id'         => Role::where('name', 'User')->first()->id, 
+            'role_id'         => Role::where('name', 'User')->first()->id,
             // o imposta qual è il ruolo “base” per un utente generico
             'active'          => true,
             'IdAssociazione'  => $assocId,
@@ -126,8 +119,7 @@ class AssociationUsersController extends Controller
      * DELETE /my-users/{id}
      * Elimina (o soft-delete) un utente dell'associazione (opzionale da implementare)
      */
-    public function destroy($id)
-    {
+    public function destroy($id) {
         // Assicurati che l'utente appartenga alla stessa associazione
         $user = DB::table('users')
             ->where('id', $id)
@@ -141,5 +133,60 @@ class AssociationUsersController extends Controller
         }
 
         return back()->withErrors(['error' => 'Operazione non consentita.']);
+    }
+
+    /**
+     * GET /my-users/{id}/edit
+     * Mostra il form di modifica di un utente della stessa associazione
+     */
+    public function edit($id) {
+        $user = DB::table('users')
+            ->where('id', $id)
+            ->where('IdAssociazione', auth()->user()->IdAssociazione)
+            ->first();
+
+        if (! $user) {
+            abort(403, 'Utente non trovato o non appartenente alla tua associazione.');
+        }
+
+        return view('associazioni.users_edit', compact('user'));
+    }
+
+    /**
+     * PUT /my-users/{id}
+     * Aggiorna un utente della propria associazione
+     */
+    public function update(Request $request, $id) {
+        $user = DB::table('users')
+            ->where('id', $id)
+            ->where('IdAssociazione', auth()->user()->IdAssociazione)
+            ->first();
+
+        if (! $user) {
+            abort(403, 'Utente non autorizzato.');
+        }
+
+        $rules = [
+            'firstname' => 'required|string|max:255',
+            'lastname'  => 'nullable|string|max:255',
+            'username' => 'required|string|max:255|unique:users,username,' . $id,
+            'email'    => 'required|email|unique:users,email,' . $id,
+        ];
+
+        $data = $request->validate($rules);
+
+        $update = [
+            'firstname'  => $data['firstname'],
+            'lastname'   => $data['lastname'] ?? '',
+            'username'   => $data['username'],
+            'email'      => $data['email'],
+            'updated_at' => now(),
+        ];
+
+        DB::table('users')->where('id', $id)->update($update);
+
+        return redirect()
+            ->route('my-users.index')
+            ->with('success', 'Utente aggiornato correttamente!');
     }
 }

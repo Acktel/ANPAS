@@ -6,37 +6,33 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use App\Models\Dipendente;
+use Illuminate\Http\JsonResponse;
 
 class DipendenteController extends Controller {
     public function __construct() {
         $this->middleware('auth');
     }
 
-    /**
-     * Elenco dei dipendenti.
-     */
     public function index() {
-        $user            = Auth::user();
+        $user = Auth::user();
+        $anno = session('anno_riferimento', now()->year);
         $isImpersonating = session()->has('impersonate');
 
         if (! $isImpersonating && $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])) {
-            $dipendenti = Dipendente::getAll();
+            $dipendenti = Dipendente::getAll($anno);
             $titolo     = 'Tutti i Dipendenti';
         } else {
-            $idAssoc    = $user->IdAssociazione;
+            $idAssoc = $user->IdAssociazione;
             if (! $idAssoc) {
                 abort(403, "Associazione non trovata per l'utente.");
             }
-            $dipendenti = Dipendente::getByAssociazione($idAssoc);
+            $dipendenti = Dipendente::getByAssociazione($idAssoc, $anno);
             $titolo     = 'Dipendenti della mia Associazione';
         }
 
-        return view('dipendenti.index', compact('dipendenti', 'titolo'));
+        return view('dipendenti.index', compact('dipendenti', 'titolo', 'anno'));
     }
 
-    /**
-     * Mostra il form di creazione.
-     */
     public function create() {
         $associazioni = DB::table('associazioni')
             ->select('idAssociazione', 'Associazione')
@@ -51,9 +47,6 @@ class DipendenteController extends Controller {
         return view('dipendenti.create', compact('associazioni', 'anni'));
     }
 
-    /**
-     * Memorizza un nuovo dipendente.
-     */
     public function store(Request $request) {
         $validated = $request->validate([
             'idAssociazione'      => 'required|exists:associazioni,idAssociazione',
@@ -83,9 +76,6 @@ class DipendenteController extends Controller {
         }
     }
 
-    /**
-     * Mostra un singolo dipendente.
-     */
     public function show(int $idDipendente) {
         $dipendente = Dipendente::getById($idDipendente);
         if (! $dipendente) {
@@ -95,9 +85,6 @@ class DipendenteController extends Controller {
         return view('dipendenti.show', compact('dipendente'));
     }
 
-    /**
-     * Mostra il form di modifica.
-     */
     public function edit(int $idDipendente) {
         $dipendente = Dipendente::getById($idDipendente);
         if (! $dipendente) {
@@ -117,9 +104,6 @@ class DipendenteController extends Controller {
         return view('dipendenti.edit', compact('dipendente', 'associazioni', 'anni'));
     }
 
-    /**
-     * Aggiorna un dipendente esistente.
-     */
     public function update(Request $request, int $idDipendente) {
         $validated = $request->validate([
             'idAssociazione'      => 'required|exists:associazioni,idAssociazione',
@@ -149,9 +133,6 @@ class DipendenteController extends Controller {
         }
     }
 
-    /**
-     * Elimina un dipendente.
-     */
     public function destroy(int $idDipendente) {
         $esiste = Dipendente::getById($idDipendente);
         if (! $esiste) {
@@ -175,67 +156,133 @@ class DipendenteController extends Controller {
         }
     }
 
-    /**
-     * Mostra solo i dipendenti con Qualifica contenente “AUTISTA”.
-     */
     public function autisti() {
-        $user            = Auth::user();
+        $user = Auth::user();
+        $anno = session('anno_riferimento', now()->year);
         $isImpersonating = session()->has('impersonate');
 
         if (! $isImpersonating && $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])) {
-            $dipendenti = Dipendente::getAutisti();
+            $dipendenti = Dipendente::getAutisti($anno);
         } else {
             $idAssoc = $user->IdAssociazione;
             if (! $idAssoc) {
                 abort(403, "Associazione non trovata per l'utente.");
             }
-            $tutti      = Dipendente::getByAssociazione($idAssoc);
+            $tutti = Dipendente::getByAssociazione($idAssoc, $anno);
             $dipendenti = $tutti->filter(fn($d) => str_contains($d->Qualifica, 'AUTISTA'));
         }
 
         $titolo = 'Personale Dipendente Autisti';
-        return view('dipendenti.index', compact('dipendenti', 'titolo'));
+        return view('dipendenti.index', compact('dipendenti', 'titolo', 'anno'));
     }
 
-    /**
-     * Mostra tutti i dipendenti la cui Qualifica NON contiene “AUTISTA”.
-     */
     public function altro() {
-        $user            = Auth::user();
+        $user = Auth::user();
+        $anno = session('anno_riferimento', now()->year);
         $isImpersonating = session()->has('impersonate');
 
         if (! $isImpersonating && $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])) {
-            $dipendenti = Dipendente::getAltri();
+            $dipendenti = Dipendente::getAltri($anno);
         } else {
             $idAssoc = $user->IdAssociazione;
             if (! $idAssoc) {
                 abort(403, "Associazione non trovata per l'utente.");
             }
-            $tutti      = Dipendente::getByAssociazione($idAssoc);
+            $tutti = Dipendente::getByAssociazione($idAssoc, $anno);
             $dipendenti = $tutti->reject(fn($d) => str_contains($d->Qualifica, 'AUTISTA'));
         }
 
         $titolo = 'Altro Personale Dipendente';
-        return view('dipendenti.index', compact('dipendenti', 'titolo'));
+        return view('dipendenti.index', compact('dipendenti', 'titolo', 'anno'));
     }
 
-    /**
-     * Restituisce i dati JSON per DataTable.
-     */
-    public function getData() {
-        $user            = Auth::user();
+    public function getData(Request $request) {
+        $user = Auth::user();
+        $anno = session('anno_riferimento', now()->year);
         $isImpersonating = session()->has('impersonate');
 
-        if (! $isImpersonating && $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])) {
-            $data = Dipendente::getAll();
+        // Determina quale dataset restituire
+        if ($request->tipo === 'altro') {
+            // Solo “altro” (escludi chi ha AUTISTA in Qualifica)
+            $dataset = !$isImpersonating && $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])
+                ? Dipendente::getAltri($anno)
+                : collect(Dipendente::getByAssociazione($user->IdAssociazione, $anno))
+                ->reject(fn($d) => str_contains($d->Qualifica, 'AUTISTA'));
+        } elseif ($request->tipo === 'autisti') {
+            // Solo AUTISTI
+            $dataset = !$isImpersonating && $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])
+                ? Dipendente::getAutisti($anno)
+                : collect(Dipendente::getByAssociazione($user->IdAssociazione, $anno))
+                ->filter(fn($d) => str_contains($d->Qualifica, 'AUTISTA'));
         } else {
-            $idAssoc = $user->IdAssociazione;
-            if (! $idAssoc) {
-                abort(403, "Associazione non trovata per l'utente.");
+            // Default: tutti o filtrati per associazione
+            if (! $isImpersonating && $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])) {
+                $dataset = Dipendente::getAll($anno);
+            } else {
+                $idAssoc = $user->IdAssociazione
+                    ?: abort(403, "Associazione non trovata per l'utente.");
+                $dataset = Dipendente::getByAssociazione($idAssoc, $anno);
             }
-            $data = Dipendente::getByAssociazione($idAssoc);
         }
 
+        return response()->json(['data' => $dataset]);
+    }
+
+    public function duplicaAnnoPrecedente(Request $request) {
+        $annoCorrente = session('anno_riferimento', now()->year);
+        $annoPrecedente = $annoCorrente - 1;
+        $idAssociazione = Auth::user()->IdAssociazione;
+
+        // Seleziona tutti i dipendenti dell’anno precedente
+        $vecchi = DB::table('dipendenti')
+            ->where('idAssociazione', $idAssociazione)
+            ->where('idAnno', $annoPrecedente)
+            ->get();
+
+        if ($vecchi->isEmpty()) {
+            return response()->json(['message' => 'Nessun dipendente da copiare.'], 404);
+        }
+
+        // Duplica per l’anno corrente
+        foreach ($vecchi as $d) {
+            DB::table('dipendenti')->insert([
+                'idAssociazione'     => $d->idAssociazione,
+                'idAnno'             => $annoCorrente,
+                'DipendenteNome'     => $d->DipendenteNome,
+                'DipendenteCognome'  => $d->DipendenteCognome,
+                'Qualifica'          => $d->Qualifica,
+                'ContrattoApplicato' => $d->ContrattoApplicato,
+                'LivelloMansione'    => $d->LivelloMansione,
+                'created_at'         => now(),
+                'updated_at'         => now(),
+            ]);
+        }
+
+        return response()->json(['message' => 'Dipendenti duplicati con successo.']);
+    }
+
+    public function checkDuplicazioneDisponibile(): JsonResponse {
+        $annoCorrente = session('anno_riferimento', now()->year);
+        $annoPrecedente = $annoCorrente - 1;
+        $user = Auth::user();
+        $idAssoc = $user->IdAssociazione;
+
+        $vuotoCorrente = Dipendente::getByAssociazione($idAssoc, $annoCorrente)->isEmpty();
+        $pienoPrecedente = Dipendente::getByAssociazione($idAssoc, $annoPrecedente)->isNotEmpty();
+
+        return response()->json([
+            'mostraMessaggio' => $vuotoCorrente && $pienoPrecedente,
+            'annoCorrente' => $annoCorrente,
+            'annoPrecedente' => $annoPrecedente
+        ]);
+    }
+
+    public function altroData(): JsonResponse {
+        $anno = session('anno_riferimento', now()->year);
+        $data = auth()->user()->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])
+            ? Dipendente::getAltri($anno)
+            : collect(Dipendente::getByAssociazione(auth()->user()->IdAssociazione, $anno))
+            ->reject(fn($d) => str_contains($d->Qualifica, 'AUTISTA'));
         return response()->json(['data' => $data]);
     }
 }

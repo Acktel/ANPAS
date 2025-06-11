@@ -48,6 +48,7 @@
       </div>
 
       <button type="submit" class="btn btn-primary">Crea Utente</button>
+      <a href="{{ route('my-users.index') }}" class="btn btn-secondary ms-2">Annulla</a>
     </form>
   </div>
 @endsection

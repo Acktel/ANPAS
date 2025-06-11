@@ -9,7 +9,7 @@
 
   <a href="{{ route('convenzioni.create') }}" class="btn btn-primary mb-3">+ Nuova</a>
 
-  <table class="table table-striped">
+  <table class="table table-hover table-bordered dt-responsive nowrap">
     <thead>
       <tr>
         <th>ID</th><th>Associazione</th><th>Anno</th>

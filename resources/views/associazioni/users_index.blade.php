@@ -2,7 +2,7 @@
 @extends('layouts.app')
 
 @section('content')
-<div class="container">
+<div class="container-fluid">
     {{-- Intestazione con titolo e bottone "Aggiungi nuovo utente" --}}
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h3>Utenti</h3>
@@ -14,7 +14,7 @@
     </div>
 
     {{-- Tabella (DataTable) degli utenti della stessa associazione --}}
-    <table id="allUsersTable" class="table table-striped">
+    <table id="allUsersTable"  class="table table-hover table-bordered dt-responsive nowrap">
         <thead>
             <tr>
                 <th>ID</th>

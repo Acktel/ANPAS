@@ -101,13 +101,24 @@
     <br>
 
     <div class="row">
-      {{-- Anno Prima Immatricolazione --}}
-      <div class="col-md-3">
-        <label for="AnnoPrimaImmatricolazione" class="form-label">Anno Prima Immatricolazione</label>
-        <input type="number" name="AnnoPrimaImmatricolazione" id="AnnoPrimaImmatricolazione"
-          class="form-control" min="1900" max="{{ date('Y') }}"
-          value="{{ old('AnnoPrimaImmatricolazione', $automezzo->AnnoPrimaImmatricolazione) }}" required>
-      </div>
+    {{-- Anno Prima Immatricolazione --}}
+    <div class="col-md-3">
+      <label for="AnnoPrimaImmatricolazione" class="form-label">Anno Prima Immatricolazione</label>
+      <input type="number" name="AnnoPrimaImmatricolazione" id="AnnoPrimaImmatricolazione"
+        class="form-control" min="1900" max="{{ date('Y') }}"
+        value="{{ old('AnnoPrimaImmatricolazione', $automezzo->AnnoPrimaImmatricolazione) }}" required>
+    </div>
+
+    {{-- Anno Acquisto (opzionale) --}}
+    <div class="col-md-3">
+      <label for="AnnoAcquisto" class="form-label">
+        Anno Acquisto
+        <small class="text-muted d-block">(in caso di acquisto mezzi non di prima immatricolazione)</small>
+      </label>
+      <input type="number" name="AnnoAcquisto" id="AnnoAcquisto"
+        class="form-control" min="1900" max="{{ date('Y') }}"
+        value="{{ old('AnnoAcquisto', $automezzo->AnnoAcquisto) }}">
+    </div>
 
       {{-- Modello --}}
       <div class="col-md-3">

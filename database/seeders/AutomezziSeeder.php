@@ -203,7 +203,7 @@ class AutomezziSeeder extends Seeder
                 'TipoVeicolo'                       => 'DISMESSE',
                 'KmRiferimento'                     => 0,
                 'KmTotali'                          => 0,
-                'TipoCarburante'                    => null,
+                'TipoCarburante'                    => 'DIESEL',
                 'DataUltimaAutorizzazioneSanitaria' => null,
                 'DataUltimoCollaudo'                => null,
                 'created_at'                        => now(),

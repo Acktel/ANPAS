@@ -2,13 +2,16 @@
 
 namespace App\Models;
 
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class Dipendente {
     protected const TABLE = 'dipendenti';
 
-    public static function getAll() {
+    /**
+     * Elenco completo dipendenti di tutte le associazioni per anno.
+     */
+    public static function getAll(int $anno) {
         $sql = "
             SELECT
                 d.idDipendente,
@@ -20,17 +23,19 @@ class Dipendente {
                 d.ContrattoApplicato,
                 d.LivelloMansione,
                 d.created_at
-            FROM dipendenti AS d
-            JOIN associazioni AS s
-              ON d.idAssociazione = s.idAssociazione
-            ORDER BY s.Associazione, d.idAnno DESC, d.DipendenteCognome, d.DipendenteNome
+            FROM dipendenti d
+            JOIN associazioni s ON d.idAssociazione = s.idAssociazione
+            WHERE d.idAnno = :anno
+            ORDER BY s.Associazione, d.DipendenteCognome, d.DipendenteNome
         ";
 
-        // CORRETTO: passo direttamente la stringa $sql
-        return collect(DB::select($sql));
+        return collect(DB::select($sql, ['anno' => $anno]));
     }
 
-    public static function getByAssociazione(int $idAssociazione) {
+    /**
+     * Elenco dipendenti per associazione e anno.
+     */
+    public static function getByAssociazione(int $idAssociazione, int $anno) {
         $sql = "
             SELECT
                 d.idDipendente,
@@ -42,20 +47,22 @@ class Dipendente {
                 d.ContrattoApplicato,
                 d.LivelloMansione,
                 d.created_at
-            FROM dipendenti AS d
-            JOIN associazioni AS s
-              ON d.idAssociazione = s.idAssociazione
-            WHERE d.idAssociazione = :idAssociazione
-            ORDER BY d.idAnno DESC, d.DipendenteCognome, d.DipendenteNome
+            FROM dipendenti d
+            JOIN associazioni s ON d.idAssociazione = s.idAssociazione
+            WHERE d.idAssociazione = :idAssociazione AND d.idAnno = :anno
+            ORDER BY d.DipendenteCognome, d.DipendenteNome
         ";
 
-        // CORRETTO: passo la stringa $sql e i parametri
-        return collect(
-            DB::select($sql, ['idAssociazione' => $idAssociazione])
-        );
+        return collect(DB::select($sql, [
+            'idAssociazione' => $idAssociazione,
+            'anno' => $anno,
+        ]));
     }
 
-    public static function getAutisti() {
+    /**
+     * Dipendenti con qualifica contenente 'AUTISTA' per anno.
+     */
+    public static function getAutisti(int $anno) {
         $sql = "
             SELECT
                 d.idDipendente,
@@ -67,17 +74,19 @@ class Dipendente {
                 d.ContrattoApplicato,
                 d.LivelloMansione,
                 d.created_at
-            FROM dipendenti AS d
-            JOIN associazioni AS s
-              ON d.idAssociazione = s.idAssociazione
-            WHERE FIND_IN_SET('AUTISTA', d.Qualifica) > 0
-            ORDER BY d.idAnno DESC, d.DipendenteCognome, d.DipendenteNome
+            FROM dipendenti d
+            JOIN associazioni s ON d.idAssociazione = s.idAssociazione
+            WHERE d.idAnno = :anno AND FIND_IN_SET('AUTISTA', d.Qualifica) > 0
+            ORDER BY d.DipendenteCognome, d.DipendenteNome
         ";
 
-        return collect(DB::select($sql));
+        return collect(DB::select($sql, ['anno' => $anno]));
     }
 
-    public static function getAltri() {
+    /**
+     * Dipendenti la cui qualifica NON contiene 'AUTISTA' per anno.
+     */
+    public static function getAltri(int $anno) {
         $sql = "
             SELECT
                 d.idDipendente,
@@ -89,79 +98,79 @@ class Dipendente {
                 d.ContrattoApplicato,
                 d.LivelloMansione,
                 d.created_at
-            FROM dipendenti AS d
-            JOIN associazioni AS s
-              ON d.idAssociazione = s.idAssociazione
-            WHERE FIND_IN_SET('AUTISTA', d.Qualifica) = 0
-            ORDER BY d.idAnno DESC, d.DipendenteCognome, d.DipendenteNome
+            FROM dipendenti d
+            JOIN associazioni s ON d.idAssociazione = s.idAssociazione
+            WHERE d.idAnno = :anno
+            AND d.Qualifica NOT LIKE '%AUTISTA%'
+            ORDER BY d.DipendenteCognome, d.DipendenteNome
         ";
 
-        return collect(DB::select($sql));
+        return collect(DB::select($sql, ['anno' => $anno]));
     }
 
+    /**
+     * Conta quanti dipendenti hanno una determinata qualifica.
+     */
     public static function countByQualifica(string $qualifica): int {
-        $sql = "
-            SELECT COUNT(*) AS cnt
-            FROM dipendenti
-            WHERE FIND_IN_SET(:qual, Qualifica) > 0
-        ";
-
+        $sql = "SELECT COUNT(*) AS cnt FROM dipendenti WHERE FIND_IN_SET(:qual, Qualifica) > 0";
         $row = DB::selectOne($sql, ['qual' => $qualifica]);
 
-        return $row->cnt;
+        return (int) $row->cnt;
     }
 
+    /**
+     * Dettaglio singolo dipendente.
+     */
     public static function getById(int $idDipendente) {
         $sql = "
             SELECT
-                d.idDipendente,
-                d.idAssociazione,
-                d.idAnno,
-                d.DipendenteNome,
-                d.DipendenteCognome,
-                d.Qualifica,
-                d.ContrattoApplicato,
-                d.LivelloMansione,
-                d.created_at,
-                d.updated_at
-            FROM dipendenti AS d
-            WHERE d.idDipendente = :idDipendente
+                idDipendente,
+                idAssociazione,
+                idAnno,
+                DipendenteNome,
+                DipendenteCognome,
+                Qualifica,
+                ContrattoApplicato,
+                LivelloMansione,
+                created_at,
+                updated_at
+            FROM dipendenti
+            WHERE idDipendente = :idDipendente
             LIMIT 1
         ";
 
         $res = DB::select($sql, ['idDipendente' => $idDipendente]);
-
         return count($res) ? $res[0] : null;
     }
 
+    /**
+     * Crea un nuovo dipendente.
+     */
     public static function createDipendente(array $data): int {
         $now = Carbon::now()->toDateTimeString();
 
         $sql = "
-            INSERT INTO dipendenti
-                (
-                  idAssociazione,
-                  idAnno,
-                  DipendenteNome,
-                  DipendenteCognome,
-                  Qualifica,
-                  ContrattoApplicato,
-                  LivelloMansione,
-                  created_at,
-                  updated_at
-                )
-            VALUES
-                (
-                  :idAssociazione,
-                  :idAnno,
-                  :DipendenteNome,
-                  :DipendenteCognome,
-                  :Qualifica,
-                  :ContrattoApplicato,
-                  :LivelloMansione,
-                  :created_at,
-                  :updated_at
-                )
+            INSERT INTO dipendenti (
+                idAssociazione,
+                idAnno,
+                DipendenteNome,
+                DipendenteCognome,
+                Qualifica,
+                ContrattoApplicato,
+                LivelloMansione,
+                created_at,
+                updated_at
+            ) VALUES (
+                :idAssociazione,
+                :idAnno,
+                :DipendenteNome,
+                :DipendenteCognome,
+                :Qualifica,
+                :ContrattoApplicato,
+                :LivelloMansione,
+                :created_at,
+                :updated_at
+            )
         ";
 
         DB::insert($sql, [
@@ -179,20 +188,23 @@ class Dipendente {
         return DB::getPdo()->lastInsertId();
     }
 
+    /**
+     * Aggiorna un dipendente.
+     */
     public static function updateDipendente(int $idDipendente, array $data): void {
         $now = Carbon::now()->toDateTimeString();
 
         $sql = "
             UPDATE dipendenti
             SET
-                idAssociazione      = :idAssociazione,
-                idAnno              = :idAnno,
-                DipendenteNome      = :DipendenteNome,
-                DipendenteCognome   = :DipendenteCognome,
-                Qualifica           = :Qualifica,
-                ContrattoApplicato  = :ContrattoApplicato,
-                LivelloMansione     = :LivelloMansione,
-                updated_at          = :updated_at
+                idAssociazione = :idAssociazione,
+                idAnno = :idAnno,
+                DipendenteNome = :DipendenteNome,
+                DipendenteCognome = :DipendenteCognome,
+                Qualifica = :Qualifica,
+                ContrattoApplicato = :ContrattoApplicato,
+                LivelloMansione = :LivelloMansione,
+                updated_at = :updated_at
             WHERE idDipendente = :idDipendente
         ";
 
@@ -209,12 +221,12 @@ class Dipendente {
         ]);
     }
 
+    /**
+     * Elimina un dipendente.
+     */
     public static function deleteDipendente(int $idDipendente): void {
-        $sql = "
-            DELETE FROM dipendenti
-            WHERE idDipendente = :idDipendente
-        ";
-
-        DB::delete($sql, ['idDipendente' => $idDipendente]);
+        DB::delete("DELETE FROM dipendenti WHERE idDipendente = :idDipendente", [
+            'idDipendente' => $idDipendente
+        ]);
     }
 }

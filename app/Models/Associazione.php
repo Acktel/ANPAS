@@ -87,6 +87,7 @@ class Associazione
             'email'        => $data['email'],
             'provincia'    => $data['provincia'],
             'citta'        => $data['citta'],
+            'indirizzo'    => $data['indirizzo'],
             'active'       => $data['active'] ?? true,
             'created_at'   => $now,
             'updated_at'   => $now,

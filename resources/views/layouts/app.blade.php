@@ -7,6 +7,9 @@
 
   <link rel="stylesheet" href="{{ mix('css/app.css') }}">
   <link rel="stylesheet" href="{{ mix('css/tabler.min.css') }}">
+  <link href="https://cdn.datatables.net/1.11.3/css/dataTables.bootstrap5.min.css" rel="stylesheet">
+<link href="https://cdn.datatables.net/responsive/2.2.9/css/responsive.bootstrap5.min.css" rel="stylesheet">
+
   <!-- CSRF Token -->
   <meta name="csrf-token" content="{{ csrf_token() }}">
 </head>
@@ -24,6 +27,8 @@
 
   <div class="wrapper">
     {{-- Topbar / Navbar --}}
+ 
+    @include('partials.scegliAnno')
     @include('partials.nav')
 
     <main class="page-wrapper">
@@ -46,6 +51,11 @@
   <script type="module" src="{{ mix('js/app.js') }}"></script>
 
   <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+  <!-- JS -->
+<script src="https://cdn.datatables.net/1.11.3/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.11.3/js/dataTables.bootstrap5.min.js"></script>
+<script src="https://cdn.datatables.net/responsive/2.2.9/js/dataTables.responsive.min.js"></script>
+<script src="https://cdn.datatables.net/responsive/2.2.9/js/responsive.bootstrap5.min.js"></script>
   @stack('scripts')
 </body>
 </html>
