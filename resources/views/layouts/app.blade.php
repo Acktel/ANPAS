@@ -27,10 +27,18 @@
 
   <div class="wrapper">
     {{-- Topbar / Navbar --}}
- 
+    @auth
     @include('partials.scegliAnno')
     @include('partials.nav')
-
+    @endauth
+    @guest
+        <div class="navbar">
+            <!-- Barra vuota con logo -->
+            <img src="{{ asset('images/logo.png') }}" alt="ANPAS" style="height: 60px;">
+        </div>
+    @endguest
+    
+    {{-- Sidebar --}}
     <main class="page-wrapper">
       <div class="container-fluid">
         @if(session('status'))
