@@ -59,4 +59,5 @@ Route::middleware('auth')->group(function () {
     require __DIR__ . '/dipendenti.php';
     require __DIR__ . '/convenzioni.php';
     require __DIR__ . '/documenti.php';
+    require __DIR__ . '/riepilogoCosti.php';
 });

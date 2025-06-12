@@ -16,6 +16,14 @@ class RiepilogoDatiSeeder extends Seeder
         // Imposta l'id del riepilogo esistente
         $idRiepilogo = 2;
 
+        $idRiepilogo = DB::table('riepiloghi')->insertGetId([
+            'idAssociazione' => 5, 
+            'idAnno'         => 2024,
+            'created_at'     => now(),
+            'updated_at'     => now(),
+        ]);
+
+
         $descrizioni = [
             "n. volontari totali iscritti all'associazione come da registro",
             "totale ore effettuate dai volontari per la convenzione",
@@ -58,6 +66,8 @@ class RiepilogoDatiSeeder extends Seeder
                 'descrizione' => $descr,
                 'preventivo'  => 0.00,
                 'consuntivo'  => 0.00,
+                'idAnno'      => 2024, 
+                'idTipologiaRiepilogo' => 1, 
                 'created_at'  => $now,
                 'updated_at'  => $now,
             ];

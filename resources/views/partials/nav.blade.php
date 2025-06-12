@@ -55,25 +55,7 @@
                             </li>
                             <li class="nav-item">
                                 <a class="nav-link" href="{{ route('convenzioni.index') }}">Convenzioni</a>
-                            </li>
-                            <li class="nav-item dropdown">
-                                <a class="nav-link dropdown-toggle" href="#" id="riepiloghiDropdown" role="button"
-                                    data-bs-toggle="dropdown" aria-expanded="false">
-                                    Voci di bilancio
-                                </a>
-                                <ul class="dropdown-menu" aria-labelledby="riepiloghiDropdown">
-                                    <li>
-                                        <a class="dropdown-item" href="{{ route('riepiloghi.index') }}">
-                                            Consuntivo Anno {{ session('anno_riferimento') }}
-                                        </a>
-                                    </li>
-                                    <li>
-                                        <a class="dropdown-item" href="#">
-                                            Esercizio finanziario anno
-                                        </a>
-                                    </li>
-                                </ul>
-                            </li>
+                            </li>                            
                         @endcan
 
                         @can('manage-own-association')
@@ -99,6 +81,24 @@
                             </li>
                         </ul>
                     </li>
+                    <li class="nav-item dropdown">
+                                <a class="nav-link dropdown-toggle" href="#" id="riepiloghiDropdown" role="button"
+                                    data-bs-toggle="dropdown" aria-expanded="false">
+                                    Voci di bilancio
+                                </a>
+                                <ul class="dropdown-menu" aria-labelledby="riepiloghiDropdown">
+                                    <li>
+                                        <a class="dropdown-item" href="{{ route('riepiloghi.index') }}">
+                                            Consuntivo Anno {{ session('anno_riferimento') }}
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item" href="{{ route('riepilogo.costi') }}">
+                                            Riepilogo Costi
+                                        </a>
+                                    </li>
+                                </ul>
+                            </li>
 
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" id="personaleDropdown" role="button"

@@ -14,7 +14,7 @@
     + Nuovo Riepilogo
   </a>
 
-  <table id="riepiloghiTable" class="table table-striped">
+  <table id="riepiloghiTable" class="table table-bordered table-striped w-100">
     <thead>
       <tr>
         <th>Associazione</th>

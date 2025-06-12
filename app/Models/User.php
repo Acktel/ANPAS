@@ -9,8 +9,7 @@ use Illuminate\Notifications\Notifiable;
 use Spatie\Permission\Traits\HasRoles;
 use Illuminate\Support\Facades\DB;
 
-class User extends Authenticatable
-{
+class User extends Authenticatable {
     use HasFactory, Notifiable, HasRoles;
 
     /**
@@ -50,8 +49,7 @@ class User extends Authenticatable
      * @param  \Illuminate\Http\Request  $request
      * @return array
      */
-    public static function getDataTableForAdmin($request)
-    {
+    public static function getDataTableForAdmin($request) {
         // 1) Query base: selezioniamo utenti e join con associazioni
         $base = DB::table('users as u')
             ->select(
@@ -68,12 +66,12 @@ class User extends Authenticatable
 
         // 2) Filtraggio (search di DataTables)
         if ($val = $request->input('search.value')) {
-            $base->where(function($q) use ($val) {
+            $base->where(function ($q) use ($val) {
                 $q->where('u.firstname', 'like', "%{$val}%")
-                  ->orWhere('u.lastname', 'like', "%{$val}%")
-                  ->orWhere('u.email', 'like', "%{$val}%")
-                  ->orWhere('u.username', 'like', "%{$val}%")
-                  ->orWhere('a.Associazione', 'like', "%{$val}%");
+                    ->orWhere('u.lastname', 'like', "%{$val}%")
+                    ->orWhere('u.email', 'like', "%{$val}%")
+                    ->orWhere('u.username', 'like', "%{$val}%")
+                    ->orWhere('a.Associazione', 'like', "%{$val}%");
             });
         }
 
@@ -100,5 +98,9 @@ class User extends Authenticatable
             'recordsFiltered' => $filtered,
             'data'            => $data,
         ];
+    }
+
+    public function isSuperAdmin(): bool {
+        return $this->hasRole('SuperAdmin');
     }
 }

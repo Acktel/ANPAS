@@ -1,22 +1,18 @@
 @extends('layouts.app')
 
-@php
-$user = Auth::user();
-@endphp
-
 @section('content')
 <div class="container-fluid">
-  <h1>Elenco Automezzi - Anno {{ $anno }}</h1>
-
+  <h1 class="mb-4">Elenco Automezzi - Anno {{ $anno }}</h1>
 
   @if(session('success'))
-  <div class="alert alert-success">{{ session('success') }}</div>
+    <div class="alert alert-success">{{ session('success') }}</div>
   @endif
 
   <a href="{{ route('automezzi.create') }}" class="btn btn-primary mb-3">
     + Nuovo Automezzo
   </a>
 
+  {{-- Messaggio di duplicazione --}}
   <div id="noDataMessage" class="alert alert-info d-none">
     Nessun automezzo presente per l’anno {{ session('anno_riferimento', now()->year) }}.<br>
     Vuoi importare gli automezzi dall’anno precedente?
@@ -26,7 +22,7 @@ $user = Auth::user();
     </div>
   </div>
 
-
+  {{-- DataTable dinamica --}}
   <table id="automezziTable" class="table table-bordered table-striped table-hover w-100">
     <thead class="table-light">
       <tr>
@@ -47,64 +43,49 @@ $user = Auth::user();
         <th>Azioni</th>
       </tr>
     </thead>
-    <tbody>
-      @foreach($automezzi as $a)
-      <tr>
-        <td>{{ $a->idAutomezzo }}</td>
-        <td>{{ $a->Associazione }}</td>
-        <td>{{ $a->anno ?? $a->idAnno }}</td>
-        <td>{{ $a->Automezzo }}</td>
-        <td>{{ $a->Targa }}</td>
-        <td>{{ $a->CodiceIdentificativo }}</td>
-        <td>{{ $a->AnnoPrimaImmatricolazione }}</td>
-        <td>{{ $a->Modello }}</td>
-        <td>{{ $a->TipoVeicolo }}</td>
-        <td>{{ $a->KmRiferimento }}</td>
-        <td>{{ $a->KmTotali }}</td>
-        <td>{{ $a->TipoCarburante }}</td>
-        <td>{{ optional(\Carbon\Carbon::parse($a->DataUltimaAutorizzazioneSanitaria))->format('d/m/Y') }}</td>
-        <td>{{ optional(\Carbon\Carbon::parse($a->DataUltimoCollaudo))->format('d/m/Y') }}</td>
-        <td>
-          <a href="{{ route('automezzi.show', $a->idAutomezzo) }}"
-            class="btn btn-sm btn-primary me-1">
-            Dettagli
-          </a>
-
-          <a href="{{ route('automezzi.edit', $a->idAutomezzo) }}"
-            class="btn btn-sm btn-warning me-1">
-            Modifica
-          </a>
-
-          <form action="{{ route('automezzi.destroy', $a->idAutomezzo) }}"
-            method="POST"
-            style="display:inline-block"
-            onsubmit="return confirm('Sei sicuro di voler eliminare questo automezzo?');">
-            @csrf
-            @method('DELETE')
-            <button type="submit" class="btn btn-sm btn-danger">
-              Elimina
-            </button>
-          </form>
-        </td>
-
-
-      </tr>
-      @endforeach
-    </tbody>
   </table>
 </div>
 @endsection
+
 @push('scripts')
+{{-- DataTables CDN --}}
+<link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
+
 <script>
-  document.addEventListener('DOMContentLoaded', function() {
+  document.addEventListener('DOMContentLoaded', function () {
     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
 
-    if (!csrfToken) {
-      console.error('CSRF token non trovato nel meta tag.');
-      return;
-    }
+    // Inizializza DataTable dinamico
+    $('#automezziTable').DataTable({
+      processing: true,
+      serverSide: false,
+      ajax: '{{ route("automezzi.datatable") }}',
+      columns: [
+        { data: 'idAutomezzo' },
+        { data: 'Associazione' },
+        { data: 'idAnno' },
+        { data: 'Automezzo' },
+        { data: 'Targa' },
+        { data: 'CodiceIdentificativo' },
+        { data: 'AnnoPrimaImmatricolazione' },
+        { data: 'Modello' },
+        { data: 'TipoVeicolo' },
+        { data: 'KmRiferimento' },
+        { data: 'KmTotali' },
+        { data: 'TipoCarburante' },
+        { data: 'DataUltimaAutorizzazioneSanitaria' },
+        { data: 'DataUltimoCollaudo' },
+        { data: 'Azioni', orderable: false, searchable: false }
+      ],
+      language: {
+        url: 'https://cdn.datatables.net/plug-ins/1.13.6/i18n/it-IT.json'
+      }
+    });
 
-    // ✅ Check duplicazione all'avvio
+    // Check duplicazione iniziale
     fetch("{{ route('automezzi.checkDuplicazione') }}")
       .then(res => res.json())
       .then(data => {
@@ -112,38 +93,37 @@ $user = Auth::user();
           document.getElementById('noDataMessage')?.classList.remove('d-none');
         }
       })
-      .catch(err => console.error('Errore durante il check duplicazione:', err));
+      .catch(err => console.error('Errore duplicazione:', err));
 
-    // ✅ Listener bottone "Sì"
-    document.getElementById('btn-duplica-si')?.addEventListener('click', function() {
+    // Listener duplicazione SI
+    document.getElementById('btn-duplica-si')?.addEventListener('click', function () {
       const btn = this;
       btn.disabled = true;
       btn.innerText = 'Duplicazione...';
 
       fetch("{{ route('automezzi.duplica') }}", {
-          method: 'POST',
-          headers: {
-            'X-CSRF-TOKEN': csrfToken,
-            'Accept': 'application/json'
-          }
-        })
+        method: 'POST',
+        headers: {
+          'X-CSRF-TOKEN': csrfToken,
+          'Accept': 'application/json'
+        }
+      })
         .then(async res => {
           if (!res.ok) {
-            const errJson = await res.json();
-            throw new Error(errJson.message || 'Errore durante la duplicazione.');
+            const err = await res.json();
+            throw new Error(err.message || 'Errore duplicazione');
           }
-          location.reload(); // 🔄 reload dopo successo
+          location.reload(); // ricarica se successo
         })
         .catch(err => {
-          alert(err.message || 'Errore di rete.');
-          console.error('Duplicazione fallita:', err);
+          alert(err.message || 'Errore duplicazione');
           btn.disabled = false;
           btn.innerText = 'Sì';
         });
     });
 
-    // ✅ Listener bottone "No"
-    document.getElementById('btn-duplica-no')?.addEventListener('click', function() {
+    // Listener duplicazione NO
+    document.getElementById('btn-duplica-no')?.addEventListener('click', function () {
       document.getElementById('noDataMessage')?.classList.add('d-none');
     });
   });

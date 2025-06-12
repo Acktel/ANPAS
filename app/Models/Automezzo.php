@@ -6,15 +6,13 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 
-class Automezzo
-{
+class Automezzo {
     protected const TABLE = 'automezzi';
 
     /**
      * Restituisce tutti gli automezzi (per l’indice), con join a km_riferimento se presente.
      */
-    public static function getAll(?int $anno = null): Collection
-    {
+    public static function getAll(?int $anno = null): Collection {
         $anno = $anno ?? session('anno_riferimento', now()->year);
 
         return DB::table('automezzi as a')
@@ -22,7 +20,7 @@ class Automezzo
             ->join('anni as y', 'a.idAnno', '=', 'y.idAnno')
             ->leftJoin('automezzi_km_riferimento as km', function ($join) use ($anno) {
                 $join->on('a.idAutomezzo', '=', 'km.idAutomezzo')
-                     ->where('km.idAnno', '=', $anno);
+                    ->where('km.idAnno', '=', $anno);
             })
             ->select([
                 'a.idAutomezzo',
@@ -51,8 +49,7 @@ class Automezzo
     /**
      * Crea un nuovo record in `automezzi` e restituisce l’id.
      */
-    public static function createAutomezzo(array $data): int
-    {
+    public static function createAutomezzo(array $data): int {
         return DB::table('automezzi')->insertGetId([
             'idAssociazione'                 => $data['idAssociazione'],
             'idAnno'                         => $data['idAnno'],
@@ -75,14 +72,13 @@ class Automezzo
     /**
      * Recupera un singolo automezzo, con join al km_riferimento per l’anno attuale.
      */
-    public static function getById(int $idAutomezzo, ?int $anno = null)
-    {
+    public static function getById(int $idAutomezzo, ?int $anno = null) {
         $anno = $anno ?? session('anno_riferimento', now()->year);
 
         return DB::table('automezzi as a')
             ->leftJoin('automezzi_km_riferimento as km', function ($join) use ($anno) {
                 $join->on('a.idAutomezzo', '=', 'km.idAutomezzo')
-                     ->where('km.idAnno', '=', $anno);
+                    ->where('km.idAnno', '=', $anno);
             })
             ->where('a.idAutomezzo', $idAutomezzo)
             ->select([
@@ -95,8 +91,7 @@ class Automezzo
     /**
      * Aggiorna un automezzo esistente.
      */
-    public static function updateAutomezzo(int $idAutomezzo, array $data): void
-    {
+    public static function updateAutomezzo(int $idAutomezzo, array $data): void {
         DB::table('automezzi')
             ->where('idAutomezzo', $idAutomezzo)
             ->update([
@@ -120,8 +115,7 @@ class Automezzo
     /**
      * Elimina un automezzo (e tutte le righe collegate in automezzi_km).
      */
-    public static function deleteAutomezzo(int $idAutomezzo): void
-    {
+    public static function deleteAutomezzo(int $idAutomezzo): void {
         AutomezzoKm::deleteByAutomezzo($idAutomezzo);
         DB::table('automezzi')->where('idAutomezzo', $idAutomezzo)->delete();
     }
@@ -129,15 +123,14 @@ class Automezzo
     /**
      * Recupera tutti gli automezzi di una data associazione (con km_riferimento).
      */
-    public static function getByAssociazione(int $idAssociazione, ?int $anno = null): Collection
-    {
+    public static function getByAssociazione(int $idAssociazione, ?int $anno = null): Collection {
         $anno = $anno ?? session('anno_riferimento', now()->year);
 
         return DB::table(self::TABLE . ' as a')
             ->join('associazioni as s', 'a.idAssociazione', '=', 's.idAssociazione')
             ->leftJoin('automezzi_km_riferimento as km', function ($join) use ($anno) {
                 $join->on('a.idAutomezzo', '=', 'km.idAutomezzo')
-                     ->where('km.idAnno', '=', $anno);
+                    ->where('km.idAnno', '=', $anno);
             })
             ->select([
                 'a.idAutomezzo',
@@ -166,17 +159,50 @@ class Automezzo
     /**
      * Relazione (opzionale) - tutti i km riferiti a un automezzo.
      */
-    public function kmRiferimenti()
-    {
+    public function kmRiferimenti() {
         return $this->hasMany(AutomezzoKmRiferimento::class, 'idAutomezzo', 'idAutomezzo');
     }
 
     /**
      * Accessor utile - ottiene km riferiti a un anno specifico.
      */
-    public function getKmRiferimentoAnno($anno = null)
-    {
+    public function getKmRiferimentoAnno($anno = null) {
         $anno = $anno ?? session('anno_riferimento', now()->year);
         return $this->kmRiferimenti()->where('idAnno', $anno)->value('KmRiferimento');
+    }
+    public static function getForDataTable(int $anno, ?User $user) {
+        $query = DB::table('automezzi as a')
+            ->join('associazioni as ass', 'ass.idAssociazione', '=', 'a.idAssociazione')
+            ->leftJoin('automezzi_km_riferimento as km', function ($join) use ($anno) {
+                $join->on('km.idAutomezzo', '=', 'a.idAutomezzo')
+                    ->where('km.idAnno', $anno);
+            })
+            ->where('a.idAnno', $anno);
+
+        if (! $user->isSuperAdmin()) {
+            $query->where('a.idAssociazione', $user->IdAssociazione);
+        }
+
+        return $query->select([
+            'a.idAutomezzo',
+            'ass.Associazione',
+            'a.idAnno',
+            'a.Automezzo',
+            'a.Targa',
+            'a.CodiceIdentificativo',
+            'a.AnnoPrimaImmatricolazione',
+            'a.Modello',
+            'a.TipoVeicolo',
+            'km.KmRiferimento',
+            'a.KmTotali',
+            'a.TipoCarburante',
+            'a.DataUltimaAutorizzazioneSanitaria',
+            'a.DataUltimoCollaudo',
+        ])
+            ->get()
+            ->map(function ($row) {
+                $row->Azioni = view('partials.actions_automezzo', ['id' => $row->idAutomezzo])->render();
+                return $row;
+            });
     }
 }

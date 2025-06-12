@@ -9,10 +9,8 @@ use App\Models\Automezzo;
 use App\Models\AutomezzoKmRiferimento;
 use Illuminate\Http\JsonResponse;
 
-class AutomezziController extends Controller
-{
-    public function index()
-    {
+class AutomezziController extends Controller {
+    public function index() {
         $user = Auth::user();
         $anno = session('anno_riferimento', now()->year);
 
@@ -27,8 +25,7 @@ class AutomezziController extends Controller
         return view('automezzi.index', compact('automezzi', 'anno'));
     }
 
-    public function create()
-    {
+    public function create() {
         $associazioni = DB::table('associazioni')
             ->select('idAssociazione', 'Associazione')
             ->orderBy('Associazione')
@@ -43,8 +40,7 @@ class AutomezziController extends Controller
         return view('automezzi.create', compact('associazioni', 'anni'));
     }
 
-    public function store(Request $request)
-    {
+    public function store(Request $request) {
         $rules = [
             'idAssociazione' => 'required|exists:associazioni,idAssociazione',
             'idAnno' => 'required|integer|min:2000|max:' . (date('Y') + 5),
@@ -83,8 +79,7 @@ class AutomezziController extends Controller
         }
     }
 
-    public function show(int $idAutomezzo)
-    {
+    public function show(int $idAutomezzo) {
         $anno = session('anno_riferimento', now()->year);
         $automezzo = Automezzo::getById($idAutomezzo, $anno);
         abort_if(!$automezzo, 404);
@@ -92,8 +87,7 @@ class AutomezziController extends Controller
         return view('automezzi.show', compact('automezzo'));
     }
 
-    public function edit(int $idAutomezzo)
-    {
+    public function edit(int $idAutomezzo) {
         $anno = session('anno_riferimento', now()->year);
         $automezzo = Automezzo::getById($idAutomezzo, $anno);
         abort_if(!$automezzo, 404);
@@ -108,8 +102,7 @@ class AutomezziController extends Controller
         return view('automezzi.edit', compact('automezzo', 'associazioni', 'anni'));
     }
 
-    public function update(Request $request, int $idAutomezzo)
-    {
+    public function update(Request $request, int $idAutomezzo) {
         $rules = [
             'idAssociazione' => 'required|exists:associazioni,idAssociazione',
             'idAnno' => 'required|integer|min:2000|max:' . (date('Y') + 5),
@@ -147,8 +140,7 @@ class AutomezziController extends Controller
         }
     }
 
-    public function destroy(int $idAutomezzo)
-    {
+    public function destroy(int $idAutomezzo) {
         $automezzo = Automezzo::getById($idAutomezzo, session('anno_riferimento', now()->year));
         abort_if(!$automezzo, 404);
 
@@ -164,8 +156,7 @@ class AutomezziController extends Controller
         }
     }
 
-    public function checkDuplicazioneDisponibile(): JsonResponse
-    {
+    public function checkDuplicazioneDisponibile(): JsonResponse {
         $anno = session('anno_riferimento', now()->year);
         $annoPrec = $anno - 1;
         $idAssoc = Auth::user()->IdAssociazione;
@@ -180,8 +171,7 @@ class AutomezziController extends Controller
         ]);
     }
 
-    public function duplicaAnnoPrecedente(Request $request): JsonResponse
-    {
+    public function duplicaAnnoPrecedente(Request $request): JsonResponse {
         $anno = session('anno_riferimento', now()->year);
         $annoPrec = $anno - 1;
         $idAssoc = Auth::user()->IdAssociazione;
@@ -234,5 +224,14 @@ class AutomezziController extends Controller
             DB::rollBack();
             return response()->json(['message' => 'Errore durante duplicazione'], 500);
         }
+    }
+
+    public function datatable() {
+        $anno = session('anno_riferimento', now()->year);
+        $user = Auth::user();
+
+        $data = Automezzo::getForDataTable($anno, $user);
+
+        return response()->json(['data' => $data]);
     }
 }
