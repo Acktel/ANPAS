@@ -9,6 +9,15 @@
 
   <a href="{{ route('convenzioni.create') }}" class="btn btn-primary mb-3">+ Nuova</a>
 
+  <div id="noDataMessage" class="alert alert-info d-none">
+  Nessuna convenzione presente per l’anno {{ session('anno_riferimento', now()->year) }}.<br>
+  Vuoi importare le convenzioni dall’anno precedente?
+  <div class="mt-2">
+    <button id="btn-duplica-si" class="btn btn-sm btn-success">Sì</button>
+    <button id="btn-duplica-no" class="btn btn-sm btn-secondary">No</button>
+  </div>
+</div>
+
   <table class="table table-hover table-bordered dt-responsive nowrap">
     <thead>
       <tr>
@@ -42,3 +51,46 @@
   </table>
 </div>
 @endsection
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const csrf = document.querySelector('meta[name="csrf-token"]').content;
+  
+  fetch("{{ route('convenzioni.checkDuplicazione') }}")
+    .then(res => res.json())
+    .then(data => {
+      console.log(data);
+      if (data.mostraMessaggio) {
+        document.getElementById('noDataMessage').classList.remove('d-none');
+      }
+    });
+
+  document.getElementById('btn-duplica-si')?.addEventListener('click', async function () {
+    const btn = this;
+    btn.disabled = true;
+    btn.innerText = 'Duplicazione...';
+
+    const res = await fetch("{{ route('convenzioni.duplica') }}", {
+      method: 'POST',
+      headers: {
+        'X-CSRF-TOKEN': csrf,
+        'Accept': 'application/json'
+      }
+    });
+
+    const json = await res.json();
+    if (res.ok) {
+      location.reload();
+    } else {
+      alert(json.message || 'Errore duplicazione');
+      btn.disabled = false;
+      btn.innerText = 'Sì';
+    }
+  });
+
+  document.getElementById('btn-duplica-no')?.addEventListener('click', function () {
+    document.getElementById('noDataMessage').classList.add('d-none');
+  });
+});
+</script>
+@endpush

@@ -10,10 +10,12 @@ class Convenzione
     protected const TABLE = 'convenzioni';
 
     /**
-     * Recupera tutte le convenzioni (con join su associazioni per il nome).
+     * Recupera tutte le convenzioni per anno (solo SuperAdmin/Admin/Supervisor).
      */
-    public static function getAll()
+    public static function getAll(?int $anno = null)
     {
+        $anno = $anno ?? session('anno_riferimento', now()->year);
+
         $sql = "
             SELECT
                 c.idConvenzione,
@@ -23,18 +25,21 @@ class Convenzione
                 c.lettera_identificativa,
                 c.created_at
             FROM " . self::TABLE . " AS c
-            JOIN associazioni AS s
-              ON c.idAssociazione = s.idAssociazione
-            ORDER BY s.Associazione, c.idAnno DESC, c.Convenzione
+            JOIN associazioni AS s ON c.idAssociazione = s.idAssociazione
+            WHERE c.idAnno = :anno
+            ORDER BY s.Associazione, c.Convenzione
         ";
-        return collect(DB::select($sql));
+
+        return collect(DB::select($sql, ['anno' => $anno]));
     }
 
     /**
-     * Recupera tutte le convenzioni per una data associazione.
+     * Recupera convenzioni per una associazione (filtro anno opzionale).
      */
-    public static function getByAssociazione(int $idAssociazione)
+    public static function getByAssociazione(int $idAssociazione, ?int $idAnno = null)
     {
+        $idAnno = $idAnno ?? session('anno_riferimento', now()->year);
+
         $sql = "
             SELECT
                 c.idConvenzione,
@@ -44,16 +49,20 @@ class Convenzione
                 c.lettera_identificativa,
                 c.created_at
             FROM " . self::TABLE . " AS c
-            JOIN associazioni AS s
-              ON c.idAssociazione = s.idAssociazione
+            JOIN associazioni AS s ON c.idAssociazione = s.idAssociazione
             WHERE c.idAssociazione = :idAssociazione
-            ORDER BY c.idAnno DESC, c.Convenzione
+              AND c.idAnno = :idAnno
+            ORDER BY c.Convenzione
         ";
-        return collect(DB::select($sql, ['idAssociazione' => $idAssociazione]));
+
+        return collect(DB::select($sql, [
+            'idAssociazione' => $idAssociazione,
+            'idAnno' => $idAnno,
+        ]));
     }
 
     /**
-     * Recupera tutte le convenzioni per una data associazione E anno.
+     * Recupera convenzioni per associazione e anno specifici.
      */
     public static function getByAssociazioneAnno(int $idAssociazione, int $idAnno)
     {
@@ -67,25 +76,25 @@ class Convenzione
                 c.created_at
             FROM " . self::TABLE . " AS c
             WHERE c.idAssociazione = :idAssociazione
-              AND c.idAnno         = :idAnno
+              AND c.idAnno = :idAnno
             ORDER BY c.Convenzione
         ";
+
         return collect(DB::select($sql, [
             'idAssociazione' => $idAssociazione,
-            'idAnno'         => $idAnno,
+            'idAnno' => $idAnno,
         ]));
     }
 
     /**
-     * Recupera una singola convenzione per ID.
+     * Recupera una convenzione singola per ID.
      */
     public static function getById(int $idConvenzione)
     {
-        $row = DB::selectOne(
+        return DB::selectOne(
             "SELECT * FROM " . self::TABLE . " WHERE idConvenzione = :id LIMIT 1",
             ['id' => $idConvenzione]
         );
-        return $row;
     }
 
     /**
@@ -94,18 +103,20 @@ class Convenzione
     public static function createConvenzione(array $data): int
     {
         $now = Carbon::now()->toDateTimeString();
-        DB::insert("
-            INSERT INTO " . self::TABLE . "
-                (idAssociazione, idAnno, Convenzione, lettera_identificativa, created_at, updated_at)
-            VALUES
-                (:idAssociazione, :idAnno, :Convenzione, :lettera_identificativa, :now, :now)
-        ", [
-            'idAssociazione'         => $data['idAssociazione'],
-            'idAnno'                 => $data['idAnno'],
-            'Convenzione'            => $data['Convenzione'],
-            'lettera_identificativa' => $data['lettera_identificativa'],
-            'now'                    => $now,
-        ]);
+DB::insert("
+    INSERT INTO " . self::TABLE . "
+        (idAssociazione, idAnno, Convenzione, lettera_identificativa, created_at, updated_at)
+    VALUES
+        (:idAssociazione, :idAnno, :Convenzione, :lettera_identificativa, :created_at, :updated_at)
+", [
+    'idAssociazione'         => $data['idAssociazione'],
+    'idAnno'                 => $data['idAnno'],
+    'Convenzione'            => $data['Convenzione'],
+    'lettera_identificativa' => $data['lettera_identificativa'],
+    'created_at'             => $now,
+    'updated_at'             => $now,
+]);
+
         return DB::getPdo()->lastInsertId();
     }
 
@@ -115,14 +126,15 @@ class Convenzione
     public static function updateConvenzione(int $id, array $data): void
     {
         $now = Carbon::now()->toDateTimeString();
+
         DB::update("
             UPDATE " . self::TABLE . "
             SET
-              idAssociazione         = :idAssociazione,
-              idAnno                 = :idAnno,
-              Convenzione            = :Convenzione,
-              lettera_identificativa = :lettera_identificativa,
-              updated_at             = :now
+                idAssociazione         = :idAssociazione,
+                idAnno                 = :idAnno,
+                Convenzione            = :Convenzione,
+                lettera_identificativa = :lettera_identificativa,
+                updated_at             = :now
             WHERE idConvenzione = :id
         ", [
             'idAssociazione'         => $data['idAssociazione'],
@@ -135,7 +147,7 @@ class Convenzione
     }
 
     /**
-     * Elimina una convenzione.
+     * Elimina una convenzione per ID.
      */
     public static function deleteConvenzione(int $id): void
     {

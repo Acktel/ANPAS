@@ -1,8 +1,11 @@
 
 @auth
-@if(session()->has('impersonate') || auth()->user()->can('manage-own-association'))
+
 @php
     $assocCorr = \App\Models\Associazione::getById(Auth::user()->IdAssociazione)->Associazione;
+    if(!$assocCorr || $assocCorr == 'Default Association'){
+        $assocCorr = 'ANPAS';
+    }
 @endphp
     <div class="container-fluid text-center mb-4">
         {{-- Titolo centrato e azzurrino --}}
@@ -27,7 +30,7 @@
             <button type="submit" class="btn btn-sm btn-outline-primary">↺</button>
         </form>
     </div>
-@endif
+
 @endauth
 
 {{-- Se non autenticato, mostra solo il titolo --}}
