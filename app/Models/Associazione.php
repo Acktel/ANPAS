@@ -5,18 +5,16 @@ namespace App\Models;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 
-class Associazione
-{
+class Associazione {
     protected const TABLE = 'associazioni';
 
     /**
      * Restituisce i dati per DataTables, includendo anche l'ID del Supervisor/Admin/SuperAdmin
      */
-    public static function getAll($request)
-    {
+    public static function getAll($request) {
         // 1) Query base: left join con users per recuperare chi ha role_id 1, 2 o 3
         $base = DB::table(self::TABLE . ' as a')
-            ->leftJoin('users as u', function($join) {
+            ->leftJoin('users as u', function ($join) {
                 $join->on('a.IdAssociazione', '=', 'u.IdAssociazione');
             })
             ->select(
@@ -42,11 +40,11 @@ class Associazione
 
         // 2) Filtro ricerca
         if ($val = $request->input('search.value')) {
-            $base->where(function($q) use ($val) {
+            $base->where(function ($q) use ($val) {
                 $q->where('a.Associazione', 'like', "%{$val}%")
-                  ->orWhere('a.email', 'like', "%{$val}%")
-                  ->orWhere('a.provincia', 'like', "%{$val}%")
-                  ->orWhere('a.citta', 'like', "%{$val}%");
+                    ->orWhere('a.email', 'like', "%{$val}%")
+                    ->orWhere('a.provincia', 'like', "%{$val}%")
+                    ->orWhere('a.citta', 'like', "%{$val}%");
             });
         }
 
@@ -78,8 +76,7 @@ class Associazione
     /**
      * Crea una nuova associazione e ritorna l'ID inserito
      */
-    public static function createAssociation(array $data): int
-    {
+    public static function createAssociation(array $data): int {
         $now = Carbon::now();
 
         $payload = [
@@ -105,8 +102,7 @@ class Associazione
     /**
      * Toggle dello stato active (usa IdAssociazione!)
      */
-    public static function toggleActive(int $id)
-    {
+    public static function toggleActive(int $id) {
         $row = DB::table(self::TABLE)
             ->where('IdAssociazione', $id)
             ->first();
@@ -121,17 +117,28 @@ class Associazione
     /**
      * Soft delete via deleted_at
      */
-    public static function softDelete(int $id)
-    {
+    public static function softDelete(int $id) {
         DB::table(self::TABLE)
             ->where('IdAssociazione', $id)
             ->update(['deleted_at' => Carbon::now()]);
     }
 
-    public static function getById(int $idAssociazione)
-    {
+    public static function getById(int $idAssociazione) {
         return DB::table(self::TABLE)
             ->where('idAssociazione', $idAssociazione)
+            ->first();
+    }
+
+    public static function findById(int $id) {
+        return DB::table(self::TABLE)
+            ->where('IdAssociazione', $id)
+            ->first();
+    }
+
+    public static function getAdminUserFor(int $idAssociazione) {
+        return DB::table('users')
+            ->where('IdAssociazione', $idAssociazione)
+            ->whereIn('role_id', [1, 2, 3]) // Admin/SuperAdmin/Supervisor
             ->first();
     }
 }
