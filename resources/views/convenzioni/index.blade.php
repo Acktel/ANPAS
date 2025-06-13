@@ -2,64 +2,77 @@
 
 @section('content')
 <div class="container-fluid">
-  <h1>Convenzioni</h1>
+  <h1 class="text-anpas-green fw-bold mb-4">Convenzioni - Anno {{ session('anno_riferimento', now()->year) }}</h1>
+
   @if(session('success'))
     <div class="alert alert-success">{{ session('success') }}</div>
   @endif
 
-  <a href="{{ route('convenzioni.create') }}" class="btn btn-primary mb-3">+ Nuova</a>
+  <div class="d-flex mb-3">
+    <a href="{{ route('convenzioni.create') }}" class="btn btn-anpas-red me-2">+ Nuova Convenzione</a>
+  </div>
 
   <div id="noDataMessage" class="alert alert-info d-none">
-  Nessuna convenzione presente per l’anno {{ session('anno_riferimento', now()->year) }}.<br>
-  Vuoi importare le convenzioni dall’anno precedente?
-  <div class="mt-2">
-    <button id="btn-duplica-si" class="btn btn-sm btn-success">Sì</button>
-    <button id="btn-duplica-no" class="btn btn-sm btn-secondary">No</button>
+    Nessuna convenzione presente per l’anno {{ session('anno_riferimento', now()->year) }}.<br>
+    Vuoi importare le convenzioni dall’anno precedente?
+    <div class="mt-2">
+      <button id="btn-duplica-si" class="btn btn-sm btn-success">Sì</button>
+      <button id="btn-duplica-no" class="btn btn-sm btn-secondary">No</button>
+    </div>
+  </div>
+
+  <div class="card-anpas">
+    <div class="card-body bg-anpas-white p-0">
+      <table class="table table-hover table-bordered dt-responsive nowrap mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>ID</th>
+            <th>Associazione</th>
+            <th>Anno</th>
+            <th>Descrizione</th>
+            <th>Lettera</th>
+            <th>Azioni</th>
+          </tr>
+        </thead>
+        <tbody>
+          @forelse($convenzioni as $c)
+            <tr>
+              <td>{{ $c->idConvenzione }}</td>
+              <td>{{ $c->Associazione }}</td>
+              <td>{{ $c->idAnno }}</td>
+              <td>{{ $c->Convenzione }}</td>
+              <td>{{ $c->lettera_identificativa }}</td>
+              <td>
+                <a href="{{ route('convenzioni.edit', $c->idConvenzione) }}"
+                   class="btn btn-sm btn-warning me-1">Modifica</a>
+                <form action="{{ route('convenzioni.destroy', $c->idConvenzione) }}"
+                      method="POST" class="d-inline"
+                      onsubmit="return confirm('Eliminare questa convenzione?')">
+                  @csrf @method('DELETE')
+                  <button class="btn btn-sm btn-secondary">Elimina</button>
+                </form>
+              </td>
+            </tr>
+          @empty
+            <tr>
+              <td colspan="6" class="text-center py-3">Nessuna convenzione.</td>
+            </tr>
+          @endforelse
+        </tbody>
+      </table>
+    </div>
   </div>
 </div>
-
-  <table class="table table-hover table-bordered dt-responsive nowrap">
-    <thead>
-      <tr>
-        <th>ID</th><th>Associazione</th><th>Anno</th>
-        <th>Descrizione</th><th>Lettera identificativa</th><th>Azioni</th>
-      </tr>
-    </thead>
-    <tbody>
-      @forelse($convenzioni as $c)
-        <tr>
-          <td>{{ $c->idConvenzione }}</td>
-          <td>{{ $c->Associazione }}</td>
-          <td>{{ $c->idAnno }}</td>
-          <td>{{ $c->Convenzione }}</td>
-          <td>{{ $c->lettera_identificativa }}</td>
-          <td>
-            <a href="{{ route('convenzioni.edit',$c->idConvenzione) }}"
-               class="btn btn-sm btn-warning">Modifica</a>
-            <form action="{{ route('convenzioni.destroy',$c->idConvenzione) }}"
-                  method="POST" class="d-inline"
-                  onsubmit="return confirm('Eliminare?')">
-              @csrf @method('DELETE')
-              <button class="btn btn-sm btn-danger">Elimina</button>
-            </form>
-          </td>
-        </tr>
-      @empty
-        <tr><td colspan="6" class="text-center">Nessuna convenzione.</td></tr>
-      @endforelse
-    </tbody>
-  </table>
-</div>
 @endsection
+
 @push('scripts')
 <script>
 document.addEventListener('DOMContentLoaded', function () {
   const csrf = document.querySelector('meta[name="csrf-token"]').content;
-  
+
   fetch("{{ route('convenzioni.checkDuplicazione') }}")
     .then(res => res.json())
     .then(data => {
-      console.log(data);
       if (data.mostraMessaggio) {
         document.getElementById('noDataMessage').classList.remove('d-none');
       }

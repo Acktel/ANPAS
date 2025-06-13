@@ -1,28 +1,180 @@
-/* resources/css/app.css */
+/* ============================= */
+/* FILE: resources/css/app.css   */
+/* ============================= */
 
-/*
- |--------------------------------------------------------------------------
- | Your custom styles
- |--------------------------------------------------------------------------
- |
- | Qui puoi mettere le tue regole, le sovrascritture di Tabler ecc. 
- | Se non ti serve nulla di custom, puoi anche lasciarlo vuoto.
- |
- */
+/* Colori brand ANPAS */
+:root {
+  --anpas-green:      #00853E;
+  --anpas-green-dark: #006934;
+  --anpas-red:        #E30613;
+  --anpas-white:      #FFFFFF;
+}
 
-/* Esempio: cambia sfondo body */
+/* Reset e sfondo pagina */
 body {
   background-color: #f8f9fa;
 }
 
-/* Titoli in rosso ANPAS */
-h1, h2, h3 {
-  color: #d23228;
-  
+/* Margini standard sui container “xl” */
+.container-xl {
+  padding-top:    1.5rem;
+  padding-bottom: 1.5rem;
 }
 
-/* Qualche margine generale */
-.container-xl {
-  padding-top: 1.5rem;
-  padding-bottom: 1.5rem;
+/* Utility classes */
+.text-anpas-green { color: var(--anpas-green) !important; }
+.text-anpas-red   { color: var(--anpas-red)   !important; }
+.bg-anpas-white   { background-color: var(--anpas-white) !important; }
+
+/* ============================= */
+/* TOP-BAR (logo + Utente/Anno)  */
+/* ============================= */
+
+.anpas-topbar {
+  display:        flex;
+  align-items:    center;
+  justify-content: space-between;
+  background-color: var(--anpas-white);
+  border-bottom:    4px solid var(--anpas-green);
+  padding:          0.5rem 1rem;
+  min-height:       80px;
+}
+
+/* Logo a sinistra */
+.topbar-logo img {
+  display: block;
+  height: 100px;
+}
+
+/* Contenitore centrale fisso */
+.topbar-center-box {
+  display:        flex;
+  align-items:    center;
+  min-width:      360px;
+  justify-content: center;
+}
+
+/* Riquadro Utente+Anno */
+.user-consun-box {
+  display:        flex;
+  align-items:    center;
+  background-color: var(--anpas-white);
+  border:           1px solid var(--anpas-green);
+  border-bottom-width: 4px;
+  border-radius:     0.25rem;
+  box-shadow:        0 .125rem .25rem rgba(0,0,0,0.075);
+}
+
+/* Sezione “Utente” */
+.user-section {
+  text-align:    right;
+  padding:       0.5rem 1rem;
+  min-width:     120px;
+}
+.user-section small {
+  display: block;
+  margin-bottom: 0.2rem;
+}
+
+/* Separatore verticale */
+.user-consun-box .vr {
+  margin: 0;
+  border-color: var(--anpas-green);
+  height: 2rem;
+  width: 1px;
+}
+
+/* Sezione “Consuntivo Anno” */
+.consuntivo-section {
+  display:        flex;
+  align-items:    center;
+  padding:        0.5rem 1rem;
+}
+.consuntivo-section small {
+  margin-right: 0.5rem;
+  margin-bottom: 0;
+  display: block;
+}
+
+/* Pulsante check verde */
+.btn-anpas-green {
+  background-color: var(--anpas-green);
+  color:            var(--anpas-white);
+  border:           none;
+  padding:          0.3rem 0.6rem;
+  display:          flex;
+  align-items:      center;
+  justify-content:  center;
+  font-size:        1rem;
+}
+.btn-anpas-green:hover {
+  background-color: var(--anpas-green-dark);
+}
+
+/* ============================= */
+/* NAVBAR INFERIORE              */
+/* ============================= */
+
+.navbar-dark .navbar-nav .nav-link {
+  color:      #FFFFFF !important;
+  transition: background-color .2s;
+}
+.navbar-dark .navbar-nav .nav-link:hover,
+.navbar-dark .navbar-nav .nav-link.active {
+  background-color: rgba(255,255,255,0.2) !important;
+  border-radius:    0.25rem;
+}
+
+/* Toggler bianco */
+.navbar-dark .navbar-toggler {
+  border-color: rgba(255,255,255,0.5);
+}
+.navbar-dark .navbar-toggler-icon {
+  filter: invert(1);
+}
+
+.user-consun-box.d-flex.shadow-sm {
+    position: relative;
+    align-items: initial;
+    left: 100%;
+    margin: 20px;
+    padding: 10px;
+  }
+
+  .text-padding-topbar {
+    padding-top: 0.5rem;
+  }
+
+  .text-center {
+    text-align: center !important;
+    padding: 5px;
+    font-weight: 600;
+}
+
+
+/* Sfondo “anpas-green” */
+.bg-anpas-green {
+  background-color: var(--anpas-green) !important;
+}
+
+/* Link bianchi e semigrassetti */
+.navbar-dark .navbar-nav .nav-link {
+  color: #fff !important;
+  font-weight: 600;            /* semigrassetto */
+  transition: background-color 0.2s;
+}
+
+/* Hover / Active */
+.navbar-dark .navbar-nav .nav-link:hover,
+.navbar-dark .navbar-nav .nav-link.active {
+  background-color: rgba(255,255,255,0.2) !important;
+  border-radius: 0.25rem;
+}
+
+/* Toggler bianco */
+.navbar-dark .navbar-toggler {
+  border-color: rgba(255,255,255,0.5);
+}
+.navbar-dark .navbar-toggler-icon {
+  filter: invert(1);
 }

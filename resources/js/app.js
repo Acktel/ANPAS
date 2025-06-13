@@ -1,8 +1,5 @@
-// resources/js/app.js
-
-import './bootstrap.js';            // qui axios viene bundlato da webpack
-import './vendor/demo.min.js';      // UMD, si appende a window
+import './bootstrap.js';
+import './vendor/demo.min.js';
 import './vendor/demo-theme.min.js';
 import './vendor/tabler.min.js';
-
-// Alpine da CDN, quindi niente import qui
+import '@fortawesome/fontawesome-free/js/all.js';

@@ -6,10 +6,9 @@ mix
   //    import './vendor/demo.min.js';
   //    import './vendor/demo-theme.min.js';
   //    import './vendor/tabler.min.js';
-  .js('resources/js/app.js', 'public/js')
-
-  // 2) Bundle CSS: unisci demo, app.css e tabler-vendors ecc.
+.js('resources/js/app.js', 'public/js')
   .styles([
+    'resources/css/tabler.min.css',          // ← aggiungi qui
     'resources/css/tabler-vendors.min.css',
     'resources/css/tabler-flags.min.css',
     'resources/css/tabler-payments.min.css',
@@ -17,8 +16,8 @@ mix
     'resources/css/tabler-socials.min.css',
     'resources/css/demo.min.css',
     'resources/css/app.css',
+    'node_modules/@fortawesome/fontawesome-free/css/all.min.css',
   ], 'public/css/app.css')
-
   // 3) Copia separatamente Tabler “vanilla” se ti serve ancora
   .copy('resources/css/tabler.min.css', 'public/css/tabler.min.css')
 
