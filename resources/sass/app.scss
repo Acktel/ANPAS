@@ -1,8 +1,17 @@
-// Fonts
+// resources/sass/app.scss
+
+// 1) Font
 @import url('https://fonts.bunny.net/css?family=Nunito');
 
-// Variables
+// 2) Variabili personalizzate
 @import 'variables';
 
-// Bootstrap
-@import 'bootstrap/scss/bootstrap';
+// 3) Bootstrap
+@import '~bootstrap/scss/bootstrap';
+
+// 4) Tabler (override di Bootstrap con lo stile Tabler)
+@import '~@tabler/core/dist/css/tabler.min.css';
+
+// 5) DataTables (Bootstrap 5, responsive)
+@import '~datatables.net-bs5/css/dataTables.bootstrap5.min.css';
+@import '~datatables.net-responsive-bs5/css/responsive.bootstrap5.min.css';

@@ -5,7 +5,7 @@ namespace Database\Seeders;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 
-class AutomezziSeeder extends Seeder
+class AutomezziAndKmSeeder extends Seeder
 {
     public function run()
     {

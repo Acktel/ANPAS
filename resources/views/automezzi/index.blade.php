@@ -80,9 +80,9 @@
         { data: 'DataUltimoCollaudo' },
         { data: 'Azioni', orderable: false, searchable: false }
       ],
-      language: {
-        url: 'https://cdn.datatables.net/plug-ins/1.13.6/i18n/it-IT.json'
-      }
+language: {
+    url: '/js/i18n/Italian.json'
+  }
     });
 
     // Check duplicazione iniziale

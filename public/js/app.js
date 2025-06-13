@@ -7032,7 +7032,7 @@ process.umask = function() { return 0; };
 /*!***********************************!*\
   !*** ./resources/js/bootstrap.js ***!
   \***********************************/
-/***/ ((__unused_webpack___webpack_module__, __webpack_exports__, __webpack_require__) => {
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
 "use strict";
 __webpack_require__.r(__webpack_exports__);
@@ -7055,11 +7055,9 @@ if (token) {
 /*!***********************************************!*\
   !*** ./resources/js/vendor/demo-theme.min.js ***!
   \***********************************************/
-/***/ ((__unused_webpack___webpack_module__, __webpack_exports__, __webpack_require__) => {
+/***/ ((module, exports, __webpack_require__) => {
 
-"use strict";
-__webpack_require__.r(__webpack_exports__);
-/*!
+var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_RESULT__;/*!
 * Tabler v1.0.0 (https://tabler.io)
 * @version 1.0.0
 * @link https://tabler.io
@@ -7068,7 +7066,11 @@ __webpack_require__.r(__webpack_exports__);
 * Licensed under MIT (https://github.com/tabler/tabler/blob/master/LICENSE)
 */
 !function (e) {
-  "function" == typeof define && define.amd ? define(e) : e();
+   true ? !(__WEBPACK_AMD_DEFINE_FACTORY__ = (e),
+		__WEBPACK_AMD_DEFINE_RESULT__ = (typeof __WEBPACK_AMD_DEFINE_FACTORY__ === 'function' ?
+		(__WEBPACK_AMD_DEFINE_FACTORY__.call(exports, __webpack_require__, exports, module)) :
+		__WEBPACK_AMD_DEFINE_FACTORY__),
+		__WEBPACK_AMD_DEFINE_RESULT__ !== undefined && (module.exports = __WEBPACK_AMD_DEFINE_RESULT__)) : 0;
 }(function () {
   "use strict";
 
@@ -7092,11 +7094,9 @@ __webpack_require__.r(__webpack_exports__);
 /*!*****************************************!*\
   !*** ./resources/js/vendor/demo.min.js ***!
   \*****************************************/
-/***/ ((__unused_webpack___webpack_module__, __webpack_exports__, __webpack_require__) => {
+/***/ ((module, exports, __webpack_require__) => {
 
-"use strict";
-__webpack_require__.r(__webpack_exports__);
-/*!
+var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_RESULT__;/*!
 * Tabler v1.0.0 (https://tabler.io)
 * @version 1.0.0
 * @link https://tabler.io
@@ -7105,7 +7105,11 @@ __webpack_require__.r(__webpack_exports__);
 * Licensed under MIT (https://github.com/tabler/tabler/blob/master/LICENSE)
 */
 !function (t) {
-  "function" == typeof define && define.amd ? define(t) : t();
+   true ? !(__WEBPACK_AMD_DEFINE_FACTORY__ = (t),
+		__WEBPACK_AMD_DEFINE_RESULT__ = (typeof __WEBPACK_AMD_DEFINE_FACTORY__ === 'function' ?
+		(__WEBPACK_AMD_DEFINE_FACTORY__.call(exports, __webpack_require__, exports, module)) :
+		__WEBPACK_AMD_DEFINE_FACTORY__),
+		__WEBPACK_AMD_DEFINE_RESULT__ !== undefined && (module.exports = __WEBPACK_AMD_DEFINE_RESULT__)) : 0;
 }(function () {
   "use strict";
 
@@ -7210,11 +7214,9 @@ __webpack_require__.r(__webpack_exports__);
 /*!*******************************************!*\
   !*** ./resources/js/vendor/tabler.min.js ***!
   \*******************************************/
-/***/ ((__unused_webpack___webpack_module__, __webpack_exports__, __webpack_require__) => {
+/***/ ((module, exports, __webpack_require__) => {
 
-"use strict";
-__webpack_require__.r(__webpack_exports__);
-var _excluded = ["mask"],
+var __WEBPACK_AMD_DEFINE_FACTORY__, __WEBPACK_AMD_DEFINE_RESULT__;var _excluded = ["mask"],
   _excluded2 = ["mask"],
   _excluded3 = ["chunks"],
   _excluded4 = ["parent", "isOptional", "placeholderChar", "displayChar", "lazy", "eager"],
@@ -7272,7 +7274,11 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 * Licensed under MIT (https://github.com/tabler/tabler/blob/master/LICENSE)
 */
 !function (t) {
-  "function" == typeof define && define.amd ? define(t) : t();
+   true ? !(__WEBPACK_AMD_DEFINE_FACTORY__ = (t),
+		__WEBPACK_AMD_DEFINE_RESULT__ = (typeof __WEBPACK_AMD_DEFINE_FACTORY__ === 'function' ?
+		(__WEBPACK_AMD_DEFINE_FACTORY__.call(exports, __webpack_require__, exports, module)) :
+		__WEBPACK_AMD_DEFINE_FACTORY__),
+		__WEBPACK_AMD_DEFINE_RESULT__ !== undefined && (module.exports = __WEBPACK_AMD_DEFINE_RESULT__)) : 0;
 }(function () {
   "use strict";
 
@@ -14816,6 +14822,18 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 /******/ 	}
 /******/ 	
 /************************************************************************/
+/******/ 	/* webpack/runtime/compat get default export */
+/******/ 	(() => {
+/******/ 		// getDefaultExport function for compatibility with non-harmony modules
+/******/ 		__webpack_require__.n = (module) => {
+/******/ 			var getter = module && module.__esModule ?
+/******/ 				() => (module['default']) :
+/******/ 				() => (module);
+/******/ 			__webpack_require__.d(getter, { a: getter });
+/******/ 			return getter;
+/******/ 		};
+/******/ 	})();
+/******/ 	
 /******/ 	/* webpack/runtime/define property getters */
 /******/ 	(() => {
 /******/ 		// define getter functions for harmony exports
@@ -14867,8 +14885,11 @@ var __webpack_exports__ = {};
 __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var _bootstrap_js__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./bootstrap.js */ "./resources/js/bootstrap.js");
 /* harmony import */ var _vendor_demo_min_js__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./vendor/demo.min.js */ "./resources/js/vendor/demo.min.js");
+/* harmony import */ var _vendor_demo_min_js__WEBPACK_IMPORTED_MODULE_1___default = /*#__PURE__*/__webpack_require__.n(_vendor_demo_min_js__WEBPACK_IMPORTED_MODULE_1__);
 /* harmony import */ var _vendor_demo_theme_min_js__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./vendor/demo-theme.min.js */ "./resources/js/vendor/demo-theme.min.js");
+/* harmony import */ var _vendor_demo_theme_min_js__WEBPACK_IMPORTED_MODULE_2___default = /*#__PURE__*/__webpack_require__.n(_vendor_demo_theme_min_js__WEBPACK_IMPORTED_MODULE_2__);
 /* harmony import */ var _vendor_tabler_min_js__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ./vendor/tabler.min.js */ "./resources/js/vendor/tabler.min.js");
+/* harmony import */ var _vendor_tabler_min_js__WEBPACK_IMPORTED_MODULE_3___default = /*#__PURE__*/__webpack_require__.n(_vendor_tabler_min_js__WEBPACK_IMPORTED_MODULE_3__);
 // resources/js/app.js
 
  // qui axios viene bundlato da webpack
