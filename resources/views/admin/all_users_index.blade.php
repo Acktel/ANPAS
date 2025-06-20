@@ -1,25 +1,30 @@
 @extends('layouts.app')
 
 @section('content')
-  <div class="container-fluid">
-    <h1>Tutti gli Utenti (Admin/Supervisor)</h1>
+<div class="container-fluid">
+  <h1 class="container-title mb-4">Tutti gli Utenti (Admin/Supervisor)</h1>
 
-    <table id="allUsersTable" class="table table-bordered table-striped table-hover">
-      <thead>
-        <tr>
-          <th>Nome</th>
-          <th>Cognome</th>
-          <th>Username</th>
-          <th>Email</th>
-          <th>Associazione</th>
-          <th>Attivo</th>
-          <th>Creato il</th>
-          <th>Azioni</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
+  <div class="card-anpas">
+    <div class="card-body bg-anpas-white">
+      <table id="allUsersTable"
+             class="common-css-dataTable table table-hover table-bordered table-striped-anpas dt-responsive nowrap w-100">
+        <thead class="thead-anpas">
+          <tr>
+            <th>Nome</th>
+            <th>Cognome</th>
+            <th>Username</th>
+            <th>Email</th>
+            <th>Associazione</th>
+            <th>Attivo</th>
+            <th>Creato il</th>
+            <th>Azioni</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
   </div>
+</div>
 @endsection
 
 @push('scripts')
@@ -28,7 +33,7 @@ document.addEventListener('DOMContentLoaded', function () {
   const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
 
   $('#allUsersTable').DataTable({
-    ajax: "{{ route('all-users.data') }}", // richiama AdminAllUsersController@getData
+    ajax: "{{ route('all-users.data') }}",
     columns: [
       { data: 'firstname' },
       { data: 'lastname' },
@@ -41,18 +46,22 @@ document.addEventListener('DOMContentLoaded', function () {
       },
       {
         data: 'created_at',
-        render: date => new Date(date).toLocaleDateString()
+        render: date => new Date(date).toLocaleDateString('it-IT', {
+          year:'numeric', month:'2-digit', day:'2-digit'
+        })
       },
       {
         data: 'id',
         orderable: false,
         searchable: false,
-        render: function(id) {
+        render(id) {
           return `
-            <form action="/all-users/${id}" method="POST" style="display:inline-block;">
+            <form action="/all-users/${id}" method="POST" style="display:inline-block">
               <input type="hidden" name="_token" value="${csrfToken}">
               <input type="hidden" name="_method" value="DELETE">
-              <button type="submit" class="btn btn-danger btn-sm">Elimina</button>
+              <button type="submit" class="btn btn-sm btn-anpas-delete">
+                <i class="fas fa-trash-alt"></i>
+              </button>
             </form>
           `;
         }
@@ -61,9 +70,9 @@ document.addEventListener('DOMContentLoaded', function () {
     language: {
       url: '/js/i18n/Italian.json'
     },
-    paging:   true,
-    searching:true,
-    ordering: true
+    paging:    true,
+    searching: true,
+    ordering:  true
   });
 });
 </script>

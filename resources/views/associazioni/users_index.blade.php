@@ -4,7 +4,7 @@
 <div class="container-fluid">
 
   <div class="d-flex justify-content-between align-items-center mb-3">
-    <h1 class="text-anpas-green fw-bold">Utenti</h1>
+    <h1 class="text-anpas-green fw-bolder">Utenti</h1>
     @can('manage-own-association')
       <a href="{{ route('my-users.create') }}" class="btn btn-anpas-red">
         + Aggiungi nuovo utente
@@ -15,8 +15,8 @@
   <div class="card-anpas">
     <div class="card-body bg-anpas-white">
       <table id="allUsersTable"
-             class="table table-hover table-bordered dt-responsive nowrap w-100">
-        <thead class="table-light">
+             class="table table-hover table-bordered table-striped-anpas dt-responsive nowrap w-100">
+        <thead class="thead-anpas">
           <tr>
             <th>ID</th>
             <th>Nome</th>
@@ -69,18 +69,29 @@
             @can('manage-own-association')
               html += `
                 <a href="/my-users/${row.id}/edit"
-                   class="btn btn-sm btn-anpas-red me-1">
-                  Modifica
+                   class="btn btn-sm btn-anpas-edit me-1">
+                  <i class="fas fa-edit"></i>
                 </a>
                 <form action="/my-users/${row.id}" method="POST"
                       style="display:inline-block">
                   @csrf
                   @method('DELETE')
-                  <button type="submit" class="btn btn-sm btn-secondary">
-                    Elimina
+                  <button type="submit"
+                          class="btn btn-sm btn-anpas-delete me-1">
+                    <i class="fas fa-trash-alt"></i>
                   </button>
                 </form>`;
             @endcan
+            @if(session()->has('impersonate_original_user'))
+              html += `
+                <form action="/impersonate/${row.id}" method="POST"
+                      style="display:inline-block">
+                  @csrf
+                  <button class="btn btn-sm btn-anpas-impersonate">
+                    <i class="fas fa-user-secret"></i>
+                  </button>
+                </form>`;
+            @endif
             return html;
           }
         }
@@ -88,8 +99,8 @@
       language: {
         url: "https://cdn.datatables.net/plug-ins/1.11.3/i18n/Italian.json"
       },
-      paging: true,
-      searching: true,
+      paging:   true,
+      searching:true,
       ordering: true
     });
   });

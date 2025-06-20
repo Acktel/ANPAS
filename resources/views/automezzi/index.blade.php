@@ -1,61 +1,44 @@
 @extends('layouts.app')
 
 @section('content')
-<div class="container-fluid">
+<div class="container-fluid container-margin">
 
-  {{-- Titolo --}}
+  {{-- Titolo + Bottone --}}
   <div class="d-flex justify-content-between align-items-center mb-4">
-    <h1 class="text-anpas-green fw-bold">
+    <h1 class="container-title">
       Elenco Automezzi – Anno {{ $anno }}
     </h1>
     <a 
       href="{{ route('automezzi.create') }}" 
-      class="btn btn-anpas-red"
+      class="btn btn-anpas-green"
     >
-      + Nuovo Automezzo
+      <i class="fas fa-plus me-1"></i> Nuovo Automezzo
     </a>
   </div>
 
   {{-- Success message --}}
   @if(session('success'))
-    <div class="alert alert-success">
-      {{ session('success') }}
-    </div>
+    <div class="alert alert-success">{{ session('success') }}</div>
   @endif
 
   {{-- Messaggio di “no data” --}}
-  <div 
-    id="noDataMessage" 
-    class="alert alert-info d-none"
-  >
-    Nessun automezzo presente per l’anno 
-    {{ session('anno_riferimento', now()->year) }}.<br>
+  <div id="noDataMessage" class="alert alert-info d-none">
+    Nessun automezzo presente per l’anno {{ session('anno_riferimento', now()->year) }}.<br>
     Vuoi importare gli automezzi dall’anno precedente?
     <div class="mt-2">
-      <button 
-        id="btn-duplica-si" 
-        class="btn btn-sm btn-anpas-green me-2"
-      >
-        Sì
-      </button>
-      <button 
-        id="btn-duplica-no" 
-        class="btn btn-sm btn-secondary"
-      >
-        No
-      </button>
+      <button id="btn-duplica-si" class="btn btn-sm btn-anpas-green me-2">Sì</button>
+      <button id="btn-duplica-no" class="btn btn-sm btn-secondary">No</button>
     </div>
   </div>
 
-  {{-- Card contenitore --}}
-  <div class="card-anpas mb-4">
-    <div class="card-body p-0">
+  {{-- Tabella in card --}}
+  <div class="card-anpas mb-4 automezzi-card">
+    <div class="card-body bg-anpas-white p-0">
       <table 
         id="automezziTable" 
-        class="table table-hover table-striped table-bordered mb-0"
-        style="width:100%"
+        class="common-css-dataTable table table-hover table-striped-anpas table-bordered mb-0 w-100"
       >
-        <thead class="table-light">
+        <thead class="thead-anpas">
           <tr>
             <th>ID</th>
             <th>Associazione</th>
@@ -125,10 +108,11 @@ document.addEventListener('DOMContentLoaded', () => {
     ],
     language: {
       url: '/js/i18n/Italian.json'
-    }
+    },
+    stripeClasses: ['table-striped-anpas','']  // usa la tua classe per l’alternanza
   });
 
-  // Controlla se mostrare il messaggio “no data”
+  // Mostra/Nascondi messaggio “no data”
   fetch("{{ route('automezzi.checkDuplicazione') }}")
     .then(res => res.json())
     .then(data => {
@@ -138,10 +122,11 @@ document.addEventListener('DOMContentLoaded', () => {
     })
     .catch(console.error);
 
-  // “Sì” duplicazione
+  // Duplica – “Sì”
   document.getElementById('btn-duplica-si').addEventListener('click', function() {
-    this.disabled = true;
-    this.innerText = 'Duplicazione…';
+    const btn = this;
+    btn.disabled = true;
+    btn.innerText = 'Duplicazione…';
 
     fetch("{{ route('automezzi.duplica') }}", {
       method: 'POST',
@@ -156,12 +141,12 @@ document.addEventListener('DOMContentLoaded', () => {
     })
     .catch(err => {
       alert(err.message || 'Errore duplicazione');
-      this.disabled = false;
-      this.innerText = 'Sì';
+      btn.disabled = false;
+      btn.innerText = 'Sì';
     });
   });
 
-  // “No” duplicazione
+  // Duplica – “No”
   document.getElementById('btn-duplica-no').addEventListener('click', () => {
     document.getElementById('noDataMessage').classList.add('d-none');
   });

@@ -72,109 +72,156 @@
 
 /* Colori brand ANPAS */
 :root {
-  --anpas-green:      #00853E;
+  --anpas-green: #00853E;
   --anpas-green-dark: #006934;
-  --anpas-red:        #E30613;
-  --anpas-white:      #FFFFFF;
+  --anpas-red: #E30613;
+  --anpas-white: #FFFFFF;
 }
 
 /* Reset e sfondo pagina */
 body {
+  margin: 0;
   background-color: #f8f9fa;
 }
 
 /* Margini standard sui container “xl” */
 .container-xl {
-  padding-top:    1.5rem;
+  padding-top: 1.5rem;
   padding-bottom: 1.5rem;
 }
 
-/* Utility classes */
-.text-anpas-green { color: var(--anpas-green) !important; }
-.text-anpas-red   { color: var(--anpas-red)   !important; }
-.bg-anpas-white   { background-color: var(--anpas-white) !important; }
+/* Utility */
+.text-anpas-green {
+  color: var(--anpas-green) !important;
+}
+
+.text-anpas-red {
+  color: var(--anpas-red) !important;
+}
+
+.bg-anpas-white {
+  background-color: var(--anpas-white) !important;
+}
+
+
+.common-css-dataTable {
+  position: relative;
+  margin: 15px 0px !important;
+  top: 15px;
+}
 
 /* ============================= */
 /* TOP-BAR (logo + Utente/Anno)  */
 /* ============================= */
 
 .anpas-topbar {
-  display:        flex;
-  align-items:    center;
-  justify-content: space-between;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
   background-color: var(--anpas-white);
-  border-bottom:    4px solid var(--anpas-green);
-  padding:          0.5rem 1rem;
-  min-height:       80px;
+  border-bottom: 4px solid var(--anpas-green);
+  padding: 0.5rem 1rem;
+  min-height: 80px;
 }
 
 /* Logo a sinistra */
 .topbar-logo img {
   display: block;
-  height: 100px;
+  height: 80px;
 }
 
-/* Contenitore centrale fisso */
+/* Wrapper centrale (assoluto, centrato) */
 .topbar-center-box {
-  display:        flex;
-  align-items:    center;
-  min-width:      360px;
-  justify-content: center;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: stretch;
+  min-width: 400px;
 }
 
-/* Riquadro Utente+Anno */
+/* Contenitore Utente+Anno */
 .user-consun-box {
-  display:        flex;
-  align-items:    center;
+  display: flex;
   background-color: var(--anpas-white);
-  border:           1px solid var(--anpas-green);
+  border: 1px solid var(--anpas-green);
   border-bottom-width: 4px;
-  border-radius:     0.25rem;
-  box-shadow:        0 .125rem .25rem rgba(0,0,0,0.075);
+  box-shadow: 0 .125rem .25rem rgba(0, 0, 0, 0.075);
+  overflow: hidden;
+  height: 70px;
+  width: 100%;
 }
 
-/* Sezione “Utente” */
+/* Sezione “Utente” (75%) */
 .user-section {
-  text-align:    right;
-  padding:       0.5rem 1rem;
-  min-width:     120px;
+  flex: 2;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 0 1rem;
+  text-align: left;
 }
+
 .user-section small {
-  display: block;
-  margin-bottom: 0.2rem;
+  margin: 0;
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: var(--anpas-green);
+}
+
+.user-section .fw-bold {
+  margin-top: 0.2rem;
+  font-size: 1rem;
+  color: #333;
 }
 
 /* Separatore verticale */
 .user-consun-box .vr {
-  margin: 0;
-  border-color: var(--anpas-green);
-  height: 2rem;
-  width: 1px;
+    width: 1px;
+    background-color: rgba(0, 133, 62, 0.3);
+    margin: 0;
+    align-self: stretch;
+    height: 3.5rem;
+    border-color: var(--anpas-green);
+    background-color: var(--anpas-green);
+    position: relative;
+    top: 5px;
 }
 
-/* Sezione “Consuntivo Anno” */
+/* Sezione “Consuntivo Anno” (25%) */
 .consuntivo-section {
-  display:        flex;
-  align-items:    center;
-  padding:        0.5rem 1rem;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 0 1rem;
 }
+
 .consuntivo-section small {
-  margin-right: 0.5rem;
-  margin-bottom: 0;
-  display: block;
+  margin: 0;
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: var(--anpas-green);
+  margin-bottom: 0.2rem;
+}
+
+.consuntivo-section .d-flex {
+  align-items: center;
 }
 
 /* Pulsante check verde */
 .btn-anpas-green {
   background-color: var(--anpas-green);
-  color:            var(--anpas-white);
-  border:           none;
-  padding:          0.3rem 0.6rem;
-  display:          flex;
-  align-items:      center;
-  justify-content:  center;
-  font-size:        1rem;
+  color: var(--anpas-white);
+  border: none;
+  padding: 0.3rem 0.6rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
 }
+
 .btn-anpas-green:hover {
   background-color: var(--anpas-green-dark);
 }
@@ -183,68 +230,183 @@ body {
 /* NAVBAR INFERIORE              */
 /* ============================= */
 
-.navbar-dark .navbar-nav .nav-link {
-  color:      #FFFFFF !important;
-  transition: background-color .2s;
-}
-.navbar-dark .navbar-nav .nav-link:hover,
-.navbar-dark .navbar-nav .nav-link.active {
-  background-color: rgba(255,255,255,0.2) !important;
-  border-radius:    0.25rem;
-}
-
-/* Toggler bianco */
-.navbar-dark .navbar-toggler {
-  border-color: rgba(255,255,255,0.5);
-}
-.navbar-dark .navbar-toggler-icon {
-  filter: invert(1);
-}
-
-.user-consun-box.d-flex.shadow-sm {
-    position: relative;
-    align-items: initial;
-    left: 100%;
-    margin: 20px;
-    padding: 10px;
-  }
-
-  .text-padding-topbar {
-    padding-top: 0.5rem;
-  }
-
-  .text-center {
-    text-align: center !important;
-    padding: 5px;
-    font-weight: 600;
-}
-
-
-/* Sfondo “anpas-green” */
 .bg-anpas-green {
   background-color: var(--anpas-green) !important;
 }
 
-/* Link bianchi e semigrassetti */
 .navbar-dark .navbar-nav .nav-link {
   color: #fff !important;
-  font-weight: 600;            /* semigrassetto */
-  transition: background-color 0.2s;
+  font-weight: 600;
+  transition: background-color .2s;
 }
 
-/* Hover / Active */
 .navbar-dark .navbar-nav .nav-link:hover,
 .navbar-dark .navbar-nav .nav-link.active {
-  background-color: rgba(255,255,255,0.2) !important;
+  background-color: rgba(255, 255, 255, 0.2) !important;
   border-radius: 0.25rem;
 }
 
-/* Toggler bianco */
 .navbar-dark .navbar-toggler {
-  border-color: rgba(255,255,255,0.5);
+  border-color: rgba(255, 255, 255, 0.5);
 }
+
 .navbar-dark .navbar-toggler-icon {
   filter: invert(1);
+}
+
+/* ----------------------------- */
+/* Associazioni Table Styling    */
+/* ----------------------------- */
+
+/* Pulsante verde ANPAS */
+.btn-anpas-green {
+  background-color: var(--anpas-green) !important;
+  color: var(--anpas-white) !important;
+  border: none;
+}
+.btn-anpas-green:hover {
+  background-color: var(--anpas-green-dark) !important;
+}
+
+/* Pulsante rosso ANPAS */
+.btn-anpas-red {
+  background-color: var(--anpas-red) !important;
+  color: var(--anpas-white) !important;
+  border: none;
+}
+.btn-anpas-red:hover {
+  /* un rosso ANPAS leggermente più scuro */
+  background-color: #c00511 !important;
+}
+
+/* Titolo super‐grassetto */
+h1.fw-bolder {
+  font-weight: 900 !important;
+}
+
+/* Header table: verde chiaro opacità 15% */
+.thead-anpas th {
+  background-color: rgba(0, 133, 62, 0.15) !important;
+  color: var(--anpas-green) !important;
+  /* rimuovo bordi verticali e lascio solo bottom verde */
+  border-left:  none !important;
+  border-right: none !important;
+}
+
+/* Zebra‐striping: righe alternate più tenue */
+.table-striped-anpas,
+tr.even{
+  background-color: rgba(0, 133, 62, 0.05) !important;
+}
+/* Allineamento verticale celle */
+.table-striped-anpas td,
+.table-striped-anpas th {
+  vertical-align: middle;
+}
+
+/* Icone Font-Awesome: dimensioni e spaziatura */
+.fa-edit,
+.fa-trash-alt,
+.fa-user-secret {
+  width: 1em;
+  text-align: center;
+}
+
+.container-margin{
+  margin-top: 10px;
+}
+
+.container-title {
+  font-weight: 700;
+  font-size: 1.5rem;
+  color: var(--anpas-green);
+}
+
+/* Edit: arancio */
+.btn-anpas-edit {
+    background-color: #fd7d14 !important;
+    border: 1px solid #fd7e14 !important;
+    color: white !important;
+}
+
+.btn-anpas-edit:hover {
+  color: #fda862!important;
+}
+
+/* Delete: rosso ANPAS */
+.btn-anpas-delete {
+  background-color: var(--anpas-red)!important;
+  color: white !important;
+  border: 1px solid var(--anpas-red)!important;
+}
+.btn-anpas-delete:hover {
+  color: #ff9393!important;
+}
+
+/* Impersonate: azzurro */
+.btn-anpas-impersonate {
+  background-color: #0dcaf0!important;
+  color: white !important;
+  border: 1px solid #0dcaf0!important;
+}
+.btn-anpas-impersonate:hover {
+  color: #88def0!important;
+}
+
+/* Icone allineate */
+.btn-anpas-edit .fas,
+.btn-anpas-delete .fas,
+.btn-anpas-impersonate .fas {
+  vertical-align: middle;
+}
+
+/* Header table: */
+.thead-anpas th {
+  background-color: rgba(0,133,62,0.15) !important;
+  color: var(--anpas-green) !important;
+  border-left: none !important;
+  border-right: none !important;
+}
+
+/* Zebra striping */
+.table-striped-anpas:nth-of-type(odd) {
+  background-color: rgba(0,133,62,0.05) !important;
+}
+
+.dataTables_info,.dataTables_paginate  {
+    margin-top: 20px! important;
+}
+
+.automezzi-card{
+  top: auto;
+}
+
+/* Tutti i bottoni di paginazione (attivi e non) al passaggio del mouse */
+.dataTables_wrapper .dataTables_paginate .paginate_button:hover {
+  background-color: rgba(0, 133, 62, 0.15) !important;
+  color: var(--anpas-white) !important;
+  border: none !important;
+}
+
+/* Bottone corrente (“active”) di default */
+.dataTables_wrapper .dataTables_paginate .paginate_button.current {
+  background-color: var(--anpas-green) !important;
+  color: var(--anpas-white) !important;
+}
+
+/* E al hover, illumina un pochino di più anche il corrente */
+.dataTables_wrapper .dataTables_paginate .paginate_button.current:hover {
+  background-color: rgba(0, 133, 62, 0.45) !important;
+  color: var(--anpas-white) !important;
+}
+
+.paginate_button:hover{
+  background-color: rgba(0, 133, 62, 0.45) !important;
+  color: var(--anpas-white) !important;
+}
+
+a.btn.btn-sm.btn-anpas-edit.me-1 {
+    margin: 0px 8px;
 }
 /*!
  * Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com

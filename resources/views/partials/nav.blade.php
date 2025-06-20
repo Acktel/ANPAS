@@ -10,51 +10,44 @@ $assocCorr = 'ANPAS Piemonte';
 @endauth
 
 <nav class="anpas-topbar">
-    <div class="container-flex d-flex align-items-center">
-
-        {{-- Logo a sinistra --}}
-        <a href="{{ route('dashboard') }}" class="topbar-logo me-auto">
+    <div class="topbar-logo">
+        <a href="{{ route('dashboard') }}">
             <img src="{{ asset('images/logo.png') }}" alt="ANPAS" height="60">
         </a>
+    </div>
 
-        {{-- Riquadro Utente / Anno --}}
-        <div class="user-consun-box d-flex align-items-center shadow-sm">
+    <div class="topbar-center-box">
+        <div class="user-consun-box">
+
             {{-- Utente --}}
-            <div class="user-section text-start px-3">
-                <small class="text-anpas-green fw-bold d-block mb-1">Utente</small>
-                <div class="fw-bold text-padding-topbar">{{ $assocCorr }}</div>
+            <div class="user-section">
+                <small>Utente</small>
+                <div class="fw-bold">{{ $assocCorr }}</div>
             </div>
-
             {{-- Separatore verticale --}}
-            <div class="vr mx-0" style="height:5rem; border-color:var(--anpas-green)"></div>
-
+            <div class="vr mx-0"></div>
             {{-- Consuntivo Anno --}}
-            <form method="POST"
-                action="{{ route('anno.set') }}"
-                class="consuntivo-section d-flex align-items-center px-3 mb-0">
+            <form method="POST" action="{{ route('anno.set') }}" class="consuntivo-section">
                 @csrf
-                <div class="user-section text-start px-3">
-                    <small class="text-anpas-green fw-bold me-2 mb-0">Consuntivo Anno</small>
-                    <div class="d-flex align-items-center text-padding-topbar">
-                        <input
-                            type="number"
-                            name="anno_riferimento"
-                            min="2020" max="{{ date('Y') }}" step="1"
-                            value="{{ session('anno_riferimento', date('Y')) }}"
-                            class="form-control form-control-sm text-center"
-                            style="width:4rem;">
-
-                        <button type="submit" class="btn btn-sm btn-anpas-green ms-2 p-1">
-                            <i class="fas fa-check"></i>
-                        </button>
-                    </div>
-
+                <small>Consuntivo Anno</small>
+                <div class="d-flex align-items-center">
+                    <input
+                        type="number"
+                        name="anno_riferimento"
+                        min="2020" max="{{ date('Y') }}" step="1"
+                        value="{{ session('anno_riferimento', date('Y')) }}"
+                        class="form-control form-control-sm text-center"
+                        style="width:4rem;">
+                    <button type="submit" class="btn btn-sm btn-anpas-green ms-2 p-1">
+                        <i class="fas fa-check"></i>
+                    </button>
                 </div>
             </form>
-        </div>
 
+        </div>
     </div>
 </nav>
+
 
 
 @if(session()->has('impersonate'))

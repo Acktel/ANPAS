@@ -1,14 +1,5 @@
+{{-- resources/views/dipendenti/index.blade.php --}}
 @extends('layouts.app')
-
-@section('content')
-<div class="container-fluid">
-  {{-- Titolo dinamico a seconda della rotta --}}
-  <h1>{{ $titolo }}</h1>
-
-  @if(session('success'))
-    <div class="alert alert-success">{{ session('success') }}</div>
-  @endif
-
   @php
     $user = Auth::user();
     $isImpersonating = session()->has('impersonate');
@@ -18,38 +9,57 @@
     $hasEditRoles = $user->hasAnyRole(['SuperAdmin','Admin','Supervisor','AdminUser']) || $isImpersonating;
   @endphp
 
-  @if($hasEditRoles)
-    <a href="{{ route('dipendenti.create') }}" class="btn btn-primary mb-3">
-      + Nuovo Dipendente
-    </a>
+@section('content')
+<div class="container-fluid container-margin">
+  {{-- Titolo dinamico --}}
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="container-title">{{ $titolo }}</h1>
+    @if($hasEditRoles)
+      <a href="{{ route('dipendenti.create') }}" class="btn btn-anpas-green">
+        <i class="fas fa-plus me-1"></i> Nuovo Dipendente
+      </a>
+    @endif
+  </div>
+
+  {{-- Success message --}}
+  @if(session('success'))
+    <div class="alert alert-success">{{ session('success') }}</div>
   @endif
 
+  {{-- Messaggio “no data” --}}
   <div id="noDataMessage" class="alert alert-info d-none">
     Nessun dipendente presente per l’anno {{ session('anno_riferimento', now()->year) }}.<br>
     Vuoi importare i dipendenti dall’anno precedente?
     <div class="mt-2">
-      <button id="btn-duplica-si" class="btn btn-sm btn-success">Sì</button>
+      <button id="btn-duplica-si" class="btn btn-sm btn-anpas-green me-2">Sì</button>
       <button id="btn-duplica-no" class="btn btn-sm btn-secondary">No</button>
     </div>
   </div>
 
-  <table id="dipendentiTable" class="table table-bordered table-striped table-hover dt-responsive nowrap w-100">
-    <thead>
-      <tr>
-        <th>ID</th>
-        <th>Associazione</th>
-        <th>Anno</th>
-        <th>Nome</th>
-        <th>Cognome</th>
-        <th>Qualifica</th>
-        <th>Contratto</th>
-        <th>Livello Mansione</th>
-        <th>Creato il</th>
-        <th>Azioni</th>
-      </tr>
-    </thead>
-    <tbody></tbody>
-  </table>
+  <div class="card-anpas">
+    <div class="card-body bg-anpas-white p-0">
+      <table
+        id="dipendentiTable"
+        class="common-css-dataTable table table-hover table-striped-anpas table-bordered dt-responsive nowrap w-100 mb-0"
+      >
+        <thead class="thead-anpas">
+          <tr>
+            <th>ID</th>
+            <th>Associazione</th>
+            <th>Anno</th>
+            <th>Nome</th>
+            <th>Cognome</th>
+            <th>Qualifica</th>
+            <th>Contratto</th>
+            <th>Livello Mansione</th>
+            <th>Creato il</th>
+            <th>Azioni</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
 </div>
 @endsection
 
@@ -58,27 +68,23 @@
 <script>
 document.addEventListener('DOMContentLoaded', async function () {
   const csrfToken = document.head.querySelector('meta[name="csrf-token"]').content;
-  const isAltro = @json($isAltro);
-  const canEdit = @json($hasEditRoles);
-  const duplicazioneCheck = await fetch("{{ route('dipendenti.checkDuplicazione') }}");
-  const duplicazioneData = await duplicazioneCheck.json();
+  const isAltro     = @json($isAltro);
+  const canEdit     = @json($hasEditRoles);
+  const dupRes      = await fetch("{{ route('dipendenti.checkDuplicazione') }}");
+  const dupData     = await dupRes.json();
 
   const ajaxUrl = isAltro
     ? "{{ route('dipendenti.altro.data') }}"
     : "{{ route('dipendenti.data') }}";
 
-  const table = $('#dipendentiTable').DataTable({
-    processing: true,
-    serverSide: false,
+  $('#dipendentiTable').DataTable({
+    processing:    true,
+    serverSide:    false,
     ajax: {
       url: ajaxUrl,
-      dataSrc: function (json) {
-        // Assicura array sequenziale da oggetto keyed
-        let data = json.data;
-        if (data && !Array.isArray(data)) {
-          data = Object.values(data);
-        }
-        if (data.length === 0 && duplicazioneData.mostraMessaggio) {
+      dataSrc(json) {
+        let data = Array.isArray(json.data) ? json.data : Object.values(json.data || {});
+        if (data.length === 0 && dupData.mostraMessaggio) {
           document.getElementById('noDataMessage').classList.remove('d-none');
         }
         return data;
@@ -86,11 +92,11 @@ document.addEventListener('DOMContentLoaded', async function () {
     },
     columns: [
       { data: 'idDipendente' },
-      { data: 'Associazione' },
-      { data: 'idAnno' },
+      { data: 'Associazione'  },
+      { data: 'idAnno'        },
       { data: 'DipendenteNome' },
       { data: 'DipendenteCognome' },
-      { data: 'Qualifica' },
+      { data: 'Qualifica'     },
       { data: 'ContrattoApplicato' },
       { data: 'LivelloMansione' },
       {
@@ -101,54 +107,55 @@ document.addEventListener('DOMContentLoaded', async function () {
         data: 'idDipendente',
         orderable: false,
         searchable: false,
-        render: id => {
-          let html = `<a href="/dipendenti/${id}" class="btn btn-sm btn-info">Dettagli</a> `;
+        render(id) {
+          let html = `<a href="/dipendenti/${id}" class="btn btn-sm btn-anpas-impersonate me-1">
+                        <i class="fas fa-info-circle"></i>
+                      </a>`;
           if (canEdit) {
-            html += `<a href="/dipendenti/${id}/edit" class="btn btn-sm btn-warning">Modifica</a> `;
-            html += `
-              <form action="/dipendenti/${id}" method="POST" style="display:inline-block; margin-left:4px;">
-                <input type="hidden" name="_token" value="${csrfToken}">
-                <input type="hidden" name="_method" value="DELETE">
-                <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Sei sicuro di voler eliminare questo dipendente?')">Elimina</button>
-              </form>
-            `;
+            html += `<a href="/dipendenti/${id}/edit" class="btn btn-sm btn-anpas-edit me-1">
+                       <i class="fas fa-edit"></i>
+                     </a>
+                     <form action="/dipendenti/${id}" method="POST"
+                           style="display:inline-block; margin-left:4px;">
+                       <input type="hidden" name="_token" value="${csrfToken}">
+                       <input type="hidden" name="_method" value="DELETE">
+                       <button type="submit" class="btn btn-sm btn-anpas-delete"
+                               onclick="return confirm('Sei sicuro di voler eliminare questo dipendente?')">
+                         <i class="fas fa-trash-alt"></i>
+                       </button>
+                     </form>`;
           }
           return html;
         }
       }
     ],
-    paging: true,
-    searching: true,
-    ordering: true
+    language:     { url: '/js/i18n/Italian.json' },
+    stripeClasses:['table-striped-anpas','']
   });
 
+  // Duplica “Sì”
   document.getElementById('btn-duplica-si')?.addEventListener('click', async function () {
     const btn = this;
     btn.disabled = true;
-    btn.innerText = 'Duplicazione in corso...';
-
+    btn.innerText = 'Duplicazione in corso…';
     try {
       const res = await fetch("{{ route('dipendenti.duplica') }}", {
         method: 'POST',
         headers: { 'X-CSRF-TOKEN': csrfToken, 'Accept': 'application/json' }
       });
-      if (res.ok) {
-        document.getElementById('noDataMessage').classList.add('d-none');
-        table.ajax.reload();
-      } else {
-        const err = await res.json();
-        alert(err.message || 'Errore durante la duplicazione.');
-      }
-    } catch (e) {
-      alert('Errore di rete o duplicazione fallita.');
-      console.error(e);
+      if (!res.ok) throw await res.json();
+      $('#dipendentiTable').DataTable().ajax.reload();
+      document.getElementById('noDataMessage').classList.add('d-none');
+    } catch (err) {
+      alert(err.message || 'Errore durante la duplicazione.');
     } finally {
       btn.disabled = false;
       btn.innerText = 'Sì';
     }
   });
 
-  document.getElementById('btn-duplica-no')?.addEventListener('click', function () {
+  // Duplica “No”
+  document.getElementById('btn-duplica-no')?.addEventListener('click', () => {
     document.getElementById('noDataMessage').classList.add('d-none');
   });
 });
