@@ -406,8 +406,31 @@ tr.even{
 }
 
 a.btn.btn-sm.btn-anpas-edit.me-1 {
-    margin: 0px 8px;
+    margin: 0px 0px;
 }
+
+/* Accordion: righe alternate */
+.accordion-item:nth-of-type(odd) .accordion-header {
+  background-color: rgba(0,133,62,0.05);
+}
+.accordion-item:nth-of-type(even) .accordion-header {
+  background-color: rgba(0,133,62,0.025);
+}
+
+/* Accordion-header testo semigrassetto verde */
+.accordion-header .accordion-button {
+  font-weight: 600;
+  color: var(--anpas-green);
+}
+
+/* Override background di default collapse (quando aperto) */
+.accordion-button:not(.collapsed) {
+  background-color: rgba(0,133,62,0.1);
+}
+
+
+/* Assicura zebra‐striping via JS */
+
 /*!
  * Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com
  * License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License)
