@@ -22,7 +22,8 @@ class DatabaseSeeder extends Seeder
         $this->call(AutomezziSeeder::class);
         $this->call(TipologiaRiepilogoSeeder::class);
         $this->call(RiepilogoDatiSeeder::class);
-        $this->call(AssociazioniAdminSeeder::class);
+        $this->call(AssociazioniAdminSeeder::class);        
+        $this->call(RiepilogoDati2Seeder::class);
     }
 
 }
