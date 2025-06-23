@@ -81,18 +81,16 @@ $assocCorr = 'ANPAS Piemonte';
                 $imp = session()->has('impersonate_original_user');
                 @endphp
 
-                @if($imp || $user->hasRole('AdminUser') || $user->hasRole('User'))
-                <li class="nav-item"><a class="nav-link" href="{{ route('my-users.index') }}">Utenti</a></li>
-                @else
+            
                 @can('manage-all-associations')
                 <li class="nav-item"><a class="nav-link" href="{{ route('associazioni.index') }}">Associazioni</a></li>
                 <li class="nav-item"><a class="nav-link" href="{{ route('all-users.index') }}">Utenti</a></li>
                 <li class="nav-item"><a class="nav-link" href="{{ route('convenzioni.index') }}">Convenzioni</a></li>
                 @endcan
                 @can('manage-own-association')
+                <li class="nav-item"><a class="nav-link" href="{{ route('my-users.index') }}">Utenti</a></li>
                 <li class="nav-item"><a class="nav-link" href="{{ route('my-users.index') }}">I miei Utenti</a></li>
                 @endcan
-                @endif
 
                 {{-- Dropdown Automezzi --}}
                 <li class="nav-item dropdown">

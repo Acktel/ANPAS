@@ -24,15 +24,28 @@
         <div class="row mb-3">
           {{-- Associazione --}}
           <div class="col-md-6">
-            <label for="idAssociazione" class="form-label">Nome Associazione</label>
-            <select name="idAssociazione" id="idAssociazione" class="form-select" required>
-              <option value="">-- Seleziona Associazione --</option>
-              @foreach($associazioni as $asso)
-                <option value="{{ $asso->idAssociazione }}"
-                  {{ old('idAssociazione') == $asso->idAssociazione ? 'selected' : '' }}>
-                  {{ $asso->Associazione }}
-                </option>
-              @endforeach
+ @php
+        $assocCorr = \App\Models\Associazione::getById(Auth::user()->IdAssociazione);
+
+        @endphp
+
+        @if(session()->has('impersonate') || Auth::user()->role_id == 4)
+
+        <label class="form-label">Associazione</label>
+        <input type="text" class="form-control" value="{{ $assocCorr->Associazione }}" readonly>
+        <input type="hidden" name="idAssociazione" value="{{ $assocCorr->IdAssociazione }}">
+        @else
+        <label for="idAssociazione" class="form-label">Associazione</label>
+        <select name="idAssociazione" id="idAssociazione" class="form-select" required>
+          <option value="">-- Seleziona Associazione --</option>
+          @foreach($associazioni as $asso)
+          <option value="{{ $asso->idAssociazione }}" {{ old('idAssociazione') == $asso->idAssociazione ? 'selected' : '' }}>
+            {{ $asso->Associazione }}
+          </option>
+          @endforeach
+        </select>
+        @endif
+
             </select>
           </div>
           {{-- Anno --}}

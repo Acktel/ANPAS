@@ -25,17 +25,24 @@ class Riepilogo extends Model
         ], 'idRiepilogo');
     }
 
-    public static function addDato(int $idRiepilogo, string $descrizione, float $preventivo, float $consuntivo): void
-    {
-        DB::table('riepilogo_dati')->insert([
-            'idRiepilogo' => $idRiepilogo,
-            'descrizione' => $descrizione,
-            'preventivo'  => $preventivo,
-            'consuntivo'  => $consuntivo,
-            'created_at'  => Carbon::now(),
-            'updated_at'  => Carbon::now(),
-        ]);
+   public static function addDato(int $idRiepilogo, string $descrizione, float $preventivo, float $consuntivo, ?int $idTipologia = null): void
+{
+    $data = [
+        'idRiepilogo' => $idRiepilogo,
+        'descrizione' => $descrizione,
+        'preventivo'  => $preventivo,
+        'consuntivo'  => $consuntivo,
+        'created_at'  => now(),
+        'updated_at'  => now(),
+    ];
+
+    if (!is_null($idTipologia)) {
+        $data['idTipologiaRiepilogo'] = $idTipologia;
     }
+
+    DB::table('riepilogo_dati')->insert($data);
+}
+
 
     /**
      * 🔁 Riepiloghi per admin filtrati per anno in sessione
@@ -46,17 +53,21 @@ class Riepilogo extends Model
 
         return DB::table('riepiloghi as r')
             ->join('associazioni as s', 'r.idAssociazione', '=', 's.idAssociazione')
+            ->join('riepilogo_dati as d', 'r.idRiepilogo', '=', 'd.idRiepilogo')
+            ->where('r.idAnno', $anno)
+            ->where('d.idTipologiaRiepilogo', 1)
             ->select(
                 'r.idRiepilogo',
                 's.Associazione',
                 'r.idAnno as anno',
                 'r.created_at'
             )
-            ->where('r.idAnno', $anno)
+            ->distinct()
             ->orderBy('s.Associazione')
             ->orderBy('r.created_at', 'desc')
             ->get();
     }
+
 
     /**
      * 🔒 Riepiloghi per associazione e anno dinamico

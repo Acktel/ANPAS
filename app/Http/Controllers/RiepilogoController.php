@@ -80,7 +80,10 @@ class RiepilogoController extends Controller
         if ($user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])) {
             $riepiloghi = Riepilogo::getAllForAdmin($anno);
         } else {
-            $myId = $user->idAssociazione;
+            $myId = $user->IdAssociazione;
+            if($myId==null){
+                $myId =  $user["IdAssociazione"];
+            }
             if (!$myId) {
                 abort(403, "Associazione non trovata per l'utente.");
             }
