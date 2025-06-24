@@ -48,38 +48,32 @@ class DocumentiController extends Controller
             'idAnno'         => 'required|integer|min:2000|max:' . (date('Y') + 5),
         ]);
 
-        $registro    = Documento::getRegistroData($data['idAssociazione'], $data['idAnno']);
-        $convenz     = Documento::getConvenzioniData($data['idAssociazione'], $data['idAnno']);
-        $autoz       = Automezzo::getByAssociazione($data['idAssociazione']);
-        $autisti     = Dipendente::getAutisti();
-        $altri       = Dipendente::getAltri();
+        $registro = Documento::getRegistroData($data['idAssociazione'], $data['idAnno']);
+        $convenz  = Documento::getConvenzioniData($data['idAssociazione'], $data['idAnno']);
+        $autoz    = Automezzo::getByAssociazione($data['idAssociazione'], $data['idAnno']);
+        $autisti  = Dipendente::getAutisti($data['idAnno']);
+        $altri    = Dipendente::getAltri($data['idAnno']);
 
         $spreadsheet = new Spreadsheet();
-        // Arial 12
         $spreadsheet->getDefaultStyle()->getFont()
                     ->setName('Arial')->setSize(12);
 
-        // Sheet 1
         $sheet1 = $spreadsheet->getActiveSheet();
         $sheet1->setTitle('RIEPILOGO GENERALE');
         $this->fillRegistroDati($sheet1, $registro, $convenz);
 
-        // Sheet 2
         $sheet2 = $spreadsheet->createSheet();
         $sheet2->setTitle('REGISTRO AUTOMEZZI');
         $this->fillRegistroAutomezzi($sheet2, $autoz);
 
-        // Sheet 3
         $sheet3 = $spreadsheet->createSheet();
         $sheet3->setTitle('PERSONALE DIEPNDENTE AUTISTI');
         $this->fillPersonaleAutisti($sheet3, $autisti);
 
-        // Sheet 4
         $sheet4 = $spreadsheet->createSheet();
         $sheet4->setTitle('ALTRO PERSONALE DIPENDENTE');
         $this->fillPersonaleAltri($sheet4, $altri);
 
-        // Download
         $writer = new Xls($spreadsheet);
         $file   = "Registro_{$data['idAssociazione']}_{$data['idAnno']}.xls";
 

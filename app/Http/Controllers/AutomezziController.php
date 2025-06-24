@@ -229,7 +229,6 @@ class AutomezziController extends Controller {
     public function datatable() {
         $anno = session('anno_riferimento', now()->year);
         $user = Auth::user();
-
         $data = Automezzo::getForDataTable($anno, $user);
 
         return response()->json(['data' => $data]);

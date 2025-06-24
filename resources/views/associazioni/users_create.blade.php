@@ -60,7 +60,7 @@
           </div>
         </div>
 
-        <button type="submit" class="btn btn-anpas-red">Crea Utente</button>
+        <button type="submit" class="btn btn-anpas-green">Crea Utente</button>
         <a href="{{ route('my-users.index') }}" class="btn btn-secondary ms-2">Annulla</a>
       </form>
     </div>

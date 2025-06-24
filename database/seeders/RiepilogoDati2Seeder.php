@@ -69,17 +69,36 @@ class RiepilogoDati2Seeder extends Seeder
             ['idTipologiaRiepilogo' => 11, 'descrizione' => 'Oneri bancari e interessi', 'preventivo' => 500.00, 'consuntivo' => 546.78],
         ];
 
+        $anno = 2024;
+        $idAssociazione = 5; // Cambia se necessario
+
+        // Ottieni o crea il riepilogo corrispondente
+        $idRiepilogo = DB::table('riepiloghi')
+            ->where('idAnno', $anno)
+            ->where('idAssociazione', $idAssociazione)
+            ->value('idRiepilogo');
+
+        if (!$idRiepilogo) {
+            $idRiepilogo = DB::table('riepiloghi')->insertGetId([
+                'idAnno'         => $anno,
+                'idAssociazione' => $idAssociazione,
+                'created_at'     => now(),
+                'updated_at'     => now(),
+            ]);
+        }
+
         foreach ($dati as $voce) {
             DB::table('riepilogo_dati')->insert([
-                'idRiepilogo' => 1,
-                'idAnno' => 2024,
-                'idTipologiaRiepilogo' => $voce['idTipologiaRiepilogo'],
-                'descrizione' => $voce['descrizione'],
-                'preventivo' => $voce['preventivo'],
-                'consuntivo' => $voce['consuntivo'],
-                'created_at' => now(),
-                'updated_at' => now(),
+                'idRiepilogo'           => $idRiepilogo,
+                'idAnno'                => $anno,
+                'idTipologiaRiepilogo'  => $voce['idTipologiaRiepilogo'],
+                'descrizione'           => $voce['descrizione'],
+                'preventivo'            => $voce['preventivo'],
+                'consuntivo'            => $voce['consuntivo'],
+                'created_at'            => now(),
+                'updated_at'            => now(),
             ]);
         }
     }
 }
+

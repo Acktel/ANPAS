@@ -35,10 +35,6 @@ class RiepilogoController extends Controller
             'riep_preventivo.*'   => 'nullable|numeric|min:0',
             'riep_consuntivo'     => 'nullable|array',
             'riep_consuntivo.*'   => 'nullable|numeric|min:0',
-            'tab_descrizione'     => 'nullable|array',
-            'tab_descrizione.*'   => 'nullable|string|max:500',
-            'tab_lettera'         => 'nullable|array',
-            'tab_lettera.*'       => 'nullable|string|max:5',
         ];
 
         $validated = $request->validate($rules);
@@ -53,20 +49,21 @@ class RiepilogoController extends Controller
             if (!empty($validated['riep_descrizione'])) {
                 foreach ($validated['riep_descrizione'] as $i => $descr) {
                     if (trim($descr) === '') continue;
+
                     $prev = $validated['riep_preventivo'][$i] ?? 0;
                     $cons = $validated['riep_consuntivo'][$i] ?? 0;
+
                     Riepilogo::addDato($idRiepilogo, $descr, (float) $prev, (float) $cons);
                 }
             }
 
             DB::commit();
-            return redirect()
-                ->route('riepiloghi.index')
+            return redirect()->route('riepiloghi.index')
                 ->with('success', 'Riepilogo e convenzioni salvate correttamente.');
-        } catch (\Exception $e) {
+
+        } catch (\Throwable $e) {
             DB::rollBack();
-            return redirect()
-                ->back()
+            return redirect()->back()
                 ->withInput()
                 ->withErrors(['error' => 'Errore interno: impossibile salvare i dati.']);
         }
@@ -80,14 +77,13 @@ class RiepilogoController extends Controller
         if ($user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])) {
             $riepiloghi = Riepilogo::getAllForAdmin($anno);
         } else {
-            $myId = $user->IdAssociazione;
-            if($myId==null){
-                $myId =  $user["IdAssociazione"];
-            }
-            if (!$myId) {
+            $idAssociazione = $user->IdAssociazione ?? null;
+
+            if (!$idAssociazione) {
                 abort(403, "Associazione non trovata per l'utente.");
             }
-            $riepiloghi = Riepilogo::getByAssociazione($myId, $anno);
+
+            $riepiloghi = Riepilogo::getByAssociazione($idAssociazione, $anno);
         }
 
         return view('riepiloghi.index', compact('riepiloghi'));
@@ -139,18 +135,20 @@ class RiepilogoController extends Controller
             );
 
             Riepilogo::deleteDati($riepilogo->idRiepilogo);
+
             if (!empty($validated['riep_descrizione'])) {
                 foreach ($validated['riep_descrizione'] as $i => $descr) {
                     if (trim($descr) === '') continue;
+
                     $prev = $validated['riep_preventivo'][$i] ?? 0;
                     $cons = $validated['riep_consuntivo'][$i] ?? 0;
+
                     Riepilogo::addDato($riepilogo->idRiepilogo, $descr, (float) $prev, (float) $cons);
                 }
             }
         });
 
-        return redirect()
-            ->route('riepiloghi.index')
+        return redirect()->route('riepiloghi.index')
             ->with('success', 'Riepilogo aggiornato correttamente.');
     }
 
@@ -161,8 +159,7 @@ class RiepilogoController extends Controller
             Riepilogo::deleteRiepilogo($riepilogo->idRiepilogo);
         });
 
-        return redirect()
-            ->route('riepiloghi.index')
+        return redirect()->route('riepiloghi.index')
             ->with('success', 'Riepilogo eliminato correttamente.');
     }
 
@@ -175,6 +172,8 @@ class RiepilogoController extends Controller
             ->join('associazioni as s', 'r.idAssociazione', '=', 's.idAssociazione')
             ->join('anni as a', 'r.idAnno', '=', 'a.idAnno')
             ->join('riepilogo_dati as d', 'r.idRiepilogo', '=', 'd.idRiepilogo')
+            ->where('d.idTipologiaRiepilogo', 1)
+            ->where('r.idAnno', $anno)
             ->select([
                 's.Associazione',
                 'r.idAnno as anno',
@@ -184,12 +183,15 @@ class RiepilogoController extends Controller
                 'd.consuntivo',
                 'r.idRiepilogo as actions_id',
             ])
-            ->where('r.idAnno', $anno)
             ->orderBy('s.Associazione')
             ->orderBy('r.idAnno', 'desc');
 
-        if (! $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])) {
-            $q->where('r.idAssociazione', $user->IdAssociazione);
+        if (!$user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])) {
+            $idAssociazione = $user->IdAssociazione ?? null;
+            if (!$idAssociazione) {
+                return response()->json(['data' => []]); // niente dati
+            }
+            $q->where('r.idAssociazione', $idAssociazione);
         }
 
         return response()->json(['data' => $q->get()]);

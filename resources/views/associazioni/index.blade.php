@@ -16,6 +16,7 @@
         <th>Email</th>
         <th>Provincia</th>
         <th>Città</th>
+        <th>Indirizzo</th>
         <th>Azioni</th>
       </tr>
     </thead>
@@ -42,6 +43,9 @@
         },
         {
           data: 'citta'
+        },
+        {
+          data: 'indirizzo'
         },
         {
           data: null,

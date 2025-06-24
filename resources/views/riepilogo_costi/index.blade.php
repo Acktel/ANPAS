@@ -57,19 +57,35 @@
             </div>
             <table id="table-sezione-{{ $id }}"
                    class="common-css-dataTable table table-hover table-striped-anpas table-bordered w-100 mb-0">
-              <thead class="thead-anpas"><tr>
-                <th>Voce</th>
-                <th>Preventivo</th>
-                <th>Consuntivo</th>
-                <th>% Scostamento</th>
-                <th>Azioni</th>
-              </tr></thead>
+              <thead class="thead-anpas">
+                <tr>
+                  <th>Voce</th>
+                  <th>Preventivo</th>
+                  <th>Consuntivo</th>
+                  <th>% Scostamento</th>
+                  <th>Azioni</th>
+                </tr>
+              </thead>
               <tbody></tbody>
             </table>
           </div>
         </div>
       </div>
     @endforeach
+
+    {{-- Totale Generale --}}
+<div class="accordion-item mt-4">
+  <div class="accordion-header bg-light text-dark fw-bold py-3 px-4 border rounded">
+    <div class="row w-100 text-start gx-2">
+      <div class="col-5">Totale generale</div>
+      <div class="col-2" id="tot-prev">€0.00</div>
+      <div class="col-2" id="tot-cons">€0.00</div>
+      <div class="col-2" id="tot-scos">0%</div>
+    </div>
+  </div>
+</div>
+
+
   </div>
 </div>
 @endsection
@@ -79,6 +95,9 @@
 document.addEventListener('DOMContentLoaded', function () {
   const italian = "https://cdn.datatables.net/plug-ins/1.11.3/i18n/it_it.json";
   const csrf = document.head.querySelector('meta[name="csrf-token"]').content;
+
+  let totalePreventivo = 0;
+  let totaleConsuntivo = 0;
 
   const sezioni = @json($sezioni);
   Object.keys(sezioni).forEach(id => {
@@ -95,28 +114,59 @@ document.addEventListener('DOMContentLoaded', function () {
       stripeClasses: ['table-striped-anpas',''],
       initComplete(settings, json) {
         let prev = 0, cons = 0;
-        json.data.forEach(r => { prev += +r.preventivo; cons += +r.consuntivo; });
+        json.data.forEach(r => {
+          prev += parseFloat(r.preventivo) || 0;
+          cons += parseFloat(r.consuntivo) || 0;
+        });
+
         const sc = prev ? (((cons - prev) / prev) * 100).toFixed(2) + '%' : '0%';
+
+        // Sezione corrente
         document.getElementById(`summary-prev-${id}`).textContent = '€' + prev.toFixed(2);
         document.getElementById(`summary-cons-${id}`).textContent = '€' + cons.toFixed(2);
         document.getElementById(`summary-scos-${id}`).textContent = sc;
+
+        // Totali generali
+        totalePreventivo += prev;
+        totaleConsuntivo += cons;
+        const totScostamento = totalePreventivo
+          ? (((totaleConsuntivo - totalePreventivo) / totalePreventivo) * 100).toFixed(2) + '%'
+          : '0%';
+
+        document.getElementById('tot-prev').textContent = '€' + totalePreventivo.toFixed(2);
+        document.getElementById('tot-cons').textContent = '€' + totaleConsuntivo.toFixed(2);
+        document.getElementById('tot-scos').textContent = totScostamento;
       }
     });
   });
 
-  // duplicazione
+  // Duplicazione voci
   fetch("{{ route('riepilogo.costi.checkDuplicazione') }}")
-    .then(r => r.json()).then(d => d.mostraMessaggio && document.getElementById('noDataMessage').classList.remove('d-none'));
+    .then(r => r.json())
+    .then(d => {
+      if (d.mostraMessaggio) {
+        document.getElementById('noDataMessage').classList.remove('d-none');
+      }
+    });
 
-  document.getElementById('btn-duplica-si')?.addEventListener('click', async function(){
+  document.getElementById('btn-duplica-si')?.addEventListener('click', async function () {
     this.disabled = true;
     this.innerText = 'Duplicazione…';
+
     const res = await fetch("{{ route('riepilogo.costi.duplica') }}", {
       method: 'POST',
-      headers: { 'X-CSRF-TOKEN': csrf, 'Accept': 'application/json' }
+      headers: {
+        'X-CSRF-TOKEN': csrf,
+        'Accept': 'application/json'
+      }
     });
+
     if (res.ok) location.reload();
-    else { alert('Errore duplicazione'); this.disabled = false; this.innerText = 'Sì'; }
+    else {
+      alert('Errore duplicazione');
+      this.disabled = false;
+      this.innerText = 'Sì';
+    }
   });
 
   document.getElementById('btn-duplica-no')?.addEventListener('click', () => {

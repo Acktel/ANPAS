@@ -10,22 +10,23 @@ use App\Models\RiepilogoCosti;
 use Illuminate\Http\JsonResponse;
 
 class RiepilogoCostiController extends Controller {
+
     public function index() {
         $anno = session('anno_riferimento', now()->year);
-        $idAssociazione = Auth::user()->IdAssociazione;
+        $idAssociazione = Auth::user()->IdAssociazione ?? null;
 
-        return view('riepilogo_costi.index', data: compact('anno', 'idAssociazione'));
+        return view('riepilogo_costi.index', compact('anno', 'idAssociazione'));
     }
 
     public function getSezione($idTipologia) {
         $anno = session('anno_riferimento', now()->year);
-        $idAssociazione = Auth::user()->IdAssociazione;
+        $user = Auth::user();
+        $idAssociazione = $user->hasRole('SuperAdmin') ? null : $user->IdAssociazione;
 
         $data = RiepilogoCosti::getByTipologia($idTipologia, $anno, $idAssociazione);
 
         return response()->json(['data' => $data]);
     }
-
 
     public function store(Request $request) {
         $request->validate([
@@ -35,12 +36,13 @@ class RiepilogoCostiController extends Controller {
             'consuntivo'           => 'required|numeric',
         ]);
 
-        $idAssociazione = Auth::user()->IdAssociazione;
+        $user = Auth::user();
+        $idAssociazione = $user->hasRole('SuperAdmin') ? 1 : $user->IdAssociazione; // usa 1 come default se superadmin
         $anno = session('anno_riferimento', now()->year);
 
         $riepilogoId = RiepilogoCosti::getOrCreateRiepilogo($idAssociazione, $anno);
 
-        Log::info('Salvataggio voce riepilogo', $request->all());
+        Log::info('Salvataggio voce riepilogo', $request->toArray());
 
         RiepilogoCosti::createVoce([
             'idRiepilogo'           => $riepilogoId,
@@ -53,7 +55,6 @@ class RiepilogoCostiController extends Controller {
 
         return redirect()->route('riepilogo.costi')->with('success', 'Voce inserita correttamente');
     }
-
 
     private function getTitoloSezione($idTipologia) {
         $sezioni = [
@@ -79,7 +80,7 @@ class RiepilogoCostiController extends Controller {
     }
 
     public function edit($id) {
-        $voce = \DB::table('riepilogo_dati')->where('id', $id)->first();
+        $voce = DB::table('riepilogo_dati')->where('id', $id)->first();
 
         if (! $voce) {
             abort(404, 'Voce non trovata');
@@ -98,18 +99,18 @@ class RiepilogoCostiController extends Controller {
             'consuntivo'  => 'required|numeric',
         ]);
 
-        $record = \DB::table('riepilogo_dati')->where('id', $id)->first();
+        $record = DB::table('riepilogo_dati')->where('id', $id)->first();
 
         if (! $record) {
             abort(404, 'Voce non trovata');
         }
 
-        \DB::table('riepilogo_dati')
+        DB::table('riepilogo_dati')
             ->where('id', $id)
             ->update([
-                'descrizione' => $request->input('descrizione'),
-                'preventivo'  => $request->input('preventivo'),
-                'consuntivo'  => $request->input('consuntivo'),
+                'descrizione' => $request->descrizione,
+                'preventivo'  => $request->preventivo,
+                'consuntivo'  => $request->consuntivo,
                 'updated_at'  => now(),
             ]);
 
@@ -117,129 +118,14 @@ class RiepilogoCostiController extends Controller {
     }
 
     public function destroy($id) {
-        $voce = \DB::table('riepilogo_dati')->where('id', $id)->first();
+        $voce = DB::table('riepilogo_dati')->where('id', $id)->first();
 
         if (! $voce) {
             abort(404, 'Voce non trovata');
         }
 
-        \DB::table('riepilogo_dati')->where('id', $id)->delete();
+        DB::table('riepilogo_dati')->where('id', $id)->delete();
 
         return redirect()->route('riepilogo.costi')->with('success', 'Voce eliminata con successo');
-    }
-
-
-    public function importFromPreviousYear($idTipologia) {
-        $anno = session('anno_riferimento', now()->year);
-        $annoPrec = $anno - 1;
-        $idAssociazione = Auth::user()->IdAssociazione;
-
-        // Recupera idRiepilogo per l’anno corrente (lo crea se non c’è)
-        $idRiepilogo = RiepilogoCosti::getOrCreateRiepilogo($idAssociazione, $anno);
-
-        // Voci dall’anno precedente
-        $vociPrec = DB::table('riepilogo_dati as rd')
-            ->join('riepiloghi as r', 'rd.idRiepilogo', '=', 'r.idRiepilogo')
-            ->where('r.idAnno', $annoPrec)
-            ->where('r.idAssociazione', $idAssociazione)
-            ->where('rd.idTipologiaRiepilogo', $idTipologia)
-            ->select('rd.descrizione', 'rd.idTipologiaRiepilogo')
-            ->get();
-
-        if ($vociPrec->isEmpty()) {
-            return back()->with('warning', 'Nessuna voce trovata per l\'anno precedente.');
-        }
-
-        // Verifica che l’anno corrente sia vuoto
-        $vociCorr = DB::table('riepilogo_dati as rd')
-            ->join('riepiloghi as r', 'rd.idRiepilogo', '=', 'r.idRiepilogo')
-            ->where('r.idAnno', $anno)
-            ->where('r.idAssociazione', $idAssociazione)
-            ->where('rd.idTipologiaRiepilogo', $idTipologia)
-            ->exists();
-
-        if ($vociCorr) {
-            return back()->with('error', 'Dati già presenti per l\'anno corrente.');
-        }
-
-        // Inserisci voci
-        foreach ($vociPrec as $voce) {
-            DB::table('riepilogo_dati')->insert([
-                'idRiepilogo' => $idRiepilogo,
-                'idAnno' => $anno,
-                'idTipologiaRiepilogo' => $voce->idTipologiaRiepilogo,
-                'descrizione' => $voce->descrizione,
-                'preventivo' => 0,
-                'consuntivo' => 0,
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
-        }
-
-        return back()->with('success', 'Voci importate da anno precedente con successo.');
-    }
-
-    public function checkDuplicazione(): JsonResponse {
-        $anno = session('anno_riferimento', now()->year);
-        $annoPrec = $anno - 1;
-        $idAssoc = Auth::user()->IdAssociazione;
-
-        $correnteVuoto = DB::table('riepiloghi')
-            ->where('idAssociazione', $idAssoc)
-            ->where('idAnno', $anno)
-            ->doesntExist();
-
-        $precedentePieno = DB::table('riepilogo_dati as rd')
-            ->join('riepiloghi as r', 'rd.idRiepilogo', '=', 'r.idRiepilogo')
-            ->where('r.idAssociazione', $idAssoc)
-            ->where('r.idAnno', $annoPrec)
-            ->exists();
-        
-        return response()->json([
-            'mostraMessaggio' => $correnteVuoto && $precedentePieno,
-            'annoCorrente' => $anno,
-            'annoPrecedente' => $annoPrec,
-        ]);
-    }
-
-    public function duplicaDaAnnoPrecedente(Request $request): JsonResponse {
-        $anno = session('anno_riferimento', now()->year);
-        $annoPrec = $anno - 1;
-        $idAssoc = Auth::user()->IdAssociazione;
-
-        $vociPrec = DB::table('riepilogo_dati as rd')
-            ->join('riepiloghi as r', 'rd.idRiepilogo', '=', 'r.idRiepilogo')
-            ->where('r.idAssociazione', $idAssoc)
-            ->where('r.idAnno', $annoPrec)
-            ->select('rd.descrizione', 'rd.idTipologiaRiepilogo')
-            ->get();
-
-        if ($vociPrec->isEmpty()) {
-            return response()->json(['message' => 'Nessuna voce da importare.'], 404);
-        }
-
-        $idRiepilogo = RiepilogoCosti::getOrCreateRiepilogo($idAssoc, $anno);
-
-        DB::beginTransaction();
-        try {
-            foreach ($vociPrec as $voce) {
-                DB::table('riepilogo_dati')->insert([
-                    'idRiepilogo' => $idRiepilogo,
-                    'idAnno' => $anno,
-                    'idTipologiaRiepilogo' => $voce->idTipologiaRiepilogo,
-                    'descrizione' => $voce->descrizione,
-                    'preventivo' => 0,
-                    'consuntivo' => 0,
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ]);
-            }
-
-            DB::commit();
-            return response()->json(['message' => 'Voci duplicate con successo']);
-        } catch (\Throwable $e) {
-            DB::rollBack();
-            return response()->json(['message' => 'Errore duplicazione dati.'], 500);
-        }
     }
 }

@@ -23,6 +23,7 @@ class Associazione {
                 'a.email',
                 'a.provincia',
                 'a.citta',
+                'a.indirizzo',
                 'a.active',
                 'a.deleted_at',
                 DB::raw('MIN(u.id) as supervisor_user_id')
@@ -34,6 +35,7 @@ class Associazione {
                 'a.email',
                 'a.provincia',
                 'a.citta',
+                'a.indirizzo',
                 'a.active',
                 'a.deleted_at'
             );

@@ -362,3 +362,14 @@ a.btn.btn-sm.btn-anpas-edit.me-1 {
 
 
 /* Assicura zebra‐striping via JS */
+.text-start.gx-2 {
+    color: #007bff;
+    font-weight: 600;
+}
+
+.kmTh{
+  background-color: rgba(0,133,62,0.15) !important;
+  color: var(--anpas-green) !important;
+  border-left: none !important;
+  border-right: none !important;
+}

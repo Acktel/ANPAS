@@ -6,7 +6,7 @@
   <div class="d-flex justify-content-between align-items-center mb-3">
     <h1 class="text-anpas-green fw-bolder">Utenti</h1>
     @can('manage-own-association')
-      <a href="{{ route('my-users.create') }}" class="btn btn-anpas-red">
+      <a href="{{ route('my-users.create') }}" class="btn btn-anpas-green">
         + Aggiungi nuovo utente
       </a>
     @endcan
