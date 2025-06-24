@@ -5,13 +5,13 @@
   <h1 class="container-title mb-4">Nuovo Automezzo</h1>
 
   @if ($errors->any())
-    <div class="alert alert-danger">
-      <ul class="mb-0">
-        @foreach ($errors->all() as $error)
-          <li>{{ $error }}</li>
-        @endforeach
-      </ul>
-    </div>
+  <div class="alert alert-danger">
+    <ul class="mb-0">
+      @foreach ($errors->all() as $error)
+      <li>{{ $error }}</li>
+      @endforeach
+    </ul>
+  </div>
   @endif
 
   <div class="card-anpas">
@@ -22,41 +22,53 @@
         {{-- RIGA 1: Associazione | Anno --}}
         <div class="row mb-3">
           <div class="col-md-6">
-             @php
-        $assocCorr = \App\Models\Associazione::getById(Auth::user()->IdAssociazione);
+            @php
+            $assocCorr = \App\Models\Associazione::getById(Auth::user()->IdAssociazione);
 
-        @endphp
+            @endphp
 
-        @if(session()->has('impersonate') || Auth::user()->role_id == 4)
+            @if(session()->has('impersonate') || Auth::user()->role_id == 4)
 
-        <label class="form-label">Associazione</label>
-        <input type="text" class="form-control" value="{{ $assocCorr->Associazione }}" readonly>
-        <input type="hidden" name="idAssociazione" value="{{ $assocCorr->IdAssociazione }}">
-        @else
-        <label for="idAssociazione" class="form-label">Associazione</label>
-        <select name="idAssociazione" id="idAssociazione" class="form-select" required>
-          <option value="">-- Seleziona Associazione --</option>
-          @foreach($associazioni as $asso)
-          <option value="{{ $asso->idAssociazione }}" {{ old('idAssociazione') == $asso->idAssociazione ? 'selected' : '' }}>
-            {{ $asso->Associazione }}
-          </option>
-          @endforeach
-        </select>
-        @endif
+            <label class="form-label">Associazione</label>
+            <input type="text" class="form-control" value="{{ $assocCorr->Associazione }}" readonly>
+            <input type="hidden" name="idAssociazione" value="{{ $assocCorr->IdAssociazione }}">
+            @else
+            <label for="idAssociazione" class="form-label">Associazione</label>
+            <select name="idAssociazione" id="idAssociazione" class="form-select" required>
+              <option value="">-- Seleziona Associazione --</option>
+              @foreach($associazioni as $asso)
+              <option value="{{ $asso->idAssociazione }}" {{ old('idAssociazione') == $asso->idAssociazione ? 'selected' : '' }}>
+                {{ $asso->Associazione }}
+              </option>
+              @endforeach
+            </select>
+            @endif
 
 
           </div>
+          @php
+          $annoCorr = session('anno_riferimento', now()->year);
+          @endphp
+
+          @if(session()->has('impersonate') || Auth::user()->role_id == 4)
+          <div class="col-md-6">
+            <label class="form-label">Anno</label>
+            <input type="text" class="form-control" value="{{ $annoCorr }}" readonly>
+            <input type="hidden" name="idAnno" value="{{ $annoCorr }}">
+          </div>
+          @else
           <div class="col-md-6">
             <label for="idAnno" class="form-label">Anno</label>
             <select name="idAnno" id="idAnno" class="form-select" required>
               <option value="">-- Seleziona Anno --</option>
               @foreach($anni as $y)
-                <option value="{{ $y->idAnno }}" {{ old('idAnno') == $y->idAnno ? 'selected' : '' }}>
-                  {{ $y->anno }}
-                </option>
+              <option value="{{ $y->idAnno }}" {{ old('idAnno', $annoCorr) == $y->idAnno ? 'selected' : '' }}>
+                {{ $y->anno }}
+              </option>
               @endforeach
             </select>
           </div>
+          @endif
         </div>
 
         {{-- RIGA 2: Nome Automezzo | Targa --}}

@@ -8,10 +8,12 @@
   <h1 class="container-title mb-4">Elenco Dati Caratteristici</h1>
 
   {{-- Pulsante “Nuovo” --}}
-  <div class="mb-3">
+  <div class="d-flex mb-3">
+      <div class="ms-auto">
     <a href="{{ route('riepiloghi.create') }}" class="btn btn-anpas-green">
       <i class="fas fa-plus me-1"></i> Nuovo Riepilogo
     </a>
+    </div>
   </div>
 
   {{-- Tabella --}}

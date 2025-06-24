@@ -48,18 +48,29 @@
         @endif
 
           </div>
-          <div class="col-md-6">
-            <label for="idAnno" class="form-label">Anno</label>
-            <select name="idAnno" id="idAnno" class="form-select" required>
-              <option value="">-- Seleziona Anno --</option>
-              @foreach($anni as $y)
-                <option value="{{ $y->idAnno }}"
-                  {{ old('idAnno', $automezzo->idAnno) == $y->idAnno ? 'selected' : '' }}>
-                  {{ $y->anno }}
-                </option>
-              @endforeach
-            </select>
-          </div>
+@php
+  $annoCorr = session('anno_riferimento', now()->year);
+@endphp
+
+@if(session()->has('impersonate') || Auth::user()->role_id == 4)
+  <div class="col-md-6">
+    <label class="form-label">Anno</label>
+    <input type="text" class="form-control" value="{{ $annoCorr }}" readonly>
+    <input type="hidden" name="idAnno" value="{{ $annoCorr }}">
+  </div>
+@else
+  <div class="col-md-6">
+    <label for="idAnno" class="form-label">Anno</label>
+    <select name="idAnno" id="idAnno" class="form-select" required>
+      <option value="">-- Seleziona Anno --</option>
+      @foreach($anni as $y)
+        <option value="{{ $y->idAnno }}" {{ old('idAnno', $annoCorr) == $y->idAnno ? 'selected' : '' }}>
+          {{ $y->anno }}
+        </option>
+      @endforeach
+    </select>
+  </div>
+@endif
         </div>
 
         {{-- RIGA 2: Nome Automezzo | Targa --}}

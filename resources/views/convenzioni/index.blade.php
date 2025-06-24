@@ -10,12 +10,14 @@
     <div class="alert alert-success">{{ session('success') }}</div>
   @endif
 
-  <div class="d-flex mb-3">
+<div class="d-flex mb-3">
+  <div class="ms-auto">
     <a href="{{ route('convenzioni.create') }}"
-       class="btn btn-anpas-green me-2">
+       class="btn btn-anpas-green">
       <i class="fas fa-plus me-1"></i> Nuova Convenzione
     </a>
   </div>
+</div>
 
   <div id="noDataMessage" class="alert alert-info d-none">
     Nessuna convenzione presente per l’anno {{ session('anno_riferimento', now()->year) }}.<br>
