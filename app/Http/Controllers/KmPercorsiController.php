@@ -91,24 +91,23 @@ public function getData()
 
 
     public function edit(int $id) {
-        $anno = session('anno_riferimento', now()->year);
-        $automezzo = Automezzo::getById($id, $anno);
-        $convenzioni = Convenzione::getByAnno($anno, Auth::user())->sortBy('idConvenzione')->values();
-        $kmEsistenti = AutomezzoKm::getKmPerConvenzione($automezzo->idAutomezzo, $anno);
+    $anno = session('anno_riferimento', now()->year);
+    $automezzo = Automezzo::getById($id, $anno);
+    $convenzioni = Convenzione::getByAnno($anno, Auth::user())->sortBy('idConvenzione')->values();
+    $kmEsistenti = AutomezzoKm::getKmPerConvenzione($automezzo->idAutomezzo, $anno);
 
-        return view('km_percorsi.edit', compact('automezzo', 'convenzioni', 'kmEsistenti'));
-    }
+    return view('km_percorsi.edit', compact('automezzo', 'convenzioni', 'kmEsistenti'));
+}
 
-    public function create() {
-        $anno = session('anno_riferimento', now()->year);
-        $user = Auth::user();
+public function create() {
+    $anno = session('anno_riferimento', now()->year);
+    $user = Auth::user();
 
-        $automezzi = Automezzo::getLightForAnno($anno, $user->isSuperAdmin() ? null : $user->idAssociazione);
-        $convenzioni = Convenzione::getByAnno($anno, $user)->sortBy('idConvenzione')->values();
+    $automezzi = Automezzo::getLightForAnno($anno, ($user->isSuperAdmin() || $user->isAdmin()) ? null : $user->idAssociazione);
+    $convenzioni = Convenzione::getByAnno($anno, $user)->sortBy('idConvenzione')->values();
 
-        return view('km_percorsi.create', compact('automezzi', 'convenzioni'));
-    }
-
+    return view('km_percorsi.create', compact('automezzi', 'convenzioni'));
+}
 
     public function store(Request $request) {
         $request->validate([

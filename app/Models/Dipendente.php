@@ -35,29 +35,35 @@ class Dipendente {
     /**
      * Elenco dipendenti per associazione e anno.
      */
-    public static function getByAssociazione(int $idAssociazione, int $anno) {
-        $sql = "
-            SELECT
-                d.idDipendente,
-                s.Associazione,
-                d.idAnno,
-                d.DipendenteNome,
-                d.DipendenteCognome,
-                d.Qualifica,
-                d.ContrattoApplicato,
-                d.LivelloMansione,
-                d.created_at
-            FROM dipendenti d
-            JOIN associazioni s ON d.idAssociazione = s.idAssociazione
-            WHERE d.idAssociazione = :idAssociazione AND d.idAnno = :anno
-            ORDER BY d.DipendenteCognome, d.DipendenteNome
-        ";
+public static function getByAssociazione(?int $idAssociazione, int $anno) {
+    $sql = "
+        SELECT
+            d.idDipendente,
+            s.Associazione,
+            d.idAnno,
+            d.DipendenteNome,
+            d.DipendenteCognome,
+            d.Qualifica,
+            d.ContrattoApplicato,
+            d.LivelloMansione,
+            d.created_at
+        FROM dipendenti d
+        JOIN associazioni s ON d.idAssociazione = s.idAssociazione
+        WHERE d.idAnno = :anno
+    ";
 
-        return collect(DB::select($sql, [
-            'idAssociazione' => $idAssociazione,
-            'anno' => $anno,
-        ]));
+    $params = ['anno' => $anno];
+
+    if (!is_null($idAssociazione)) {
+        $sql .= " AND d.idAssociazione = :idAssociazione";
+        $params['idAssociazione'] = $idAssociazione;
     }
+
+    $sql .= " ORDER BY d.DipendenteCognome, d.DipendenteNome";
+
+    return collect(DB::select($sql, $params));
+}
+
 
     /**
      * Dipendenti con qualifica contenente 'AUTISTA' per anno.

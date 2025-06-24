@@ -231,9 +231,16 @@ class DipendenteController extends Controller {
     public function duplicaAnnoPrecedente(Request $request) {
         $annoCorrente = session('anno_riferimento', now()->year);
         $annoPrecedente = $annoCorrente - 1;
-        $idAssociazione = Auth::user()->IdAssociazione;
 
-        // Seleziona tutti i dipendenti dell’anno precedente
+        $user = Auth::user();
+        $idAssociazione = $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])
+            ? 1
+            : $user->IdAssociazione;
+
+        if (! $idAssociazione) {
+            abort(403, "Associazione non valida per duplicazione.");
+        }
+
         $vecchi = DB::table('dipendenti')
             ->where('idAssociazione', $idAssociazione)
             ->where('idAnno', $annoPrecedente)
@@ -243,7 +250,6 @@ class DipendenteController extends Controller {
             return response()->json(['message' => 'Nessun dipendente da copiare.'], 404);
         }
 
-        // Duplica per l’anno corrente
         foreach ($vecchi as $d) {
             DB::table('dipendenti')->insert([
                 'idAssociazione'     => $d->idAssociazione,
@@ -261,21 +267,39 @@ class DipendenteController extends Controller {
         return response()->json(['message' => 'Dipendenti duplicati con successo.']);
     }
 
-    public function checkDuplicazioneDisponibile(): JsonResponse {
-        $annoCorrente = session('anno_riferimento', now()->year);
-        $annoPrecedente = $annoCorrente - 1;
-        $user = Auth::user();
-        $idAssoc = $user->IdAssociazione;
+public function checkDuplicazioneDisponibile(): JsonResponse {
+    $annoCorrente    = session('anno_riferimento', now()->year);
+    $annoPrecedente  = $annoCorrente - 1;
+    $user            = Auth::user();
+    $isImpersonating = session()->has('impersonate');
+    $isElevatedUser  = !$isImpersonating && $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor']);
 
-        $vuotoCorrente = Dipendente::getByAssociazione($idAssoc, $annoCorrente)->isEmpty();
-        $pienoPrecedente = Dipendente::getByAssociazione($idAssoc, $annoPrecedente)->isNotEmpty();
+    // Forza idAssociazione per tutti i casi (anche elevati)
+    $idAssociazione = $user->IdAssociazione;
 
+    // Se non ha associazione e NON è un utente elevato → blocca
+    if (!$idAssociazione && ! $isElevatedUser) {
         return response()->json([
-            'mostraMessaggio' => $vuotoCorrente && $pienoPrecedente,
-            'annoCorrente' => $annoCorrente,
-            'annoPrecedente' => $annoPrecedente
-        ]);
+            'mostraMessaggio' => false,
+            'errore' => 'Associazione non disponibile per questo utente.',
+        ], 400);
     }
+    if( $isElevatedUser ){
+        $idAssociazione = null;
+    }
+
+    // Se l'associazione è disponibile (o è un utente elevato), procedi col check
+    $vuotoCorrente    = Dipendente::getByAssociazione($idAssociazione, $annoCorrente)->isEmpty();
+    $pienoPrecedente  = Dipendente::getByAssociazione($idAssociazione, $annoPrecedente)->isNotEmpty();
+
+    return response()->json([
+        'mostraMessaggio'  => $vuotoCorrente && $pienoPrecedente,
+        'annoCorrente'     => $annoCorrente,
+        'annoPrecedente'   => $annoPrecedente
+    ]);
+}
+
+
 
     public function altroData(): JsonResponse {
         $anno = session('anno_riferimento', now()->year);

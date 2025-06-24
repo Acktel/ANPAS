@@ -18,43 +18,47 @@ class RiepilogoCostiController extends Controller {
         return view('riepilogo_costi.index', compact('anno', 'idAssociazione'));
     }
 
-    public function getSezione($idTipologia) {
-        $anno = session('anno_riferimento', now()->year);
-        $user = Auth::user();
-        $idAssociazione = $user->hasRole('SuperAdmin') ? null : $user->IdAssociazione;
+public function getSezione($idTipologia) {
+    $anno = session('anno_riferimento', now()->year);
+    $user = Auth::user();
 
-        $data = RiepilogoCosti::getByTipologia($idTipologia, $anno, $idAssociazione);
+    // ✅ Esteso anche ad Admin e Supervisor
+    $idAssociazione = $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor']) ? null : $user->IdAssociazione;
 
-        return response()->json(['data' => $data]);
-    }
+    $data = RiepilogoCosti::getByTipologia($idTipologia, $anno, $idAssociazione);
 
-    public function store(Request $request) {
-        $request->validate([
-            'idTipologiaRiepilogo' => 'required|integer',
-            'descrizione'          => 'required|string|max:500',
-            'preventivo'           => 'required|numeric',
-            'consuntivo'           => 'required|numeric',
-        ]);
+    return response()->json(['data' => $data]);
+}
 
-        $user = Auth::user();
-        $idAssociazione = $user->hasRole('SuperAdmin') ? 1 : $user->IdAssociazione; // usa 1 come default se superadmin
-        $anno = session('anno_riferimento', now()->year);
+public function store(Request $request) {
+    $request->validate([
+        'idTipologiaRiepilogo' => 'required|integer',
+        'descrizione'          => 'required|string|max:500',
+        'preventivo'           => 'required|numeric',
+        'consuntivo'           => 'required|numeric',
+    ]);
 
-        $riepilogoId = RiepilogoCosti::getOrCreateRiepilogo($idAssociazione, $anno);
+    $user = Auth::user();
+    $anno = session('anno_riferimento', now()->year);
 
-        Log::info('Salvataggio voce riepilogo', $request->toArray());
+    // ✅ Esteso anche ad Admin e Supervisor
+    $idAssociazione = $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor']) ? 1 : $user->IdAssociazione;
 
-        RiepilogoCosti::createVoce([
-            'idRiepilogo'           => $riepilogoId,
-            'idAnno'                => $anno,
-            'idTipologiaRiepilogo' => $request->idTipologiaRiepilogo,
-            'descrizione'          => $request->descrizione,
-            'preventivo'           => $request->preventivo,
-            'consuntivo'           => $request->consuntivo,
-        ]);
+    $riepilogoId = RiepilogoCosti::getOrCreateRiepilogo($idAssociazione, $anno);
 
-        return redirect()->route('riepilogo.costi')->with('success', 'Voce inserita correttamente');
-    }
+    Log::info('Salvataggio voce riepilogo', $request->toArray());
+
+    RiepilogoCosti::createVoce([
+        'idRiepilogo'           => $riepilogoId,
+        'idAnno'                => $anno,
+        'idTipologiaRiepilogo' => $request->idTipologiaRiepilogo,
+        'descrizione'          => $request->descrizione,
+        'preventivo'           => $request->preventivo,
+        'consuntivo'           => $request->consuntivo,
+    ]);
+
+    return redirect()->route('riepilogo.costi')->with('success', 'Voce inserita correttamente');
+}
 
     private function getTitoloSezione($idTipologia) {
         $sezioni = [
