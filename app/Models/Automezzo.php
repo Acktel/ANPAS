@@ -115,7 +115,7 @@ class Automezzo
     public static function getByAssociazione(?int $idAssociazione, ?int $anno = null): Collection
     {
         $anno = $anno ?? session('anno_riferimento', now()->year);
-
+        
         return DB::table(self::TABLE . ' as a')
             ->join('associazioni as s', 'a.idAssociazione', '=', 's.idAssociazione')
             ->leftJoin('automezzi_km_riferimento as km', function ($join) use ($anno) {
@@ -162,9 +162,10 @@ class Automezzo
             })
             ->where('a.idAnno', $anno);
 
-        if (! $user || ! $user->isSuperAdmin()) {
+        if (! $user && ! $user->isSuperAdmin() && ! $user->isAdmin()) {
             $query->where('a.idAssociazione', $user->idAssociazione ?? 0);
         }
+        
 
         return $query->select([
             'a.idAutomezzo',

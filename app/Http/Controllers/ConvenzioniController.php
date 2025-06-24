@@ -103,7 +103,7 @@ class ConvenzioniController extends Controller {
         $user = Auth::user();
 
         // 🔐 Se SuperAdmin, controlla su TUTTE le convenzioni
-        if ($user->hasRole('SuperAdmin')) {
+        if ($user->hasRole('SuperAdmin') || $user->hasRole('Admin') || $user->hasRole('Supervisor')) {
             $correnteVuoto = DB::table('convenzioni')->where('idAnno', $anno)->doesntExist();
             $precedentePieno = DB::table('convenzioni')->where('idAnno', $annoPrec)->exists();
         } else {
@@ -127,7 +127,7 @@ class ConvenzioniController extends Controller {
 
         try {
             // 🔐 Se SuperAdmin: duplica TUTTE le convenzioni per TUTTE le associazioni
-            if ($user->hasRole('SuperAdmin')) {
+            if ($user->hasRole('SuperAdmin') || $user->hasRole('Admin') || $user->hasRole('Supervisor')) {
                 $convenzioni = DB::table('convenzioni')
                     ->where('idAnno', $annoPrec)
                     ->get();

@@ -159,10 +159,16 @@ class AutomezziController extends Controller {
     public function checkDuplicazioneDisponibile(): JsonResponse {
         $anno = session('anno_riferimento', now()->year);
         $annoPrec = $anno - 1;
-        $idAssoc = Auth::user()->IdAssociazione;
+        $user = Auth::user();
 
-        $correnteVuoto = Automezzo::getByAssociazione($idAssoc, $anno)->isEmpty();
-        $precedentePieno = Automezzo::getByAssociazione($idAssoc, $annoPrec)->isNotEmpty();
+        if ($user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])) {
+            $correnteVuoto = Automezzo::getAll($anno)->isEmpty();
+            $precedentePieno = Automezzo::getAll($annoPrec)->isNotEmpty();
+        } else {
+            $idAssoc = $user->IdAssociazione;
+            $correnteVuoto = Automezzo::getByAssociazione($idAssoc, $anno)->isEmpty();
+            $precedentePieno = Automezzo::getByAssociazione($idAssoc, $annoPrec)->isNotEmpty();
+        }
 
         return response()->json([
             'mostraMessaggio' => $correnteVuoto && $precedentePieno,
@@ -174,20 +180,25 @@ class AutomezziController extends Controller {
     public function duplicaAnnoPrecedente(Request $request): JsonResponse {
         $anno = session('anno_riferimento', now()->year);
         $annoPrec = $anno - 1;
-        $idAssoc = Auth::user()->IdAssociazione;
-
-        $automezzi = Automezzo::getByAssociazione($idAssoc, $annoPrec);
-
-        if ($automezzi->isEmpty()) {
-            return response()->json(['message' => 'Nessun automezzo da duplicare'], 404);
-        }
+        $user = Auth::user();
 
         DB::beginTransaction();
 
         try {
+            if ($user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])) {
+                $automezzi = Automezzo::getAll($annoPrec);
+            } else {
+                $idAssoc = $user->IdAssociazione;
+                $automezzi = Automezzo::getByAssociazione($idAssoc, $annoPrec);
+            }
+
+            if ($automezzi->isEmpty()) {
+                return response()->json(['message' => 'Nessun automezzo da duplicare'], 404);
+            }
+
             foreach ($automezzi as $auto) {
                 $newId = DB::table('automezzi')->insertGetId([
-                    'idAssociazione' => $idAssoc,
+                    'idAssociazione' => $auto->idAssociazione,
                     'idAnno' => $anno,
                     'Automezzo' => $auto->Automezzo,
                     'Targa' => $auto->Targa,
@@ -228,6 +239,7 @@ class AutomezziController extends Controller {
 
     public function datatable() {
         $anno = session('anno_riferimento', now()->year);
+
         $user = Auth::user();
         $data = Automezzo::getForDataTable($anno, $user);
 
