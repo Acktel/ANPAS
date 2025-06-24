@@ -39,14 +39,16 @@ Route::middleware(['auth'])->prefix('riepilogo-costi')->group(function () {
         ->whereNumber('id')
         ->name('riepilogo.costi.destroy');
 
-    // Duplica voci da anno precedente
+    // 📥 Importazione da anno precedente (per singola tipologia)
     Route::post('/sezione/{idTipologia}/import', [RiepilogoCostiController::class, 'importFromPreviousYear'])
         ->whereNumber('idTipologia')
         ->name('riepilogo.costi.import');
 
-    Route::get('/riepilogo-costi/check-duplicazione', [RiepilogoCostiController::class, 'checkDuplicazione'])
+    // ✅ Check duplicazione voci da anno precedente (intero riepilogo)
+    Route::get('/check-duplicazione', [RiepilogoCostiController::class, 'checkDuplicazione'])
         ->name('riepilogo.costi.checkDuplicazione');
 
-    Route::post('/riepilogo-costi/duplica', [RiepilogoCostiController::class, 'duplicaDaAnnoPrecedente'])
+    // 🔁 Duplicazione voci da anno precedente
+    Route::post('/duplica', [RiepilogoCostiController::class, 'duplicaDaAnnoPrecedente'])
         ->name('riepilogo.costi.duplica');
 });

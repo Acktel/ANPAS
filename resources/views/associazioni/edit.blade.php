@@ -18,7 +18,7 @@
     <div class="card-body bg-anpas-white">
       <form action="{{ route('associazioni.update', $associazione->IdAssociazione) }}" method="POST">
         @csrf
-        @method('PUT')
+        @method('PATCH')
 
         <div class="row">
           <div class="col-md-6 mb-3">
@@ -44,6 +44,11 @@
             <input type="text" class="form-control" id="citta" name="citta"
                    value="{{ old('citta', $associazione->citta) }}" required>
           </div>
+            <div class="col-md-12 mb-3">
+              <label for="indirizzo" class="form-label">Indirizzo</label>
+              <input type="text" class="form-control" id="indirizzo" name="indirizzo"
+                    value="{{ old('indirizzo', $associazione->indirizzo) }}" required>
+            </div>
         </div>
 
         @isset($adminUser)

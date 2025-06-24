@@ -56,7 +56,7 @@ $assocCorr = 'ANPAS Piemonte';
     <strong>{{ $assocCorr }}</strong>.
     <form method="POST" action="{{ route('impersonate.stop') }}" class="d-inline ms-2">
         @csrf
-        <button type="submit" class="btn btn-sm btn-outline-light">Interrompi</button>
+        <button type="submit" class="btn btn-sm btn-anpas-red">Interrompi</button>
     </form>
 </div>
 @endif
@@ -79,12 +79,15 @@ $assocCorr = 'ANPAS Piemonte';
                 @php
                 $user = Auth::user();
                 $imp = session()->has('impersonate_original_user');
+                
                 @endphp
 
             
                 @can('manage-all-associations')
+                @if(!session()->has('impersonate'))
                 <li class="nav-item"><a class="nav-link" href="{{ route('associazioni.index') }}">Associazioni</a></li>
                 <li class="nav-item"><a class="nav-link" href="{{ route('all-users.index') }}">Utenti</a></li>
+                @endif
                 <li class="nav-item"><a class="nav-link" href="{{ route('convenzioni.index') }}">Convenzioni</a></li>
                 @endcan
                 @can('manage-own-association')
@@ -97,7 +100,8 @@ $assocCorr = 'ANPAS Piemonte';
                     <a class="nav-link dropdown-toggle" href="#" id="automezziDropdown" data-bs-toggle="dropdown">Automezzi</a>
                     <ul class="dropdown-menu">
                         <li><a class="dropdown-item" href="{{ route('automezzi.index') }}">Elenco</a></li>
-                        <li><a class="dropdown-item" href="#">Costi</a></li>
+                        <li><a class="dropdown-item" href="{{ route('km-percorsi.index') }}">Distinta Km percorsi per convenzione</a></li>
+                        <!--<li><a class="dropdown-item" href="#">Distinta servizi svolti per convenzione</a></li>-->
                     </ul>
                 </li>
 
@@ -129,8 +133,8 @@ $assocCorr = 'ANPAS Piemonte';
                     <a class="nav-link dropdown-toggle" href="#" id="documentiDropdown" data-bs-toggle="dropdown">Documenti</a>
                     <ul class="dropdown-menu">
                         <li><a class="dropdown-item" href="{{ route('documenti.registro') }}">Registro</a></li>
-                        <li><a class="dropdown-item" href="{{ route('documenti.distinta') }}">Distinta</a></li>
-                        <li><a class="dropdown-item" href="{{ route('documenti.criteri') }}">Criteri</a></li>
+                       <!-- <li><a class="dropdown-item" href="{{ route('documenti.distinta') }}">Distinta</a></li>
+                        <li><a class="dropdown-item" href="{{ route('documenti.criteri') }}">Criteri</a></li> -->
                     </ul>
                 </li>
                 @endauth

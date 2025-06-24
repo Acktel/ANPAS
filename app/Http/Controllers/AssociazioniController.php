@@ -124,4 +124,28 @@ class AssociazioniController extends Controller {
         return view('associazioni.edit', compact('associazione', 'adminUser'));
     }
 
+    public function update(Request $request, $id) {
+        $data = $request->validate([
+            'Associazione' => 'required|string|max:255',
+            'email'        => 'required|email',
+            'provincia'    => 'required|string|max:100',
+            'citta'        => 'required|string|max:100',
+            'indirizzo'    => 'required|string|max:255',
+        ]);
+
+        DB::table('associazioni')
+            ->where('IdAssociazione', $id)
+            ->update([
+                'Associazione' => $data['Associazione'],
+                'email'        => $data['email'],
+                'provincia'    => $data['provincia'],
+                'citta'        => $data['citta'],
+                'indirizzo'    => $data['indirizzo'],
+                'updated_at'   => now(),
+            ]);
+
+        return redirect()
+            ->route('associazioni.index')
+            ->with('success', 'Associazione aggiornata con successo.');
+    }
 }

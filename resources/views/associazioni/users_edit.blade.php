@@ -59,7 +59,7 @@
                  required>
         </div>
 
-        <button type="submit" class="btn btn-anpas-red">Salva Modifiche</button>
+        <button type="submit" class="btn btn-anpas-green">Salva Modifiche</button>
         <a href="{{ route('my-users.index') }}" class="btn btn-secondary ms-2">Annulla</a>
       </form>
     </div>

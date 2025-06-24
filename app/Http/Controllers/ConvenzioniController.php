@@ -27,7 +27,7 @@ class ConvenzioniController extends Controller {
                 ->orderBy('c.Convenzione')
                 ->get();
         } else {
-            $convenzioni = Convenzione::getByAssociazioneAnno($user->IdAssociazione, $anno);
+          $convenzioni = Convenzione::getWithAssociazione($user->IdAssociazione, $anno);
         }
 
         return view('convenzioni.index', compact('convenzioni', 'anno'));
@@ -107,7 +107,7 @@ class ConvenzioniController extends Controller {
             $correnteVuoto = DB::table('convenzioni')->where('idAnno', $anno)->doesntExist();
             $precedentePieno = DB::table('convenzioni')->where('idAnno', $annoPrec)->exists();
         } else {
-            $idAssoc = $user->IdAssociazione;
+            $idAssoc = $user->idAssociazione;
 
             $correnteVuoto = Convenzione::getByAssociazioneAnno($idAssoc, $anno)->isEmpty();
             $precedentePieno = Convenzione::getByAssociazioneAnno($idAssoc, $annoPrec)->isNotEmpty();

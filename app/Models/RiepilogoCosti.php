@@ -7,50 +7,45 @@ use Illuminate\Support\Facades\DB;
 class RiepilogoCosti
 {
     protected static array $views = [
-        'personale'  => 'view_riepilogo_costi_personale',
-        'struttura'  => 'view_riepilogo_gestione_struttura',
-        'automezzi'  => 'view_riepilogo_automezzi',
+        'personale' => 'view_riepilogo_costi_personale',
+        'struttura' => 'view_riepilogo_gestione_struttura',
+        'automezzi' => 'view_riepilogo_automezzi',
     ];
-
-    /**
-     * Restituisce i dati da una view in base al tipo (per sezioni legacy)
-     */
-    public static function getSezione(string $tipo, int $anno, int $idAssociazione)
-    {
-        $view = self::$views[$tipo] ?? null;
-
-        if (! $view) return collect();
-
-        return DB::table($view)
-            ->where('anno', $anno)
-            ->where('idAssociazione', $idAssociazione)
-            ->get();
-    }
 
     /**
      * Restituisce le voci di una tipologia per anno e associazione
      */
-    public static function getByTipologia(int $idTipologia, int $anno, int $idAssociazione)
+    public static function getByTipologia(int $idTipologia, int $anno, ?int $idAssociazione = null)
     {
-        return DB::table('riepilogo_dati as rd')
+        $query = DB::table('riepilogo_dati as rd')
             ->join('riepiloghi as r', 'rd.idRiepilogo', '=', 'r.idRiepilogo')
             ->where('r.idAnno', $anno)
-            ->where('r.idAssociazione', $idAssociazione)
-            ->where('rd.idTipologiaRiepilogo', $idTipologia)
-            ->select('rd.id', 'rd.descrizione', 'rd.preventivo', 'rd.consuntivo')
+            ->where('rd.idTipologiaRiepilogo', $idTipologia);
+
+        if (!is_null($idAssociazione)) {
+            $query->where('r.idAssociazione', $idAssociazione);
+        }
+
+        return $query->select([
+                'rd.id',
+                'rd.descrizione',
+                'rd.preventivo',
+                'rd.consuntivo',
+                'rd.idTipologiaRiepilogo',
+            ])
             ->get()
-            ->map(function ($item) use ($idTipologia) {
-                $item->scostamento = $item->preventivo != 0
-                    ? number_format((($item->consuntivo - $item->preventivo) / $item->preventivo) * 100, 2) . '%'
-                    : '0%';
+->map(function ($item) {
+    $item->scostamento = $item->preventivo != 0
+        ? number_format((($item->consuntivo - $item->preventivo) / $item->preventivo) * 100, 2) . '%'
+        : '0%';
 
-                $item->actions = view('partials.actions', [
-                    'id'              => $item->id,
-                    'idTipologia'     => $idTipologia,
-                ])->render();
+    $item->actions = view('partials.actions_inline', [
+        'id' => $item->id
+    ])->render();
 
-                return $item;
-            });
+    return $item;
+});
+
     }
 
     /**
@@ -63,7 +58,9 @@ class RiepilogoCosti
             ->where('idAnno', $anno)
             ->first();
 
-        if ($record) return $record->idRiepilogo;
+        if ($record) {
+            return $record->idRiepilogo;
+        }
 
         return DB::table('riepiloghi')->insertGetId([
             'idAssociazione' => $idAssociazione,
