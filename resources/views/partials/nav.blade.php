@@ -92,7 +92,6 @@ $assocCorr = 'ANPAS Piemonte';
                 @endcan
                 @can('manage-own-association')
                 <li class="nav-item"><a class="nav-link" href="{{ route('my-users.index') }}">Utenti</a></li>
-                <li class="nav-item"><a class="nav-link" href="{{ route('my-users.index') }}">I miei Utenti</a></li>
                 @endcan
 
                 {{-- Dropdown Automezzi --}}
