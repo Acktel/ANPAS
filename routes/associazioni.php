@@ -28,7 +28,11 @@ Route::middleware('can:manage-all-associations')->group(function() {
     // Lista di TUTTI gli utenti di tutte le associazioni (Admin e Supervisor)
     Route::get('/all-users',      [AdminAllUsersController::class, 'index'])->name('all-users.index');
     Route::get('/all-users/data', [AdminAllUsersController::class, 'getData'])->name('all-users.data');
+    Route::get('/all-users/create', [AdminAllUsersController::class, 'create'])->name('all-users.create');
+    Route::post('/all-users', [AdminAllUsersController::class, 'store'])->name('all-users.store');
+
 });
+
 
 // 2) Rotte per chi ha gate “manage-own-association” (solo AdminUser)
 Route::middleware('can:manage-own-association')->group(function() {

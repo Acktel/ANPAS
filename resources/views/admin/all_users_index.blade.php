@@ -3,7 +3,11 @@
 @section('content')
 <div class="container-fluid">
   <h1 class="container-title mb-4">Tutti gli Utenti (Admin/Supervisor)</h1>
-
+<div class="mb-3 text-end">
+  <a href="{{ route('all-users.create') }}" class="btn btn-anpas-green">
+    <i class="fas fa-user-plus me-1"></i> Crea Utente
+  </a>
+</div>
   <div class="card-anpas">
     <div class="card-body bg-anpas-white">
       <table id="allUsersTable"
