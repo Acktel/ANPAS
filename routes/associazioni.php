@@ -30,6 +30,8 @@ Route::middleware('can:manage-all-associations')->group(function() {
     Route::get('/all-users/data', [AdminAllUsersController::class, 'getData'])->name('all-users.data');
     Route::get('/all-users/create', [AdminAllUsersController::class, 'create'])->name('all-users.create');
     Route::post('/all-users', [AdminAllUsersController::class, 'store'])->name('all-users.store');
+    Route::get('/all-users/{id}/edit', [AdminAllUsersController::class, 'edit'])->name('all-users.edit');
+    Route::put('/all-users/{id}',      [AdminAllUsersController::class, 'update'])->name('all-users.update');
 
 });
 

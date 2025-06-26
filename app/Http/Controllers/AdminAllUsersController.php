@@ -83,4 +83,54 @@ class AdminAllUsersController extends Controller
             return back()->withErrors(['error' => 'Errore nella creazione: ' . $e->getMessage()]);
         }
     }
+    /** GET /all-users/{id}/edit */
+    public function edit($id)
+    {
+        $user = User::findOrFail($id);
+        $associazioni = DB::table('associazioni')
+            ->whereNull('deleted_at')
+            ->orderBy('Associazione')
+            ->get();
+
+        $ruoli = Role::select('name')->orderBy('name')->get();
+
+        return view('admin.all_users_edit', compact('user', 'associazioni', 'ruoli'));
+    }
+
+    /** PUT /all-users/{id} */
+    public function update(Request $request, $id)
+    {
+        $validated = $request->validate([
+            'firstname'      => 'required|string|max:255',
+            'lastname'       => 'nullable|string|max:255',
+            'username'       => "required|string|max:255|unique:users,username,{$id}",
+            'email'          => "required|email|unique:users,email,{$id}",
+            'IdAssociazione' => 'required|integer|exists:associazioni,IdAssociazione',
+            'role'           => 'required|string|exists:roles,name',
+        ]);
+
+        DB::beginTransaction();
+
+        try {
+            DB::table('users')->where('id', $id)->update([
+                'firstname'      => $validated['firstname'],
+                'lastname'       => $validated['lastname'] ?? '',
+                'username'       => $validated['username'],
+                'email'          => $validated['email'],
+                'IdAssociazione' => $validated['IdAssociazione'],
+                'updated_at'     => now(),
+            ]);
+
+            $user = User::findOrFail($id);
+            $user->syncRoles([$validated['role']]);
+
+            DB::commit();
+
+            return redirect()->route('all-users.index')
+                ->with('success', 'Utente aggiornato con successo!');
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            return back()->withErrors(['error' => 'Errore nell\'aggiornamento: ' . $e->getMessage()]);
+        }
+    }
 }
