@@ -9,30 +9,25 @@ use Illuminate\Support\Facades\Hash;
 use Spatie\Permission\Models\Role;
 use App\Models\Associazione;
 
-class AdminAllUsersController extends Controller
-{
-    public function __construct()
-    {
+class AdminAllUsersController extends Controller {
+    public function __construct() {
         $this->middleware('auth');
         $this->middleware('can:manage-all-associations');
     }
 
     /** GET /all-users */
-    public function index()
-    {
+    public function index() {
         return view('admin.all_users_index');
     }
 
     /** GET /all-users/data */
-    public function getData(Request $request)
-    {
+    public function getData(Request $request) {
         $response = User::getDataTableForAdmin($request);
         return response()->json($response);
     }
 
     /** GET /all-users/create */
-    public function create()
-    {
+    public function create() {
         $associazioni = DB::table('associazioni')
             ->whereNull('deleted_at')
             ->orderBy('Associazione')
@@ -44,8 +39,7 @@ class AdminAllUsersController extends Controller
     }
 
     /** POST /all-users */
-    public function store(Request $request)
-    {
+    public function store(Request $request) {
         $validated = $request->validate([
             'firstname'      => 'required|string|max:255',
             'lastname'       => 'nullable|string|max:255',
@@ -84,8 +78,7 @@ class AdminAllUsersController extends Controller
         }
     }
     /** GET /all-users/{id}/edit */
-    public function edit($id)
-    {
+    public function edit($id) {
         $user = User::findOrFail($id);
         $associazioni = DB::table('associazioni')
             ->whereNull('deleted_at')
@@ -98,8 +91,7 @@ class AdminAllUsersController extends Controller
     }
 
     /** PUT /all-users/{id} */
-    public function update(Request $request, $id)
-    {
+    public function update(Request $request, $id) {
         $validated = $request->validate([
             'firstname'      => 'required|string|max:255',
             'lastname'       => 'nullable|string|max:255',
@@ -131,6 +123,29 @@ class AdminAllUsersController extends Controller
         } catch (\Throwable $e) {
             DB::rollBack();
             return back()->withErrors(['error' => 'Errore nell\'aggiornamento: ' . $e->getMessage()]);
+        }
+    }
+
+    public function destroy($id) {
+        DB::beginTransaction();
+
+        try {
+            $user = User::findOrFail($id);
+
+            // Non puoi eliminare te stesso
+            if (auth()->id() === $user->id) {
+                return back()->withErrors(['error' => 'Non puoi eliminare te stesso.']);
+            }
+
+            $user->syncRoles([]); // Rimuove i ruoli
+            $user->delete();
+
+            DB::commit();
+
+            return response()->json(['success' => true]);
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            return response()->json(['error' => 'Errore: ' . $e->getMessage()], 500);
         }
     }
 }

@@ -32,6 +32,7 @@ Route::middleware('can:manage-all-associations')->group(function() {
     Route::post('/all-users', [AdminAllUsersController::class, 'store'])->name('all-users.store');
     Route::get('/all-users/{id}/edit', [AdminAllUsersController::class, 'edit'])->name('all-users.edit');
     Route::put('/all-users/{id}',      [AdminAllUsersController::class, 'update'])->name('all-users.update');
+    Route::delete('/all-users/{id}', [AdminAllUsersController::class, 'destroy'])->name('all-users.destroy');
 
 });
 
