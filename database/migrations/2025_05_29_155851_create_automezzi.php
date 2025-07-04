@@ -25,10 +25,10 @@ return new class extends Migration
             $table->string('CodiceIdentificativo', 50)->nullable();
             $table->year('AnnoPrimaImmatricolazione')->nullable();
             $table->string('Modello', 100);
-            $table->string('TipoVeicolo', 50);
+            $table->foreignId('idTipoVeicolo')->constrained('vehicle_types')->cascadeOnDelete();
             $table->integer('KmRiferimento')->default(0);
             $table->integer('KmTotali')->default(0);
-            $table->string('TipoCarburante', 50);
+            $table->foreignId('idTipoCarburante')->constrained('fuel_types')->cascadeOnDelete();
             $table->date('DataUltimaAutorizzazioneSanitaria')->nullable();
             $table->date('DataUltimoCollaudo')->nullable();
             $table->timestamps();

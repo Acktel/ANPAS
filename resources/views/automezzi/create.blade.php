@@ -110,9 +110,17 @@
         {{-- RIGA 5: Tipo Veicolo | Km di Riferimento --}}
         <div class="row mb-3">
           <div class="col-md-6">
-            <label for="TipoVeicolo" class="form-label">Tipo Veicolo</label>
-            <input type="text" name="TipoVeicolo" id="TipoVeicolo" class="form-control" value="{{ old('TipoVeicolo') }}" required>
+            <label for="idTipoVeicolo" class="form-label">Tipo Veicolo</label>
+            <select name="idTipoVeicolo" id="idTipoVeicolo" class="form-select" required>
+              <option value="">-- Seleziona Tipo Veicolo --</option>
+              @foreach($vehicleTypes as $tipo)
+              <option value="{{ $tipo->id }}" {{ old('idTipoVeicolo') == $tipo->id ? 'selected' : '' }}>
+                {{ $tipo->nome }}
+              </option>
+              @endforeach
+            </select>
           </div>
+
           <div class="col-md-6">
             <label for="KmRiferimento" class="form-label">Km di Riferimento</label>
             <input type="number" name="KmRiferimento" id="KmRiferimento" class="form-control" min="0" step="0.01" value="{{ old('KmRiferimento') }}" required>
@@ -126,32 +134,39 @@
             <input type="number" name="KmTotali" id="KmTotali" class="form-control" min="0" step="0.01" value="{{ old('KmTotali') }}" required>
           </div>
           <div class="col-md-6">
-            <label for="TipoCarburante" class="form-label">Tipo Carburante</label>
-            <input type="text" name="TipoCarburante" id="TipoCarburante" class="form-control" value="{{ old('TipoCarburante') }}" required>
+            <label for="idTipoCarburante" class="form-label">Tipo Carburante</label>
+            <select name="idTipoCarburante" id="idTipoCarburante" class="form-select" required>
+              <option value="">-- Seleziona Tipo Carburante --</option>
+              @foreach($fuelTypes as $carb)
+              <option value="{{ $carb->id }}" {{ old('idTipoCarburante') == $carb->id ? 'selected' : '' }}>
+                {{ $carb->nome }}
+              </option>
+              @endforeach
+            </select>
           </div>
-        </div>
 
-        {{-- RIGA 7: Date Sanitaria | Date Revisione --}}
-        <div class="row mb-4">
-          <div class="col-md-6">
-            <label for="DataUltimaAutorizzazioneSanitaria" class="form-label">Data Ultima Aut. Sanitaria</label>
-            <input type="date" name="DataUltimaAutorizzazioneSanitaria" id="DataUltimaAutorizzazioneSanitaria" class="form-control" value="{{ old('DataUltimaAutorizzazioneSanitaria') }}">
-          </div>
-          <div class="col-md-6">
-            <label for="DataUltimoCollaudo" class="form-label">Data Ultima Revisione</label>
-            <input type="date" name="DataUltimoCollaudo" id="DataUltimoCollaudo" class="form-control" value="{{ old('DataUltimoCollaudo') }}">
-          </div>
-        </div>
 
-        {{-- PULSANTI --}}
-        <div class="text-center">
-          <button type="submit" class="btn btn-anpas-green me-2">
-            <i class="fas fa-save me-1"></i> Salva
-          </button>
-          <a href="{{ route('automezzi.index') }}" class="btn btn-secondary">
-            <i class="fas fa-times me-1"></i> Annulla
-          </a>
-        </div>
+          {{-- RIGA 7: Date Sanitaria | Date Revisione --}}
+          <div class="row mb-4">
+            <div class="col-md-6">
+              <label for="DataUltimaAutorizzazioneSanitaria" class="form-label">Data Ultima Aut. Sanitaria</label>
+              <input type="date" name="DataUltimaAutorizzazioneSanitaria" id="DataUltimaAutorizzazioneSanitaria" class="form-control" value="{{ old('DataUltimaAutorizzazioneSanitaria') }}">
+            </div>
+            <div class="col-md-6">
+              <label for="DataUltimoCollaudo" class="form-label">Data Ultima Revisione</label>
+              <input type="date" name="DataUltimoCollaudo" id="DataUltimoCollaudo" class="form-control" value="{{ old('DataUltimoCollaudo') }}">
+            </div>
+          </div>
+
+          {{-- PULSANTI --}}
+          <div class="text-center">
+            <button type="submit" class="btn btn-anpas-green me-2">
+              <i class="fas fa-save me-1"></i> Salva
+            </button>
+            <a href="{{ route('automezzi.index') }}" class="btn btn-secondary">
+              <i class="fas fa-times me-1"></i> Annulla
+            </a>
+          </div>
 
       </form>
     </div>

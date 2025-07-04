@@ -7,6 +7,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use App\Models\Automezzo;
 use App\Models\AutomezzoKmRiferimento;
+use App\Models\VehicleType;
+use App\Models\FuelType;
 use Illuminate\Http\JsonResponse;
 
 class AutomezziController extends Controller {
@@ -33,11 +35,14 @@ class AutomezziController extends Controller {
 
         $anni = DB::table('anni')->select('idAnno', 'anno')->orderBy('anno', 'desc')->get();
 
+        $vehicleTypes = DB::table('vehicle_types')->select('id', 'nome')->orderBy('nome')->get();
+        $fuelTypes = DB::table('fuel_types')->select('id', 'nome')->orderBy('nome')->get();
+
         if (!in_array(Auth::user()->role_id, [1, 2, 3])) {
             $associazioni = $associazioni->where('idAssociazione', Auth::user()->idAssociazione);
         }
 
-        return view('automezzi.create', compact('associazioni', 'anni'));
+        return view('automezzi.create', compact('associazioni', 'anni', 'vehicleTypes', 'fuelTypes'));
     }
 
     public function store(Request $request) {
@@ -50,10 +55,10 @@ class AutomezziController extends Controller {
             'AnnoPrimaImmatricolazione' => 'required|integer|min:1900|max:' . date('Y'),
             'AnnoAcquisto' => 'nullable|integer|min:1900|max:' . date('Y'),
             'Modello' => 'required|string|max:255',
-            'TipoVeicolo' => 'required|string|max:100',
+            'idTipoVeicolo' => 'required|exists:vehicle_types,id',
             'KmRiferimento' => 'required|numeric|min:0',
             'KmTotali' => 'required|numeric|min:0',
-            'TipoCarburante' => 'required|string|max:50',
+            'idTipoCarburante' => 'required|exists:fuel_types,id',
             'DataUltimaAutorizzazioneSanitaria' => 'nullable|date',
             'DataUltimoCollaudo' => 'nullable|date',
         ];
@@ -98,8 +103,10 @@ class AutomezziController extends Controller {
             ->get();
 
         $anni = DB::table('anni')->select('idAnno', 'anno')->orderBy('anno', 'desc')->get();
+        $vehicleTypes = DB::table('vehicle_types')->select('id', 'nome')->orderBy('nome')->get();
+        $fuelTypes = DB::table('fuel_types')->select('id', 'nome')->orderBy('nome')->get();
 
-        return view('automezzi.edit', compact('automezzo', 'associazioni', 'anni'));
+        return view('automezzi.edit', compact('automezzo', 'associazioni', 'anni', 'vehicleTypes', 'fuelTypes'));
     }
 
     public function update(Request $request, int $idAutomezzo) {
@@ -112,10 +119,10 @@ class AutomezziController extends Controller {
             'AnnoPrimaImmatricolazione' => 'required|integer|min:1900|max:' . date('Y'),
             'AnnoAcquisto' => 'nullable|integer|min:1900|max:' . date('Y'),
             'Modello' => 'required|string|max:255',
-            'TipoVeicolo' => 'required|string|max:100',
+            'idTipoVeicolo' => 'required|exists:vehicle_types,id',
             'KmRiferimento' => 'required|numeric|min:0',
             'KmTotali' => 'required|numeric|min:0',
-            'TipoCarburante' => 'required|string|max:50',
+            'idTipoCarburante' => 'required|exists:fuel_types,id',
             'DataUltimaAutorizzazioneSanitaria' => 'nullable|date',
             'DataUltimoCollaudo' => 'nullable|date',
         ];
@@ -206,9 +213,9 @@ class AutomezziController extends Controller {
                     'AnnoPrimaImmatricolazione' => $auto->AnnoPrimaImmatricolazione,
                     'AnnoAcquisto' => $auto->AnnoAcquisto,
                     'Modello' => $auto->Modello,
-                    'TipoVeicolo' => $auto->TipoVeicolo,
+                    'idTipoVeicolo' => $auto->idTipoVeicolo ?? null,
                     'KmTotali' => $auto->KmTotali,
-                    'TipoCarburante' => $auto->TipoCarburante,
+                    'idTipoCarburante' => $auto->idTipoCarburante ?? null,
                     'DataUltimaAutorizzazioneSanitaria' => $auto->DataUltimaAutorizzazioneSanitaria,
                     'DataUltimoCollaudo' => $auto->DataUltimoCollaudo,
                     'created_at' => now(),

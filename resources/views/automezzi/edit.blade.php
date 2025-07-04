@@ -123,8 +123,14 @@
         <div class="row mb-3">
           <div class="col-md-6">
             <label for="TipoVeicolo" class="form-label">Tipo Veicolo</label>
-            <input type="text" name="TipoVeicolo" id="TipoVeicolo" class="form-control"
-                   value="{{ old('TipoVeicolo', $automezzo->TipoVeicolo) }}" required>
+           <select name="idTipoVeicolo" id="idTipoVeicolo" class="form-select" required>
+                <option value="">-- Seleziona Tipo Veicolo --</option>
+                @foreach($vehicleTypes as $tipo)
+                  <option value="{{ $tipo->id }}" {{ old('idTipoVeicolo', $automezzo->idTipoVeicolo) == $tipo->id ? 'selected' : '' }}>
+                    {{ $tipo->nome }}
+                  </option>
+                @endforeach
+            </select>
           </div>
           <div class="col-md-6">
             <label for="KmRiferimento" class="form-label">Km di Riferimento</label>
@@ -144,8 +150,14 @@
           </div>
           <div class="col-md-6">
             <label for="TipoCarburante" class="form-label">Tipo Carburante</label>
-            <input type="text" name="TipoCarburante" id="TipoCarburante" class="form-control"
-                   value="{{ old('TipoCarburante', $automezzo->TipoCarburante) }}" required>
+            <select name="idTipoCarburante" id="idTipoCarburante" class="form-select" required>
+                <option value="">-- Seleziona Tipo Carburante --</option>
+                @foreach($fuelTypes as $tipo)
+                  <option value="{{ $tipo->id }}" {{ old('idTipoCarburante', $automezzo->idTipoCarburante) == $tipo->id ? 'selected' : '' }}>
+                    {{ $tipo->nome }}
+                  </option>
+                @endforeach
+            </select>
           </div>
         </div>
 

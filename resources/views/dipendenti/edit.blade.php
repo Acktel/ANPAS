@@ -93,47 +93,51 @@
           </div>
         </div>
 
-        {{-- Qualifica / Contratto --}}
-        <div class="row mb-3">
-          <div class="col-md-6 mb-3">
-            <label for="Qualifica" class="form-label">Qualifica</label>
-            <input type="text"
-                   name="Qualifica"
-                   id="Qualifica"
-                   class="form-control"
-                   maxlength="255"
-                   value="{{ old('Qualifica', $dipendente->Qualifica) }}"
-                   placeholder="Es. AUTISTA,SOCCORRITORE"
-                   required>
-            <div class="form-text">
-              Separa più qualifiche con la virgola, es. “AUTISTA,SOCCORRITORE”.
-            </div>
-          </div>
-          <div class="col-md-6 mb-3">
-            <label for="ContrattoApplicato" class="form-label">Contratto Applicato</label>
-            <input type="text"
-                   name="ContrattoApplicato"
-                   id="ContrattoApplicato"
-                   class="form-control"
-                   maxlength="100"
-                   value="{{ old('ContrattoApplicato', $dipendente->ContrattoApplicato) }}"
-                   required>
-          </div>
-        </div>
+{{-- Qualifica / Contratto --}}
+<div class="row mb-3">
+  <div class="col-md-6 mb-3">
+    <label for="Qualifica" class="form-label">Qualifica</label>
+    <select name="Qualifica[]" id="Qualifica" class="form-select" multiple required>
+      @foreach ($qualifiche as $q)
+        <option value="{{ $q->nome }}"
+          {{ collect(explode(',', old('Qualifica', $dipendente->Qualifica)))->contains($q->nome) ? 'selected' : '' }}>
+          {{ $q->nome }}
+        </option>
+      @endforeach
+    </select>
+    <div class="form-text">Tieni premuto CTRL o CMD per selezione multipla.</div>
+  </div>
 
-        {{-- Livello Mansione --}}
-        <div class="row mb-4">
-          <div class="col-md-6 mb-3">
-            <label for="LivelloMansione" class="form-label">Livello Mansione</label>
-            <input type="text"
-                   name="LivelloMansione"
-                   id="LivelloMansione"
-                   class="form-control"
-                   maxlength="100"
-                   value="{{ old('LivelloMansione', $dipendente->LivelloMansione) }}"
-                   required>
-          </div>
-        </div>
+  <div class="col-md-6 mb-3">
+    <label for="ContrattoApplicato" class="form-label">Contratto Applicato</label>
+    <select name="ContrattoApplicato" id="ContrattoApplicato" class="form-select" required>
+      <option value="">-- Seleziona contratto --</option>
+      @foreach ($contratti as $c)
+        <option value="{{ $c->nome }}"
+          {{ old('ContrattoApplicato', $dipendente->ContrattoApplicato) == $c->nome ? 'selected' : '' }}>
+          {{ $c->nome }}
+        </option>
+      @endforeach
+    </select>
+  </div>
+</div>
+
+{{-- Livello Mansione --}}
+<div class="row mb-4">
+  <div class="col-md-6 mb-3">
+    <label for="LivelloMansione" class="form-label">Livello Mansione</label>
+    <select name="LivelloMansione" id="LivelloMansione" class="form-select" required>
+      <option value="">-- Seleziona livello --</option>
+      @foreach ($livelli as $liv)
+        <option value="{{ $liv }}"
+          {{ old('LivelloMansione', $dipendente->LivelloMansione) == $liv ? 'selected' : '' }}>
+          {{ $liv }}
+        </option>
+      @endforeach
+    </select>
+  </div>
+</div>
+
 
         {{-- Pulsanti Salva / Annulla --}}
         <div class="text-center">

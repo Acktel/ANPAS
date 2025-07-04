@@ -79,10 +79,10 @@ $assocCorr = 'ANPAS Piemonte';
                 @php
                 $user = Auth::user();
                 $imp = session()->has('impersonate_original_user');
-                
+
                 @endphp
 
-            
+
                 @can('manage-all-associations')
                 @if(!session()->has('impersonate'))
                 <li class="nav-item"><a class="nav-link" href="{{ route('associazioni.index') }}">Associazioni</a></li>
@@ -99,8 +99,6 @@ $assocCorr = 'ANPAS Piemonte';
                     <a class="nav-link dropdown-toggle" href="#" id="automezziDropdown" data-bs-toggle="dropdown">Automezzi</a>
                     <ul class="dropdown-menu">
                         <li><a class="dropdown-item" href="{{ route('automezzi.index') }}">Elenco</a></li>
-                        <li><a class="dropdown-item" href="{{ route('km-percorsi.index') }}">Distinta Km percorsi per convenzione</a></li>
-                        <!--<li><a class="dropdown-item" href="#">Distinta servizi svolti per convenzione</a></li>-->
                     </ul>
                 </li>
 
@@ -114,6 +112,10 @@ $assocCorr = 'ANPAS Piemonte';
                             </a>
                         </li>
                         <li><a class="dropdown-item" href="{{ route('riepilogo.costi') }}">Riepilogo Costi</a></li>
+                        <li><a class="dropdown-item" href="{{ route('km-percorsi.index') }}">Distinta Km percorsi per convenzione</a></li>
+                        <li><a class="dropdown-item" href="{{ route('servizi-svolti.index') }}">Distinta Servizi svolti per convenzione</a></li>
+                        <li><a class="dropdown-item" href="{{ route('rapporti-ricavi.index') }}">Rapporto tra ricavi singola convenzione e esercizio di riferimento</a></li>
+
                     </ul>
                 </li>
 
@@ -132,7 +134,7 @@ $assocCorr = 'ANPAS Piemonte';
                     <a class="nav-link dropdown-toggle" href="#" id="documentiDropdown" data-bs-toggle="dropdown">Documenti</a>
                     <ul class="dropdown-menu">
                         <li><a class="dropdown-item" href="{{ route('documenti.registro') }}">Registro</a></li>
-                       <!-- <li><a class="dropdown-item" href="{{ route('documenti.distinta') }}">Distinta</a></li>
+                        <!-- <li><a class="dropdown-item" href="{{ route('documenti.distinta') }}">Distinta</a></li>
                         <li><a class="dropdown-item" href="{{ route('documenti.criteri') }}">Criteri</a></li> -->
                     </ul>
                 </li>
@@ -142,22 +144,33 @@ $assocCorr = 'ANPAS Piemonte';
             {{-- User menu / Login --}}
             <ul class="navbar-nav ms-auto">
                 @auth
+
                 <li class="nav-item dropdown">
-                    <a class="nav-link dropdown-toggle" href="#" id="userMenu" data-bs-toggle="dropdown">
-                        {{ Auth::user()->firstname }}
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" id="configDropdown" data-bs-toggle="dropdown">
+                        Configurazioni
                     </a>
                     <ul class="dropdown-menu dropdown-menu-end">
-                        <li><a class="dropdown-item" href="{{ route('profile.edit') }}">Profilo</a></li>
-                        <li>
-                            <hr class="dropdown-divider">
-                        </li>
-                        <li>
-                            <form method="POST" action="{{ route('logout') }}">
-                                @csrf
-                                <button type="submit" class="dropdown-item">Logout</button>
-                            </form>
-                        </li>
+                        <li><a class="dropdown-item" href="{{ route('configurazioni.veicoli') }}">Veicoli</a></li>
+                        <li><a class="dropdown-item" href="{{ route('configurazioni.personale') }}">Personale</a></li>
+                        <li><a class="dropdown-item" href="#">Altro</a></li>
                     </ul>
+                </li>
+                <a class="nav-link dropdown-toggle" href="#" id="userMenu" data-bs-toggle="dropdown">
+                    {{ Auth::user()->firstname }}
+                </a>
+                <ul class="dropdown-menu dropdown-menu-end">
+                    <li><a class="dropdown-item" href="{{ route('profile.edit') }}">Profilo</a></li>
+                    <li>
+                        <hr class="dropdown-divider">
+                    </li>
+                    <li>
+                        <form method="POST" action="{{ route('logout') }}">
+                            @csrf
+                            <button type="submit" class="dropdown-item">Logout</button>
+                        </form>
+                    </li>
+                </ul>
                 </li>
                 @else
                 <li class="nav-item"><a class="nav-link" href="{{ route('login') }}">Login</a></li>

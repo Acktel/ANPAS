@@ -32,8 +32,8 @@ $(async function () {
 
     const table = $('#table-km');
 
-    // Colonne statiche iniziali
     const staticColumns = [
+        { key: 'is_totale', label: '', hidden: true }, // <- aggiunto per ordinamento fisso
         { key: 'idAutomezzo', label: 'ID', hidden: true },
         { key: 'Automezzo', label: 'Automezzo' },
         { key: 'Targa', label: 'Targa' },
@@ -41,76 +41,75 @@ $(async function () {
         { key: 'Totale', label: 'KM Totali' },
     ];
 
-    // Convenzioni ordinate (es. c1, c2, ..., c10)
     const convenzioni = Object.keys(labels).sort((a, b) => parseInt(a.slice(1)) - parseInt(b.slice(1)));
 
-    // Header e colonne
     let headerMain = '';
     let headerSub = '';
     const columns = [];
     let visibleIndex = 0;
     const kmColumnIndexes = [];
 
-    // Static headers
-staticColumns.forEach(col => {
-    headerMain += `<th rowspan="2"${col.hidden ? ' style="display:none"' : ''}>${col.label}</th>`;
-    columns.push({ data: col.key, visible: !col.hidden });
-    if (!col.hidden) visibleIndex++;
-});
+    staticColumns.forEach(col => {
+        headerMain += `<th rowspan="2"${col.hidden ? ' style="display:none"' : ''}>${col.label}</th>`;
+        columns.push({ data: col.key, visible: !col.hidden });
+        if (!col.hidden) visibleIndex++;
+    });
 
-// Convenzioni dinamiche (hanno 2 colonne: km e %)
-convenzioni.forEach(conv => {
-    headerMain += `<th colspan="2">${labels[conv]}</th>`;
-    headerSub += `<th class="kmTh">Km</th><th>%</th>`;
-    columns.push({ data: `${conv}_km` });
-    kmColumnIndexes.push(visibleIndex);
-    visibleIndex++;
-    columns.push({ data: `${conv}_percent` });
-    visibleIndex++;
-});
+    convenzioni.forEach(conv => {
+        headerMain += `<th colspan="2">${labels[conv]}</th>`;
+        headerSub += `<th class="kmTh">Km Percorsi</th><th>%</th>`;
+        columns.push({ data: `${conv}_km` });
+        kmColumnIndexes.push(visibleIndex);
+        visibleIndex++;
+        columns.push({ data: `${conv}_percent` });
+        visibleIndex++;
+    });
 
-// Colonna Azioni (aggiunta a main, NON a sub)
-headerMain += `<th rowspan="2">Azioni</th>`;
-columns.push({
-    data: null,
-    orderable: false,
-    searchable: false,
-    render: function(row) {
-        if (!row.idAutomezzo) return '-';
-        return `
-            <a href="/km-percorsi/${row.idAutomezzo}" class="btn btn-sm btn-info me-1">
-                <i class="fas fa-eye"></i>
-            </a>
-            <a href="/km-percorsi/${row.idAutomezzo}/edit" class="btn btn-sm btn-warning me-1">
-                <i class="fas fa-edit"></i>
-            </a>
-            <form method="POST" action="/km-percorsi/${row.idAutomezzo}" class="d-inline-block" onsubmit="return confirm('Confermi eliminazione?')">
-                <input type="hidden" name="_token" value="{{ csrf_token() }}">
-                <input type="hidden" name="_method" value="DELETE">
-                <button type="submit" class="btn btn-sm btn-danger">
-                    <i class="fas fa-trash-alt"></i>
-                </button>
-            </form>
-        `;
-    }
-});
-
+    headerMain += `<th rowspan="2">Azioni</th>`;
+    columns.push({
+        data: null,
+        orderable: false,
+        searchable: false,
+        render: function(row) {
+            if (!row.idAutomezzo || row.Automezzo === 'TOTALE') return '-';
+            return `
+                <a href="/km-percorsi/${row.idAutomezzo}" class="btn btn-sm btn-info me-1">
+                    <i class="fas fa-eye"></i>
+                </a>
+                <a href="/km-percorsi/${row.idAutomezzo}/edit" class="btn btn-sm btn-warning me-1">
+                    <i class="fas fa-edit"></i>
+                </a>
+                <form method="POST" action="/km-percorsi/${row.idAutomezzo}" class="d-inline-block" onsubmit="return confirm('Confermi eliminazione?')">
+                    <input type="hidden" name="_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="_method" value="DELETE">
+                    <button type="submit" class="btn btn-sm btn-danger">
+                        <i class="fas fa-trash-alt"></i>
+                    </button>
+                </form>
+            `;
+        }
+    });
 
     $('#header-main').html(headerMain);
     $('#header-sub').html(headerSub);
 
-    // Inizializza DataTable
     table.DataTable({
         data,
         columns,
         columnDefs: [
-            { targets: 0, visible: false, searchable: false },
+            { targets: 0, visible: false, searchable: false }, // is_totale
             { targets: kmColumnIndexes, className: 'kmTh' }
         ],
-        order: [[0, 'asc']],
+        order: [[0, 'asc']],            // ordina per is_totale (0: normali, -1: totale)
+        orderFixed: [[0, 'asc']],       // fissa la riga totale in cima
         responsive: true,
         language: {
             url: 'https://cdn.datatables.net/plug-ins/1.11.3/i18n/it_it.json'
+        },
+        rowCallback: function(row, data) {
+            if (data.Automezzo === 'TOTALE') {
+                $(row).addClass('fw-bold table-totalRow');
+            }
         }
     });
 });

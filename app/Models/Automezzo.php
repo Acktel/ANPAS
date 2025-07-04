@@ -22,6 +22,8 @@ class Automezzo
                 $join->on('a.idAutomezzo', '=', 'km.idAutomezzo')
                     ->where('km.idAnno', '=', $anno);
             })
+            ->leftJoin('vehicle_types as vt', 'a.idTipoVeicolo', '=', 'vt.id')
+            ->leftJoin('fuel_types as ft', 'a.idTipoCarburante', '=', 'ft.id')
             ->select([
                 'a.idAutomezzo',
                 's.Associazione',
@@ -32,10 +34,10 @@ class Automezzo
                 'a.AnnoPrimaImmatricolazione',
                 'a.AnnoAcquisto',
                 'a.Modello',
-                'a.TipoVeicolo',
+                'vt.nome as TipoVeicolo',
                 'km.KmRiferimento',
                 'a.KmTotali',
-                'a.TipoCarburante',
+                'ft.nome as TipoCarburante',
                 'a.DataUltimaAutorizzazioneSanitaria',
                 'a.DataUltimoCollaudo',
                 'a.created_at',
@@ -57,9 +59,9 @@ class Automezzo
             'AnnoPrimaImmatricolazione'          => $data['AnnoPrimaImmatricolazione'],
             'AnnoAcquisto'                       => $data['AnnoAcquisto'] ?? null,
             'Modello'                            => $data['Modello'],
-            'TipoVeicolo'                        => $data['TipoVeicolo'],
+            'idTipoVeicolo'                      => $data['idTipoVeicolo'],
             'KmTotali'                           => $data['KmTotali'],
-            'TipoCarburante'                     => $data['TipoCarburante'],
+            'idTipoCarburante'                   => $data['idTipoCarburante'],
             'DataUltimaAutorizzazioneSanitaria'  => $data['DataUltimaAutorizzazioneSanitaria'],
             'DataUltimoCollaudo'                 => $data['DataUltimoCollaudo'],
             'created_at'                         => Carbon::now(),
@@ -76,10 +78,14 @@ class Automezzo
                 $join->on('a.idAutomezzo', '=', 'km.idAutomezzo')
                     ->where('km.idAnno', '=', $anno);
             })
+            ->leftJoin('vehicle_types as vt', 'a.idTipoVeicolo', '=', 'vt.id')
+            ->leftJoin('fuel_types as ft', 'a.idTipoCarburante', '=', 'ft.id')
             ->where('a.idAutomezzo', $idAutomezzo)
             ->select([
                 'a.*',
                 'km.KmRiferimento as KmRiferimento',
+                'vt.nome as TipoVeicolo',
+                'ft.nome as TipoCarburante',
             ])
             ->first();
     }
@@ -97,9 +103,9 @@ class Automezzo
                 'AnnoPrimaImmatricolazione'          => $data['AnnoPrimaImmatricolazione'],
                 'AnnoAcquisto'                       => $data['AnnoAcquisto'] ?? null,
                 'Modello'                            => $data['Modello'],
-                'TipoVeicolo'                        => $data['TipoVeicolo'],
+                'idTipoVeicolo'                      => $data['idTipoVeicolo'],
                 'KmTotali'                           => $data['KmTotali'],
-                'TipoCarburante'                     => $data['TipoCarburante'],
+                'idTipoCarburante'                   => $data['idTipoCarburante'],
                 'DataUltimaAutorizzazioneSanitaria'  => $data['DataUltimaAutorizzazioneSanitaria'],
                 'DataUltimoCollaudo'                 => $data['DataUltimoCollaudo'],
                 'updated_at'                         => Carbon::now(),
@@ -108,20 +114,22 @@ class Automezzo
 
     public static function deleteAutomezzo(int $idAutomezzo): void
     {
-        AutomezzoKm::deleteByAutomezzo($idAutomezzo);
+        AutomezzoKmRiferimento::deleteByAutomezzo($idAutomezzo);
         DB::table('automezzi')->where('idAutomezzo', $idAutomezzo)->delete();
     }
 
     public static function getByAssociazione(?int $idAssociazione, ?int $anno = null): Collection
     {
         $anno = $anno ?? session('anno_riferimento', now()->year);
-        
+
         return DB::table(self::TABLE . ' as a')
             ->join('associazioni as s', 'a.idAssociazione', '=', 's.idAssociazione')
             ->leftJoin('automezzi_km_riferimento as km', function ($join) use ($anno) {
                 $join->on('a.idAutomezzo', '=', 'km.idAutomezzo')
                     ->where('km.idAnno', '=', $anno);
             })
+            ->leftJoin('vehicle_types as vt', 'a.idTipoVeicolo', '=', 'vt.id')
+            ->leftJoin('fuel_types as ft', 'a.idTipoCarburante', '=', 'ft.id')
             ->select([
                 'a.idAutomezzo',
                 's.Associazione',
@@ -132,10 +140,10 @@ class Automezzo
                 'a.AnnoPrimaImmatricolazione',
                 'a.AnnoAcquisto',
                 'a.Modello',
-                'a.TipoVeicolo',
+                'vt.nome as TipoVeicolo',
                 'km.KmRiferimento',
                 'a.KmTotali',
-                'a.TipoCarburante',
+                'ft.nome as TipoCarburante',
                 'a.DataUltimaAutorizzazioneSanitaria',
                 'a.DataUltimoCollaudo',
             ])
@@ -149,23 +157,23 @@ class Automezzo
     public static function getForDataTable(int $anno, ?User $user): Collection
     {
         $isImpersonating = session()->has('impersonate');
-       // var_dump($isImpersonating);die();
         if ($isImpersonating) {
             $user = User::find(session('impersonate'));
         }
 
-        $query = DB::table(table: 'automezzi as a')
+        $query = DB::table('automezzi as a')
             ->join('associazioni as ass', 'ass.idAssociazione', '=', 'a.idAssociazione')
             ->leftJoin('automezzi_km_riferimento as km', function ($join) use ($anno) {
                 $join->on('km.idAutomezzo', '=', 'a.idAutomezzo')
                     ->where('km.idAnno', $anno);
             })
+            ->leftJoin('vehicle_types as vt', 'a.idTipoVeicolo', '=', 'vt.id')
+            ->leftJoin('fuel_types as ft', 'a.idTipoCarburante', '=', 'ft.id')
             ->where('a.idAnno', $anno);
 
-        if (! $user && ! $user->isSuperAdmin() && ! $user->isAdmin()) {
+        if (!$user || (!$user->isSuperAdmin() && !$user->isAdmin())) {
             $query->where('a.idAssociazione', $user->idAssociazione ?? 0);
         }
-        
 
         return $query->select([
             'a.idAutomezzo',
@@ -176,15 +184,13 @@ class Automezzo
             'a.CodiceIdentificativo',
             'a.AnnoPrimaImmatricolazione',
             'a.Modello',
-            'a.TipoVeicolo',
+            'vt.nome as TipoVeicolo',
             'km.KmRiferimento',
             'a.KmTotali',
-            'a.TipoCarburante',
+            'ft.nome as TipoCarburante',
             'a.DataUltimaAutorizzazioneSanitaria',
             'a.DataUltimoCollaudo',
-        ])
-        ->get()
-        ->map(function ($row) {
+        ])->get()->map(function ($row) {
             $row->Azioni = view('partials.actions_automezzo', ['id' => $row->idAutomezzo])->render();
             return $row;
         });
