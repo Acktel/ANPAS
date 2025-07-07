@@ -28,7 +28,7 @@ class AdminSeeder extends Seeder
         } else {
             $now = now();
             $associazioneId = DB::table('associazioni')->insertGetId([
-                'Associazione' => 'Default Association',
+                'Associazione' => 'Anpas Admin',
                 'email'        => 'default@associazione.test',
                 'password'     => Hash::make('secret'),
                 'provincia'    => 'RM',
@@ -46,8 +46,8 @@ class AdminSeeder extends Seeder
 
         if ($userRecord) {
             DB::table('users')->where('id', $userRecord->id)->update([
-                'firstname'      => 'Mario',
-                'lastname'       => 'Rossi',
+                'firstname'      => 'Alessandra',
+                'lastname'       => 'D’Angela',
                 'username'       => 'adminuser',
                 'password'       => Hash::make('Admin'),
                 'role_id'        => $role->id,
@@ -58,8 +58,8 @@ class AdminSeeder extends Seeder
             $userId = $userRecord->id;
         } else {
             $userId = DB::table('users')->insertGetId([
-                'firstname'      => 'Mario',
-                'lastname'       => 'Rossi',
+                'firstname'      => 'Alessandra',
+                'lastname'       => 'D’Angela',
                 'username'       => 'adminuser',
                 'email'          => 'anpasAdmin@anpas.it',
                 'password'       => Hash::make('Admin'),

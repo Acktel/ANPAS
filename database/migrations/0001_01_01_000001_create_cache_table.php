@@ -29,7 +29,10 @@ return new class extends Migration
      */
     public function down(): void
     {
+       
+        Schema::disableForeignKeyConstraints();
         Schema::dropIfExists('cache');
         Schema::dropIfExists('cache_locks');
+        Schema::enableForeignKeyConstraints();
     }
 };

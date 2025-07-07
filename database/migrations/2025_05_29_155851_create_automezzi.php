@@ -11,6 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
+        Schema::dropIfExists('automezzi');
+
         // 3. Tabella automezzi
         Schema::create('automezzi', function (Blueprint $table) {
             $table->id('idAutomezzo');
@@ -40,6 +42,8 @@ return new class extends Migration
      */
     public function down(): void
     {
+        Schema::disableForeignKeyConstraints();
         Schema::dropIfExists('automezzi');
-    }
+        Schema::enableForeignKeyConstraints();
+    }    
 };

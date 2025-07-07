@@ -18,12 +18,12 @@ class DatabaseSeeder extends Seeder
         $this->call(SuperAdminSeeder::class);
         $this->call(CreateRole ::class);
         $this->call(AnniSeeder::class);
-        $this->call(ConvenzioniSeeder::class);
-        $this->call(AutomezziSeeder::class);
-        $this->call(TipologiaRiepilogoSeeder::class);
-        $this->call(RiepilogoDatiSeeder::class);
+        //$this->call(ConvenzioniSeeder::class);
+        //$this->call(AutomezziSeeder::class);
+        //$this->call(TipologiaRiepilogoSeeder::class);
+        //$this->call(RiepilogoDatiSeeder::class);
         $this->call(AssociazioniAdminSeeder::class);        
-        $this->call(RiepilogoDati2Seeder::class);
+        //$this->call(RiepilogoDati2Seeder::class);
         $this->call(AdminSeeder::class);
     }
 
