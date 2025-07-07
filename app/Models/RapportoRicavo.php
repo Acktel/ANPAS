@@ -52,4 +52,21 @@ class RapportoRicavo {
             ->where('idAnno', $anno)
             ->delete();
     }
+
+    public static function getAllByAnno(int $anno, $user): Collection {
+        $q = DB::table(self::TABLE . ' as rr')
+            ->join('convenzioni as c', 'rr.idConvenzione', '=', 'c.idConvenzione')
+            ->join('associazioni as a', 'rr.idAssociazione', '=', 'a.idAssociazione')
+            ->select([
+                'rr.idAssociazione',
+                'a.Associazione',
+                'rr.idConvenzione',
+                'rr.Rimborso'
+            ])
+            ->where('rr.idAnno', $anno);
+        if (!$user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])) {
+            $q->where('rr.idAssociazione', $user->idAssociazione);
+        }
+        return collect($q->get());
+    }
 }

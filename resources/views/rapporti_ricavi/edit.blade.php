@@ -7,7 +7,8 @@
   </h1>
 
   <form method="POST" action="{{ route('rapporti-ricavi.update', $idAssociazione) }}">
-    @csrf @method('PUT')
+    @csrf
+    @method('PUT')
 
     <div class="table-responsive">
       <table class="table table-bordered text-center align-middle">
@@ -20,16 +21,23 @@
         <tbody>
           @foreach($convenzioni as $conv)
             @php
-              $val = $valori->firstWhere('idConvenzione',$conv->idConvenzione)->Rimborso ?? 0;
+              // se esiste un record per questa convenzione, prendo rimborso, altrimenti zero
+              $val = $valori->has($conv->idConvenzione)
+                   ? $valori->get($conv->idConvenzione)->rimborso
+                   : 0;
             @endphp
             <tr>
               <td>{{ $conv->Convenzione }}</td>
               <td>
-                <input type="number"
-                       step="0.01" min="0"
-                       name="ricavi[{{ $conv->idConvenzione }}]"
-                       class="form-control text-end"
-                       value="{{ $val }}">
+                
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  name="ricavi[{{ $conv->idConvenzione }}]"
+                  class="form-control text-end"
+                  value="{{ old("ricavi.{$conv->idConvenzione}", $val) }}"
+                >
               </td>
             </tr>
           @endforeach

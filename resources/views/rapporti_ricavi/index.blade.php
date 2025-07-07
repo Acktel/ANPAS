@@ -33,41 +33,38 @@ $(async function () {
   if (!data.length) return;
 
   const table = $('#ricaviTable');
+
+  // 1) colonne statiche
   const staticCols = [
-    { key: 'is_totale',        label: '',                    hidden: true  },
-    { key: 'Associazione',     label: 'Associazione',        hidden: false },
-    { key: 'TotaleEsercizio',  label: 'Totale Ricavi Esercizio', hidden: false },
+    { key: 'idAssociazione',  label: '',                     hidden: true  },
+    { key: 'Associazione',    label: 'Associazione',         hidden: false },
+    { key: 'TotaleEsercizio', label: 'Totale Ricavi Esercizio', hidden: false },
   ];
 
+  // 2) convenzioni dinamiche
   const convenzioni = Object.keys(labels)
-    .sort((a, b) => parseInt(a.slice(1)) - parseInt(b.slice(1)));
+    .sort((a,b)=>parseInt(a.slice(1)) - parseInt(b.slice(1)));
 
-  let headerMain = '', headerSub = '', columns = [];
+  // 3) montiamo header e colonne
+  let hMain='', hSub='', cols=[];
 
-  // static headers
-  staticCols.forEach(col => {
-    headerMain += `<th rowspan="2"${col.hidden ? ' style="display:none"' : ''}>${col.label}</th>`;
-    columns.push({ data: col.key, visible: !col.hidden });
+  staticCols.forEach(col=>{
+    hMain += `<th rowspan="2"${col.hidden?' style="display:none"':''}>${col.label}</th>`;
+    cols.push({ data: col.key, visible: !col.hidden });
   });
 
-  // dynamic convenzioni headers
-  convenzioni.forEach(key => {
-    headerMain += `<th colspan="2">${labels[key]}</th>`;
-    headerSub  += `<th>Rimborso</th><th>%</th>`;
-    columns.push({ data: `${key}_rimborso`, defaultContent: '0,00' });
-    columns.push({ data: `${key}_percent`,  defaultContent: 0 });
+  convenzioni.forEach(key=>{
+    hMain += `<th colspan="2">${labels[key]}</th>`;
+    hSub  += `<th>Rimborso</th><th>%</th>`;
+    cols.push({ data: `${key}_rimborso`, defaultContent:'0,00' });
+    cols.push({ data: `${key}_percent`,  defaultContent:0 });
   });
 
-  // Azioni
-  headerMain += `<th rowspan="2">Azioni</th>`;
-  columns.push({
-    data: null,
-    orderable: false,
-    searchable: false,
-    render: row => {
-      // non mostro i bottoni sulla riga totale
-      if (row.is_totale === -1) return '';
-      // URL relative al prefix /rapporti-ricavi
+  // 4) colonna Azioni
+  hMain += `<th rowspan="2">Azioni</th>`;
+  cols.push({
+    data:null, orderable:false, searchable:false,
+    render: row=>{
       return `
         <a href="/rapporti-ricavi/${row.idAssociazione}" class="btn btn-sm btn-info me-1">
           <i class="fas fa-eye"></i>
@@ -75,10 +72,11 @@ $(async function () {
         <a href="/rapporti-ricavi/${row.idAssociazione}/edit" class="btn btn-sm btn-warning me-1">
           <i class="fas fa-edit"></i>
         </a>
-        <form method="POST" action="/rapporti-ricavi/${row.idAssociazione}" class="d-inline-block" onsubmit="return confirm('Confermi eliminazione?')">
+        <form method="POST" action="/rapporti-ricavi/${row.idAssociazione}" class="d-inline-block"
+              onsubmit="return confirm('Eliminare i dati?')">
           <input type="hidden" name="_token" value="{{ csrf_token() }}">
           <input type="hidden" name="_method" value="DELETE">
-          <button type="submit" class="btn btn-sm btn-danger">
+          <button class="btn btn-sm btn-danger">
             <i class="fas fa-trash-alt"></i>
           </button>
         </form>
@@ -86,26 +84,15 @@ $(async function () {
     }
   });
 
-  $('#header-main').html(headerMain);
-  $('#header-sub').html(headerSub);
+  $('#header-main').html(hMain);
+  $('#header-sub').html(hSub);
 
+  // 5) inizializzo DataTable senza forzare alcun ordinamento sul “totale”
   table.DataTable({
     data,
-    columns,
-    order:      [[0, 'asc']],      // fissa la riga totale in cima
-    orderFixed: [[0, 'asc']],
-    paging:     false,
-    searching:  false,
-    info:       false,
+    columns: cols,
     responsive: true,
-    language: {
-      url: 'https://cdn.datatables.net/plug-ins/1.11.3/i18n/it_it.json'
-    },
-    rowCallback: (row, rowData) => {
-      if (rowData.is_totale === -1) {
-        $(row).addClass('fw-bold table-totalRow');
-      }
-    }
+    language: { url: 'https://cdn.datatables.net/plug-ins/1.11.3/i18n/it_it.json' }
   });
 });
 </script>

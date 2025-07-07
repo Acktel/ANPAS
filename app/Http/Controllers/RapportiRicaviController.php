@@ -1,74 +1,82 @@
 <?php
+
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use App\Models\Convenzione;
 use App\Models\RapportoRicavo;
 use App\Models\Associazione;
 use App\Models\User;
 use Illuminate\Support\Facades\Auth;
 
-class RapportiRicaviController extends Controller
-{
-    public function index()
-    {
+class RapportiRicaviController extends Controller {
+    public function index() {
         return view('rapporti_ricavi.index');
     }
 
     /** per DataTables */
-    public function getData()
-    {
-        $user = Auth::user();
-        if (session()->has('impersonate')) {
-            $user = User::find(session('impersonate'));
-        }
+   public function getData()
+{
+    $user = session()->has('impersonate')
+        ? User::find(session('impersonate'))
+        : auth()->user();
 
-        $anno = session('anno_riferimento', now()->year);
-        $convenzioni = Convenzione::getByAnno($anno, $user)->sortBy('idConvenzione')->values();
-        $ricavi = RapportoRicavo::getGroupedByConvenzione($anno, $user);
+    $anno = session('anno_riferimento', now()->year);
 
-        $totale = $ricavi->sum('Rimborso');
-        $labels = [];
-        foreach ($convenzioni as $c) {
-            $labels['c'.$c->idConvenzione] = $c->Convenzione;
-        }
+    // Le convenzioni da mostrare
+    $convenzioni = Convenzione::getByAnno($anno, $user)
+        ->sortBy('idConvenzione')
+        ->values();
 
+    // Tutti i ricavi, raggruppati per associazione
+    $ricaviRaw = RapportoRicavo::getAllByAnno($anno, $user)
+        ->groupBy('idAssociazione');
+
+    // Preparo le label per DataTables
+    $labels = $convenzioni
+        ->pluck('Convenzione','idConvenzione')
+        ->mapWithKeys(fn($name,$id) => ['c'.$id => $name])
+        ->toArray();
+
+    $rows = [];
+    foreach ($ricaviRaw as $idAss => $collezione) {
+        $totAssoc = $collezione->sum('Rimborso');
         $riga = [
-            'is_totale'       => -1,
-            'Associazione'    => $user->hasAnyRole(['SuperAdmin','Admin'])
-                                  ? 'Tutte'
-                                  : $user->associazione->Associazione,
-            'TotaleEsercizio' => number_format($totale,2,',','.'),
+            'idAssociazione'   => $idAss,
+            'Associazione'     => $collezione->first()->Associazione,
+            'TotaleEsercizio'  => $totAssoc,
         ];
 
-        $sumPercent = 0;
-        $last = count($convenzioni) - 1;
-        foreach ($convenzioni as $i => $conv) {
-            $key = 'c'.$conv->idConvenzione;
-            $rimborso = optional($ricavi->firstWhere('idConvenzione',$conv->idConvenzione))->Rimborso ?? 0;
-            $riga[$key.'_rimborso'] = number_format($rimborso,2,',','.');
-            if ($i < $last) {
-                $p = $totale>0 ? round($rimborso/$totale*100,2) : 0;
-                $riga[$key.'_percent'] = $p;
-                $sumPercent += $p;
-            } else {
-                $riga[$key.'_percent'] = max(0,round(100-$sumPercent,2));
-            }
+        // per ogni convenzione metto rimborso e percentuale
+        foreach ($convenzioni as $conv) {
+            $k = 'c'.$conv->idConvenzione;
+            $val = $collezione
+                ->firstWhere('idConvenzione',$conv->idConvenzione)
+                ->Rimborso ?? 0;
+            $riga["{$k}_rimborso"] = $val;
+            $riga["{$k}_percent"]  = $totAssoc>0
+                ? round($val/$totAssoc*100,2)
+                : 0;
         }
 
-        return response()->json([
-            'data'   => [$riga],
-            'labels' => $labels,
-        ]);
+        $rows[] = $riga;
     }
 
-    public function create()
-    {
+    return response()->json([
+        'data'   => $rows,
+        'labels' => $labels,
+    ]);
+}
+
+
+
+    public function create() {
         $user = Auth::user();
         // se super/admin prendo tutte le associazioni
-        if ($user->hasAnyRole(['SuperAdmin','Admin'])) {
+        if ($user->hasAnyRole(['SuperAdmin', 'Admin'])) {
             $associazioni = \DB::table('associazioni')
-                ->select('idAssociazione','Associazione')
+                ->select('idAssociazione', 'Associazione')
                 ->whereNull('deleted_at')
                 ->orderBy('Associazione')
                 ->get();
@@ -81,13 +89,12 @@ class RapportiRicaviController extends Controller
             ]);
         }
         $anno = session('anno_riferimento', now()->year);
-        $convenzioni = Convenzione::getByAnno($anno,$user)->sortBy('idConvenzione')->values();
+        $convenzioni = Convenzione::getByAnno($anno, $user)->sortBy('idConvenzione')->values();
 
-        return view('rapporti_ricavi.create', compact('associazioni','convenzioni','anno'));
+        return view('rapporti_ricavi.create', compact('associazioni', 'convenzioni', 'anno'));
     }
 
-    public function store(Request $request)
-    {
+    public function store(Request $request) {
         $user = Auth::user();
         $idAss = (int)$request->input('idAssociazione', $user->idAssociazione);
         $anno  = session('anno_riferimento');
@@ -102,31 +109,47 @@ class RapportiRicaviController extends Controller
             );
         }
         return redirect()->route('rapporti-ricavi.index')
-                         ->with('success','Ricavi salvati correttamente.');
+            ->with('success', 'Ricavi salvati correttamente.');
     }
 
-    public function edit(int $idAssociazione)
-    {
-        $user = Auth::user();
-        if (!$user->hasAnyRole(['SuperAdmin','Admin']) && $user->idAssociazione !== $idAssociazione) {
+    public function edit(int $idAssociazione) {
+        $user = session()->has('impersonate')
+            ? User::find(session('impersonate'))
+            : auth()->user();
+
+        if (
+            !$user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])
+            && $user->idAssociazione !== $idAssociazione
+        ) {
             abort(403);
         }
-        $anno = session('anno_riferimento');
-        $convenzioni   = Convenzione::getByAnno($anno,$user)->sortBy('idConvenzione')->values();
-        $valori        = RapportoRicavo::getByAssociazione($anno,$idAssociazione);
-        $associazione  = \DB::table('associazioni')
-                            ->where('idAssociazione',$idAssociazione)
-                            ->value('Associazione');
+
+        $anno = session('anno_riferimento', now()->year);
+        $convenzioni = Convenzione::getByAnno($anno, $user)
+            ->sortBy('idConvenzione')
+            ->values();
+
+        // **qui** invertiamo i parametri
+        $raw = RapportoRicavo::getByAssociazione($anno, $idAssociazione);
+        $valori = $raw->keyBy('idConvenzione');
+
+        $associazione = $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])
+            ? 'Tutte'
+            : $user->associazione->Associazione;
 
         return view('rapporti_ricavi.edit', compact(
-            'convenzioni','valori','idAssociazione','associazione','anno'
+            'convenzioni',
+            'valori',
+            'idAssociazione',
+            'associazione',
+            'anno'
         ));
     }
 
-    public function update(Request $request, int $idAssociazione)
-    {
+
+    public function update(Request $request, int $idAssociazione) {
         $anno = session('anno_riferimento');
-        RapportoRicavo::deleteByAssociazione($idAssociazione,$anno);
+        RapportoRicavo::deleteByAssociazione($idAssociazione, $anno);
 
         foreach ($request->input('ricavi', []) as $idConv => $rimborso) {
             if (!is_numeric($idConv)) continue;
@@ -138,20 +161,18 @@ class RapportiRicaviController extends Controller
             );
         }
         return redirect()->route('rapporti-ricavi.index')
-                         ->with('success','Ricavi aggiornati.');
+            ->with('success', 'Ricavi aggiornati.');
     }
 
-    public function show(int $idAssociazione)
-    {
+    public function show(int $idAssociazione) {
         // qui potresti semplicemente redirigere a edit, oppure:
         return $this->edit($idAssociazione);
     }
 
-    public function destroy(int $idAssociazione)
-    {
+    public function destroy(int $idAssociazione) {
         $anno = session('anno_riferimento');
-        RapportoRicavo::deleteByAssociazione($idAssociazione,$anno);
+        RapportoRicavo::deleteByAssociazione($idAssociazione, $anno);
         return redirect()->route('rapporti-ricavi.index')
-                         ->with('success','Dati eliminati.');
+            ->with('success', 'Dati eliminati.');
     }
 }
