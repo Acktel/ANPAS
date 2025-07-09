@@ -20,7 +20,7 @@ class AdminSeeder extends Seeder
 
         // 2. Associazione di default
         $assocRecord = DB::table('associazioni')
-            ->where('email', 'default@associazione.test')
+            ->where('email', 'AdminAnpas@associazione.it')
             ->first();
 
         if ($assocRecord) {
@@ -29,7 +29,7 @@ class AdminSeeder extends Seeder
             $now = now();
             $associazioneId = DB::table('associazioni')->insertGetId([
                 'Associazione' => 'Anpas Admin',
-                'email'        => 'default@associazione.test',
+                'email'        => 'AdminAnpas@associazione.it',
                 'password'     => Hash::make('secret'),
                 'provincia'    => 'RM',
                 'citta'        => 'Roma',

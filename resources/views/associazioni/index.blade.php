@@ -1,5 +1,10 @@
 @extends('layouts.app')
 
+@php
+  $user = Auth::user();
+  $isSuperAdmin = $user->hasRole('SuperAdmin');
+@endphp
+
 @section('content')
 <div class="container-fluid container-margin">
   <h1 class="text-anpas-green mb-4 container-title">Associazioni</h1>
@@ -9,7 +14,7 @@
   </a>
 
   <table id="associazioniTable"
-    class="common-css-dataTable table table-bordered table-hover dt-responsive nowrap w-100">
+         class="common-css-dataTable table table-bordered table-hover dt-responsive nowrap w-100">
     <thead class="thead-anpas">
       <tr>
         <th>Associazione</th>
@@ -24,68 +29,66 @@
   </table>
 </div>
 @endsection
-
 @push('scripts')
 <script>
-  document.addEventListener('DOMContentLoaded', function() {
-    const csrf = document.head.querySelector('meta[name="csrf-token"]').content;
+document.addEventListener('DOMContentLoaded', function() {
+  const csrf = document.head.querySelector('meta[name="csrf-token"]').content;
+  const isSuperAdmin = {{ $isSuperAdmin ? 'true' : 'false' }};
 
-    $('#associazioniTable').DataTable({
-      ajax: "{{ route('associazioni.data') }}",
-      columns: [{
-          data: 'Associazione'
-        },
-        {
-          data: 'email'
-        },
-        {
-          data: 'provincia'
-        },
-        {
-          data: 'citta'
-        },
-        {
-          data: 'indirizzo'
-        },
-        {
-          data: null,
-          orderable: false,
-          searchable: false,
-          render(row) {
-            const csrf = document.head.querySelector('meta[name="csrf-token"]').content;
-
-            let btns = `
-    <a href="/associazioni/${row.IdAssociazione}/edit"
-       class="btn btn-sm btn-anpas-edit me-1">
-      <i class="fas fa-edit"></i>
-    </a>
-    <form action="/associazioni/${row.IdAssociazione}" method="POST" style="display:inline">
-      <input name="_token" value="${csrf}" hidden>
-      <input name="_method" value="DELETE" hidden>
-      <button class="btn btn-sm btn-anpas-delete me-1">
-        <i class="fas fa-trash-alt"></i>
-      </button>
-    </form>`;
-
-            if (row.supervisor_user_id) {
-              btns += `
-      <form action="/impersonate/${row.supervisor_user_id}" method="POST" style="display:inline">
-        <input name="_token" value="${csrf}" hidden>
-        <button class="btn btn-sm btn-anpas-impersonate">
-          <i class="fas fa-user-secret"></i>
-        </button>
-      </form>`;
-            }
-            return btns;
-          }
-
-        }
-      ],
-      stripeClasses: ['table-white', 'table-striped-anpas'],
-      language: {
-        url: '/js/i18n/Italian.json'
+  $('#associazioniTable').DataTable({
+    ajax: {
+      url: "{{ route('associazioni.data') }}",
+      dataSrc: function(json) {
+        // json.data è l'array vero
+        const rows = json.data;
+        // se non SuperAdmin, scarto "GOD"
+        return isSuperAdmin
+          ? rows
+          : rows.filter(r => r.Associazione !== 'GOD');
       }
-    });
+    },
+    columns: [
+      { data: 'Associazione' },
+      { data: 'email' },
+      { data: 'provincia' },
+      { data: 'citta' },
+      { data: 'indirizzo' },
+      {
+        data: null,
+        orderable: false,
+        searchable: false,
+        render(row) {
+          let btns = `
+            <a href="/associazioni/${row.IdAssociazione}/edit"
+               class="btn btn-sm btn-anpas-edit me-1">
+              <i class="fas fa-edit"></i>
+            </a>
+            <form action="/associazioni/${row.IdAssociazione}" method="POST" style="display:inline">
+              <input name="_token" value="${csrf}" hidden>
+              <input name="_method" value="DELETE" hidden>
+              <button class="btn btn-sm btn-anpas-delete me-1">
+                <i class="fas fa-trash-alt"></i>
+              </button>
+            </form>`;
+
+          if (row.supervisor_user_id) {
+            btns += `
+              <form action="/impersonate/${row.supervisor_user_id}" method="POST" style="display:inline">
+                <input name="_token" value="${csrf}" hidden>
+                <button class="btn btn-sm btn-anpas-impersonate">
+                  <i class="fas fa-user-secret"></i>
+                </button>
+              </form>`;
+          }
+          return btns;
+        }
+      }
+    ],
+    stripeClasses: ['table-white', 'table-striped-anpas'],
+    language: {
+      url: '/js/i18n/Italian.json'
+    }
   });
+});
 </script>
 @endpush

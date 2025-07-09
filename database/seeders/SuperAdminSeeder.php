@@ -24,7 +24,7 @@ class SuperAdminSeeder extends Seeder
 
         // 2) Verifica/crea l'associazione di default col Query Builder
         $assocRecord = DB::table('associazioni')
-            ->where('email', 'default@associazione.test')
+            ->where('email', 'AdminAnpas@associazione.it')
             ->first();
 
         if ($assocRecord) {
@@ -34,7 +34,7 @@ class SuperAdminSeeder extends Seeder
             $now = now();
             $associazioneId = DB::table('associazioni')->insertGetId([
                 'Associazione' => 'Default Association',
-                'email'        => 'default@associazione.test',
+                'email'        => 'AdminAnpas@associazione.it',
                 'password'     => Hash::make('secret'), // se nella tua tabella associazioni c'è la colonna password
                 'provincia'    => 'RM',
                 'citta'        => 'Roma',
