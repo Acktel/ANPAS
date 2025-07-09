@@ -8,41 +8,45 @@ return new class extends Migration {
     /**
      * Run the migrations.
      */
-    public function up(): void {
-        // 6. Tabella dipendenti
+    public function up(): void
+    {
         Schema::create('dipendenti', function (Blueprint $table) {
             $table->id('idDipendente');
-            $table->foreignId('idAssociazione')
-                ->constrained('associazioni', 'idAssociazione')
-                ->cascadeOnDelete()
-                ->cascadeOnUpdate();
-            $table->foreignId('idAnno')
-                ->constrained('anni', 'idAnno')
-                ->cascadeOnDelete()
-                ->cascadeOnUpdate();
 
-            // Nome e Cognome separati
+            // FK su associazioni
+            $table->foreignId('idAssociazione')
+                  ->constrained('associazioni', 'idAssociazione')
+                  ->cascadeOnDelete()
+                  ->cascadeOnUpdate();
+
+            // FK su anni
+            $table->foreignId('idAnno')
+                  ->constrained('anni', 'idAnno')
+                  ->cascadeOnDelete()
+                  ->cascadeOnUpdate();
+
+            // ⚠️ Rimosso il campo idQualifica (sarà gestito via pivot)
+            // $table->foreignId('idQualifica')->nullable()->constrained('qualifiche')->cascadeOnDelete()->cascadeOnUpdate();
+
+            // Dati anagrafici
             $table->string('DipendenteNome', 100);
             $table->string('DipendenteCognome', 100);
 
-            // Nuovi campi richiesti
-            $table->string('Qualifica', 100);
+            // Contratto e livello mansione
             $table->string('ContrattoApplicato', 100);
             $table->string('LivelloMansione', 100);
 
             $table->timestamps();
 
-            // Eventuale indice composto (se necessario per ricerche frequenti)
-            $table->index(['idAssociazione', 'idAnno'], 'dipendenti_associazione_anno_idx');
+            $table->index(['idAssociazione', 'idAnno'], 'dip_assoc_anno_idx');
         });
     }
 
     /**
      * Reverse the migrations.
      */
-    public function down(): void {
-        Schema::disableForeignKeyConstraints();
+    public function down(): void
+    {
         Schema::dropIfExists('dipendenti');
-        Schema::enableForeignKeyConstraints();
     }
 };

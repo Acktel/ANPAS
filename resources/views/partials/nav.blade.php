@@ -106,15 +106,15 @@ $assocCorr = 'ANPAS Piemonte';
                 <li class="nav-item dropdown">
                     <a class="nav-link dropdown-toggle" href="#" id="riepiloghiDropdown" data-bs-toggle="dropdown">Voci di bilancio</a>
                     <ul class="dropdown-menu">
-                        <li>
-                            <a class="dropdown-item" href="{{ route('riepiloghi.index') }}">
-                                Consuntivo Anno {{ session('anno_riferimento') }}
-                            </a>
-                        </li>
+                        <li><a class="dropdown-item" href="{{ route('riepiloghi.index') }}">Consuntivo Anno {{ session('anno_riferimento') }}</a></li>
                         <li><a class="dropdown-item" href="{{ route('riepilogo.costi') }}">Riepilogo Costi</a></li>
                         <li><a class="dropdown-item" href="{{ route('km-percorsi.index') }}">Distinta Km percorsi per convenzione</a></li>
                         <li><a class="dropdown-item" href="{{ route('servizi-svolti.index') }}">Distinta Servizi svolti per convenzione</a></li>
+                        <li><a class="dropdown-item" href="{{ route('ripartizioni.personale.index') }}">Calcolo Ripartizione dei costi da personale dipendente (AUTISTI E/O BARELLIERI)</a></li>
+                        <li><a class="dropdown-item" href="{{ route('ripartizioni.volontari.index') }}">Calcolo Ripartizione dei costi da personale volontario</a></li>
                         <li><a class="dropdown-item" href="{{ route('rapporti-ricavi.index') }}">Rapporto tra ricavi singola convenzione e esercizio di riferimento</a></li>
+                        <li><a class="dropdown-item" href="{{ route('ripartizioni.servizio_civile.index') }}">Calcolo Ripartizione dei costi da personale Servizio Civile Nazionale</a></li>
+                        <li><a class="dropdown-item" href="{{ route('ripartizioni.materiale_sanitario.index') }}">Ripartizione materiale sanitario</a></li>
 
                     </ul>
                 </li>
@@ -123,8 +123,9 @@ $assocCorr = 'ANPAS Piemonte';
                 <li class="nav-item dropdown">
                     <a class="nav-link dropdown-toggle" href="#" id="personaleDropdown" data-bs-toggle="dropdown">Personale</a>
                     <ul class="dropdown-menu">
-                        <li><a class="dropdown-item" href="{{ route('dipendenti.index') }}">Dipendenti</a></li>
-                        <li><a class="dropdown-item" href="{{ route('dipendenti.autisti') }}">Autisti</a></li>
+                        <li><a class="dropdown-item" href="{{ route('dipendenti.index') }}">Dipendente</a></li>
+                        <li><a class="dropdown-item" href="{{ route('dipendenti.autisti') }}">Autista</a></li>
+                        <li><a class="dropdown-item" href="{{ route('dipendenti.amministrativi') }}">Amministrativo</a></li>
                         <li><a class="dropdown-item" href="{{ route('dipendenti.altro') }}">Altro Personale</a></li>
                     </ul>
                 </li>

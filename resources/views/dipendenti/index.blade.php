@@ -1,17 +1,14 @@
 {{-- resources/views/dipendenti/index.blade.php --}}
 @extends('layouts.app')
-  @php
-    $user = Auth::user();
-    $isImpersonating = session()->has('impersonate');
-    // Determina se siamo sulla rotta "altro"
-    $isAltro = Route::currentRouteName() === 'dipendenti.altro';
-    // Ruoli per modifica
-    $hasEditRoles = $user->hasAnyRole(['SuperAdmin','Admin','Supervisor','AdminUser']) || $isImpersonating;
-  @endphp
+@php
+  $user = Auth::user();
+  $isImpersonating = session()->has('impersonate');
+  $isAltro = Route::currentRouteName() === 'dipendenti.altro';
+  $hasEditRoles = $user->hasAnyRole(['SuperAdmin','Admin','Supervisor','AdminUser']) || $isImpersonating;
+@endphp
 
 @section('content')
 <div class="container-fluid container-margin">
-  {{-- Titolo dinamico --}}
   <div class="d-flex justify-content-between align-items-center mb-4">
     <h1 class="container-title">{{ $titolo }}</h1>
     @if($hasEditRoles)
@@ -21,12 +18,10 @@
     @endif
   </div>
 
-  {{-- Success message --}}
   @if(session('success'))
     <div class="alert alert-success">{{ session('success') }}</div>
   @endif
 
-  {{-- Messaggio “no data” --}}
   <div id="noDataMessage" class="alert alert-info d-none">
     Nessun dipendente presente per l’anno {{ session('anno_riferimento', now()->year) }}.<br>
     Vuoi importare i dipendenti dall’anno precedente?
@@ -50,7 +45,6 @@
             <th>Nome</th>
             <th>Cognome</th>
             <th>Qualifica</th>
-            <th>Contratto</th>
             <th>Livello Mansione</th>
             <th>Creato il</th>
             <th>Azioni</th>
@@ -96,9 +90,8 @@ document.addEventListener('DOMContentLoaded', async function () {
       { data: 'idAnno'        },
       { data: 'DipendenteNome' },
       { data: 'DipendenteCognome' },
-      { data: 'Qualifica'     },
-      { data: 'ContrattoApplicato' },
-      { data: 'LivelloMansione' },
+      { data: 'Qualifica',       defaultContent: '' },
+      { data: 'LivelloMansione', defaultContent: '' },
       {
         data: 'created_at',
         render: date => moment(date).format('DD/MM/YYYY HH:mm')
@@ -133,7 +126,6 @@ document.addEventListener('DOMContentLoaded', async function () {
     stripeClasses:['table-striped-anpas','']
   });
 
-  // Duplica “Sì”
   document.getElementById('btn-duplica-si')?.addEventListener('click', async function () {
     const btn = this;
     btn.disabled = true;
@@ -154,7 +146,6 @@ document.addEventListener('DOMContentLoaded', async function () {
     }
   });
 
-  // Duplica “No”
   document.getElementById('btn-duplica-no')?.addEventListener('click', () => {
     document.getElementById('noDataMessage').classList.add('d-none');
   });

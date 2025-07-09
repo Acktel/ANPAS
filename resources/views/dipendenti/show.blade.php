@@ -17,8 +17,8 @@
     <dt class="col-sm-3">Cognome</dt>
     <dd class="col-sm-9">{{ $dipendente->DipendenteCognome }}</dd>
 
-    <dt class="col-sm-3">Qualifica</dt>
-    <dd class="col-sm-9">{{ $dipendente->Qualifica }}</dd>
+    <dt class="col-sm-3">Qualifiche</dt>
+    <dd class="col-sm-9">{{ $qualifiche ?: 'Nessuna' }}</dd>
 
     <dt class="col-sm-3">Contratto Applicato</dt>
     <dd class="col-sm-9">{{ $dipendente->ContrattoApplicato }}</dd>
@@ -36,8 +36,7 @@
   <a href="{{ route('dipendenti.index') }}" class="btn btn-secondary">
     ← Torna all’elenco
   </a>
-  <a href="{{ route('dipendenti.edit', $dipendente->idDipendente) }}"
-     class="btn btn-warning">
+  <a href="{{ route('dipendenti.edit', $dipendente->idDipendente) }}" class="btn btn-warning">
     Modifica
   </a>
   <form action="{{ route('dipendenti.destroy', $dipendente->idDipendente) }}"

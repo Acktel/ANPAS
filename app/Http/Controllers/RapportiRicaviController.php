@@ -69,8 +69,6 @@ class RapportiRicaviController extends Controller {
     ]);
 }
 
-
-
     public function create() {
         $user = Auth::user();
         // se super/admin prendo tutte le associazioni

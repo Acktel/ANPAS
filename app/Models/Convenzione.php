@@ -161,11 +161,15 @@ class Convenzione {
     /**
      * Restituisce le convenzioni per una specifica associazione e anno (senza join).
      */
-    public static function getByAssociazioneAnno(int $idAssociazione, int $idAnno): Collection {
-        return DB::table(self::TABLE)
-            ->where('idAssociazione', $idAssociazione)
-            ->where('idAnno', $idAnno)
-            ->orderBy('Convenzione')
-            ->get();
+    public static function getByAssociazioneAnno(?int $idAssociazione, int $idAnno): Collection {
+        $query = DB::table(self::TABLE)
+            ->where('idAnno', $idAnno);
+
+        if (!is_null($idAssociazione)) {
+            $query->where('idAssociazione', $idAssociazione);
+        }
+
+        return $query->orderBy('Convenzione')->get();
     }
+
 }

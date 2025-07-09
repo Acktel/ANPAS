@@ -11,6 +11,11 @@ Route::middleware(['auth'])->group(function () {
      Route::get('dipendenti/altro/data', [DipendenteController::class, 'altroData'])
      ->name('dipendenti.altro.data');
 
+       // Personale Amministrativo
+     Route::get('dipendenti/amministrativi', [DipendenteController::class, 'amministrativi'])
+          ->name('dipendenti.amministrativi');
+
+
     // ✅ Rotte filtrate (autisti e altro)
     Route::get('dipendenti/autisti', [DipendenteController::class, 'autisti'])
          ->name('dipendenti.autisti');

@@ -62,4 +62,5 @@ Route::middleware('auth')->group(function () {
     require __DIR__ . '/riepilogoCosti.php';
     require __DIR__ . '/configurazioni.php';
     require __DIR__ . '/rapportiRicavi.php';
+    require __DIR__ . '/ripartizioni.php';
 });

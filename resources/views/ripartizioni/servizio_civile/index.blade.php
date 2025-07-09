@@ -1,0 +1,62 @@
+@extends('layouts.app')
+
+@section('content')
+<div class="container-fluid">
+  <h1 class="container-title mb-4">
+    Ripartizione costi <strong>Servizio Civile Nazionale</strong> – Anno {{ $anno }}
+  </h1>
+  <div class="table-responsive">
+    <table id="table-servizio-civile" class="table table-bordered w-100 text-center align-middle">
+      <thead class="table-light">
+        <tr id="header-main"></tr>
+        <tr id="header-sub"></tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</div>
+@endsection
+
+@push('scripts')
+<script>
+$(async function(){
+  const res = await fetch("{{ route('ripartizioni.servizio_civile.data') }}");
+  const { data, labels } = await res.json();
+  if (!data.length) return;
+
+  const table = $('#table-servizio-civile');
+  const staticCols = [
+    { key:'Associazione', label:'Associazione' },
+    { key:'FullName',     label:'Descrizione' },
+    { key:'OreTotali',    label:'Ore Totali Servizio Civile' }
+  ];
+  const convenzioni = Object.keys(labels).sort((a,b)=>parseInt(a.slice(1))-parseInt(b.slice(1)));
+  let hMain = '', hSub = '', cols = [];
+
+  staticCols.forEach(c=>{
+    hMain += `<th rowspan="2">${c.label}</th>`;
+    cols.push({ data: c.key });
+  });
+
+  convenzioni.forEach(key=>{
+    hMain += `<th colspan="2">${labels[key]}</th>`;
+    hSub  += `<th>Ore</th><th>%</th>`;
+    cols.push({ data:`${key}_ore`, defaultContent:0 });
+    cols.push({ data:`${key}_percent`, defaultContent:0 });
+  });
+
+  hMain += `<th rowspan="2">Azioni</th>`;
+  cols.push({
+    data: null,
+    orderable: false,
+    searchable: false,
+    render: () => `<a href="{{ route('ripartizioni.servizio_civile.edit') }}" class="btn btn-sm btn-warning"><i class="fas fa-edit"></i> Modifica</a>`
+  });
+
+  $('#header-main').html(hMain);
+  $('#header-sub').html(hSub);
+
+  table.DataTable({ data, columns: cols, paging:false, searching:false, info:false, responsive:true });
+});
+</script>
+@endpush
