@@ -34,13 +34,39 @@ class AssociazioniController extends Controller {
 
     /** GET /associazioni/data */
     public function getData(Request $request) {
-        $anno = session('anno_riferimento', now()->year); // 🧠 recupero anno
+        $anno      = session('anno_riferimento', now()->year);
+        $user      = Auth::user();
+        $isSuper   = $user->hasRole('SuperAdmin');
 
-        // Se vuoi filtrare per anno (es: idAnno), lo passi a getAll
-        $data = Associazione::getAll($request, $anno);
+        // 1) Prendo la risposta già formattata per DataTables
+        $result = Associazione::getAll($request, $anno);
+        // $result è un array con chiavi:
+        //   - draw
+        //   - recordsTotal
+        //   - recordsFiltered
+        //   - data (Collection di stdClass)
 
-        return response()->json($data);
+        // 2) Se NON sono SuperAdmin, filtro 'Associazione GOD'
+        if (! $isSuper) {
+            /** @var \Illuminate\Support\Collection $rows */
+            $rows = $result['data'];
+
+            // escludo entrambe le possibili stringhe
+            $filtered = $rows->filter(function ($row) {
+                return $row->Associazione !== 'Associazione GOD'
+                    && $row->Associazione !== 'GOD';
+            });
+
+            // raccolgo nuovamente e resetto indici
+            $result['data']           = $filtered->values();
+            $result['recordsFiltered'] = $filtered->count();
+            // (recordsTotal lasciamolo invariato: il totale prima del filtro)
+        }
+
+        // 3) Ritorno il JSON modificato
+        return response()->json($result);
     }
+
 
     public function store(Request $request) {
         $data = $request->validate([
