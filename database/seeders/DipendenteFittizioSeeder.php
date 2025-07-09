@@ -17,8 +17,7 @@ class DipendenteFittizioSeeder extends Seeder
                 'DipendenteNome'     => 'TOTALE',
                 'DipendenteCognome'  => 'VOLONTARI',
                 'ContrattoApplicato' => 'ALTRO',
-                'LivelloMansione'    => 'D1',                
-                'idQualifica'      => 15, 
+                'LivelloMansione'    => 'D1',       
                 'created_at'         => now(),
                 'updated_at'         => now(),
             ]
@@ -33,7 +32,6 @@ class DipendenteFittizioSeeder extends Seeder
                 'DipendenteCognome'  => 'SERVIZIO CIVILE',
                 'ContrattoApplicato' => 'ALTRO',
                 'LivelloMansione'    => 'D2',
-                'idQualifica'      => 16, 
                 'created_at'         => now(),
                 'updated_at'         => now(),
             ]
