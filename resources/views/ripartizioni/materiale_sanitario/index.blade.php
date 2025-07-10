@@ -1,21 +1,33 @@
+{{-- resources/views/ripartizioni/materiale_sanitario/index.blade.php --}}
 @extends('layouts.app')
 
 @section('content')
 <div class="container-fluid">
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1 class="container-title">Ripartizione materiale sanitario − Anno {{ $anno }}</h1>
+        <h1 class="container-title">TABELLA DI CALCOLO DELLE PERCENTUALI INERENTI IL NUMERO DEI SERVIZI SVOLTI AL FINE DELLA RIPARTIZIONE DEI COSTI DI OSSIGENO E MATERIALE SANITARIO																						
+ − Anno {{ $anno }}</h1>
     </div>
 
     <div class="table-responsive">
         <table id="table-materiale" class="table table-bordered w-100 text-center align-middle">
             <thead class="table-light">
-                <tr id="table-header-row"></tr>
+                <tr>
+                    <th style="display:none;"></th>              {{-- idAutomezzo hidden --}}
+                    <th>Automezzo</th>                          {{-- staticColumns[1] --}}
+                    <th>Targa</th>                              {{-- staticColumns[2] --}}
+                    <th>Codice ID</th>                          {{-- staticColumns[3] --}}
+                    <th>Incluso</th>                            {{-- staticColumns[4] --}}
+                    @foreach($convenzioni as $conv)              {{-- convenzioni dinamiche --}}
+                        <th>{{ $conv->Convenzione }}</th>
+                    @endforeach
+                    <th>Totale</th>                             {{-- colonna finale --}}
+                </tr>
             </thead>
             <tbody></tbody>
             <tfoot class="table-light fw-bold">
                 <tr>
-                    <!-- Colspan deve essere 13, non 999 -->
-                    <td colspan="13" class="text-end">
+                    {{-- colspan = 1(hidden)+4 statiche+count(convenzioni)+1 totale --}}
+                    <td colspan="{{ 5 + count($convenzioni) + 1 }}" class="text-end">
                         Totale incluso nel riparto: <span id="totale-inclusi">0</span>
                     </td>
                 </tr>
@@ -37,60 +49,38 @@ $(async function () {
     }));
     const convenzioni = json.convenzioni;
 
-    const staticColumns = [
-        { key: 'idAutomezzo', label: 'ID', hidden: true },
-        { key: 'Automezzo', label: 'Automezzo', hidden: false },
-        { key: 'Targa', label: 'Targa', hidden: false },
-        { key: 'CodiceIdentificativo', label: 'Codice ID', hidden: false },
+    // Costruzione colonne per DataTable
+    const columns = [
+        { data: 'idAutomezzo', visible: false },
+        { data: 'Automezzo' },
+        { data: 'Targa' },
+        { data: 'CodiceIdentificativo' },
         {
-            key: 'incluso_riparto',
-            label: 'Incluso',
-            hidden: false,
-            render: (d,t,row) => `
+            data: 'incluso_riparto',
+            render: (d, t, row) => `
                 <select class="form-select form-select-sm switch-inclusione" data-id="${row.idAutomezzo}">
-                    <option value="1" ${d ? 'selected' : ''}>SI</option>
-                    <option value="0" ${!d ? 'selected' : ''}>NO</option>
+                    <option value="1"${d ? ' selected' : ''}>SI</option>
+                    <option value="0"${!d ? ' selected' : ''}>NO</option>
                 </select>`
         }
     ];
 
-    let headerHtml = '';
-    const columns = [];
-
-    staticColumns.forEach(col => {
-        headerHtml += col.hidden
-            ? `<th style="display:none;"></th>`
-            : `<th>${col.label}</th>`;
-
-        columns.push({
-            data: col.key,
-            visible: !col.hidden,
-            render: col.render || undefined
-        });
-    });
-
     convenzioni.forEach(conv => {
-        headerHtml += `<th>${conv.Convenzione}</th>`;
         columns.push({
             data: `valori.${conv.idConvenzione}`,
             className: 'valore-servizio',
             defaultContent: 0,
-            render: (d,t,row) => row.incluso_riparto ? (d||0) : 0
+            render: (d, t, row) => row.incluso_riparto ? (d || 0) : 0
         });
     });
 
-    headerHtml += `<th>Totale</th>`;
     columns.push({
         data: 'totale_riga',
         className: 'totale-riga',
-        render: (d,t,row) => row.incluso_riparto ? d : 0
+        render: (d, t, row) => row.incluso_riparto ? d : 0
     });
 
-    $('#table-header-row').html(headerHtml);
-
-    // Debug (opzionale)
-    console.log("Colonne:", columns.length, "TH:", $('#table-header-row th').length);
-
+    // Inizializza DataTable
     const dt = $('#table-materiale').DataTable({
         data,
         columns,
@@ -104,40 +94,60 @@ $(async function () {
         rowCallback: (row, data) => {
             $(row).toggleClass('table-secondary', !data.incluso_riparto);
         },
-        drawCallback: ricalcolaTotale
+        drawCallback: function () {
+            let totale = 0;
+            this.rows().every(function () {
+                const d = this.data();
+                if (d.incluso_riparto) totale += parseInt(d.totale_riga || 0, 10);
+            });
+            $('#totale-inclusi').text(totale);
+        }
     });
 
-    function ricalcolaTotale() {
-        let tot = 0;
-        dt.rows().every(function () {
-            const d = this.data();
-            if (d.incluso_riparto) tot += parseInt(d.totale_riga||0,10);
-        });
-        $('#totale-inclusi').text(tot);
-    }
-
+    // Gestione cambio inclusione
     $('#table-materiale').on('change', '.switch-inclusione', function () {
         const select = $(this);
         const id = select.data('id');
-        const inc = select.val()==='1';
+        const inc = select.val() === '1';
+
         fetch("{{ route('ripartizioni.materiale_sanitario.aggiornaInclusione') }}", {
             method: 'POST',
+            credentials: 'same-origin',        // includi i cookie di sessione
             headers: {
-                'Content-Type':'application/json',
-                'X-CSRF-TOKEN':'{{ csrf_token() }}'
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',  // forza risposta JSON
+                'X-CSRF-TOKEN': '{{ csrf_token() }}'
             },
             body: JSON.stringify({ idAutomezzo: id, incluso: inc })
         })
-        .then(_=> {
-            const idx = dt.rows().eq(0).filter(i=>dt.row(i).data().idAutomezzo===id);
+        .then(async response => {
+            if (!response.ok) {
+                // prova a leggere il JSON di errore, altrimenti il testo
+                let errMsg;
+                try {
+                    const errJson = await response.json();
+                    errMsg = errJson.message || JSON.stringify(errJson);
+                } catch {
+                    errMsg = await response.text();
+                }
+                console.error('Server risponde con errore', response.status, errMsg);
+                alert(`Errore ${response.status}: ${errMsg}`);
+                throw new Error(errMsg);
+            }
+            return response.json();
+        })
+        .then(_ => {
+            // aggiornamento riuscito: aggiorno la riga in DataTable
+            const idx = dt.rows().eq(0).filter(i => dt.row(i).data().idAutomezzo === id);
             const rd = dt.row(idx).data();
             rd.incluso_riparto = inc;
             dt.row(idx).data(rd).invalidate().draw(false);
         })
         .catch(err => {
-            console.error(err);
-            alert("Errore durante il salvataggio");
+            // qui arriva SOLO se il then() sopra ha fatto throw
+            console.error('Errore in fetch:', err);
         });
+
     });
 });
 </script>

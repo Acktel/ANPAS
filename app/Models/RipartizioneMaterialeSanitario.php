@@ -45,7 +45,7 @@ class RipartizioneMaterialeSanitario {
         $totaleInclusi = 0;
 
         foreach ($automezzi as $id => $auto) {
-            $incluso = strtoupper($auto->incluso_riparto) === self::RIPARTO_SI;
+            $incluso = filter_var($auto->incluso_riparto, FILTER_VALIDATE_BOOLEAN);
 
             $riga = [
                 'idAutomezzo' => $id,

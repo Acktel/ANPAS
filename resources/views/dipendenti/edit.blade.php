@@ -1,10 +1,17 @@
+{{-- resources/views/dipendenti/edit.blade.php --}}
 @extends('layouts.app')
 
 @php
     $user = Auth::user();
     $isImpersonating = session()->has('impersonate');
 
+    // Prendo le qualifiche precedenti o old input e ne elimino i duplicati
     $qualificheSelezionate = old('Qualifica', $qualificheAttuali);
+    if (is_array($qualificheSelezionate)) {
+        $qualificheSelezionate = array_values(array_unique($qualificheSelezionate));
+    } else {
+        $qualificheSelezionate = [$qualificheSelezionate];
+    }
 @endphp
 
 @section('content')
@@ -85,7 +92,7 @@
           <div class="col-md-6 mb-3">
             <label for="Qualifica" class="form-label">Qualifica</label>
             <select name="Qualifica[]" id="Qualifica" class="form-select" multiple required>
-              @foreach ($qualifiche as $q)
+              @foreach ($qualifiche->unique('nome') as $q)
                 <option value="{{ $q->nome }}"
                   {{ in_array($q->nome, $qualificheSelezionate) ? 'selected' : '' }}>
                   {{ $q->nome }}

@@ -177,9 +177,9 @@ class Dipendente {
         }
 
         return $query->select([
-                'd.*',
-                'a.Associazione',
-            ])
+            'd.*',
+            'a.Associazione',
+        ])
             ->distinct()
             ->get();
     }
@@ -201,7 +201,8 @@ class Dipendente {
                 'd.DipendenteCognome',
                 'd.LivelloMansione',
                 'd.created_at',
-                DB::raw('GROUP_CONCAT(DISTINCT q.nome ORDER BY q.nome SEPARATOR ", ") as Qualifica')
+                // <<< qui il DISTINCT sul nome:
+                DB::raw('GROUP_CONCAT(DISTINCT q.nome ORDER BY q.nome SEPARATOR ", ") as Qualifica'),
             ])
             ->groupBy('d.idDipendente')
             ->get();

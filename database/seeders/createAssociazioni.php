@@ -35,7 +35,7 @@ class createAssociazioni extends Seeder
                 'created_at'   => '2025-06-04 14:02:54',
                 'updated_at'   => '2025-06-04 14:02:54',
             ],
-          /*  [
+            [
                 'email'        => 'dfsgdsfg@dfg.it',
                 'Associazione' => 'TestAssociazione',
                 'password'     => null,
@@ -64,7 +64,7 @@ class createAssociazioni extends Seeder
                 'active'       => 1,
                 'created_at'   => '2025-06-06 13:52:03',
                 'updated_at'   => '2025-06-06 13:52:03',
-            ],*/
+            ],
         ];
 
         foreach ($associazioni as $assoc) {

@@ -74,7 +74,6 @@ class DipendentiSeeder extends Seeder
             $inserts[] = [
                 'idAssociazione'      => $idAssociazione,
                 'idAnno'              => $idAnno,
-                'idQualifica'         => $idQual,
                 'DipendenteNome'      => $r['DipendenteNome'],
                 'DipendenteCognome'   => $r['DipendenteCognome'],
                 'ContrattoApplicato'  => $r['ContrattoApplicato'],
