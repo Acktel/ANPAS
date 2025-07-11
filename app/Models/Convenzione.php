@@ -97,18 +97,27 @@ class Convenzione {
      * Crea una nuova convenzione.
      */
     public static function createConvenzione(array $data): int {
-        $now = Carbon::now()->toDateTimeString();
+        $now = now()->toDateTimeString();
+
+        // Calcola il prossimo valore di ordinamento per l'associazione e anno
+        $maxOrd = DB::table(self::TABLE)
+            ->where('idAssociazione', $data['idAssociazione'])
+            ->where('idAnno', $data['idAnno'])
+            ->max('ordinamento');
+
+        $ordinamento = is_null($maxOrd) ? 0 : $maxOrd + 1;
 
         DB::insert("
             INSERT INTO " . self::TABLE . "
-                (idAssociazione, idAnno, Convenzione, lettera_identificativa, created_at, updated_at)
+                (idAssociazione, idAnno, Convenzione, lettera_identificativa, ordinamento, created_at, updated_at)
             VALUES
-                (:idAssociazione, :idAnno, :Convenzione, :lettera_identificativa, :created_at, :updated_at)
+                (:idAssociazione, :idAnno, :Convenzione, :lettera_identificativa, :ordinamento, :created_at, :updated_at)
         ", [
             'idAssociazione'         => $data['idAssociazione'],
             'idAnno'                 => $data['idAnno'],
             'Convenzione'            => $data['Convenzione'],
             'lettera_identificativa' => $data['lettera_identificativa'],
+            'ordinamento'            => $ordinamento,
             'created_at'             => $now,
             'updated_at'             => $now,
         ]);
@@ -148,13 +157,13 @@ class Convenzione {
         DB::delete("DELETE FROM " . self::TABLE . " WHERE idConvenzione = ?", [$id]);
     }
 
-    public static function getWithAssociazione(int $idAssociazione, int $idAnno): Collection {
-        return DB::table(self::TABLE . ' as c')
-            ->join('associazioni as s', 'c.idAssociazione', '=', 's.idAssociazione')
+    public static function getWithAssociazione($idAssociazione, $anno) {
+        return DB::table('convenzioni as c')
+            ->join('associazioni as a', 'a.idAssociazione', '=', 'c.idAssociazione')
             ->where('c.idAssociazione', $idAssociazione)
-            ->where('c.idAnno', $idAnno)
-            ->select('c.*', 's.Associazione')
-            ->orderBy('c.Convenzione')
+            ->where('c.idAnno', $anno)
+            ->select('c.*', 'a.Associazione')
+            ->orderBy('c.ordinamento')
             ->get();
     }
 

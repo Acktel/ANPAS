@@ -10,14 +10,14 @@
     <div class="alert alert-success">{{ session('success') }}</div>
   @endif
 
-<div class="d-flex mb-3">
-  <div class="ms-auto">
-    <a href="{{ route('convenzioni.create') }}"
-       class="btn btn-anpas-green">
-      <i class="fas fa-plus me-1"></i> Nuova Convenzione
-    </a>
+  <div class="d-flex mb-3">
+    <div class="ms-auto">
+      <a href="{{ route('convenzioni.create') }}"
+         class="btn btn-anpas-green">
+        <i class="fas fa-plus me-1"></i> Nuova Convenzione
+      </a>
+    </div>
   </div>
-</div>
 
   <div id="noDataMessage" class="alert alert-info d-none">
     Nessuna convenzione presente per l’anno {{ session('anno_riferimento', now()->year) }}.<br>
@@ -42,9 +42,9 @@
             <th>Azioni</th>
           </tr>
         </thead>
-        <tbody>
+        <tbody id="sortable-convenzioni" class="sortable">
           @forelse($convenzioni as $c)
-            <tr>
+            <tr data-id="{{ $c->idConvenzione }}">
               <td>{{ $c->idConvenzione }}</td>
               <td>{{ $c->Associazione }}</td>
               <td>{{ $c->idAnno }}</td>
@@ -78,9 +78,42 @@
 @endsection
 
 @push('scripts')
+<!-- Sortable CDN -->
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+
 <script>
 document.addEventListener('DOMContentLoaded', function () {
   const csrf = document.querySelector('meta[name="csrf-token"]').content;
+
+  // DataTable init
+  $('#convenzioniTable').DataTable({
+    paging: false,
+    info: false,
+    language: {
+      url: 'https://cdn.datatables.net/plug-ins/1.11.3/i18n/it_it.json'
+    }
+  });
+
+  // Sortable drag & drop
+  const tbody = document.querySelector('#convenzioniTable tbody.sortable');
+  if (tbody) {
+    Sortable.create(tbody, {
+      animation: 150,
+      handle: 'td',
+      ghostClass: 'table-warning',
+      onEnd: function () {
+        const ids = Array.from(tbody.querySelectorAll('tr')).map(tr => tr.dataset.id);
+        fetch('/convenzioni/riordina', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': csrf
+          },
+          body: JSON.stringify({ order: ids })
+        }).catch(() => alert('Errore nel riordino.'));
+      }
+    });
+  }
 
   // Mostra messaggio duplicazione
   fetch("{{ route('convenzioni.checkDuplicazione') }}")
@@ -104,17 +137,17 @@ document.addEventListener('DOMContentLoaded', function () {
         'Accept': 'application/json'
       }
     });
+
     const json = await res.json();
-    if (res.ok) {
-      location.reload();
-    } else {
+    if (res.ok) location.reload();
+    else {
       alert(json.message || 'Errore duplicazione');
       btn.disabled = false;
       btn.innerText = 'Sì';
     }
   });
 
-  // Nascondi messaggio
+  // Nascondi messaggio duplicazione
   document.getElementById('btn-duplica-no')?.addEventListener('click', function () {
     document.getElementById('noDataMessage').classList.add('d-none');
   });

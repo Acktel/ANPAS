@@ -46,6 +46,7 @@
             <th>Veicolo</th>
             <th>Targa</th>
             <th>Codice ID</th>
+            <th>Incluso Riparto</th>
             <th>Immatricolazione</th>
             <th>Modello</th>
             <th>Tipo Veicolo</th>
@@ -96,6 +97,7 @@ document.addEventListener('DOMContentLoaded', () => {
       { data: 'Automezzo' },
       { data: 'Targa' },
       { data: 'CodiceIdentificativo' },
+      { data: 'incluso_riparto', render: data => data ? '✔️' : '❌' },
       { data: 'AnnoPrimaImmatricolazione' },
       { data: 'Modello' },
       { data: 'TipoVeicolo' },

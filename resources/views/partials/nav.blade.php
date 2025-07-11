@@ -114,7 +114,7 @@ $assocCorr = 'ANPAS Piemonte';
                         <li><a class="dropdown-item" href="{{ route('ripartizioni.volontari.index') }}">Calcolo Ripartizione dei costi da personale volontario</a></li>
                         <li><a class="dropdown-item" href="{{ route('rapporti-ricavi.index') }}">Rapporto tra ricavi singola convenzione e esercizio di riferimento</a></li>
                         <li><a class="dropdown-item" href="{{ route('ripartizioni.servizio_civile.index') }}">Calcolo Ripartizione dei costi da personale Servizio Civile Nazionale</a></li>
-                        <li><a class="dropdown-item" href="{{ route('ripartizioni.materiale_sanitario.index') }}">Ripartizione materiale sanitario</a></li>
+                        <li><a class="dropdown-item" href="{{ route('ripartizioni.materiale_sanitario.index') }}">Calcolo Ripartizione numero servizi svolti/costi ossigeno e materiale sanitario</a></li>
 
                     </ul>
                 </li>

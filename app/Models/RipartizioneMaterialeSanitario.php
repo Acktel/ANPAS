@@ -14,7 +14,7 @@ class RipartizioneMaterialeSanitario {
      * Restituisce la ripartizione con i conteggi per convenzione/automezzo.
      */
     public static function getRipartizione(?int $idAssociazione, int $anno): array {
-        // 1. Recupero automezzi
+        // 1. Recupero automezzi filtrati per anno (e associazione se definita)
         $automezziQuery = DB::table(self::TABLE_AUTOMEZZI)
             ->where('idAnno', $anno);
 
@@ -27,22 +27,22 @@ class RipartizioneMaterialeSanitario {
             ->get()
             ->keyBy('idAutomezzo');
 
-        // 2. Convenzioni da model centralizzato (gestisce internamente null)
+        // 2. Convenzioni disponibili
         $convenzioni = Convenzione::getByAssociazioneAnno($idAssociazione, $anno);
 
-        // 3. Servizi svolti per (automezzo, convenzione)
+        // 3. Servizi per (automezzo, convenzione)
         $servizi = DB::table('automezzi_servizi')
             ->whereIn('idAutomezzo', $automezzi->keys())
             ->whereIn('idConvenzione', $convenzioni->pluck('idConvenzione'))
             ->select('idAutomezzo', 'idConvenzione', 'NumeroServizi')
             ->get();
 
-        // 4. Mappa indicizzata "idAutomezzo-idConvenzione" → NumeroServizi
         $serviziIndicizzati = $servizi->keyBy(fn($s) => $s->idAutomezzo . '-' . $s->idConvenzione);
 
-        // 5. Composizione righe
+        // 4. Calcolo righe per DataTable
         $righe = [];
         $totaleInclusi = 0;
+        $totaliPerConvenzione = [];
 
         foreach ($automezzi as $id => $auto) {
             $incluso = filter_var($auto->incluso_riparto, FILTER_VALIDATE_BOOLEAN);
@@ -59,9 +59,15 @@ class RipartizioneMaterialeSanitario {
 
             foreach ($convenzioni as $conv) {
                 $key = $id . '-' . $conv->idConvenzione;
-                $num = isset($serviziIndicizzati[$key]) ? (int)$serviziIndicizzati[$key]->NumeroServizi : 0;
+                $num = isset($serviziIndicizzati[$key]) ? (int) $serviziIndicizzati[$key]->NumeroServizi : 0;
                 $riga['valori'][$conv->idConvenzione] = $num;
                 $riga['totale'] += $num;
+
+                // Totali per la riga finale
+                if (!isset($totaliPerConvenzione[$conv->idConvenzione])) {
+                    $totaliPerConvenzione[$conv->idConvenzione] = 0;
+                }
+                $totaliPerConvenzione[$conv->idConvenzione] += $incluso ? $num : 0;
             }
 
             if ($incluso) {
@@ -71,12 +77,31 @@ class RipartizioneMaterialeSanitario {
             $righe[$id] = $riga;
         }
 
+        // 5. Riga finale di TOTALE
+        $rigaTotale = [
+            'idAutomezzo' => null,
+            'Automezzo' => 'TOTALE',
+            'Targa' => '',
+            'CodiceIdentificativo' => '',
+            'incluso_riparto' => true,
+            'valori' => [],
+            'totale' => $totaleInclusi,
+            'is_totale' => true,
+        ];
+
+        foreach ($convenzioni as $conv) {
+            $rigaTotale['valori'][$conv->idConvenzione] = $totaliPerConvenzione[$conv->idConvenzione] ?? 0;
+        }
+
+        $righe['totale'] = $rigaTotale;
+
         return [
             'convenzioni' => $convenzioni,
             'righe' => $righe,
             'totale_inclusi' => $totaleInclusi
         ];
     }
+
 
     /**
      * Restituisce tutti gli automezzi per la vista di modifica dei flag.
@@ -102,9 +127,9 @@ class RipartizioneMaterialeSanitario {
         DB::table(self::TABLE_AUTOMEZZI)
             ->where('idAutomezzo', $idAutomezzo)
             ->update([
-                        'incluso_riparto' => $incluso ? 1 : 0,
-                        'updated_at'      => now(),
-                    ]);
+                'incluso_riparto' => $incluso ? 1 : 0,
+                'updated_at'      => now(),
+            ]);
     }
 
     /**
@@ -130,5 +155,4 @@ class RipartizioneMaterialeSanitario {
                 ]);
         }
     }
-
 }

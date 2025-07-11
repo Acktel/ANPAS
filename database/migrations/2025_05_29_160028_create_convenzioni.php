@@ -21,6 +21,7 @@ return new class extends Migration
             $table->string('lettera_identificativa', 5)
                 ->default('')
                 ->comment('Lettera di identificazione del servizio / convenzione');
+            $table->unsignedSmallInteger('ordinamento')->default(0)->comment('Ordine personalizzato delle convenzioni');
             $table->timestamps();
         });
     }

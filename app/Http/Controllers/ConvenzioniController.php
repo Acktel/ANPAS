@@ -23,11 +23,10 @@ class ConvenzioniController extends Controller {
                 ->join('associazioni as a', 'a.idAssociazione', '=', 'c.idAssociazione')
                 ->where('c.idAnno', $anno)
                 ->select('c.*', 'a.Associazione')
-                ->orderBy('a.Associazione')
-                ->orderBy('c.Convenzione')
+                ->orderBy('c.ordinamento')
                 ->get();
         } else {
-          $convenzioni = Convenzione::getWithAssociazione($user->IdAssociazione, $anno);
+            $convenzioni = Convenzione::getWithAssociazione($user->IdAssociazione, $anno);
         }
 
         return view('convenzioni.index', compact('convenzioni', 'anno'));
@@ -167,5 +166,21 @@ class ConvenzioniController extends Controller {
         } catch (\Throwable $e) {
             return response()->json(['message' => 'Errore durante la duplicazione.', 'error' => $e->getMessage()], 500);
         }
+    }
+
+    public function riordina(Request $request): JsonResponse {
+        $ids = $request->input('order'); // array ordinato di idConvenzione
+
+        if (!is_array($ids)) {
+            return response()->json(['message' => 'Formato dati non valido'], 422);
+        }
+
+        foreach ($ids as $index => $id) {
+            DB::table('convenzioni')
+                ->where('idConvenzione', $id)
+                ->update(['ordinamento' => $index]);
+        }
+
+        return response()->json(['message' => 'Ordinamento aggiornato']);
     }
 }

@@ -24,6 +24,7 @@ mix
   // 4) Copia fonts e immagini
   .copyDirectory('resources/fonts', 'public/fonts')
   .copyDirectory('resources/images', 'public/images')
+  .copyDirectory('node_modules/@fortawesome/fontawesome-free/webfonts', 'public/webfonts')
 
   // 5) Versioning per cache-busting
   .version();

@@ -61,6 +61,7 @@ class AutomezziController extends Controller {
             'idTipoCarburante' => 'required|exists:fuel_types,id',
             'DataUltimaAutorizzazioneSanitaria' => 'nullable|date',
             'DataUltimoCollaudo' => 'nullable|date',
+            'incluso_riparto' => 'required|boolean',
         ];
 
         $validated = $request->validate($rules);
@@ -125,6 +126,7 @@ class AutomezziController extends Controller {
             'idTipoCarburante' => 'required|exists:fuel_types,id',
             'DataUltimaAutorizzazioneSanitaria' => 'nullable|date',
             'DataUltimoCollaudo' => 'nullable|date',
+            'incluso_riparto' => 'required|boolean',
         ];
 
         $validated = $request->validate($rules);

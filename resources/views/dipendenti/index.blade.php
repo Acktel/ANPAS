@@ -1,10 +1,9 @@
-{{-- resources/views/dipendenti/index.blade.php --}}
 @extends('layouts.app')
 @php
   $user = Auth::user();
   $isImpersonating = session()->has('impersonate');
-  $isAltro = Route::currentRouteName() === 'dipendenti.altro';
   $hasEditRoles = $user->hasAnyRole(['SuperAdmin','Admin','Supervisor','AdminUser']) || $isImpersonating;
+  $currentRoute = Route::currentRouteName();
 @endphp
 
 @section('content')
@@ -46,7 +45,7 @@
             <th>Cognome</th>
             <th>Qualifica</th>
             <th>Livello Mansione</th>
-            <th>Creato il</th>
+            <th>Ultima modifica</th>
             <th>Azioni</th>
           </tr>
         </thead>
@@ -62,18 +61,30 @@
 <script>
 document.addEventListener('DOMContentLoaded', async function () {
   const csrfToken = document.head.querySelector('meta[name="csrf-token"]').content;
-  const isAltro     = @json($isAltro);
-  const canEdit     = @json($hasEditRoles);
-  const dupRes      = await fetch("{{ route('dipendenti.checkDuplicazione') }}");
-  const dupData     = await dupRes.json();
+  const currentRoute = @json($currentRoute);
+  const canEdit = @json($hasEditRoles);
 
-  const ajaxUrl = isAltro
-    ? "{{ route('dipendenti.altro.data') }}"
-    : "{{ route('dipendenti.data') }}";
+  const dupRes = await fetch("{{ route('dipendenti.checkDuplicazione') }}");
+  const dupData = await dupRes.json();
+
+  let ajaxUrl = '';
+  switch (currentRoute) {
+    case 'dipendenti.altro':
+      ajaxUrl = "{{ route('dipendenti.altro.data') }}";
+      break;
+    case 'dipendenti.amministrativi':
+      ajaxUrl = "{{ route('dipendenti.amministrativi.data') }}";
+      break;
+    case 'dipendenti.autisti':
+      ajaxUrl = "{{ route('dipendenti.autisti.data') }}";
+      break;
+    default:
+      ajaxUrl = "{{ route('dipendenti.data') }}";
+  }
 
   $('#dipendentiTable').DataTable({
-    processing:    true,
-    serverSide:    false,
+    processing: true,
+    serverSide: false,
     ajax: {
       url: ajaxUrl,
       dataSrc(json) {
@@ -86,15 +97,19 @@ document.addEventListener('DOMContentLoaded', async function () {
     },
     columns: [
       { data: 'idDipendente' },
-      { data: 'Associazione'  },
-      { data: 'idAnno'        },
+      { data: 'Associazione' },
+      { data: 'idAnno' },
       { data: 'DipendenteNome' },
       { data: 'DipendenteCognome' },
-      { data: 'Qualifica',       defaultContent: '' },
+      { data: 'Qualifica', defaultContent: '' },
       { data: 'LivelloMansione', defaultContent: '' },
       {
-        data: 'created_at',
-        render: date => moment(date).format('DD/MM/YYYY HH:mm')
+        data: null,
+        render: function (data, type, row) {
+          const nome = row.updated_by_name || row.created_by_name || '—';
+          const dataMod = row.updated_at || row.created_at;
+          return `${nome}<br><small>${moment(dataMod).format('DD/MM/YYYY HH:mm')}</small>`;
+        }
       },
       {
         data: 'idDipendente',
@@ -122,8 +137,8 @@ document.addEventListener('DOMContentLoaded', async function () {
         }
       }
     ],
-    language:     { url: '/js/i18n/Italian.json' },
-    stripeClasses:['table-striped-anpas','']
+    language: { url: '/js/i18n/Italian.json' },
+    stripeClasses: ['table-striped-anpas', '']
   });
 
   document.getElementById('btn-duplica-si')?.addEventListener('click', async function () {

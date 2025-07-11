@@ -101,45 +101,47 @@ class DipendenteController extends Controller {
         return view('dipendenti.show', compact('dipendente', 'qualifiche'));
     }
 
-public function getData(Request $request): JsonResponse {
-    $user = Auth::user();
-    $anno = session('anno_riferimento', now()->year);
-    $isElevated = !$this->isImpersonating() && $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor']);
+    public function getData(Request $request): JsonResponse {
+        $user = Auth::user();
+        $anno = session('anno_riferimento', now()->year);
+        $isElevated = !$this->isImpersonating() && $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor']);
 
-    // Dataset base
-    $dataset = $isElevated
-        ? Dipendente::getAll($anno)
-        : Dipendente::getByAssociazione($user->IdAssociazione, $anno);
+        // Dataset base
+        $dataset = $isElevated
+            ? Dipendente::getAll($anno)
+            : Dipendente::getByAssociazione($user->IdAssociazione, $anno);
 
-    // Mappa dipendente → array qualifiche
-    $qualificheMap = DB::table('dipendenti_qualifiche')
-        ->join('qualifiche', 'dipendenti_qualifiche.idQualifica', '=', 'qualifiche.id')
-        ->select('dipendenti_qualifiche.idDipendente', 'qualifiche.nome')
-        ->get()
-        ->groupBy('idDipendente')
-        ->map(fn($items) => $items->pluck('nome')->toArray());
+        // Mappa dipendente → array qualifiche
+        $qualificheMap = DB::table('dipendenti_qualifiche')
+            ->join('qualifiche', 'dipendenti_qualifiche.idQualifica', '=', 'qualifiche.id')
+            ->select('dipendenti_qualifiche.idDipendente', 'qualifiche.nome')
+            ->get()
+            ->groupBy('idDipendente')
+            ->map(fn($items) => $items->pluck('nome')->toArray());
 
-    // Aggiunge il campo virtuale "Qualifica" per ogni dipendente
-    $dataset->transform(function ($d) use ($qualificheMap) {
-        $d->Qualifica = isset($qualificheMap[$d->idDipendente])
-            ? implode(', ', $qualificheMap[$d->idDipendente])
-            : '';
-        return $d;
-    });
+        // Aggiunge il campo virtuale "Qualifica" per ogni dipendente
+        $dataset->transform(function ($d) use ($qualificheMap) {
+            $d->Qualifica = isset($qualificheMap[$d->idDipendente])
+                ? implode(', ', $qualificheMap[$d->idDipendente])
+                : '';
+            return $d;
+        });
 
-    // Filtro opzionale
-    $dataset = match ($request->tipo) {
-        'autisti' => $dataset->filter(fn($d) =>
-            collect($qualificheMap[$d->idDipendente] ?? [])->contains(fn($q) => str_contains($q, 'AUTISTA'))
-        ),
-        'altro' => $dataset->reject(fn($d) =>
-            collect($qualificheMap[$d->idDipendente] ?? [])->contains(fn($q) => str_contains($q, 'AUTISTA'))
-        ),
-        default => $dataset,
-    };
+        // Filtro opzionale
+        $dataset = match ($request->tipo) {
+            'autisti' => $dataset->filter(
+                fn($d) =>
+                collect($qualificheMap[$d->idDipendente] ?? [])->contains(fn($q) => str_contains($q, 'AUTISTA'))
+            ),
+            'altro' => $dataset->reject(
+                fn($d) =>
+                collect($qualificheMap[$d->idDipendente] ?? [])->contains(fn($q) => str_contains($q, 'AUTISTA'))
+            ),
+            default => $dataset,
+        };
 
-    return response()->json(['data' => $dataset->values()]);
-}
+        return response()->json(['data' => $dataset->values()]);
+    }
 
 
     public function checkDuplicazioneDisponibile(): JsonResponse {
@@ -163,5 +165,71 @@ public function getData(Request $request): JsonResponse {
 
     private function isImpersonating(): bool {
         return session()->has('impersonate');
+    }
+
+    public function amministrativiData(Request $request): JsonResponse {
+        $anno = session('anno_riferimento', now()->year);
+        $dataset = Dipendente::getAmministrativi($anno);
+
+        // opzionale: se vuoi ancora aggiungere nomi delle qualifiche
+        $qualificheMap = DB::table('dipendenti_qualifiche')
+            ->join('qualifiche', 'dipendenti_qualifiche.idQualifica', '=', 'qualifiche.id')
+            ->select('dipendenti_qualifiche.idDipendente', 'qualifiche.nome')
+            ->get()
+            ->groupBy('idDipendente')
+            ->map(fn($items) => $items->pluck('nome')->toArray());
+
+        $dataset->transform(function ($d) use ($qualificheMap) {
+            $d->Qualifica = isset($qualificheMap[$d->idDipendente])
+                ? implode(', ', $qualificheMap[$d->idDipendente])
+                : '';
+            return $d;
+        });
+
+        return response()->json(['data' => $dataset->values()]);
+    }
+
+    public function amministrativi() {
+        $anno = session('anno_riferimento', now()->year);
+        $titolo = 'Personale Amministrativo';
+        return view('dipendenti.index', compact('titolo', 'anno'));
+    }
+
+    public function autisti() {
+        $anno = session('anno_riferimento', now()->year);
+        $titolo = 'Personale Autista';
+        return view('dipendenti.index', compact('titolo', 'anno'));
+    }
+
+    public function autistiData(Request $request): JsonResponse {
+        $anno = session('anno_riferimento', now()->year);
+        $idQualificheAutisti = [1, 2, 3, 4, 5, 6];
+
+        $dipendenti = Dipendente::getAll($anno);
+
+        $qualificheMap = DB::table('dipendenti_qualifiche')
+            ->whereIn('idQualifica', $idQualificheAutisti)
+            ->select('idDipendente', 'idQualifica')
+            ->get()
+            ->groupBy('idDipendente');
+
+        $filtered = $dipendenti->filter(fn($d) => isset($qualificheMap[$d->idDipendente]));
+
+        // facoltativo: aggiungi anche il nome delle qualifiche
+        $nomiQualificheMap = DB::table('dipendenti_qualifiche')
+            ->join('qualifiche', 'dipendenti_qualifiche.idQualifica', '=', 'qualifiche.id')
+            ->select('dipendenti_qualifiche.idDipendente', 'qualifiche.nome')
+            ->get()
+            ->groupBy('idDipendente')
+            ->map(fn($items) => $items->pluck('nome')->toArray());
+
+        $filtered->transform(function ($d) use ($nomiQualificheMap) {
+            $d->Qualifica = isset($nomiQualificheMap[$d->idDipendente])
+                ? implode(', ', $nomiQualificheMap[$d->idDipendente])
+                : '';
+            return $d;
+        });
+
+        return response()->json(['data' => $filtered->values()]);
     }
 }

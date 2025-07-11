@@ -25,9 +25,6 @@ return new class extends Migration {
                   ->cascadeOnDelete()
                   ->cascadeOnUpdate();
 
-            // ⚠️ Rimosso il campo idQualifica (sarà gestito via pivot)
-            // $table->foreignId('idQualifica')->nullable()->constrained('qualifiche')->cascadeOnDelete()->cascadeOnUpdate();
-
             // Dati anagrafici
             $table->string('DipendenteNome', 100);
             $table->string('DipendenteCognome', 100);
@@ -35,6 +32,10 @@ return new class extends Migration {
             // Contratto e livello mansione
             $table->string('ContrattoApplicato', 100);
             $table->string('LivelloMansione', 100);
+
+            // Tracking utenti
+            $table->foreignId('created_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->foreignId('updated_by')->nullable()->constrained('users')->nullOnDelete();
 
             $table->timestamps();
 

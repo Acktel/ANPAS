@@ -5,26 +5,28 @@ namespace App\Models;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Carbon;
+use App\Traits\TracksUserActions;
 
 class Dipendente {
+    use TracksUserActions;
     protected const TABLE = 'dipendenti';
-
-    public static function getAll(int $anno): Collection {
+    private static function baseQueryWithUsers(int $anno) {
         return DB::table(self::TABLE . ' as d')
             ->join('associazioni as a', 'd.idAssociazione', '=', 'a.idAssociazione')
+            ->leftJoin('users as uc', 'd.created_by', '=', 'uc.id')
+            ->leftJoin('users as uu', 'd.updated_by', '=', 'uu.id')
             ->where('d.idAnno', $anno)
-            ->select([
-                'd.*',
-                'a.Associazione',
-            ])->get();
+            ->selectRaw('d.*, a.Associazione, uc.username as created_by_name, uu.username as updated_by_name');
+    }
+
+
+    public static function getAll(int $anno): Collection {
+        return self::baseQueryWithUsers($anno)->get();
     }
 
     public static function getByAssociazione(?int $idAssociazione, int $anno): Collection {
-        return DB::table(self::TABLE . ' as d')
-            ->join('associazioni as a', 'd.idAssociazione', '=', 'a.idAssociazione')
+        return self::baseQueryWithUsers($anno)
             ->when($idAssociazione, fn($q) => $q->where('d.idAssociazione', $idAssociazione))
-            ->where('d.idAnno', $anno)
-            ->select(['d.*', 'a.Associazione'])
             ->get();
     }
 
@@ -38,10 +40,21 @@ class Dipendente {
             ->map(fn($q) => $q->toArray());
 
         return $dipendenti->filter(
-            fn($d) =>
-            isset($map[$d->idDipendente]) &&
+            fn($d) => isset($map[$d->idDipendente]) &&
                 collect($map[$d->idDipendente])->contains(fn($q) => str_contains($q, 'AUTISTA'))
         );
+    }
+
+    public static function getAmministrativi(int $anno): Collection {
+        $dipendenti = self::getAll($anno);
+
+        $map = DB::table('dipendenti_qualifiche')
+            ->select('idDipendente', 'idQualifica')
+            ->get()
+            ->groupBy('idDipendente')
+            ->map(fn($items) => $items->pluck('idQualifica')->toArray());
+
+        return $dipendenti->filter(fn($d) => in_array(13, $map[$d->idDipendente] ?? []));
     }
 
     public static function getAltri(int $anno): Collection {
@@ -54,21 +67,20 @@ class Dipendente {
             ->map(fn($q) => $q->toArray());
 
         return $dipendenti->reject(
-            fn($d) =>
-            isset($map[$d->idDipendente]) &&
+            fn($d) => isset($map[$d->idDipendente]) &&
                 collect($map[$d->idDipendente])->contains(fn($q) => str_contains($q, 'AUTISTA'))
         );
-    }
-
-    public static function getOne(int $idDipendente): ?object {
-        return DB::table(self::TABLE)->where('idDipendente', $idDipendente)->first();
     }
 
     public static function storeDipendente(array $data) {
         $qualifiche = $data['Qualifica'] ?? [];
         unset($data['Qualifica']);
 
-        $data['created_at'] = $data['updated_at'] = now();
+        $userId = auth()->id();
+        $now = now();
+
+        $data['created_at'] = $data['updated_at'] = $now;
+        $data['created_by'] = $data['updated_by'] = $userId;
 
         $id = DB::table(self::TABLE)->insertGetId($data);
 
@@ -76,29 +88,26 @@ class Dipendente {
             DB::table('dipendenti_qualifiche')->insert([
                 'idDipendente' => $id,
                 'idQualifica' => $idQualifica,
-                'created_at' => now(),
-                'updated_at' => now(),
+                'created_at' => $now,
+                'updated_at' => $now,
             ]);
         }
 
         return redirect()->route('dipendenti.index')->with('success', 'Dipendente creato correttamente.');
     }
 
-
     public static function updateDipendente(int $id, array $data) {
         $qualifiche = $data['Qualifica'] ?? [];
         unset($data['Qualifica']);
 
         $data['updated_at'] = now();
+        $data['updated_by'] = auth()->id();
 
         DB::table(self::TABLE)->where('idDipendente', $id)->update($data);
 
-        // Cancella le qualifiche precedenti e inserisce le nuove
         DB::table('dipendenti_qualifiche')->where('idDipendente', $id)->delete();
 
-        // Recupera mappa nome → id per tutte le qualifiche esistenti
         $mapQualifiche = DB::table('qualifiche')->pluck('id', 'nome');
-
         foreach ($qualifiche as $nomeQualifica) {
             if (isset($mapQualifiche[$nomeQualifica])) {
                 DB::table('dipendenti_qualifiche')->insert([
@@ -113,7 +122,6 @@ class Dipendente {
         return redirect()->route('dipendenti.index')->with('success', 'Dipendente aggiornato correttamente.');
     }
 
-
     public static function getQualifiche(): Collection {
         return DB::table('qualifiche')
             ->select('id', 'nome')
@@ -121,7 +129,6 @@ class Dipendente {
             ->orderBy('nome')
             ->get();
     }
-
 
     public static function getAnni(): Collection {
         return DB::table('anni')->select('idAnno', 'anno')->orderByDesc('anno')->get();
@@ -184,7 +191,6 @@ class Dipendente {
             ->get();
     }
 
-
     public static function getAllWithQualifiche(): Collection {
         $anno = session('anno_riferimento', now()->year);
 
@@ -206,5 +212,9 @@ class Dipendente {
             ])
             ->groupBy('d.idDipendente')
             ->get();
+    }
+
+    public static function getOne(int $idDipendente): ?object {
+        return DB::table(self::TABLE)->where('idDipendente', $idDipendente)->first();
     }
 }
