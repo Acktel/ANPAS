@@ -3,7 +3,7 @@
 @auth
 @php
 $assocCorr = \App\Models\Associazione::getById(Auth::user()->IdAssociazione)->Associazione;
-if (!$assocCorr || $assocCorr === 'Default Association') {
+if (!$assocCorr || $assocCorr === 'Anpas Nazionale') {
 $assocCorr = 'ANPAS Piemonte';
 }
 @endphp

@@ -26,6 +26,7 @@ class ConvenzioniController extends Controller {
                 ->orderBy('c.ordinamento')
                 ->get();
         } else {
+            
             $convenzioni = Convenzione::getWithAssociazione($user->IdAssociazione, $anno);
         }
 

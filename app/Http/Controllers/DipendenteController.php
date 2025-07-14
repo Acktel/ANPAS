@@ -29,15 +29,26 @@ class DipendenteController extends Controller {
         return view('dipendenti.index', compact('dipendenti', 'titolo', 'anno'));
     }
 
-    public function create() {
+    public function create()
+    {
         $user = Auth::user();
-        $isImpersonating = session()->has('impersonate');
+        $anno = session('anno_riferimento', now()->year);
+        $associazioni = $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])
+            ? DB::table('associazioni')->get()
+            : DB::table('associazioni')->where('idAssociazione', $user->IdAssociazione)->get();
 
-        $associazioni = Dipendente::getAssociazioni($user, $isImpersonating);
-        $anni = Dipendente::getAnni();
-        $qualifiche = Dipendente::getQualifiche();
+        $anni = DB::table('anni')->orderByDesc('anno')->get();
+        $qualifiche = DB::table('qualifiche')->get();
+        $contratti = DB::table('contratti_applicati')->get();
+        $livelli = DB::table('livello_mansione')->get();
 
-        return view('dipendenti.create', compact('associazioni', 'anni', 'qualifiche'));
+        return view('dipendenti.create', compact(
+            'associazioni',
+            'anni',
+            'qualifiche',
+            'contratti',
+            'livelli'
+        ));
     }
 
     public function store(Request $request) {
@@ -48,7 +59,9 @@ class DipendenteController extends Controller {
             'DipendenteCognome'  => 'required|string|max:100',
             'Qualifica'          => 'required|array',
             'ContrattoApplicato' => 'required|string|max:100',
-            'LivelloMansione'    => 'required|string|max:100',
+            'LivelloMansione' => 'required|array',
+            'LivelloMansione.*' => 'exists:livello_mansione,id',
+
         ]);
 
         return Dipendente::storeDipendente($validated);
@@ -87,7 +100,8 @@ class DipendenteController extends Controller {
             'DipendenteCognome'  => 'required|string|max:100',
             'Qualifica'          => 'required|array',
             'ContrattoApplicato' => 'required|string|max:100',
-            'LivelloMansione'    => 'required|string|max:100',
+            'LivelloMansione' => 'required|array',
+            'LivelloMansione.*' => 'exists:livello_mansione,id',
         ]);
 
         return Dipendente::updateDipendente($idDipendente, $validated);

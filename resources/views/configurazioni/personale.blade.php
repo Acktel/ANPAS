@@ -21,15 +21,14 @@
   @endif
 
   <div class="row">
-    {{-- QUALIFICHE + LIVELLO --}}
+    {{-- QUALIFICHE --}}
     <div class="col-md-6">
       <div class="card-anpas mb-4">
-        <div class="card-header bg-anpas-primary text-white">Qualifiche + Livello Mansione</div>
+        <div class="card-header bg-anpas-primary text-white">Qualifiche</div>
         <div class="card-body bg-anpas-white p-0">
           <form action="{{ route('configurazioni.qualifiche.store') }}" method="POST" class="d-flex p-3 border-bottom">
             @csrf
-            <input type="text" name="nome" class="form-control me-2" placeholder="Qualifica (es. AUTISTA)" required>
-            <input type="text" name="livello_mansione" class="form-control me-2" placeholder="Livello mansione (es. C4)" required>
+            <input type="text" name="nome" class="form-control me-2" placeholder="Nome qualifica (es. AUTISTA)" required>
             <button type="submit" class="btn btn-anpas-green"><i class="fas fa-plus me-1"></i> Aggiungi</button>
           </form>
 
@@ -37,7 +36,6 @@
             <thead class="thead-anpas">
               <tr>
                 <th>Qualifica</th>
-                <th>Livello mansione</th>
                 <th>Azioni</th>
               </tr>
             </thead>
@@ -45,7 +43,6 @@
               @forelse($qualifiche as $q)
                 <tr>
                   <td>{{ $q->nome }}</td>
-                  <td>{{ $q->livello_mansione }}</td>
                   <td>
                     <form action="{{ route('configurazioni.qualifiche.destroy', $q->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Confermi eliminazione?')">
                       @csrf @method('DELETE')
@@ -93,6 +90,44 @@
                 </tr>
               @empty
                 <tr><td colspan="2" class="text-center py-3">Nessun contratto.</td></tr>
+              @endforelse
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    {{-- LIVELLI MANSIONE --}}
+    <div class="col-md-6">
+      <div class="card-anpas mb-4">
+        <div class="card-header bg-anpas-primary text-white">Livelli Mansione</div>
+        <div class="card-body bg-anpas-white p-0">
+          <form action="{{ route('configurazioni.livelli.store') }}" method="POST" class="d-flex p-3 border-bottom">
+            @csrf
+            <input type="text" name="nome" class="form-control me-2" placeholder="Livello mansione (es. C4)" required>
+            <button type="submit" class="btn btn-anpas-green"><i class="fas fa-plus me-1"></i> Aggiungi</button>
+          </form>
+
+          <table class="common-css-dataTable table table-hover table-striped table-bordered dt-responsive nowrap mb-0">
+            <thead class="thead-anpas">
+              <tr>
+                <th>Livello</th>
+                <th>Azioni</th>
+              </tr>
+            </thead>
+            <tbody>
+              @forelse($livelli as $l)
+                <tr>
+                  <td>{{ $l->nome }}</td>
+                  <td>
+                    <form action="{{ route('configurazioni.livelli.destroy', $l->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Confermi eliminazione?')">
+                      @csrf @method('DELETE')
+                      <button class="btn btn-sm btn-anpas-delete"><i class="fas fa-trash-alt"></i></button>
+                    </form>
+                  </td>
+                </tr>
+              @empty
+                <tr><td colspan="2" class="text-center py-3">Nessun livello mansione.</td></tr>
               @endforelse
             </tbody>
           </table>

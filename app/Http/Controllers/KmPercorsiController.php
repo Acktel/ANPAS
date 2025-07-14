@@ -126,17 +126,25 @@ class KmPercorsiController extends Controller {
     }
 
     public function edit(int $id) {
+        $user = session()->has('impersonate')
+        ? User::find(session('impersonate'))
+        : Auth::user();
+        
         $anno = session('anno_riferimento', now()->year);
         $automezzo = Automezzo::getById($id, $anno);
-        $convenzioni = Convenzione::getByAnno($anno, Auth::user())->sortBy('idConvenzione')->values();
+
+        $convenzioni = Convenzione::getByAnno($anno, $user)->sortBy('idConvenzione')->values();
         $kmEsistenti = AutomezzoKm::getKmPerConvenzione($automezzo->idAutomezzo, $anno);
 
         return view('km_percorsi.edit', compact('automezzo', 'convenzioni', 'kmEsistenti'));
     }
 
     public function create() {
+        $user = session()->has('impersonate')
+        ? User::find(session('impersonate'))
+        : Auth::user();
+
         $anno = session('anno_riferimento', now()->year);
-        $user = Auth::user();
 
         $automezzi = Automezzo::getLightForAnno($anno, ($user->isSuperAdmin() || $user->isAdmin()) ? null : $user->idAssociazione);
         $convenzioni = Convenzione::getByAnno($anno, $user)->sortBy('idConvenzione')->values();

@@ -27,7 +27,7 @@ class createAssociazioni extends Seeder
             ],
             [
                 'email'        => 'AdminAnpas@associazione.it',
-                'Associazione' => 'Default Association',
+                'Associazione' => 'Anpas Nazionale',
                 'password'     => null,
                 'provincia'    => 'TO',
                 'citta'        => 'Grugliasco',

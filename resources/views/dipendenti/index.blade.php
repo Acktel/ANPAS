@@ -4,6 +4,12 @@
   $isImpersonating = session()->has('impersonate');
   $hasEditRoles = $user->hasAnyRole(['SuperAdmin','Admin','Supervisor','AdminUser']) || $isImpersonating;
   $currentRoute = Route::currentRouteName();
+  $impersonatorName = null;
+  if ($isImpersonating) {
+      $impersonatorId = session('impersonate');
+      $impersonator = \App\Models\User::find($impersonatorId);
+      $impersonatorName = $impersonator?->username ?? '—';
+  }
 @endphp
 
 @section('content')
@@ -59,10 +65,12 @@
 @push('scripts')
 <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.4/moment.min.js"></script>
 <script>
+
 document.addEventListener('DOMContentLoaded', async function () {
   const csrfToken = document.head.querySelector('meta[name="csrf-token"]').content;
   const currentRoute = @json($currentRoute);
   const canEdit = @json($hasEditRoles);
+  const impersonatorName = @json($impersonatorName);
 
   const dupRes = await fetch("{{ route('dipendenti.checkDuplicazione') }}");
   const dupData = await dupRes.json();
@@ -106,7 +114,7 @@ document.addEventListener('DOMContentLoaded', async function () {
       {
         data: null,
         render: function (data, type, row) {
-          const nome = row.updated_by_name || row.created_by_name || '—';
+          const nome = impersonatorName || row.updated_by_name || row.created_by_name || '—';
           const dataMod = row.updated_at || row.created_at;
           return `${nome}<br><small>${moment(dataMod).format('DD/MM/YYYY HH:mm')}</small>`;
         }

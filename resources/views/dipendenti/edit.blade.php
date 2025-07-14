@@ -1,17 +1,12 @@
-{{-- resources/views/dipendenti/edit.blade.php --}}
 @extends('layouts.app')
 
 @php
-    $user = Auth::user();
-    $isImpersonating = session()->has('impersonate');
+  $user = Auth::user();
+  $isImpersonating = session()->has('impersonate');
 
-    // Prendo le qualifiche precedenti o old input e ne elimino i duplicati
-    $qualificheSelezionate = old('Qualifica', $qualificheAttuali);
-    if (is_array($qualificheSelezionate)) {
-        $qualificheSelezionate = array_values(array_unique($qualificheSelezionate));
-    } else {
-        $qualificheSelezionate = [$qualificheSelezionate];
-    }
+  // Valori selezionati
+  $qualificheSelezionate = old('Qualifica', $qualificheAttuali ?? []);
+  $livelliSelezionati = old('LivelloMansione', $livelliAttuali ?? []);
 @endphp
 
 @section('content')
@@ -34,13 +29,12 @@
         @csrf
         @method('PUT')
 
-        {{-- Associazione / Anno --}}
+        {{-- Associazione e Anno --}}
         <div class="row mb-3">
           @if (! $isImpersonating && $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor']))
             <div class="col-md-6 mb-3">
               <label for="idAssociazione" class="form-label">Associazione</label>
               <select name="idAssociazione" id="idAssociazione" class="form-select" required>
-                <option value="">-- Seleziona Associazione --</option>
                 @foreach($associazioni as $asso)
                   <option value="{{ $asso->idAssociazione }}"
                     {{ old('idAssociazione', $dipendente->idAssociazione) == $asso->idAssociazione ? 'selected' : '' }}>
@@ -87,21 +81,22 @@
           </div>
         </div>
 
-        {{-- Qualifica / Contratto --}}
+        {{-- Qualifica multipla --}}
         <div class="row mb-3">
           <div class="col-md-6 mb-3">
             <label for="Qualifica" class="form-label">Qualifica</label>
             <select name="Qualifica[]" id="Qualifica" class="form-select" multiple required>
-              @foreach ($qualifiche->unique('nome') as $q)
-                <option value="{{ $q->nome }}"
-                  {{ in_array($q->nome, $qualificheSelezionate) ? 'selected' : '' }}>
+              @foreach ($qualifiche as $q)
+                <option value="{{ $q->id }}"
+                  {{ in_array($q->id, $qualificheSelezionate) ? 'selected' : '' }}>
                   {{ $q->nome }}
                 </option>
               @endforeach
             </select>
-            <div class="form-text">Tieni premuto CTRL o CMD per selezione multipla.</div>
+            <div class="form-text">Seleziona una o più qualifiche. (CTRL/CMD per selezione multipla)</div>
           </div>
 
+          {{-- Contratto --}}
           <div class="col-md-6 mb-3">
             <label for="ContrattoApplicato" class="form-label">Contratto Applicato</label>
             <select name="ContrattoApplicato" id="ContrattoApplicato" class="form-select" required>
@@ -116,19 +111,19 @@
           </div>
         </div>
 
-        {{-- Livello Mansione --}}
+        {{-- Livello Mansione multiplo --}}
         <div class="row mb-4">
           <div class="col-md-6 mb-3">
             <label for="LivelloMansione" class="form-label">Livello Mansione</label>
-            <select name="LivelloMansione" id="LivelloMansione" class="form-select" required>
-              <option value="">-- Seleziona livello --</option>
+            <select name="LivelloMansione[]" id="LivelloMansione" class="form-select" multiple>
               @foreach ($livelli as $liv)
-                <option value="{{ $liv }}"
-                  {{ old('LivelloMansione', $dipendente->LivelloMansione) == $liv ? 'selected' : '' }}>
-                  {{ $liv }}
+                <option value="{{ $liv->id }}"
+                  {{ in_array($liv->id, $livelliSelezionati) ? 'selected' : '' }}>
+                  {{ $liv->nome }}
                 </option>
               @endforeach
             </select>
+            <div class="form-text">Seleziona uno o più livelli mansione.</div>
           </div>
         </div>
 

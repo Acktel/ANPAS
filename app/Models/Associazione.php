@@ -12,11 +12,12 @@ class Associazione {
      * Restituisce i dati per DataTables, includendo anche l'ID del Supervisor/Admin/SuperAdmin
      */
     public static function getAll($request) {
-        // 1) Query base: left join con users per recuperare chi ha role_id 1, 2 o 3
         $base = DB::table(self::TABLE . ' as a')
             ->leftJoin('users as u', function ($join) {
                 $join->on('a.IdAssociazione', '=', 'u.IdAssociazione');
             })
+            ->leftJoin('users as uc', 'a.created_by', '=', 'uc.id')
+            ->leftJoin('users as uu', 'a.updated_by', '=', 'uu.id')
             ->select(
                 'a.IdAssociazione',
                 'a.Associazione',
@@ -26,7 +27,9 @@ class Associazione {
                 'a.indirizzo',
                 'a.active',
                 'a.deleted_at',
-                DB::raw('MIN(u.id) as supervisor_user_id')
+                DB::raw('MIN(u.id) as supervisor_user_id'),
+                DB::raw('uc.username as created_by_name'),
+                DB::raw('uu.username as updated_by_name')
             )
             ->whereNull('a.deleted_at')
             ->groupBy(
@@ -37,10 +40,11 @@ class Associazione {
                 'a.citta',
                 'a.indirizzo',
                 'a.active',
-                'a.deleted_at'
+                'a.deleted_at',
+                'uc.username',
+                'uu.username'
             );
 
-        // 2) Filtro ricerca
         if ($val = $request->input('search.value')) {
             $base->where(function ($q) use ($val) {
                 $q->where('a.Associazione', 'like', "%{$val}%")
@@ -50,23 +54,19 @@ class Associazione {
             });
         }
 
-        // 3) Conteggi (escludendo i soft‐deleted)
         $total    = DB::table(self::TABLE)->whereNull('deleted_at')->count();
         $filtered = (clone $base)->count();
 
-        // 4) Ordinamento
         if ($order = $request->input('order.0')) {
             $col = $request->input("columns.{$order['column']}.data");
             $dir = $order['dir'];
             $base->orderBy($col, $dir);
         }
 
-        // 5) Paginazione
         $start  = max(0, (int)$request->input('start', 0));
         $length = max(1, (int)$request->input('length', 10));
         $data   = $base->skip($start)->take($length)->get();
 
-        // 6) Ritorna i dati per DataTables
         return [
             'draw'            => (int)$request->input('draw', 1),
             'recordsTotal'    => $total,
@@ -88,6 +88,8 @@ class Associazione {
             'citta'        => $data['citta'],
             'indirizzo'    => $data['indirizzo'],
             'active'       => $data['active'] ?? true,
+            'created_by'   => $data['created_by'] ?? null,
+            'updated_by'   => $data['updated_by'] ?? null,
             'created_at'   => $now,
             'updated_at'   => $now,
         ];
@@ -100,6 +102,7 @@ class Associazione {
 
         return $id;
     }
+
 
     /**
      * Toggle dello stato active (usa IdAssociazione!)

@@ -31,7 +31,6 @@ return new class extends Migration {
 
             // Contratto e livello mansione
             $table->string('ContrattoApplicato', 100);
-            $table->string('LivelloMansione', 100);
 
             // Tracking utenti
             $table->foreignId('created_by')->nullable()->constrained('users')->nullOnDelete();

@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use App\Models\Qualifica;
 use App\Models\ContrattoApplicato;
+use App\Models\LivelloMansione;
 
 class ConfigurazionePersonaleController extends Controller
 {
@@ -18,14 +19,15 @@ class ConfigurazionePersonaleController extends Controller
     {
         $qualifiche = Qualifica::getAll();
         $contratti = ContrattoApplicato::getAll();
+        $livelli   = LivelloMansione::getAll();
 
-        return view('configurazioni.personale', compact('qualifiche', 'contratti'));
+        return view('configurazioni.personale', compact('qualifiche', 'contratti', 'livelli'));
     }
 
     public function storeQualifica(Request $request)
     {
         $data = $request->validate([
-            'nome' => 'required|string|max:255|unique:qualifiche,nome',
+            'nome' => 'required|string|max:255',
             'livello_mansione' => 'required|string|max:255',
         ]);
 
@@ -36,7 +38,7 @@ class ConfigurazionePersonaleController extends Controller
 
     public function destroyQualifica(int $id)
     {
-        $used = DB::table('dipendenti')->whereRaw("FIND_IN_SET(?, Qualifica)", [$id])->exists();
+        $used = DB::table('dipendenti_qualifiche')->where('idQualifica', $id)->exists();
         if ($used) {
             return back()->withErrors(['error' => 'Qualifica in uso da uno o più dipendenti.']);
         }
@@ -71,5 +73,30 @@ class ConfigurazionePersonaleController extends Controller
         }
 
         return back()->with('success', 'Contratto rimosso.');
+    }
+
+    public function storeLivelloMansione(Request $request)
+    {
+        $data = $request->validate([
+            'nome' => 'required|string|max:255|unique:livello_mansione,nome',
+        ]);
+
+        LivelloMansione::createLivello($data);
+
+        return back()->with('success', 'Livello mansione aggiunto.');
+    }
+
+    public function destroyLivelloMansione(int $id)
+    {
+        $used = DB::table('dipendenti_livelli_mansione')->where('idLivelloMansione', $id)->exists();
+        if ($used) {
+            return back()->withErrors(['error' => 'Livello in uso da uno o più dipendenti.']);
+        }
+
+        if (!LivelloMansione::deleteById($id)) {
+            return back()->withErrors(['error' => 'Livello non trovato.']);
+        }
+
+        return back()->with('success', 'Livello mansione rimosso.');
     }
 }

@@ -47,16 +47,14 @@ class Convenzione {
             FROM " . self::TABLE . " AS c
             WHERE c.idAnno = :anno
         ";
-
+        
         $params = ['anno' => $anno];
-
         if ($user && ! $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])) {
             $sql .= " AND c.idAssociazione = :idAssociazione";
             $params['idAssociazione'] = $user->idAssociazione;
         }
 
         $sql .= " ORDER BY c.Convenzione";
-
         return collect(DB::select($sql, $params));
     }
 

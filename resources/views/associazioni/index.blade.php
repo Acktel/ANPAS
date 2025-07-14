@@ -22,6 +22,7 @@
         <th>Provincia</th>
         <th>Città</th>
         <th>Indirizzo</th>
+        <th>Aggiornato da</th>
         <th>Azioni</th>
       </tr>
     </thead>
@@ -29,19 +30,18 @@
   </table>
 </div>
 @endsection
+
 @push('scripts')
 <script>
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
   const csrf = document.head.querySelector('meta[name="csrf-token"]').content;
   const isSuperAdmin = {{ $isSuperAdmin ? 'true' : 'false' }};
 
   $('#associazioniTable').DataTable({
     ajax: {
       url: "{{ route('associazioni.data') }}",
-      dataSrc: function(json) {
-        // json.data è l'array vero
+      dataSrc: function (json) {
         const rows = json.data;
-        // se non SuperAdmin, scarto "GOD"
         return isSuperAdmin
           ? rows
           : rows.filter(r => r.Associazione !== 'GOD');
@@ -53,6 +53,7 @@ document.addEventListener('DOMContentLoaded', function() {
       { data: 'provincia' },
       { data: 'citta' },
       { data: 'indirizzo' },
+      { data: 'updated_by_name', defaultContent: '-' },
       {
         data: null,
         orderable: false,
@@ -66,7 +67,7 @@ document.addEventListener('DOMContentLoaded', function() {
             <form action="/associazioni/${row.IdAssociazione}" method="POST" style="display:inline">
               <input name="_token" value="${csrf}" hidden>
               <input name="_method" value="DELETE" hidden>
-              <button class="btn btn-sm btn-anpas-delete me-1">
+              <button class="btn btn-sm btn-anpas-delete me-1" onclick="return confirm('Sei sicuro di voler eliminare questa associazione?')">
                 <i class="fas fa-trash-alt"></i>
               </button>
             </form>`;
@@ -75,11 +76,12 @@ document.addEventListener('DOMContentLoaded', function() {
             btns += `
               <form action="/impersonate/${row.supervisor_user_id}" method="POST" style="display:inline">
                 <input name="_token" value="${csrf}" hidden>
-                <button class="btn btn-sm btn-anpas-impersonate">
+                <button class="btn btn-sm btn-anpas-impersonate" title="Impersona utente">
                   <i class="fas fa-user-secret"></i>
                 </button>
               </form>`;
           }
+
           return btns;
         }
       }

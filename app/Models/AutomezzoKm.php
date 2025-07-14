@@ -50,6 +50,7 @@ class AutomezzoKm {
             ->join('convenzioni as c', 'c.idConvenzione', '=', 'k.idConvenzione')
             ->where('a.idAnno', $anno)
             ->where('c.idAnno', $anno)
+            ->orderBy('a.CodiceIdentificativo')
             ->select('k.*');
 
         if (! $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])) {
@@ -100,7 +101,7 @@ class AutomezzoKm {
         return DB::table(self::TABLE . ' as k')
             ->join('convenzioni as c', 'k.idConvenzione', '=', 'c.idConvenzione')
             ->where('k.idAutomezzo', $idAutomezzo)
-            ->where('c.idAnno', $anno)
+            ->where('c.idAnno', operator: $anno)
             ->select('k.idConvenzione', 'k.KMPercorsi')
             ->get()
             ->keyBy('idConvenzione');

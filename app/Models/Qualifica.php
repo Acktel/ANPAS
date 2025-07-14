@@ -22,7 +22,6 @@ class Qualifica
     {
         return DB::table(self::TABLE)->insert([
             'nome' => $data['nome'],
-            'livello_mansione' => $data['livello_mansione'],
             'created_at' => now(),
             'updated_at' => now(),
         ]);

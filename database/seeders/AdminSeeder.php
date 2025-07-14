@@ -48,7 +48,7 @@ class AdminSeeder extends Seeder
             DB::table('users')->where('id', $userRecord->id)->update([
                 'firstname'      => 'Alessandra',
                 'lastname'       => 'D’Angela',
-                'username'       => 'adminuser',
+                'username'       => 'adminAlessandra',
                 'password'       => Hash::make('Admin'),
                 'role_id'        => $role->id,
                 'active'         => true,
@@ -60,7 +60,7 @@ class AdminSeeder extends Seeder
             $userId = DB::table('users')->insertGetId([
                 'firstname'      => 'Alessandra',
                 'lastname'       => 'D’Angela',
-                'username'       => 'adminuser',
+                'username'       => 'adminAlessandra',
                 'email'          => 'anpasAdmin@anpas.it',
                 'password'       => Hash::make('Admin'),
                 'role_id'        => $role->id,

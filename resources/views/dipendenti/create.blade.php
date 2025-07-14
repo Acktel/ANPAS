@@ -33,8 +33,8 @@
               <select name="idAssociazione" id="idAssociazione" class="form-select" required>
                 <option value="">-- Seleziona Associazione --</option>
                 @foreach($associazioni as $asso)
-                  <option value="{{ $asso->idAssociazione }}"
-                    {{ old('idAssociazione') == $asso->idAssociazione ? 'selected' : '' }}>
+                  <option value="{{ $asso->IdAssociazione }}"
+                    {{ old('idAssociazione') == $asso->IdAssociazione ? 'selected' : '' }}>
                     {{ $asso->Associazione }}
                   </option>
                 @endforeach
@@ -48,7 +48,7 @@
                 @foreach($anni as $annoRec)
                   <option value="{{ $annoRec->idAnno }}"
                     {{ old('idAnno', $annoCorr) == $annoRec->idAnno ? 'selected' : '' }}>
-                    {{ $annoRec->anno }}
+                    {{ $annoRec->Anno }}
                   </option>
                 @endforeach
               </select>
@@ -89,34 +89,46 @@
         <div class="row mb-3">
           <div class="col-md-6 mb-3">
             <label for="QualificaSelect" class="form-label">Qualifica</label>
-            <select id="QualificaSelect" class="form-select" multiple>
+            <select id="QualificaSelect" class="form-select" name="Qualifica[]" multiple required>
               @foreach($qualifiche as $q)
-                <option value="{{ $q->nome }}" data-livello="{{ $q->livello_mansione }}"
-                  {{ collect(explode(',', old('Qualifica')))->contains($q->nome) ? 'selected' : '' }}>
-                  {{ $q->nome }}
+                <option value="{{ $q->id }}"
+                  {{ collect(old('Qualifica'))->contains($q->id) ? 'selected' : '' }}>
+                  {{ $q->nome }} 
                 </option>
               @endforeach
             </select>
-            <input type="hidden" name="Qualifica" id="QualificaHidden" value="{{ old('Qualifica') }}">
             <div class="form-text">
-              Seleziona una o più qualifiche. Scrivi per cercare. Il livello si autocompila se selezioni una sola qualifica.
+              Seleziona una o più qualifiche. Scrivi per cercare.
             </div>
           </div>
 
           {{-- Contratto --}}
           <div class="col-md-6 mb-3">
-            <label for="ContrattoApplicato" class="form-label">Contratto Applicato</label>
-            <input type="text" name="ContrattoApplicato" id="ContrattoApplicato" class="form-control" maxlength="100"
-                   value="{{ old('ContrattoApplicato') }}" required>
-          </div>
+          <label for="ContrattoApplicato" class="form-label">Contratto Applicato</label>
+          <select name="ContrattoApplicato" id="ContrattoApplicato" class="form-select" required>
+            @foreach($contratti as $c)
+              <option value="{{ $c->id }}" {{ old('ContrattoApplicato') == $c->id ? 'selected' : '' }}>
+                {{ $c->nome }}
+              </option>
+            @endforeach
+          </select>
         </div>
 
         {{-- Livello Mansione --}}
         <div class="row mb-4">
           <div class="col-md-6 mb-3">
-            <label for="LivelloMansione" class="form-label">Livello Mansione</label>
-            <input type="text" name="LivelloMansione" id="LivelloMansione" class="form-control" maxlength="100"
-                   value="{{ old('LivelloMansione') }}" required>
+              <label for="LivelloMansione" class="form-label">Livello Mansione</label>
+              <select name="LivelloMansione[]" id="LivelloMansione" class="form-select" multiple>
+                @foreach($livelli as $lvl)
+                  <option value="{{ $lvl->id }}"
+                    {{ collect(old('LivelloMansione'))->contains($lvl->id) ? 'selected' : '' }}>
+                    {{ $lvl->nome }}
+                  </option>
+                @endforeach
+              </select>
+              <div class="form-text">
+                Seleziona uno o più livelli mansione da assegnare al dipendente.
+              </div>
           </div>
         </div>
 
@@ -142,26 +154,18 @@
       placeholder: "Seleziona una o più qualifiche",
     });
 
-    const livelloInput = document.getElementById('LivelloMansione');
-    const hiddenInput = document.getElementById('QualificaHidden');
-
-    function aggiornaLivello() {
+    // Se vuoi ancora mostrare un suggerimento automatico del livello mansione
+    // puoi loggare o mostrare in un div separato, ma non usare readOnly su <select>
+    select.on('change', function () {
       const selected = select.getValue();
-      hiddenInput.value = selected.join(',');
-
       if (selected.length === 1) {
         const option = select.input.querySelector(`option[value="${selected[0]}"]`);
         const livello = option?.dataset?.livello || '';
-        livelloInput.value = livello;
-        livelloInput.readOnly = true;
-      } else {
-        livelloInput.value = '';
-        livelloInput.readOnly = false;
+        console.log("Suggerito livello:", livello);
+        // potresti anche visualizzarlo in un div tipo: document.getElementById('livelloSuggerito').textContent = livello;
       }
-    }
-
-    select.on('change', aggiornaLivello);
-    aggiornaLivello();
+    });
   });
 </script>
 @endpush
+

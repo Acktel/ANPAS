@@ -29,11 +29,10 @@ $(async function () {
     const res = await fetch("{{ route('km-percorsi.datatable') }}");
     const { data, labels } = await res.json();
     if (!data.length) return;
-
     const table = $('#table-km');
 
     const staticColumns = [
-        { key: 'is_totale', label: '', hidden: true }, // <- aggiunto per ordinamento fisso
+        { key: 'is_totale', label: '', hidden: true },
         { key: 'idAutomezzo', label: 'ID', hidden: true },
         { key: 'Automezzo', label: 'Automezzo' },
         { key: 'Targa', label: 'Targa' },
@@ -107,6 +106,7 @@ $(async function () {
             url: 'https://cdn.datatables.net/plug-ins/1.11.3/i18n/it_it.json'
         },
         rowCallback: function(row, data) {
+            
             if (data.Automezzo === 'TOTALE') {
                 $(row).addClass('fw-bold table-totalRow');
             }

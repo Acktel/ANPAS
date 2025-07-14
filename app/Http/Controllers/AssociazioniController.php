@@ -23,7 +23,7 @@ class AssociazioniController extends Controller {
     /** GET /associazioni */
     public function index() {
         $user = Auth::user();
-        $anno = session('anno_riferimento', now()->year); // 🧠 Anno dinamico
+        $anno = session('anno_riferimento', now()->year);
 
         Log::info("Entrato in AssociazioniController@index");
 
@@ -34,42 +34,28 @@ class AssociazioniController extends Controller {
 
     /** GET /associazioni/data */
     public function getData(Request $request) {
-        $anno      = session('anno_riferimento', now()->year);
-        $user      = Auth::user();
-        $isSuper   = $user->hasRole('SuperAdmin');
+        $anno = session('anno_riferimento', now()->year);
+        $user = Auth::user();
+        $isSuper = $user->hasRole('SuperAdmin');
 
-        // 1) Prendo la risposta già formattata per DataTables
         $result = Associazione::getAll($request, $anno);
-        // $result è un array con chiavi:
-        //   - draw
-        //   - recordsTotal
-        //   - recordsFiltered
-        //   - data (Collection di stdClass)
 
-        // 2) Se NON sono SuperAdmin, filtro 'Associazione GOD'
         if (! $isSuper) {
-            /** @var \Illuminate\Support\Collection $rows */
             $rows = $result['data'];
-
-            // escludo entrambe le possibili stringhe
             $filtered = $rows->filter(function ($row) {
-                return $row->Associazione !== 'Associazione GOD'
-                    && $row->Associazione !== 'GOD';
+                return $row->Associazione !== 'Associazione GOD' && $row->Associazione !== 'GOD';
             });
 
-            // raccolgo nuovamente e resetto indici
-            $result['data']           = $filtered->values();
+            $result['data'] = $filtered->values();
             $result['recordsFiltered'] = $filtered->count();
-            // (recordsTotal lasciamolo invariato: il totale prima del filtro)
         }
 
-        // 3) Ritorno il JSON modificato
         return response()->json($result);
     }
 
-
+    /** POST /associazioni */
     public function store(Request $request) {
-        $data = $request->validate([
+        $validated = $request->validate([
             'Associazione'      => 'required|string|max:255',
             'email'             => 'required|email|unique:associazioni,email',
             'provincia'         => 'required|string|max:100',
@@ -80,30 +66,43 @@ class AssociazioniController extends Controller {
         ]);
 
         // 1) crea l’associazione
-        $associazioneId = Associazione::createAssociation($data);
+        $now = now();
+        $userId = auth()->id();
 
-        // 2) controlla se è la PRIMA associazione
+        $associazioneId = DB::table('associazioni')->insertGetId([
+            'Associazione' => $validated['Associazione'],
+            'email'        => $validated['email'],
+            'provincia'    => $validated['provincia'],
+            'citta'        => $validated['citta'],
+            'indirizzo'    => $validated['indirizzo'],
+            'active'       => true,
+            'created_by'   => $userId,
+            'updated_by'   => $userId,
+            'created_at'   => $now,
+            'updated_at'   => $now,
+        ]);
+
+        // 2) assegna ruolo
         $isFirst = Associazione::count() === 1;
         $roleName = $isFirst ? 'AdminUser' : 'User';
         $role = Role::where('name', $roleName)->firstOrFail();
 
-        // 3) crea l’utente (AdminUser solo se prima associazione)
+        // 3) crea utente admin
         $password = Str::random(10);
         $user = User::create([
             'firstname'       => '',
             'lastname'        => '',
-            'username'        => $data['adminuser_name'],
-            'email'           => $data['adminuser_email'],
+            'username'        => $validated['adminuser_name'],
+            'email'           => $validated['adminuser_email'],
             'password'        => Hash::make($password),
             'role_id'         => $role->id,
             'active'          => true,
             'IdAssociazione'  => $associazioneId,
         ]);
 
-        // 4) assegna ruolo con Spatie
         $user->assignRole($role);
 
-        // 5) invia email con link reset password
+        // 4) invia email reset password
         $token = Password::createToken($user);
         $resetUrl = url(route('password.reset', [
             'token' => $token,
@@ -167,6 +166,7 @@ class AssociazioniController extends Controller {
                 'provincia'    => $data['provincia'],
                 'citta'        => $data['citta'],
                 'indirizzo'    => $data['indirizzo'],
+                'updated_by'   => auth()->id(),
                 'updated_at'   => now(),
             ]);
 

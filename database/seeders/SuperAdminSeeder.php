@@ -33,7 +33,7 @@ class SuperAdminSeeder extends Seeder
             // Se non esiste, inseriscila
             $now = now();
             $associazioneId = DB::table('associazioni')->insertGetId([
-                'Associazione' => 'Default Association',
+                'Associazione' => 'Anpas Nazionale',
                 'email'        => 'AdminAnpas@associazione.it',
                 'password'     => Hash::make('secret'), // se nella tua tabella associazioni c'è la colonna password
                 'provincia'    => 'RM',

@@ -27,6 +27,7 @@ class DatabaseSeeder extends Seeder
         $this->call(QualificheSeeder::class);
         $this->call(DipendentiSeeder::class);
         $this->call(DipendenteFittizioSeeder::class);
+        $this->call(ContrattiSeeder::class);
         $this->call(AdminSeeder::class);
     }
 
