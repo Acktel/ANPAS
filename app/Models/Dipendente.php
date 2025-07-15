@@ -28,6 +28,7 @@ class Dipendente {
                 MIN(d.idAnno) as idAnno,
                 MIN(d.DipendenteNome) as DipendenteNome,
                 MIN(d.DipendenteCognome) as DipendenteCognome,
+                MIN(d.ContrattoApplicato) as ContrattoApplicato,
                 MIN(a.Associazione) as Associazione,
                 MIN(uc.username) as created_by_name,
                 MIN(uu.username) as updated_by_name,

@@ -126,8 +126,11 @@ $assocCorr = 'ANPAS Piemonte';
                         <li class="dropdown-submenu">
                             <a class="dropdown-item dropdown-toggle" href="#">Dist. riparto costi dipendenti</a>
                             <ul class="dropdown-menu">
-                                <li><a class="dropdown-item" href="#">Distina rilevazione analitica dipendentii (Autisti e Barellieri) </a></li>
-                            </ul>
+<li>
+  <a class="dropdown-item" href="{{ route('ripartizioni.personale.costi.index') }}">
+    Distinta rilevazione analitica dipendenti (Autisti e Barellieri)
+  </a>
+</li>  </ul>
                         </li>
                     </ul>
                 </li>
