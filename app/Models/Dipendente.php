@@ -205,4 +205,26 @@ class Dipendente {
             ? DB::table('associazioni')->select('idAssociazione', 'Associazione')->whereNull('deleted_at')->orderBy('Associazione')->get()
             : DB::table('associazioni')->select('idAssociazione', 'Associazione')->where('idAssociazione', $user->IdAssociazione)->whereNull('deleted_at')->get();
     }
+
+    public static function getAutistiEBarellieri(int $anno, $idAssociazione = null) {
+        return DB::table('dipendenti as d')
+            ->join('dipendenti_qualifiche as dq', 'd.idDipendente', '=', 'dq.idDipendente')
+            ->join('qualifiche as q', 'dq.idQualifica', '=', 'q.id')
+            ->join('associazioni as a', 'd.idAssociazione', '=', 'a.idAssociazione')
+            ->where('d.idAnno', $anno)
+            ->where('dq.idQualifica', 1) // Filtro su idQualifica (pivot)
+            ->when($idAssociazione !== null, function ($query) use ($idAssociazione) {
+                $query->where('d.idAssociazione', $idAssociazione);
+            })
+            ->select(
+                'd.idDipendente',
+                'd.DipendenteNome',
+                'd.DipendenteCognome',
+                'd.idAssociazione',
+                'a.Associazione'
+            )
+            ->orderBy('d.DipendenteCognome')
+            ->get();
+    }
+
 }

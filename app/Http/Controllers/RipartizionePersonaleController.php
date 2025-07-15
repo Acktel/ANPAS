@@ -17,7 +17,7 @@ class RipartizionePersonaleController extends Controller {
     public function getData(Request $request) {
         $user = Auth::user();
         $anno = session('anno_riferimento', now()->year);
-
+        
         $dipendenti = Dipendente::getAutistiEBarellieri(
             $anno,
             $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])

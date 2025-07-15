@@ -4,7 +4,7 @@
 @section('content')
 <div class="container-fluid">
   <div class="d-flex justify-content-between align-items-center mb-4">
-    <h1 class="container-title">Ripartizione costi personale dipendente − Anno {{ $anno }}</h1>
+    <h1 class="container-title">Ripartizione costi personale dipendente (Autisti e Barellieri) − Anno {{ $anno }}</h1>
   </div>
 
   <div class="table-responsive">

@@ -17,7 +17,14 @@ class RipartizionePersonale
     {
         $q = DB::table(self::TABLE . ' as ds')
             ->join('dipendenti as d', 'ds.idDipendente', '=', 'd.idDipendente')
-            ->select('ds.idDipendente', 'ds.idConvenzione', 'ds.OreServizio')
+            ->join('associazioni as a', 'd.idAssociazione', '=', 'a.idAssociazione')
+            ->select(
+                'ds.idDipendente',
+                'ds.idConvenzione',
+                'ds.OreServizio',
+                'a.Associazione',
+                'd.idAssociazione'
+            )
             ->where('d.idAnno', $anno);
 
         if (! $user->hasAnyRole(['SuperAdmin','Admin','Supervisor'])) {
@@ -26,6 +33,7 @@ class RipartizionePersonale
 
         return collect($q->get());
     }
+
 
     /**
      * Somma le OreServizio in una collection
@@ -75,4 +83,5 @@ class RipartizionePersonale
           ->where('idDipendente', $idDip)
           ->delete();
     }
+
 }

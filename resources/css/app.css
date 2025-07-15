@@ -381,3 +381,19 @@ a.btn.btn-sm.btn-anpas-edit.me-1 {
 .dt-info{
   margin-top: 5rem !important;
 }
+
+/* Supporto per submenu annidato in Bootstrap 5 */
+.dropdown-submenu {
+    position: relative;
+}
+
+.dropdown-submenu > .dropdown-menu {
+    top: 0;
+    left: 100%;
+    margin-top: -1px;
+    display: none;
+}
+
+.dropdown-submenu:hover > .dropdown-menu {
+    display: block;
+}

@@ -71,4 +71,9 @@ Route::middleware(['auth'])
             Route::put('/update', [RipartizioneMaterialeSanitarioController::class, 'update'])->name('update');
             Route::post('/aggiorna-inclusione', [RipartizioneMaterialeSanitarioController::class, 'aggiornaInclusione'])->name('aggiornaInclusione');
         });
+
+        // ─── DETTAGLIO RIPARTIZIONE PERSONALE ─────────────────────────────
+        Route::get('/ripartizioni/personale/dettaglio', [RipartizionePersonaleDettaglioController::class, 'index'])->name('ripartizioni.personale.dettaglio');
+        Route::post('/ripartizioni/personale/dettaglio/salva', [RipartizionePersonaleDettaglioController::class, 'store'])->name('ripartizioni.personale.dettaglio.salva');
+
     });

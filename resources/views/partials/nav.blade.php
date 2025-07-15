@@ -103,21 +103,35 @@ $assocCorr = 'ANPAS Piemonte';
                 </li>
 
                 {{-- Dropdown Voci di bilancio --}}
-                <li class="nav-item dropdown">
-                    <a class="nav-link dropdown-toggle" href="#" id="riepiloghiDropdown" data-bs-toggle="dropdown">Voci di bilancio</a>
-                    <ul class="dropdown-menu">
+                <li class="nav-item dropdown dropdown-hover">
+                    <a class="nav-link dropdown-toggle" href="#" id="riepiloghiDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                        Voci di bilancio
+                    </a>
+                    <ul class="dropdown-menu" aria-labelledby="riepiloghiDropdown">
                         <li><a class="dropdown-item" href="{{ route('riepiloghi.index') }}">Consuntivo Anno {{ session('anno_riferimento') }}</a></li>
                         <li><a class="dropdown-item" href="{{ route('riepilogo.costi') }}">Riepilogo Costi</a></li>
-                        <li><a class="dropdown-item" href="{{ route('km-percorsi.index') }}">Distinta Km percorsi per convenzione</a></li>
-                        <li><a class="dropdown-item" href="{{ route('servizi-svolti.index') }}">Distinta Servizi svolti per convenzione</a></li>
-                        <li><a class="dropdown-item" href="{{ route('ripartizioni.personale.index') }}">Calcolo Ripartizione dei costi da personale dipendente (AUTISTI E/O BARELLIERI)</a></li>
-                        <li><a class="dropdown-item" href="{{ route('ripartizioni.volontari.index') }}">Calcolo Ripartizione dei costi da personale volontario</a></li>
-                        <li><a class="dropdown-item" href="{{ route('rapporti-ricavi.index') }}">Rapporto tra ricavi singola convenzione e esercizio di riferimento</a></li>
-                        <li><a class="dropdown-item" href="{{ route('ripartizioni.servizio_civile.index') }}">Calcolo Ripartizione dei costi da personale Servizio Civile Nazionale</a></li>
-                        <li><a class="dropdown-item" href="{{ route('ripartizioni.materiale_sanitario.index') }}">Calcolo Ripartizione numero servizi svolti/costi ossigeno e materiale sanitario</a></li>
-
+                        {{-- Sottomenu Schede di riparto costi --}}
+                        <li class="dropdown-submenu">
+                            <a class="dropdown-item dropdown-toggle" href="#">Schede di riparto costi</a>
+                            <ul class="dropdown-menu">
+                                <li><a class="dropdown-item" href="{{ route('km-percorsi.index') }}">Distinta Km percorsi per convenzione</a></li>
+                                <li><a class="dropdown-item" href="{{ route('servizi-svolti.index') }}">Distinta Servizi svolti per convenzione</a></li>
+                                <li><a class="dropdown-item" href="{{ route('ripartizioni.personale.index') }}">Personale dipendente (Autisti e Barellieri)</a></li>
+                                <li><a class="dropdown-item" href="{{ route('ripartizioni.volontari.index') }}">Personale volontario</a></li>
+                                <li><a class="dropdown-item" href="{{ route('ripartizioni.servizio_civile.index') }}">Servizio Civile</a></li>
+                                <li><a class="dropdown-item" href="{{ route('ripartizioni.materiale_sanitario.index') }}">Materiale sanitario</a></li>
+                                <li><a class="dropdown-item" href="{{ route('rapporti-ricavi.index') }}">Rapporto tra ricavi e convenzioni</a></li>
+                            </ul>
+                        </li>
+                        <li class="dropdown-submenu">
+                            <a class="dropdown-item dropdown-toggle" href="#">Dist. riparto costi dipendenti</a>
+                            <ul class="dropdown-menu">
+                                <li><a class="dropdown-item" href="#">Distina rilevazione analitica dipendentii (Autisti e Barellieri) </a></li>
+                            </ul>
+                        </li>
                     </ul>
                 </li>
+
 
                 {{-- Dropdown Personale --}}
                 <li class="nav-item dropdown">
@@ -126,7 +140,6 @@ $assocCorr = 'ANPAS Piemonte';
                         <li><a class="dropdown-item" href="{{ route('dipendenti.index') }}">Dipendente</a></li>
                         <li><a class="dropdown-item" href="{{ route('dipendenti.autisti') }}">Autista</a></li>
                         <li><a class="dropdown-item" href="{{ route('dipendenti.amministrativi') }}">Amministrativo</a></li>
-                        <li><a class="dropdown-item" href="{{ route('dipendenti.altro') }}">Altro Personale</a></li>
                     </ul>
                 </li>
 
