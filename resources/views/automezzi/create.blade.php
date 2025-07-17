@@ -157,7 +157,16 @@
               <input type="date" name="DataUltimoCollaudo" id="DataUltimoCollaudo" class="form-control" value="{{ old('DataUltimoCollaudo') }}">
             </div>
           </div>
-
+        {{-- RIGA 8: Incluso in Riparto --}}
+        <div class="row mb-4">
+          <div class="col-md-6">
+            <label for="incluso_riparto" class="form-label">Incluso nel riparto materiale sanitario?</label>
+            <select name="incluso_riparto" id="incluso_riparto" class="form-select">
+              <option value="1" >Sì</option>
+              <option value="0" >No</option>
+            </select>
+          </div>
+        </div>
           {{-- PULSANTI --}}
           <div class="text-center">
             <button type="submit" class="btn btn-anpas-green me-2">

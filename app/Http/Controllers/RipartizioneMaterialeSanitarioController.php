@@ -16,7 +16,7 @@ class RipartizioneMaterialeSanitarioController extends Controller
 
         $idAssociazione = (!$this->isImpersonating() && $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor']))
             ? null
-            : $user->idAssociazione;
+            : $user->IdAssociazione;
 
         $dati = RipartizioneMaterialeSanitario::getRipartizione($idAssociazione, $anno);
 
@@ -35,7 +35,7 @@ class RipartizioneMaterialeSanitarioController extends Controller
 
         $idAssociazione = (!$this->isImpersonating() && $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor']))
             ? null
-            : $user->idAssociazione;
+            : $user->IdAssociazione;
 
         $dati = RipartizioneMaterialeSanitario::getRipartizione($idAssociazione, $anno);
 
@@ -49,7 +49,7 @@ class RipartizioneMaterialeSanitarioController extends Controller
 
         $idAssociazione = (!$this->isImpersonating() && $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor']))
             ? null
-            : $user->idAssociazione;
+            : $user->IdAssociazione;
 
         $dati = RipartizioneMaterialeSanitario::getRipartizione($idAssociazione, $anno);
 
@@ -68,7 +68,7 @@ class RipartizioneMaterialeSanitarioController extends Controller
 
         $idAssociazione = (!$this->isImpersonating() && $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor']))
             ? null
-            : $user->idAssociazione;
+            : $user->IdAssociazione;
 
         $automezzi = RipartizioneMaterialeSanitario::getAutomezziPerEdit($idAssociazione, $anno);
 
@@ -82,7 +82,7 @@ class RipartizioneMaterialeSanitarioController extends Controller
 
         $idAssociazione = (!$this->isImpersonating() && $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor']))
             ? null
-            : $user->idAssociazione;
+            : $user->IdAssociazione;
 
         $idsInclusi = $request->input('inclusi', []);
 

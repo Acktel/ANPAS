@@ -107,7 +107,7 @@ class ConvenzioniController extends Controller {
             $correnteVuoto = DB::table('convenzioni')->where('idAnno', $anno)->doesntExist();
             $precedentePieno = DB::table('convenzioni')->where('idAnno', $annoPrec)->exists();
         } else {
-            $idAssoc = $user->idAssociazione;
+            $idAssoc = $user->IdAssociazione;
 
             $correnteVuoto = Convenzione::getByAssociazioneAnno($idAssoc, $anno)->isEmpty();
             $precedentePieno = Convenzione::getByAssociazioneAnno($idAssoc, $annoPrec)->isNotEmpty();

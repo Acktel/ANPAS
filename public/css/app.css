@@ -178,15 +178,15 @@ body {
 
 /* Separatore verticale */
 .user-consun-box .vr {
-    width: 1px;
-    background-color: rgba(0, 133, 62, 0.3);
-    margin: 0;
-    align-self: stretch;
-    height: 3.5rem;
-    border-color: var(--anpas-green);
-    background-color: var(--anpas-green);
-    position: relative;
-    top: 5px;
+  width: 1px;
+  background-color: rgba(0, 133, 62, 0.3);
+  margin: 0;
+  align-self: stretch;
+  height: 3.5rem;
+  border-color: var(--anpas-green);
+  background-color: var(--anpas-green);
+  position: relative;
+  top: 5px;
 }
 
 /* Sezione “Consuntivo Anno” (25%) */
@@ -220,6 +220,11 @@ body {
   align-items: center;
   justify-content: center;
   font-size: 1rem;
+}
+
+.btn.active.btn-anpas-green-active {
+  background-color: var(--anpas-green-dark) !important;
+  color: var(--anpas-white);
 }
 
 .btn-anpas-green:hover {
@@ -264,6 +269,7 @@ body {
   color: var(--anpas-white) !important;
   border: none;
 }
+
 .btn-anpas-green:hover {
   background-color: var(--anpas-green-dark) !important;
 }
@@ -274,6 +280,7 @@ body {
   color: var(--anpas-white) !important;
   border: none;
 }
+
 .btn-anpas-red:hover {
   /* un rosso ANPAS leggermente più scuro */
   background-color: #c00511 !important;
@@ -289,15 +296,16 @@ h1.fw-bolder {
   background-color: rgba(0, 133, 62, 0.15) !important;
   color: var(--anpas-green) !important;
   /* rimuovo bordi verticali e lascio solo bottom verde */
-  border-left:  none !important;
+  border-left: none !important;
   border-right: none !important;
 }
 
 /* Zebra‐striping: righe alternate più tenue */
 .table-striped-anpas,
-tr.even{
+tr.even {
   background-color: rgba(0, 133, 62, 0.05) !important;
 }
+
 /* Allineamento verticale celle */
 .table-striped-anpas td,
 .table-striped-anpas th {
@@ -312,7 +320,7 @@ tr.even{
   text-align: center;
 }
 
-.container-margin{
+.container-margin {
   margin-top: 10px;
 }
 
@@ -324,33 +332,35 @@ tr.even{
 
 /* Edit: arancio */
 .btn-anpas-edit {
-    background-color: #fd7d14 !important;
-    border: 1px solid #fd7e14 !important;
-    color: white !important;
+  background-color: #fd7d14 !important;
+  border: 1px solid #fd7e14 !important;
+  color: white !important;
 }
 
 .btn-anpas-edit:hover {
-  color: #fda862!important;
+  color: #fda862 !important;
 }
 
 /* Delete: rosso ANPAS */
 .btn-anpas-delete {
-  background-color: var(--anpas-red)!important;
+  background-color: var(--anpas-red) !important;
   color: white !important;
-  border: 1px solid var(--anpas-red)!important;
+  border: 1px solid var(--anpas-red) !important;
 }
+
 .btn-anpas-delete:hover {
-  color: #ff9393!important;
+  color: #ff9393 !important;
 }
 
 /* Impersonate: azzurro */
 .btn-anpas-impersonate {
-  background-color: #0dcaf0!important;
+  background-color: #0dcaf0 !important;
   color: white !important;
-  border: 1px solid #0dcaf0!important;
+  border: 1px solid #0dcaf0 !important;
 }
+
 .btn-anpas-impersonate:hover {
-  color: #88def0!important;
+  color: #88def0 !important;
 }
 
 /* Icone allineate */
@@ -362,7 +372,7 @@ tr.even{
 
 /* Header table: */
 .thead-anpas th {
-  background-color: rgba(0,133,62,0.15) !important;
+  background-color: rgba(0, 133, 62, 0.15) !important;
   color: var(--anpas-green) !important;
   border-left: none !important;
   border-right: none !important;
@@ -370,14 +380,15 @@ tr.even{
 
 /* Zebra striping */
 .table-striped-anpas:nth-of-type(odd) {
-  background-color: rgba(0,133,62,0.05) !important;
+  background-color: rgba(0, 133, 62, 0.05) !important;
 }
 
-.dataTables_info,.dataTables_paginate  {
-    margin-top: 20px! important;
+.dataTables_info,
+.dataTables_paginate {
+  margin-top: 20px ! important;
 }
 
-.automezzi-card{
+.automezzi-card {
   top: auto;
 }
 
@@ -400,21 +411,22 @@ tr.even{
   color: var(--anpas-white) !important;
 }
 
-.paginate_button:hover{
+.paginate_button:hover {
   background-color: rgba(0, 133, 62, 0.45) !important;
   color: var(--anpas-white) !important;
 }
 
 a.btn.btn-sm.btn-anpas-edit.me-1 {
-    margin: 0px 0px;
+  margin: 0px 0px;
 }
 
 /* Accordion: righe alternate */
 .accordion-item:nth-of-type(odd) .accordion-header {
-  background-color: rgba(0,133,62,0.05);
+  background-color: rgba(0, 133, 62, 0.05);
 }
+
 .accordion-item:nth-of-type(even) .accordion-header {
-  background-color: rgba(0,133,62,0.025);
+  background-color: rgba(0, 133, 62, 0.025);
 }
 
 /* Accordion-header testo semigrassetto verde */
@@ -425,47 +437,59 @@ a.btn.btn-sm.btn-anpas-edit.me-1 {
 
 /* Override background di default collapse (quando aperto) */
 .accordion-button:not(.collapsed) {
-  background-color: rgba(0,133,62,0.1);
+  background-color: rgba(0, 133, 62, 0.1);
 }
 
 
 /* Assicura zebra‐striping via JS */
 .text-start.gx-2 {
-    color: #007bff;
-    font-weight: 600;
+  color: #007bff;
+  font-weight: 600;
 }
 
-.kmTh{
-  background-color: rgba(0,133,62,0.15) !important;
+.kmTh {
+  background-color: rgba(0, 133, 62, 0.15) !important;
   color: var(--anpas-green) !important;
   border-left: none !important;
   border-right: none !important;
 }
 
-.table-totalRow{
-  background-color: #b8c4d457!important;
+.table-totalRow {
+  background-color: #b8c4d457 !important;
 }
 
-.dt-info{
+.dt-info {
   margin-top: 5rem !important;
 }
 
 /* Supporto per submenu annidato in Bootstrap 5 */
 .dropdown-submenu {
-    position: relative;
+  position: relative;
 }
 
-.dropdown-submenu > .dropdown-menu {
-    top: 0;
-    left: 100%;
-    margin-top: -1px;
-    display: none;
+.dropdown-submenu>.dropdown-menu {
+  top: 0;
+  left: 100%;
+  margin-top: -1px;
+  display: none;
 }
 
-.dropdown-submenu:hover > .dropdown-menu {
-    display: block;
+.dropdown-submenu:hover>.dropdown-menu {
+  display: block;
 }
 
+button.btn-qualifica {
+  border: none;
+  color: var(--anpas-green);
+  border-right: 1px solid #e5e8ec  !important;
+  border-bottom: 1px solid #e5e8ec  !important;
+  border-radius: 0px;
+}
+
+button.btn-qualifica:hover {
+  background-color: rgba(0, 133, 62, 0.15) !important;
+  color: var(--anpas-green) !important;
+}
 /*!
  * Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com
  * License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License)

@@ -22,7 +22,7 @@ class RipartizionePersonaleController extends Controller {
             $anno,
             $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])
                 ? null
-                : $user->idAssociazione
+                : $user->IdAssociazione
         );
 
         $convenzioni = Convenzione::getByAnno($anno, $user)

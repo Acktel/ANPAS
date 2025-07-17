@@ -36,6 +36,7 @@ class Convenzione {
      * Recupera convenzioni per anno e (opzionalmente) filtro utente.
      */
     public static function getByAnno(int $anno, ?\App\Models\User $user = null): Collection {
+      
         $sql = "
             SELECT
                 c.idConvenzione,
@@ -51,7 +52,7 @@ class Convenzione {
         $params = ['anno' => $anno];
         if ($user && ! $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])) {
             $sql .= " AND c.idAssociazione = :idAssociazione";
-            $params['idAssociazione'] = $user->idAssociazione;
+            $params['idAssociazione'] = $user->IdAssociazione;
         }
 
         $sql .= " ORDER BY c.Convenzione";

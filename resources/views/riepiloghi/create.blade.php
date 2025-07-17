@@ -24,9 +24,9 @@
         <div class="row mb-3">
           {{-- Associazione --}}
           <div class="col-md-6">
- @php
-        $assocCorr = \App\Models\Associazione::getById(Auth::user()->IdAssociazione);
-
+        @php
+          $assocCorr = \App\Models\Associazione::getById(Auth::user()->IdAssociazione);
+          $annoCorr = session('anno_riferimento', now()->year);          
         @endphp
 
         @if(session()->has('impersonate') || Auth::user()->role_id == 4)
@@ -59,7 +59,7 @@
               min="2020"
               max="{{ date('Y') + 5 }}"
               step="1"
-              value="{{ old('idAnno') }}"
+              value="{{ $annoCorr }}"
               placeholder="Es. 2024"
               required
             >
@@ -83,20 +83,20 @@
               <td>
                 <input type="text"
                        name="riep_descrizione[]" 
-                       class="form-control" 
+                       class="form-control text-start" 
                        value="{{ old('riep_descrizione.0') }}" 
                        maxlength="500">
               </td>
               <td>
                 <input type="text"
                        name="riep_preventivo[]" 
-                       class="form-control" 
+                       class="form-control text-end " 
                        value="{{ old('riep_preventivo.0') }}">
               </td>
               <td>
                 <input type="text"
                        name="riep_consuntivo[]" 
-                       class="form-control" 
+                       class="form-control text-end " 
                        value="{{ old('riep_consuntivo.0') }}">
               </td>
               <td class="text-center">

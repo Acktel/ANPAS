@@ -28,7 +28,7 @@
         <div class="card-body bg-anpas-white p-0">
           <form action="{{ route('configurazioni.qualifiche.store') }}" method="POST" class="d-flex p-3 border-bottom">
             @csrf
-            <input type="text" name="nome" class="form-control me-2" placeholder="Nome qualifica (es. AUTISTA)" required>
+            <input type="text" name="nome" class="form-control me-2" placeholder="Nome qualifica (es. AUTISTA)" >
             <button type="submit" class="btn btn-anpas-green"><i class="fas fa-plus me-1"></i> Aggiungi</button>
           </form>
 
@@ -66,7 +66,7 @@
         <div class="card-body bg-anpas-white p-0">
           <form action="{{ route('configurazioni.contratti.store') }}" method="POST" class="d-flex p-3 border-bottom">
             @csrf
-            <input type="text" name="nome" class="form-control me-2" placeholder="Nome contratto (es. CCNL ANPAS)" required>
+            <input type="text" name="nome" class="form-control me-2" placeholder="Nome contratto (es. CCNL ANPAS)" >
             <button type="submit" class="btn btn-anpas-green"><i class="fas fa-plus me-1"></i> Aggiungi</button>
           </form>
 
@@ -104,7 +104,7 @@
         <div class="card-body bg-anpas-white p-0">
           <form action="{{ route('configurazioni.livelli.store') }}" method="POST" class="d-flex p-3 border-bottom">
             @csrf
-            <input type="text" name="nome" class="form-control me-2" placeholder="Livello mansione (es. C4)" required>
+            <input type="text" name="nome" class="form-control me-2" placeholder="Livello mansione (es. C4)">
             <button type="submit" class="btn btn-anpas-green"><i class="fas fa-plus me-1"></i> Aggiungi</button>
           </form>
 

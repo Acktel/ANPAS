@@ -19,7 +19,7 @@ class RapportoRicavo {
             ->where('rr.idAnno', $anno);
 
         if (!$user->isSuperAdmin() && !$user->isAdmin()) {
-            $query->where('rr.idAssociazione', $user->idAssociazione);
+            $query->where('rr.idAssociazione', $user->IdAssociazione);
         }
 
         return $query->get();
@@ -65,7 +65,7 @@ class RapportoRicavo {
             ])
             ->where('rr.idAnno', $anno);
         if (!$user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])) {
-            $q->where('rr.idAssociazione', $user->idAssociazione);
+            $q->where('rr.idAssociazione', $user->IdAssociazione);
         }
         return collect($q->get());
     }

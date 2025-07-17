@@ -25,7 +25,7 @@ class RipartizioneServizioCivile
             ->groupBy('ds.idConvenzione');
 
         if (! $user->hasAnyRole(['SuperAdmin','Admin','Supervisor'])) {
-            $query->where('c.idAssociazione', $user->idAssociazione);
+            $query->where('c.idAssociazione', $user->IdAssociazione);
         }
 
         return $query->get();

@@ -65,7 +65,7 @@ class AutomezzoServiziSvolti
             ->select('s.*');
 
         if (!$user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])) {
-            $query->where('a.idAssociazione', $user->idAssociazione);
+            $query->where('a.idAssociazione', $user->IdAssociazione);
         }
 
         return $query->get()->groupBy(fn($r) => $r->idAutomezzo . '-' . $r->idConvenzione);

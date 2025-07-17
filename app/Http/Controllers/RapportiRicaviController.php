@@ -81,7 +81,7 @@ class RapportiRicaviController extends Controller {
         } else {
             $associazioni = collect([
                 (object)[
-                    'idAssociazione' => $user->idAssociazione,
+                    'idAssociazione' => $user->IdAssociazione,
                     'Associazione'   => $user->associazione->Associazione,
                 ]
             ]);
@@ -94,7 +94,7 @@ class RapportiRicaviController extends Controller {
 
     public function store(Request $request) {
         $user = Auth::user();
-        $idAss = (int)$request->input('idAssociazione', $user->idAssociazione);
+        $idAss = (int)$request->input('idAssociazione', $user->IdAssociazione);
         $anno  = session('anno_riferimento');
 
         foreach ($request->input('ricavi', []) as $idConv => $rimborso) {
@@ -117,7 +117,7 @@ class RapportiRicaviController extends Controller {
 
         if (
             !$user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])
-            && $user->idAssociazione !== $idAssociazione
+            && $user->IdAssociazione !== $idAssociazione
         ) {
             abort(403);
         }

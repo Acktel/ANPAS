@@ -1,10 +1,10 @@
 @extends('layouts.app')
-
 @section('content')
 <div class="container-fluid">
   {{-- Titolo --}}
   <h1 class="container-title mb-4">
-    Modifica Costi Dipendente: {{ $record->Cognome }}
+    Modifica Costi Dipendente:
+
   </h1>
 
   {{-- Errori di validazione --}}
@@ -30,7 +30,7 @@
           {{-- Cognome --}}
           <div class="col-md-6">
             <label class="form-label">Dipendente</label>
-            <input type="text" class="form-control" value="{{ $record->Cognome }}" disabled>
+            <input type="text" class="form-control" value="{{ $record->DipendenteCognome }} {{ $record->DipendenteNome }}" disabled>
           </div>
           {{-- Anno --}}
           <div class="col-md-6">
@@ -90,3 +90,5 @@
   </div>
 </div>
 @endsection
+
+ 

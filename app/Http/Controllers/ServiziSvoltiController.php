@@ -26,16 +26,16 @@ class ServiziSvoltiController extends Controller
     public function getData(Request $request)
     {
         $user = Auth::user();
-        if (session()->has('impersonate')) {
+        /*if (session()->has('impersonate')) {
             $user = User::find(session('impersonate'));
-        }
+        }*/
 
         $anno = session('anno_riferimento', now()->year);
 
         // Automezzi filtrati per ruolo/associazione
         $automezzi = $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])
             ? Automezzo::getAll($anno)
-            : Automezzo::getByAssociazione($user->idAssociazione, $anno);
+            : Automezzo::getByAssociazione($user->IdAssociazione, $anno);
 
         // Convenzioni filtrate per anno/associazione
         $convenzioni = Convenzione::getByAnno($anno, $user)
@@ -135,7 +135,7 @@ class ServiziSvoltiController extends Controller
         // automezzi filtrati
         $automezzi = $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])
             ? Automezzo::getLightForAnno($anno)
-            : Automezzo::getLightForAnno($anno, $user->idAssociazione);
+            : Automezzo::getLightForAnno($anno, $user->IdAssociazione);
 
         // convenzioni filtrate per anno/associazione
         $convenzioni = Convenzione::getByAnno($anno, $user)

@@ -53,7 +53,7 @@ class DipendenteController extends Controller {
 
     public function store(Request $request) {
         $validated = $request->validate([
-            'idAssociazione'     => 'required|exists:associazioni,idAssociazione',
+            'IdAssociazione'     => 'required|exists:associazioni,IdAssociazione',
             'idAnno'             => 'required|integer|min:2000|max:' . (date('Y') + 5),
             'DipendenteNome'     => 'required|string|max:100',
             'DipendenteCognome'  => 'required|string|max:100',

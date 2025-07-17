@@ -7,121 +7,115 @@ use Illuminate\Support\Facades\Auth;
 use App\Models\Dipendente;
 use App\Models\CostiPersonale;
 use App\Models\Convenzione;
-use Illuminate\Support\Facades\DB;
 use App\Models\RipartizionePersonale;
 
 class CostiPersonaleController extends Controller {
     public function index() {
         $anno = session('anno_riferimento', now()->year);
-        return view('ripartizioni.costi_personale.index', compact('anno'));
+        $user = Auth::user();
+        $qualifiche = $this->getQualificheDisponibili($anno, $user);
+
+        return view('ripartizioni.costi_personale.index', compact('anno', 'qualifiche'));
     }
 
     public function getData() {
-    $anno = session('anno_riferimento', now()->year);
-    $user = Auth::user();
+        $anno = session('anno_riferimento', now()->year);
+        $user = Auth::user();
+        $qualificaInput = strtolower(request()->query('qualifica', ''));
 
-    $dipendenti = $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])
-        ? Dipendente::getAll($anno)
-        : Dipendente::getByAssociazione($user->IdAssociazione, $anno);
+        $dipendenti = $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])
+            ? Dipendente::getAll($anno)
+            : Dipendente::getByAssociazione($user->IdAssociazione, $anno);
 
-    $filtrati = $dipendenti->filter(function ($d) {
-        $q = strtolower($d->Qualifica ?? '');
-        $liv = strtolower($d->LivelloMansione ?? '');
-        return str_contains($q, 'autista') || str_contains($q, 'barelliere') || str_contains($liv, 'c4');
-    });
+        $filtrati = $dipendenti->filter(function ($d) use ($qualificaInput) {
+            $q = strtolower($d->Qualifica ?? '');
+            $liv = strtolower($d->LivelloMansione ?? '');
+            if ($qualificaInput === 'autisti e barellieri') {
+                return str_contains($q, 'autista') || str_contains($q, 'barelliere') || str_contains($liv, 'c4');
+            }
+            return str_contains($q, $qualificaInput);
+        });
 
-    $costi = DB::table('costi_personale')
-        ->where('idAnno', $anno)
-        ->get()
-        ->keyBy('idDipendente');
+        $costi = CostiPersonale::getAllByAnno($anno)->keyBy('idDipendente');
 
-    $raw = RipartizionePersonale::getAll($anno, $user)->groupBy('idDipendente');
+        $raw = RipartizionePersonale::getAll($anno, $user)->groupBy('idDipendente');
 
-    $associazioneId = $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])
-        ? null
-        : $user->IdAssociazione;
+        $associazioneId = $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])
+            ? null
+            : $user->IdAssociazione;
 
-    $convenzioni = Convenzione::getByAssociazioneAnno($associazioneId, $anno)
-        ->sortBy('idConvenzione')
-        ->values();
+        $convenzioni = Convenzione::getByAssociazioneAnno($associazioneId, $anno)
+            ->sortBy('idConvenzione')
+            ->values();
 
-    $labels = $convenzioni
-        ->pluck('Convenzione', 'idConvenzione')
-        ->mapWithKeys(fn($nome, $id) => ["C$id" => $nome])
-        ->toArray();
+        $labels = $convenzioni
+            ->pluck('Convenzione', 'idConvenzione')
+            ->mapWithKeys(fn($nome, $id) => ["C$id" => $nome])
+            ->toArray();
 
-    $rows = [];
-    $totali = [
-        'Retribuzioni' => 0,
-        'OneriSociali' => 0,
-        'TFR' => 0,
-        'Consulenze' => 0,
-        'Totale' => 0,
-    ];
-    $totPerConv = []; // es: ['C1' => 1234.00, 'C2' => 567.00, ...]
+        $rows = [];
+        $totali = ['Retribuzioni' => 0, 'OneriSociali' => 0, 'TFR' => 0, 'Consulenze' => 0, 'Totale' => 0];
+        $totPerConv = [];
 
-    foreach ($filtrati as $d) {
-        $id = $d->idDipendente;
-        $c = $costi[$id] ?? null;
+        foreach ($filtrati as $d) {
+            $id = $d->idDipendente;
+            $c = $costi->get($id);
 
-        $retribuzioni = (float)($c->Retribuzioni ?? 0);
-        $oneriSociali = (float)($c->OneriSociali ?? 0);
-        $tfr = (float)($c->TFR ?? 0);
-        $consulenze = (float)($c->Consulenze ?? 0);
-        $totale = $retribuzioni + $oneriSociali + $tfr + $consulenze;
+            $retribuzioni = (float)($c->Retribuzioni ?? 0);
+            $oneriSociali = (float)($c->OneriSociali ?? 0);
+            $tfr = (float)($c->TFR ?? 0);
+            $consulenze = (float)($c->Consulenze ?? 0);
+            $totale = $retribuzioni + $oneriSociali + $tfr + $consulenze;
 
-        // Inizializza riga
-        $r = [
-            'idDipendente' => $id,
-            'Dipendente'   => trim("{$d->DipendenteCognome} {$d->DipendenteNome}"),
-            'Qualifica'    => $d->Qualifica,
-            'Contratto'    => $d->ContrattoApplicato,
-            'Retribuzioni' => $retribuzioni,
-            'OneriSociali' => $oneriSociali,
-            'TFR'          => $tfr,
-            'Consulenze'   => $consulenze,
-            'Totale'       => $totale,
-            'is_totale'    => false,
-        ];
+            $r = [
+                'idDipendente' => $id,
+                'Dipendente'   => trim("{$d->DipendenteCognome} {$d->DipendenteNome}"),
+                'Qualifica'    => $d->Qualifica,
+                'Contratto'    => $d->ContrattoApplicato,
+                'Retribuzioni' => $retribuzioni,
+                'OneriSociali' => $oneriSociali,
+                'TFR'          => $tfr,
+                'Consulenze'   => $consulenze,
+                'Totale'       => $totale,
+                'is_totale'    => false,
+            ];
 
-        foreach ($totali as $k => $v) {
-            $totali[$k] += $r[$k];
+            foreach ($totali as $k => $v) {
+                $totali[$k] += $r[$k];
+            }
+
+            $ripartizioni = $raw->get($id, collect());
+            $oreTot = $ripartizioni->sum('OreServizio');
+
+            foreach ($convenzioni as $conv) {
+                $convKey = "C{$conv->idConvenzione}";
+                $entry = $ripartizioni->firstWhere('idConvenzione', $conv->idConvenzione);
+                $percent = ($oreTot > 0 && $entry) ? round($entry->OreServizio / $oreTot * 100, 2) : 0;
+                $importo = round(($percent / 100) * $totale, 2);
+
+                $r["{$convKey}_percent"] = $percent;
+                $r["{$convKey}_importo"] = $importo;
+
+                $totPerConv["{$convKey}_importo"] = ($totPerConv["{$convKey}_importo"] ?? 0) + $importo;
+                $totPerConv["{$convKey}_percent"] = 0; // opzionale
+            }
+
+            $rows[] = $r;
         }
 
-        $ripartizioni = $raw->get($id, collect());
-        $oreTot = $ripartizioni->sum('OreServizio');
+        $rows[] = array_merge([
+            'idDipendente' => null,
+            'Dipendente' => 'TOTALE',
+            'Qualifica' => '',
+            'Contratto' => '',
+            'is_totale' => true,
+        ], $totali, $totPerConv);
 
-        foreach ($convenzioni as $conv) {
-            $convKey = "C{$conv->idConvenzione}";
-            $entry = $ripartizioni->firstWhere('idConvenzione', $conv->idConvenzione);
-            $percent = ($oreTot > 0 && $entry) ? round($entry->OreServizio / $oreTot * 100, 2) : 0;
-            $importo = round(($percent / 100) * $totale, 2);
-
-            $r["{$convKey}_percent"] = $percent;
-            $r["{$convKey}_importo"] = $importo;
-
-            $totPerConv["{$convKey}_importo"] = ($totPerConv["{$convKey}_importo"] ?? 0) + $importo;
-            $totPerConv["{$convKey}_percent"] = 0; // non usato nei totali
-        }
-
-        $rows[] = $r;
+        return response()->json([
+            'data' => $rows,
+            'labels' => $labels,
+        ]);
     }
-
-    // Riga totale
-    $rows[] = array_merge([
-        'idDipendente' => null,
-        'Dipendente' => 'TOTALE',
-        'Qualifica' => '',
-        'Contratto' => '',
-        'is_totale' => true,
-    ], $totali, $totPerConv);
-
-    return response()->json([
-        'data' => $rows,
-        'labels' => $labels,
-    ]);
-}
-
 
     public function salva(Request $request) {
         $data = $request->validate([
@@ -134,38 +128,77 @@ class CostiPersonaleController extends Controller {
         ]);
 
         $data['idAnno'] = session('anno_riferimento', now()->year);
-
-        $record = CostiPersonale::updateOrCreate(
-            ['idDipendente' => $data['idDipendente'], 'idAnno' => $data['idAnno']],
-            $data
-        );
+        CostiPersonale::updateOrInsert($data);
 
         return response()->json([
             'success' => true,
-            'message' => 'Dati salvati correttamente.',
-            'record'  => $record
+            'message' => 'Dati salvati correttamente.'
         ]);
     }
 
     public function edit($idDipendente) {
         $anno = session('anno_riferimento', now()->year);
-        $record = CostiPersonale::getByDipendente($idDipendente, $anno);
+        $record = CostiPersonale::getWithDipendente($idDipendente, $anno);
+
         return view('ripartizioni.costi_personale.edit', compact('record', 'anno'));
     }
 
-    public function update(Request $request, $id) {
-        $validated = $request->validate([
-            'Retribuzioni' => 'required|numeric',
-            'OneriSociali' => 'required|numeric',
-            'TFR' => 'required|numeric',
-            'Consulenze' => 'required|numeric',
-            'Totale' => 'required|numeric',
+    public function update(Request $request, $idDipendente) {
+        $data = $request->validate([
+            'Retribuzioni'   => 'required|numeric',
+            'OneriSociali'   => 'required|numeric',
+            'TFR'            => 'required|numeric',
+            'Consulenze'     => 'required|numeric',
+            'Totale'         => 'required|numeric',
         ]);
 
-        $costo = CostiPersonale::findOrFail($id);
-        $costo->update($validated);
+        $data['idDipendente'] = $idDipendente;
+        $data['idAnno'] = session('anno_riferimento', now()->year);
+        CostiPersonale::updateOrInsert($data);
 
-        return redirect()->route('ripartizioni.personale.costi.index')
-            ->with('success', 'Costo aggiornato correttamente.');
+        return redirect()->route('ripartizioni.personale.costi.index')->with('success', 'Dati aggiornati.');
+    }
+
+    private function getQualificheDisponibili($anno, $user) {
+        $dipendenti = $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])
+            ? Dipendente::getAll($anno)
+            : Dipendente::getByAssociazione($user->IdAssociazione, $anno);
+
+        $qualifiche = collect();
+
+        foreach ($dipendenti as $d) {
+            $q = strtolower($d->Qualifica ?? '');
+            $liv = strtolower($d->LivelloMansione ?? '');
+
+            if (str_contains($q, 'autista') || str_contains($q, 'barelliere') || str_contains($liv, 'c4')) {
+                $qualifiche->push('Autisti e Barellieri');
+            } else {
+                $qualifiche->push(trim($d->Qualifica ?? 'Altro'));
+            }
+        }
+
+        $qualificheUniche = $qualifiche->unique()->values();
+
+        // Sposta "Autisti e Barellieri" in cima
+        if ($qualificheUniche->contains('Autisti e Barellieri')) {
+            $qualificheUniche = collect(['Autisti e Barellieri'])->merge(
+                $qualificheUniche->reject(fn($q) => $q === 'Autisti e Barellieri')->sort()->values()
+            );
+        } else {
+            $qualificheUniche = $qualificheUniche->sort()->values();
+        }
+
+        return $qualificheUniche;
+    }
+
+    public function show($idDipendente) {
+        $anno = session('anno_riferimento', now()->year);
+        $record = CostiPersonale::getByDipendente($idDipendente, $anno);
+
+        if (!$record) {
+            $record = CostiPersonale::createEmptyRecord($idDipendente, $anno);
+        }
+
+        return view('ripartizioni.costi_personale.show', compact('record', 'anno'));
     }
 }

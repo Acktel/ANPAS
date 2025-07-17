@@ -228,4 +228,10 @@ class Dipendente {
             ->get();
     }
 
+    public static function getCognomeNome(int $idDipendente): ?object {
+        return DB::table('dipendenti')
+            ->where('idDipendente', $idDipendente)
+            ->select('DipendenteNome', 'DipendenteCognome')
+            ->first();
+    }
 }

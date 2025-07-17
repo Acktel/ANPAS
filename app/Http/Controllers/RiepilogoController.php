@@ -45,15 +45,15 @@ class RiepilogoController extends Controller
                 $validated['idAssociazione'],
                 $validated['idAnno']
             );
-
             if (!empty($validated['riep_descrizione'])) {
-                foreach ($validated['riep_descrizione'] as $i => $descr) {
+                foreach ($validated['riep_descrizione'] as $i => $descr) {                  
+           
                     if (trim($descr) === '') continue;
 
                     $prev = $validated['riep_preventivo'][$i] ?? 0;
                     $cons = $validated['riep_consuntivo'][$i] ?? 0;
-
-                    Riepilogo::addDato($idRiepilogo, $descr, (float) $prev, (float) $cons);
+                    $idTipologia = 1;
+                    Riepilogo::addDato($idRiepilogo, $descr, (float) $prev, (float) $cons, $idTipologia, $validated['idAnno']);
                 }
             }
 
@@ -142,8 +142,8 @@ class RiepilogoController extends Controller
 
                     $prev = $validated['riep_preventivo'][$i] ?? 0;
                     $cons = $validated['riep_consuntivo'][$i] ?? 0;
-
-                    Riepilogo::addDato($riepilogo->idRiepilogo, $descr, (float) $prev, (float) $cons);
+                    $idTipologia = 1;
+                    Riepilogo::addDato($riepilogo->idRiepilogo, $descr, (float) $prev, (float) $cons,   $idTipologia ,  $validated['idAnno']);
                 }
             }
         });
@@ -169,10 +169,9 @@ class RiepilogoController extends Controller
         $anno = session('anno_riferimento', now()->year);
 
         $q = DB::table('riepiloghi as r')
-            ->join('associazioni as s', 'r.idAssociazione', '=', 's.idAssociazione')
+            ->join('associazioni as s', 'r.idAssociazione', '=', 's.IdAssociazione')
             ->join('anni as a', 'r.idAnno', '=', 'a.idAnno')
             ->join('riepilogo_dati as d', 'r.idRiepilogo', '=', 'd.idRiepilogo')
-            ->where('d.idTipologiaRiepilogo', 1)
             ->where('r.idAnno', $anno)
             ->select([
                 's.Associazione',
@@ -188,12 +187,12 @@ class RiepilogoController extends Controller
 
         if (!$user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])) {
             $idAssociazione = $user->IdAssociazione ?? null;
+          
             if (!$idAssociazione) {
-                return response()->json(['data' => []]); // niente dati
+                return response()->json(['data' => []]); // niente datidd
             }
             $q->where('r.idAssociazione', $idAssociazione);
         }
-
         return response()->json(['data' => $q->get()]);
     }
 }

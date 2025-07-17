@@ -61,7 +61,7 @@ class Automezzo
             'AnnoAcquisto'                       => $data['AnnoAcquisto'] ?? null,
             'Modello'                            => $data['Modello'],
             'idTipoVeicolo'                      => $data['idTipoVeicolo'],
-            'incluso_riparto'                    => $data['incluso_riparto'],
+            'incluso_riparto'                    => $data['incluso_riparto'] ?? 0,
             'KmTotali'                           => $data['KmTotali'],
             'idTipoCarburante'                   => $data['idTipoCarburante'],
             'DataUltimaAutorizzazioneSanitaria'  => $data['DataUltimaAutorizzazioneSanitaria'],
@@ -160,11 +160,6 @@ class Automezzo
 
     public static function getForDataTable(int $anno, ?User $user): Collection
     {
-        $isImpersonating = session()->has('impersonate');
-        if ($isImpersonating) {
-            $user = User::find(session('impersonate'));
-        }
-
         $query = DB::table('automezzi as a')
             ->join('associazioni as ass', 'ass.idAssociazione', '=', 'a.idAssociazione')
             ->leftJoin('automezzi_km_riferimento as km', function ($join) use ($anno) {
@@ -175,10 +170,10 @@ class Automezzo
             ->leftJoin('fuel_types as ft', 'a.idTipoCarburante', '=', 'ft.id')
             ->where('a.idAnno', $anno);
 
-        if (!$user || (!$user->isSuperAdmin() && !$user->isAdmin())) {
-            $query->where('a.idAssociazione', $user->idAssociazione ?? 0);
+        if (!$user || (!$user->isSuperAdmin() && !$user->isAdmin())) {          
+            $query->where('a.idAssociazione', $user->IdAssociazione);
         }
-
+        
         return $query->select([
             'a.idAutomezzo',
             'ass.Associazione',
@@ -204,7 +199,7 @@ class Automezzo
     public static function getLightForAnno(int $anno, ?int $idAssociazione = null): Collection
     {
         return DB::table('automezzi')
-            ->where('idAnno', $anno)
+            ->where('idAnno', operator: $anno)
             ->when($idAssociazione, fn($q) => $q->where('idAssociazione', $idAssociazione))
             ->select('idAutomezzo', 'Automezzo', 'Targa', 'CodiceIdentificativo')
             ->get();

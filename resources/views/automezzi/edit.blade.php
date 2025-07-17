@@ -179,7 +179,7 @@
       <div class="row mb-4">
         <div class="col-md-6">
           <label for="incluso_riparto" class="form-label">Incluso nel riparto materiale sanitario?</label>
-          <select name="incluso_riparto" id="incluso_riparto" class="form-select" required>
+          <select name="incluso_riparto" id="incluso_riparto" class="form-select">
             <option value="1" {{ old('incluso_riparto', $automezzo->incluso_riparto) == 1 ? 'selected' : '' }}>Sì</option>
             <option value="0" {{ old('incluso_riparto', $automezzo->incluso_riparto) == 0 ? 'selected' : '' }}>No</option>
           </select>

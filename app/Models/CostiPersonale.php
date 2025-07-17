@@ -1,38 +1,74 @@
 <?php
+
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\DB;
 
-class CostiPersonale extends Model {
-    protected $table = 'costi_personale';
-    protected $primaryKey = 'id';
-    public $timestamps = false;
+class CostiPersonale {
+    protected const TABLE = 'costi_personale';
 
-    protected $fillable = [
-        'idDipendente',
-        'Retribuzioni',
-        'OneriSociali',
-        'TFR',
-        'Consulenze',
-        'Totale',
-        'idAnno'
-    ];
-
-    protected $casts = [
-        'Retribuzioni' => 'float',
-        'OneriSociali' => 'float',
-        'TFR' => 'float',
-        'Consulenze' => 'float',
-        'Totale' => 'float',
-    ];
-
-    public function dipendente() {
-        return $this->belongsTo(Dipendente::class, 'idDipendente', 'idDipendente');
+    public static function getByDipendente(int $idDipendente, int $anno): ?object {
+        return DB::table(self::TABLE)
+            ->where('idDipendente', $idDipendente)
+            ->where('idAnno', $anno)
+            ->first();
     }
 
-    public static function getByDipendente(int $idDipendente, int $anno) {
-        return self::where('idDipendente', $idDipendente)
-                   ->where('idAnno', $anno)
-                   ->first();
+    public static function createEmptyRecord(int $idDipendente, int $anno): object {
+        $dip = Dipendente::getCognomeNome($idDipendente);
+
+        return (object) [
+            'id' => null,
+            'idDipendente' => $idDipendente,
+            'Retribuzioni' => 0.0,
+            'OneriSociali' => 0.0,
+            'TFR' => 0.0,
+            'Consulenze' => 0.0,
+            'Totale' => 0.0,
+            'idAnno' => $anno,
+            'DipendenteNome' => $dip->DipendenteNome ?? '',
+            'DipendenteCognome' => $dip->DipendenteCognome ?? '',
+        ];
     }
+
+    public static function updateOrInsert(array $data): void {
+        DB::table(self::TABLE)->updateOrInsert(
+            ['idDipendente' => $data['idDipendente'], 'idAnno' => $data['idAnno']],
+            [
+                'Retribuzioni' => $data['Retribuzioni'],
+                'OneriSociali' => $data['OneriSociali'],
+                'TFR' => $data['TFR'],
+                'Consulenze' => $data['Consulenze'],
+                'Totale' => $data['Totale'],
+            ]
+        );
+    }
+
+    public static function deleteByDipendente(int $idDipendente, int $anno): void {
+        DB::table(self::TABLE)
+            ->where('idDipendente', $idDipendente)
+            ->where('idAnno', $anno)
+            ->delete();
+    }
+
+    public static function getAllByAnno(int $anno): \Illuminate\Support\Collection {
+        return DB::table(self::TABLE)->where('idAnno', $anno)->get();
+    }
+
+    public static function getWithDipendente(int $idDipendente, int $anno): object {
+        $record = self::getByDipendente($idDipendente, $anno);
+
+        if ($record) {
+            $dip = Dipendente::getCognomeNome($idDipendente);
+
+            return (object) array_merge((array) $record, [
+                'DipendenteNome' => $dip->DipendenteNome ?? '',
+                'DipendenteCognome' => $dip->DipendenteCognome ?? '',
+            ]);
+        }
+
+        return self::createEmptyRecord($idDipendente, $anno);
+    }
+
+    
 }

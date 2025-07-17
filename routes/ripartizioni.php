@@ -6,7 +6,6 @@ use App\Http\Controllers\RipartizioneVolontarioController;
 use App\Http\Controllers\RipartizioneServizioCivileController;
 use App\Http\Controllers\RipartizioneMaterialeSanitarioController;
 use App\Http\Controllers\CostiPersonaleController;
-use App\Http\Controllers\RipartizionePersonaleDettaglioController;
 
 Route::middleware(['auth'])->prefix('ripartizioni')->group(function () {
 
@@ -29,12 +28,10 @@ Route::middleware(['auth'])->prefix('ripartizioni')->group(function () {
             Route::get('/{id}', [CostiPersonaleController::class, 'show'])->name('show');
             Route::put('/{id}', [CostiPersonaleController::class, 'update'])->name('update');
             Route::delete('/{id}', [CostiPersonaleController::class, 'destroy'])->name('destroy');
+            Route::get('/{idDipendente}', [CostiPersonaleController::class, 'show'])->name('ripartizioni.personale.costi.show');
         });
 
-        // ─── DETTAGLIO RIPARTIZIONE ──────────────────────────────
-        Route::get('/dettaglio', [RipartizionePersonaleDettaglioController::class, 'index'])->name('dettaglio');
-        Route::post('/dettaglio/salva', [RipartizionePersonaleDettaglioController::class, 'store'])->name('dettaglio.salva');
-    });
+ });
 
     // ─── VOLONTARI ────────────────────────────────────────────────
     Route::prefix('volontari')->name('ripartizioni.volontari.')->group(function () {

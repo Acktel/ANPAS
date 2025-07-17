@@ -28,7 +28,7 @@ class RipartizionePersonale
             ->where('d.idAnno', $anno);
 
         if (! $user->hasAnyRole(['SuperAdmin','Admin','Supervisor'])) {
-            $q->where('d.idAssociazione', $user->idAssociazione);
+            $q->where('d.idAssociazione', $user->IdAssociazione);
         }
 
         return collect($q->get());

@@ -27,8 +27,8 @@ class ConfigurazionePersonaleController extends Controller
     public function storeQualifica(Request $request)
     {
         $data = $request->validate([
-            'nome' => 'required|string|max:255',
-            'livello_mansione' => 'required|string|max:255',
+            'nome' => 'string|max:255',
+            'livello_mansione' => 'string|max:255',
         ]);
 
         Qualifica::createQualifica($data);
@@ -53,7 +53,7 @@ class ConfigurazionePersonaleController extends Controller
     public function storeContratto(Request $request)
     {
         $data = $request->validate([
-            'nome' => 'required|string|max:255|unique:contratti_applicati,nome',
+            'nome' => 'string|max:255|unique:contratti_applicati,nome',
         ]);
 
         ContrattoApplicato::createContratto($data);

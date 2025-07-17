@@ -28,15 +28,16 @@ class KmPercorsiController extends Controller {
     public function getData() {
         $user = Auth::user();
 
-        if (session()->has('impersonate')) {
+        /*if (session()->has('impersonate')) {
             $user = User::find(session('impersonate'));
-        }
+        }*/
 
         $anno = session('anno_riferimento', now()->year);
 
+        
         $automezzi = $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])
             ? Automezzo::getAll($anno)
-            : Automezzo::getByAssociazione($user->idAssociazione, $anno);
+            : Automezzo::getByAssociazione($user->IdAssociazione, $anno);
 
         $convenzioni = Convenzione::getByAnno($anno, $user)->sortBy('idConvenzione')->values();
         $kmData = AutomezzoKm::getGroupedByAutomezzoAndConvenzione($anno, $user);
@@ -100,7 +101,6 @@ class KmPercorsiController extends Controller {
 
             $rows[] = $riga;
         }
-
         // Calcolo percentuali totali per ogni convenzione, con correzione finale
         $percentSum = 0;
         $lastIndex = count($convenzioni) - 1;
@@ -117,8 +117,7 @@ class KmPercorsiController extends Controller {
             }
         }
 
-        $rows[] = $totali;
-
+        $rows[] = $totali;  
         return response()->json([
             'data' => $rows,
             'labels' => $labels
@@ -126,9 +125,7 @@ class KmPercorsiController extends Controller {
     }
 
     public function edit(int $id) {
-        $user = session()->has('impersonate')
-        ? User::find(session('impersonate'))
-        : Auth::user();
+        $user = Auth::user();
         
         $anno = session('anno_riferimento', now()->year);
         $automezzo = Automezzo::getById($id, $anno);
@@ -140,13 +137,10 @@ class KmPercorsiController extends Controller {
     }
 
     public function create() {
-        $user = session()->has('impersonate')
-        ? User::find(session('impersonate'))
-        : Auth::user();
-
+        $user =  Auth::user();
         $anno = session('anno_riferimento', now()->year);
-
-        $automezzi = Automezzo::getLightForAnno($anno, ($user->isSuperAdmin() || $user->isAdmin()) ? null : $user->idAssociazione);
+     
+        $automezzi = Automezzo::getLightForAnno($anno, ($user->isSuperAdmin() || $user->isAdmin()) ? null : $user->IdAssociazione);
         $convenzioni = Convenzione::getByAnno($anno, $user)->sortBy('idConvenzione')->values();
 
         return view('km_percorsi.create', compact('automezzi', 'convenzioni'));

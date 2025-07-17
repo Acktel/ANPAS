@@ -31,10 +31,14 @@ class RipartizioneVolontarioController extends Controller
 
         $totOre = $raw->sum('OreServizio');
 
+        
+        /*
         $nomeAssociazione = DB::table('associazioni')
-            ->where('idAssociazione', $user->idAssociazione)
+            ->where('idAssociazione', $user->IdAssociazione)
             ->value('Associazione');
-
+        */
+        
+            
 
         $row = [
             'Associazione' => $nomeAssociazione ?? '',

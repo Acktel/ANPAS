@@ -29,12 +29,12 @@
         <div class="row mb-3">
           @if (! $isImpersonating && $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor']))
             <div class="col-md-6 mb-3">
-              <label for="idAssociazione" class="form-label">Associazione</label>
-              <select name="idAssociazione" id="idAssociazione" class="form-select" required>
+              <label for="IdAssociazione" class="form-label">Associazione</label>
+              <select name="IdAssociazione" id="IdAssociazione" class="form-select" required>
                 <option value="">-- Seleziona Associazione --</option>
                 @foreach($associazioni as $asso)
                   <option value="{{ $asso->IdAssociazione }}"
-                    {{ old('idAssociazione') == $asso->IdAssociazione ? 'selected' : '' }}>
+                    {{ old('IdAssociazione') == $asso->IdAssociazione ? 'selected' : '' }}>
                     {{ $asso->Associazione }}
                   </option>
                 @endforeach
@@ -55,12 +55,13 @@
             </div>
           @else
             @php
-              $assoCorr = $associazioni->firstWhere('idAssociazione', $user->IdAssociazione);
+              $assoCorr = $associazioni->firstWhere('IdAssociazione', $user->IdAssociazione);  
+                       
             @endphp
             <div class="col-md-6 mb-3">
               <label class="form-label">Associazione</label>
               <input type="text" class="form-control" value="{{ $assoCorr->Associazione }}" readonly>
-              <input type="hidden" name="idAssociazione" value="{{ $assoCorr->idAssociazione }}">
+              <input type="hidden" name="IdAssociazione" value="{{ $assoCorr->IdAssociazione }}">
             </div>
 
             <div class="col-md-6 mb-3">

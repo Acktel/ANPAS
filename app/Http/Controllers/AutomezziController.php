@@ -61,17 +61,16 @@ class AutomezziController extends Controller {
             'idTipoCarburante' => 'required|exists:fuel_types,id',
             'DataUltimaAutorizzazioneSanitaria' => 'nullable|date',
             'DataUltimoCollaudo' => 'nullable|date',
-            'incluso_riparto' => 'required|boolean',
+            'incluso_riparto' => 'boolean',
         ];
 
         $validated = $request->validate($rules);
-
         DB::beginTransaction();
 
         try {
             $newId = Automezzo::createAutomezzo($validated);
 
-            AutomezzoKmRiferimento::create([
+            AutomezzoKmRiferimento::insertKmRiferimento([
                 'idAutomezzo' => $newId,
                 'idAnno' => $validated['idAnno'],
                 'KmRiferimento' => $validated['KmRiferimento'],
@@ -126,7 +125,7 @@ class AutomezziController extends Controller {
             'idTipoCarburante' => 'required|exists:fuel_types,id',
             'DataUltimaAutorizzazioneSanitaria' => 'nullable|date',
             'DataUltimoCollaudo' => 'nullable|date',
-            'incluso_riparto' => 'required|boolean',
+            'incluso_riparto' => 'boolean',
         ];
 
         $validated = $request->validate($rules);
@@ -248,7 +247,6 @@ class AutomezziController extends Controller {
 
     public function datatable() {
         $anno = session('anno_riferimento', now()->year);
-
         $user = Auth::user();
         $data = Automezzo::getForDataTable($anno, $user);
 
