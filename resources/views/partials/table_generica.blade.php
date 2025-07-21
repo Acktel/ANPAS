@@ -1,6 +1,6 @@
 <div class="table-responsive">
-    <table id="table-generica-costi" class="table table-bordered table-sm w-100 text-center align-middle">
-        <thead class="table-light">
+    <table id="table-generica-costi" class="table table-bordered table-striped-anpas w-100 text-center align-middle">
+        <thead class="thead-anpas">
             <tr>
                 <th>Dipendente</th>
                 <th>Qualifica</th>
@@ -10,6 +10,7 @@
                 <th>TFR</th>
                 <th>Consulenze</th>
                 <th>Totale</th>
+                <th class="col-actions">Azioni</th> {{-- Se usi pulsanti --}}
             </tr>
         </thead>
         <tbody></tbody>

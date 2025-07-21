@@ -2,18 +2,24 @@
 
 @section('content')
 <div class="container-fluid">
-  <h1 class="container-title mb-4">
-    Ripartizione costi personale <strong>volontario</strong> − Anno {{ $anno }}
-  </h1>
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="container-title">
+      Ripartizione costi personale <strong>volontario</strong> − Anno {{ $anno }}
+    </h1>
+  </div>
 
-  <div class="table-responsive">
-    <table id="table-rip-volontari" class="table table-bordered w-100 text-center align-middle">
-      <thead class="table-light">
-        <tr id="header-main"></tr>
-        <tr id="header-sub"></tr>
-      </thead>
-      <tbody></tbody>
-    </table>
+  <div class="card-anpas">
+    <div class="card-body bg-anpas-white">
+      <div class="table-responsive">
+        <table id="table-rip-volontari" class="table table-bordered table-striped-anpas w-100 text-center align-middle">
+          <thead class="thead-anpas">
+            <tr id="header-main"></tr>
+            <tr id="header-sub"></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
   </div>
 </div>
 @endsection
@@ -33,20 +39,19 @@ $(async function(){
     { key:'OreTotali',    label:'Ore Totali di Servizio Volontario' }
   ];
 
-  const convenzioni = Object.keys(labels)
-    .sort((a,b)=>parseInt(a.slice(1))-parseInt(b.slice(1)));
+  const convenzioni = Object.keys(labels).sort((a,b)=>parseInt(a.slice(1))-parseInt(b.slice(1)));
 
-  let hMain='', hSub='', cols=[];
+  let hMain = '', hSub = '', cols = [];
 
-  staticCols.forEach(c=>{
+  staticCols.forEach(c => {
     hMain += `<th rowspan="2">${c.label}</th>`;
-    cols.push({ data:c.key });
+    cols.push({ data: c.key });
   });
 
-  convenzioni.forEach(key=>{
+  convenzioni.forEach(key => {
     hMain += `<th colspan="2">${labels[key]}</th>`;
     hSub  += `<th>Ore</th><th>%</th>`;
-    cols.push({ data:`${key}_ore`,     defaultContent:0 });
+    cols.push({ data:`${key}_ore`, defaultContent:0 });
     cols.push({ data:`${key}_percent`, defaultContent:0 });
   });
 
@@ -55,10 +60,11 @@ $(async function(){
     data: null,
     orderable: false,
     searchable: false,
+    className: 'col-azioni',
     render: () => {
       return `
-        <a href="{{ route('ripartizioni.volontari.edit') }}" class="btn btn-sm btn-warning">
-          <i class="fas fa-edit"></i> Modifica
+        <a href="{{ route('ripartizioni.volontari.edit') }}" class="btn btn-sm btn-warning btn-icon" title="Modifica">
+          <i class="fas fa-edit"></i>
         </a>`;
     }
   });
@@ -73,7 +79,17 @@ $(async function(){
     searching: false,
     info: false,
     responsive: true,
-    language:{ url:'//cdn.datatables.net/plug-ins/1.11.3/i18n/it_it.json' }
+    language: {
+      url: '//cdn.datatables.net/plug-ins/1.11.3/i18n/it_it.json'
+    },
+    rowCallback: function(row, data, index) {
+      if (index % 2 === 0) {
+        $(row).removeClass('even').removeClass('odd').addClass('even');
+      } else {
+        $(row).removeClass('even').removeClass('odd').addClass('odd');
+      }
+    },
+    stripeClasses: ['table-white', 'table-striped-anpas']
   });
 });
 </script>

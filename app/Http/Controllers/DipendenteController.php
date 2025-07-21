@@ -80,7 +80,6 @@ class DipendenteController extends Controller {
         $qualificheAttuali = Dipendente::getQualificheByDipendente($idDipendente);
         $contratti = Dipendente::getContrattiApplicati();
         $livelli = Dipendente::getLivelliMansione();
-
         return view('dipendenti.edit', compact(
             'dipendente',
             'associazioni',
@@ -112,7 +111,12 @@ class DipendenteController extends Controller {
         abort_if(!$dipendente, 404);
 
         $qualifiche = Dipendente::getNomiQualifiche($idDipendente);
-        return view('dipendenti.show', compact('dipendente', 'qualifiche'));
+
+        // Richiamiamo il metodo esistente e ne estraiamo il contenuto JSON
+        $livelliJson = $this->getLivelloMansione($idDipendente);
+        $livelliMansione = $livelliJson->getData()->livello;
+
+        return view('dipendenti.show', compact('dipendente', 'qualifiche', 'livelliMansione'));
     }
 
     public function getData(Request $request): JsonResponse {
@@ -245,5 +249,15 @@ class DipendenteController extends Controller {
         });
 
         return response()->json(['data' => $filtered->values()]);
+    }
+
+    public function getLivelloMansione(int $idDipendente): JsonResponse {
+        $livelli = Dipendente::getLivelliMansioneByDipendente($idDipendente);
+        $dati = DB::table('livello_mansione')
+                ->whereIn('id', $livelli)
+                ->select('id', 'nome')
+                ->get();
+
+        return response()->json(['livello' => $dati]);
     }
 }

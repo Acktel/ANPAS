@@ -6,7 +6,7 @@
 
   // Valori selezionati
   $qualificheSelezionate = old('Qualifica', $qualificheAttuali ?? []);
-  $livelliSelezionati = old('LivelloMansione', $livelliAttuali ?? []);
+  $livelliSelezionati = old('LivelloMansione', \App\Models\Dipendente::getLivelliMansioneByDipendente($dipendente->idDipendente ) ?? []);
 @endphp
 
 @section('content')

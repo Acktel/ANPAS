@@ -1,15 +1,16 @@
 @extends('layouts.app')
+
 @php
-  $user = Auth::user();
-  $isImpersonating = session()->has('impersonate');
-  $hasEditRoles = $user->hasAnyRole(['SuperAdmin','Admin','Supervisor','AdminUser']) || $isImpersonating;
-  $currentRoute = Route::currentRouteName();
-  $impersonatorName = null;
-  if ($isImpersonating) {
-      $impersonatorId = session('impersonate');
-      $impersonator = \App\Models\User::find($impersonatorId);
-      $impersonatorName = $impersonator?->username ?? '—';
-  }
+$user = Auth::user();
+$isImpersonating = session()->has('impersonate');
+$hasEditRoles = $user->hasAnyRole(['SuperAdmin','Admin','Supervisor','AdminUser']) || $isImpersonating;
+$currentRoute = Route::currentRouteName();
+$impersonatorName = null;
+if ($isImpersonating) {
+$impersonatorId = session('impersonate');
+$impersonator = \App\Models\User::find($impersonatorId);
+$impersonatorName = $impersonator?->username ?? '—';
+}
 @endphp
 
 @section('content')
@@ -17,14 +18,14 @@
   <div class="d-flex justify-content-between align-items-center mb-4">
     <h1 class="container-title">{{ $titolo }}</h1>
     @if($hasEditRoles)
-      <a href="{{ route('dipendenti.create') }}" class="btn btn-anpas-green">
-        <i class="fas fa-plus me-1"></i> Nuovo Dipendente
-      </a>
+    <a href="{{ route('dipendenti.create') }}" class="btn btn-anpas-green">
+      <i class="fas fa-plus me-1"></i> Nuovo Dipendente
+    </a>
     @endif
   </div>
 
   @if(session('success'))
-    <div class="alert alert-success">{{ session('success') }}</div>
+  <div class="alert alert-success">{{ session('success') }}</div>
   @endif
 
   <div id="noDataMessage" class="alert alert-info d-none">
@@ -38,10 +39,7 @@
 
   <div class="card-anpas">
     <div class="card-body bg-anpas-white p-0">
-      <table
-        id="dipendentiTable"
-        class="common-css-dataTable table table-hover table-striped-anpas table-bordered dt-responsive nowrap w-100 mb-0"
-      >
+      <table id="dipendentiTable" class="common-css-dataTable table table-hover table-striped-anpas table-bordered dt-responsive nowrap w-100 mb-0 text-center align-middle">
         <thead class="thead-anpas">
           <tr>
             <th>ID</th>
@@ -65,113 +63,139 @@
 @push('scripts')
 <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.4/moment.min.js"></script>
 <script>
+  document.addEventListener('DOMContentLoaded', async function() {
+    const csrfToken = document.head.querySelector('meta[name="csrf-token"]').content;
+    const currentRoute = @json($currentRoute);
+    const canEdit = @json($hasEditRoles);
+    const impersonatorName = @json($impersonatorName);
 
-document.addEventListener('DOMContentLoaded', async function () {
-  const csrfToken = document.head.querySelector('meta[name="csrf-token"]').content;
-  const currentRoute = @json($currentRoute);
-  const canEdit = @json($hasEditRoles);
-  const impersonatorName = @json($impersonatorName);
+    const dupRes = await fetch("{{ route('dipendenti.checkDuplicazione') }}");
+    const dupData = await dupRes.json();
 
-  const dupRes = await fetch("{{ route('dipendenti.checkDuplicazione') }}");
-  const dupData = await dupRes.json();
+    let ajaxUrl = '';
+    switch (currentRoute) {
+      case 'dipendenti.altro':
+        ajaxUrl = "{{ route('dipendenti.altro.data') }}";
+        break;
+      case 'dipendenti.amministrativi':
+        ajaxUrl = "{{ route('dipendenti.amministrativi.data') }}";
+        break;
+      case 'dipendenti.autisti':
+        ajaxUrl = "{{ route('dipendenti.autisti.data') }}";
+        break;
+      default:
+        ajaxUrl = "{{ route('dipendenti.data') }}";
+    }
 
-  let ajaxUrl = '';
-  switch (currentRoute) {
-    case 'dipendenti.altro':
-      ajaxUrl = "{{ route('dipendenti.altro.data') }}";
-      break;
-    case 'dipendenti.amministrativi':
-      ajaxUrl = "{{ route('dipendenti.amministrativi.data') }}";
-      break;
-    case 'dipendenti.autisti':
-      ajaxUrl = "{{ route('dipendenti.autisti.data') }}";
-      break;
-    default:
-      ajaxUrl = "{{ route('dipendenti.data') }}";
-  }
-
-  $('#dipendentiTable').DataTable({
-    processing: true,
-    serverSide: false,
-    ajax: {
-      url: ajaxUrl,
-      dataSrc(json) {
-        let data = Array.isArray(json.data) ? json.data : Object.values(json.data || {});
-        if (data.length === 0 && dupData.mostraMessaggio) {
-          document.getElementById('noDataMessage').classList.remove('d-none');
-        }
-        return data;
-      }
-    },
-    columns: [
-      { data: 'idDipendente' },
-      { data: 'Associazione' },
-      { data: 'idAnno' },
-      { data: 'DipendenteNome' },
-      { data: 'DipendenteCognome' },
-      { data: 'Qualifica', defaultContent: '' },
-      { data: 'LivelloMansione', defaultContent: '' },
-      {
-        data: null,
-        render: function (data, type, row) {
-          const nome = impersonatorName || row.updated_by_name || row.created_by_name || '—';
-          const dataMod = row.updated_at || row.created_at;
-          return `${nome}<br><small>${moment(dataMod).format('DD/MM/YYYY HH:mm')}</small>`;
+    $('#dipendentiTable').DataTable({
+      processing: true,
+      serverSide: false,
+      ajax: {
+        url: ajaxUrl,
+        dataSrc(json) {
+          let data = Array.isArray(json.data) ? json.data : Object.values(json.data || {});
+          if (data.length === 0 && dupData.mostraMessaggio) {
+            document.getElementById('noDataMessage').classList.remove('d-none');
+          }
+          return data;
         }
       },
-      {
-        data: 'idDipendente',
-        orderable: false,
-        searchable: false,
-        render(id) {
-          let html = `<a href="/dipendenti/${id}" class="btn btn-sm btn-anpas-impersonate me-1">
-                        <i class="fas fa-info-circle"></i>
-                      </a>`;
-          if (canEdit) {
-            html += `<a href="/dipendenti/${id}/edit" class="btn btn-sm btn-anpas-edit me-1">
-                       <i class="fas fa-edit"></i>
-                     </a>
-                     <form action="/dipendenti/${id}" method="POST"
-                           style="display:inline-block; margin-left:4px;">
-                       <input type="hidden" name="_token" value="${csrfToken}">
-                       <input type="hidden" name="_method" value="DELETE">
-                       <button type="submit" class="btn btn-sm btn-anpas-delete"
-                               onclick="return confirm('Sei sicuro di voler eliminare questo dipendente?')">
-                         <i class="fas fa-trash-alt"></i>
-                       </button>
-                     </form>`;
+      columns: [{
+          data: 'idDipendente'
+        },
+        {
+          data: 'Associazione'
+        },
+        {
+          data: 'idAnno'
+        },
+        {
+          data: 'DipendenteNome'
+        },
+        {
+          data: 'DipendenteCognome'
+        },
+        {
+          data: 'Qualifica',
+          defaultContent: ''
+        },
+        {
+          data: 'LivelloMansione',
+          defaultContent: ''
+        },
+        {
+          data: null,
+          render: function(data, type, row) {
+            const nome = impersonatorName || row.updated_by_name || row.created_by_name || '—';
+            const dataMod = row.updated_at || row.created_at;
+            return `<div>${nome}<br><small>${moment(dataMod).format('DD/MM/YYYY HH:mm')}</small></div>`;
           }
-          return html;
+        },
+        {
+          data: 'idDipendente',
+          orderable: false,
+          searchable: false,
+          render(id) {
+            let html = `
+            <a href="/dipendenti/${id}" class="btn btn-sm btn-anpas-impersonate me-1" title="Visualizza">
+              <i class="fas fa-info-circle"></i>
+            </a>`;
+            if (canEdit) {
+              html += `
+              <a href="/dipendenti/${id}/edit" class="btn btn-sm btn-anpas-edit me-1" title="Modifica">
+                <i class="fas fa-edit"></i>
+              </a>
+              <form action="/dipendenti/${id}" method="POST" class="d-inline-block" onsubmit="return confirm('Sei sicuro di voler eliminare questo dipendente?')">
+                <input type="hidden" name="_token" value="${csrfToken}">
+                <input type="hidden" name="_method" value="DELETE">
+                <button type="submit" class="btn btn-sm btn-anpas-delete" title="Elimina">
+                  <i class="fas fa-trash-alt"></i>
+                </button>
+              </form>`;
+            }
+            return html;
+          }
         }
+      ],
+      language: {
+        url: '/js/i18n/Italian.json'
+      },
+      rowCallback: function(row, data, index) {
+        if (index % 2 === 0) {
+          $(row).removeClass('even').removeClass('odd').addClass('even');
+        } else {
+          $(row).removeClass('even').removeClass('odd').addClass('odd');
+        }
+      },
+      stripeClasses: ['table-white', 'table-striped-anpas'],
+    });
+
+    document.getElementById('btn-duplica-si')?.addEventListener('click', async function() {
+      const btn = this;
+      btn.disabled = true;
+      btn.innerText = 'Duplicazione in corso…';
+      try {
+        const res = await fetch("{{ route('dipendenti.duplica') }}", {
+          method: 'POST',
+          headers: {
+            'X-CSRF-TOKEN': csrfToken,
+            'Accept': 'application/json'
+          }
+        });
+        if (!res.ok) throw await res.json();
+        $('#dipendentiTable').DataTable().ajax.reload();
+        document.getElementById('noDataMessage').classList.add('d-none');
+      } catch (err) {
+        alert(err.message || 'Errore durante la duplicazione.');
+      } finally {
+        btn.disabled = false;
+        btn.innerText = 'Sì';
       }
-    ],
-    language: { url: '/js/i18n/Italian.json' },
-    stripeClasses: ['table-striped-anpas', '']
-  });
+    });
 
-  document.getElementById('btn-duplica-si')?.addEventListener('click', async function () {
-    const btn = this;
-    btn.disabled = true;
-    btn.innerText = 'Duplicazione in corso…';
-    try {
-      const res = await fetch("{{ route('dipendenti.duplica') }}", {
-        method: 'POST',
-        headers: { 'X-CSRF-TOKEN': csrfToken, 'Accept': 'application/json' }
-      });
-      if (!res.ok) throw await res.json();
-      $('#dipendentiTable').DataTable().ajax.reload();
+    document.getElementById('btn-duplica-no')?.addEventListener('click', () => {
       document.getElementById('noDataMessage').classList.add('d-none');
-    } catch (err) {
-      alert(err.message || 'Errore durante la duplicazione.');
-    } finally {
-      btn.disabled = false;
-      btn.innerText = 'Sì';
-    }
+    });
   });
-
-  document.getElementById('btn-duplica-no')?.addEventListener('click', () => {
-    document.getElementById('noDataMessage').classList.add('d-none');
-  });
-});
 </script>
 @endpush

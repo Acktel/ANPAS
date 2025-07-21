@@ -28,12 +28,12 @@
 
     {{-- 📊 Contenitore tabelle --}}
     <div id="contenitore-tabella">
-        <div id="tabella-autisti">
-            @include('partials.table_autisti')
+        <div id="tabella-autisti" class="table-responsive">
+            @include('partials.table_autisti') {{-- <table class="table table-bordered table-striped-anpas w-100 text-center align-middle"> --}}
         </div>
 
-        <div id="tabella-generica" class="d-none">
-            @include('partials.table_generica')
+        <div id="tabella-generica" class="table-responsive d-none">
+            @include('partials.table_generica') {{-- <table class="table table-bordered table-striped-anpas w-100 text-center align-middle"> --}}
         </div>
     </div>
 </div>

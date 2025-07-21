@@ -63,7 +63,7 @@
                   <th>Preventivo</th>
                   <th>Consuntivo</th>
                   <th>% Scostamento</th>
-                  <th>Azioni</th>
+                  <th class="col-actions">Azioni</th>
                 </tr>
               </thead>
               <tbody class="sortable" data-sezione="{{ $id }}"></tbody>
@@ -89,9 +89,49 @@
 
 @push('scripts')
 <script>
-  window.riepilogoCosti = {
-    sezioni: @json($sezioni),
-    csrf: '{{ csrf_token() }}'
-  };
+window.riepilogoCosti = {
+  sezioni: @json($sezioni),
+  csrf: '{{ csrf_token() }}'
+};
+
+// Funzione per applicare zebra manualmente
+function applicaZebra($table) {
+  const $rows = $table.find('tbody tr');
+  $rows.removeClass('even odd').each(function (i) {
+    $(this).addClass(i % 2 === 0 ? 'even' : 'odd');
+  });
+}
+
+$(function () {
+  $('table.common-css-dataTable').each(function () {
+    const $table = $(this);
+    const tableId = $table.attr('id');
+
+    if (!$.fn.DataTable.isDataTable($table)) {
+      console.log('Initializing DataTable for:', tableId);
+
+      $table.DataTable({
+        paging: false,
+        searching: false,
+        info: false,
+        ordering: false,
+        language: {
+          url: 'https://cdn.datatables.net/plug-ins/1.11.3/i18n/it_it.json'
+        }
+      });
+    }
+
+    // Observer per riapplicare zebra quando il contenuto cambia
+    const observer = new MutationObserver(() => {
+      applicaZebra($table);
+    });
+
+    const tbody = $table.find('tbody')[0];
+    if (tbody) {
+      observer.observe(tbody, { childList: true, subtree: false });
+    }
+  });
+});
 </script>
 @endpush
+

@@ -1,9 +1,7 @@
 @extends('layouts.app')
-
 @section('content')
 <div class="container-fluid">
   <h1>Dettaglio Dipendente #{{ $dipendente->idDipendente }}</h1>
-
   <dl class="row">
     <dt class="col-sm-3">Associazione</dt>
     <dd class="col-sm-9">{{ \App\Models\Associazione::getById($dipendente->idAssociazione)->Associazione }}</dd>
@@ -24,7 +22,13 @@
     <dd class="col-sm-9">{{ $dipendente->ContrattoApplicato }}</dd>
 
     <dt class="col-sm-3">Livello Mansione</dt>
-    <dd class="col-sm-9">{{ $dipendente->LivelloMansione }}</dd>
+    <dd class="col-sm-9">
+      @if(!empty($livelliMansione))
+        {{ collect($livelliMansione)->pluck('nome')->implode(', ') }}
+      @else
+        Nessuno
+      @endif
+    </dd>
 
     <dt class="col-sm-3">Creato il</dt>
     <dd class="col-sm-9">{{ \Carbon\Carbon::parse($dipendente->created_at)->format('d/m/Y H:i') }}</dd>

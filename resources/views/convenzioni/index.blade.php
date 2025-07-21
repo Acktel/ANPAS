@@ -31,7 +31,7 @@
   <div class="card-anpas">
     <div class="card-body bg-anpas-white p-0">
       <table id="convenzioniTable"
-        class="common-css-dataTable table table-hover table-striped table-bordered dt-responsive nowrap mb-0">
+        class="common-css-dataTable table table-hover table-striped table-bordered dt-responsive nowrap mb-0 table-striped-anpas">
         <thead class="thead-anpas">
           <tr>
             <th>ID</th>
@@ -39,7 +39,7 @@
             <th>Anno</th>
             <th>Descrizione</th>
             <th>Lettera</th>
-            <th data-orderable="false">Azioni</th>
+            <th data-orderable="false" class="col-actions text-center">Azioni</th>
           </tr>
         </thead>
         <tbody id="sortable-convenzioni" class="sortable">
@@ -52,14 +52,14 @@
             <td>{{ $c->lettera_identificativa }}</td>
             <td>
               <a href="{{ route('convenzioni.edit', $c->idConvenzione) }}"
-                class="btn btn-sm btn-anpas-edit me-1">
+                class="btn btn-sm btn-anpas-edit me-1 btn-icon" title="Modifica">
                 <i class="fas fa-edit"></i>
               </a>
               <form action="{{ route('convenzioni.destroy', $c->idConvenzione) }}"
                 method="POST" class="d-inline"
                 onsubmit="return confirm('Eliminare questa convenzione?')">
                 @csrf @method('DELETE')
-                <button class="btn btn-sm btn-anpas-delete">
+                <button class="btn btn-sm btn-anpas-delete btn-icon" title="Elimina">
                   <i class="fas fa-trash-alt"></i>
                 </button>
               </form>
@@ -90,9 +90,18 @@
       $('#convenzioniTable').DataTable({
         paging: false,
         info: false,
+        className: 'col-actions text-center',
         language: {
           url: 'https://cdn.datatables.net/plug-ins/1.11.3/i18n/it_it.json'
-        }
+        },
+        rowCallback: function(row, data, index) {
+          if (index % 2 === 0) {
+            $(row).removeClass('even').removeClass('odd').addClass('even');
+          } else {
+            $(row).removeClass('even').removeClass('odd').addClass('odd');
+          }
+        },
+        stripeClasses: ['table-white', 'table-striped-anpas'],
       });
     }
     // Sortable drag & drop

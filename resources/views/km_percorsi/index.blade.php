@@ -25,93 +25,138 @@
 
 @push('scripts')
 <script>
-$(async function () {
-    const res = await fetch("{{ route('km-percorsi.datatable') }}");
-    const { data, labels } = await res.json();
-    if (!data.length) return;
-    const table = $('#table-km');
+    $(async function() {
+        const res = await fetch("{{ route('km-percorsi.datatable') }}");
+        const {
+            data,
+            labels
+        } = await res.json();
+        if (!data.length) return;
+        const table = $('#table-km');
 
-    const staticColumns = [
-        { key: 'is_totale', label: '', hidden: true },
-        { key: 'idAutomezzo', label: 'ID', hidden: true },
-        { key: 'Automezzo', label: 'Automezzo' },
-        { key: 'Targa', label: 'Targa' },
-        { key: 'CodiceIdentificativo', label: 'Codice ID' },
-        { key: 'Totale', label: 'KM Totali' },
-    ];
+        const staticColumns = [{
+                key: 'is_totale',
+                label: '',
+                hidden: true
+            },
+            {
+                key: 'idAutomezzo',
+                label: 'ID',
+                hidden: true
+            },
+            {
+                key: 'Automezzo',
+                label: 'Automezzo'
+            },
+            {
+                key: 'Targa',
+                label: 'Targa'
+            },
+            {
+                key: 'CodiceIdentificativo',
+                label: 'Codice ID'
+            },
+            {
+                key: 'Totale',
+                label: 'KM Totali'
+            },
+        ];
 
-    const convenzioni = Object.keys(labels).sort((a, b) => parseInt(a.slice(1)) - parseInt(b.slice(1)));
+        const convenzioni = Object.keys(labels).sort((a, b) => parseInt(a.slice(1)) - parseInt(b.slice(1)));
 
-    let headerMain = '';
-    let headerSub = '';
-    const columns = [];
-    let visibleIndex = 0;
-    const kmColumnIndexes = [];
+        let headerMain = '';
+        let headerSub = '';
+        const columns = [];
+        let visibleIndex = 0;
+        const kmColumnIndexes = [];
 
-    staticColumns.forEach(col => {
-        headerMain += `<th rowspan="2"${col.hidden ? ' style="display:none"' : ''}>${col.label}</th>`;
-        columns.push({ data: col.key, visible: !col.hidden });
-        if (!col.hidden) visibleIndex++;
-    });
+        staticColumns.forEach(col => {
+            headerMain += `<th rowspan="2"${col.hidden ? ' style="display:none"' : ''}>${col.label}</th>`;
+            columns.push({
+                data: col.key,
+                visible: !col.hidden
+            });
+            if (!col.hidden) visibleIndex++;
+        });
 
-    convenzioni.forEach(conv => {
-        headerMain += `<th colspan="2">${labels[conv]}</th>`;
-        headerSub += `<th class="kmTh">Km Percorsi</th><th>%</th>`;
-        columns.push({ data: `${conv}_km` });
-        kmColumnIndexes.push(visibleIndex);
-        visibleIndex++;
-        columns.push({ data: `${conv}_percent` });
-        visibleIndex++;
-    });
+        convenzioni.forEach(conv => {
+            headerMain += `<th colspan="2">${labels[conv]}</th>`;
+            headerSub += `<th class="kmTh">Km Percorsi</th><th>%</th>`;
+            columns.push({
+                data: `${conv}_km`
+            });
+            kmColumnIndexes.push(visibleIndex);
+            visibleIndex++;
+            columns.push({
+                data: `${conv}_percent`
+            });
+            visibleIndex++;
+        });
 
-    headerMain += `<th rowspan="2">Azioni</th>`;
-    columns.push({
-        data: null,
-        orderable: false,
-        searchable: false,
-        render: function(row) {
-            if (!row.idAutomezzo || row.Automezzo === 'TOTALE') return '-';
-            return `
-                <a href="/km-percorsi/${row.idAutomezzo}" class="btn btn-sm btn-info me-1">
-                    <i class="fas fa-eye"></i>
-                </a>
-                <a href="/km-percorsi/${row.idAutomezzo}/edit" class="btn btn-sm btn-warning me-1">
-                    <i class="fas fa-edit"></i>
-                </a>
-                <form method="POST" action="/km-percorsi/${row.idAutomezzo}" class="d-inline-block" onsubmit="return confirm('Confermi eliminazione?')">
-                    <input type="hidden" name="_token" value="{{ csrf_token() }}">
-                    <input type="hidden" name="_method" value="DELETE">
-                    <button type="submit" class="btn btn-sm btn-danger">
-                        <i class="fas fa-trash-alt"></i>
-                    </button>
-                </form>
-            `;
-        }
-    });
-
-    $('#header-main').html(headerMain);
-    $('#header-sub').html(headerSub);
-
-    table.DataTable({
-        data,
-        columns,
-        columnDefs: [
-            { targets: 0, visible: false, searchable: false }, // is_totale
-            { targets: kmColumnIndexes, className: 'kmTh' }
-        ],
-        order: [[0, 'asc']],            // ordina per is_totale (0: normali, -1: totale)
-        orderFixed: [[0, 'asc']],       // fissa la riga totale in cima
-        responsive: true,
-        language: {
-            url: 'https://cdn.datatables.net/plug-ins/1.11.3/i18n/it_it.json'
-        },
-        rowCallback: function(row, data) {
-            
-            if (data.Automezzo === 'TOTALE') {
-                $(row).addClass('fw-bold table-totalRow');
+        headerMain += `<th rowspan="2">Azioni</th>`;
+        columns.push({
+            data: null,
+            orderable: false,
+            searchable: false,
+            createdCell: function(td) {
+                $(td).addClass('col-azioni');
+            },
+            render: function(row) {
+                if (!row.idAutomezzo || row.Automezzo === 'TOTALE') return '-';
+                return `
+            <a href="/km-percorsi/${row.idAutomezzo}" class="btn btn-sm btn-info me-1 btn-icon" title="Visualizza">
+                <i class="fas fa-eye"></i>
+            </a>
+            <a href="/km-percorsi/${row.idAutomezzo}/edit" class="btn btn-sm btn-warning me-1 btn-icon" title="Modifica"> 
+                <i class="fas fa-edit"></i>
+            </a>
+            <form method="POST" action="/km-percorsi/${row.idAutomezzo}" class="d-inline-block" onsubmit="return confirm('Confermi eliminazione?')">
+                <input type="hidden" name="_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="_method" value="DELETE">
+                <button type="submit" class="btn btn-sm btn-danger btn-icon" title="Elimina">
+                    <i class="fas fa-trash-alt"></i>
+                </button>
+            </form>
+        `;
             }
-        }
+        });
+
+
+        $('#header-main').html(headerMain);
+        $('#header-sub').html(headerSub);
+
+        table.DataTable({
+            data,
+            columns,
+            columnDefs: [{
+                    targets: 0,
+                    visible: false,
+                    searchable: false
+                }, // is_totale
+                {
+                    targets: kmColumnIndexes,
+                    className: 'kmTh'
+                }
+            ],
+            order: [
+                [0, 'asc']
+            ], // ordina per is_totale (0: normali, -1: totale)
+            orderFixed: [
+                [0, 'asc']
+            ], // fissa la riga totale in cima
+            responsive: true,
+            language: {
+                url: 'https://cdn.datatables.net/plug-ins/1.11.3/i18n/it_it.json'
+            },
+            rowCallback: function(row, data, index) {
+                if (index % 2 === 0) {
+                    $(row).removeClass('even').removeClass('odd').addClass('even');
+                } else {
+                    $(row).removeClass('even').removeClass('odd').addClass('odd');
+                }
+            },
+            stripeClasses: ['table-white', 'table-striped-anpas'],
+        });
     });
-});
 </script>
 @endpush

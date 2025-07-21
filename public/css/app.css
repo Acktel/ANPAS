@@ -328,6 +328,7 @@ tr.even {
   font-weight: 700;
   font-size: 1.5rem;
   color: var(--anpas-green);
+  margin-top: 1rem;
 }
 
 /* Edit: arancio */
@@ -481,14 +482,93 @@ a.btn.btn-sm.btn-anpas-edit.me-1 {
 button.btn-qualifica {
   border: none;
   color: var(--anpas-green);
-  border-right: 1px solid #e5e8ec  !important;
-  border-bottom: 1px solid #e5e8ec  !important;
+  border-right: 1px solid #e5e8ec !important;
+  border-bottom: 1px solid #e5e8ec !important;
   border-radius: 0px;
 }
 
 button.btn-qualifica:hover {
   background-color: rgba(0, 133, 62, 0.15) !important;
   color: var(--anpas-green) !important;
+}
+
+div#associazioniTable_wrapper {
+  padding: 35px 0px;
+}
+
+/* stili allineati*/
+td.actions {
+  min-width: 80px;
+}
+
+td i.fas {
+  width: 18px;
+  height: 18px;
+  font-size: 18px;
+  line-height: 18px;
+  text-align: center;
+}
+
+.btn-icon {
+  width: 25px;
+  height: 20px;
+  border-radius: 3px !important;
+  padding: 12px !important;
+  top: 0px;
+  position: relative;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  padding: 0;
+}
+
+.btn-show {
+  width: 33px !important;
+  height: 34px !important;
+}
+
+td.col-azioni {
+  min-width: 140px;
+  /* O anche 160px se vuoi più spazio */
+  white-space: nowrap;
+}
+
+table.common-css-dataTable td:last-child {
+  min-width: 140px;
+  white-space: nowrap;
+}
+
+table.common-css-dataTable td:last-child .btn {
+  padding: 0.4rem;
+  margin-right: 0.2rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+}
+
+table.common-css-dataTable td:last-child .btn i {
+  font-size: 1rem;
+  line-height: 1;
+}
+
+tr.even {
+  background-color: #f5f5f5;
+  /* grigio chiaro */
+}
+
+tr.odd {
+  background-color: #ffffff;
+  /* bianco */
+}
+
+th.col-actions,
+td.col-actions {
+  width: 1%;
+  white-space: nowrap;
+  text-align: center;
+  vertical-align: middle;
 }
 /*!
  * Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com

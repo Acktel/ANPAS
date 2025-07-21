@@ -21,7 +21,7 @@
             <th>Associazione</th>
             <th>Attivo</th>
             <th>Creato il</th>
-            <th>Azioni</th>
+            <th class="col-actions">Azioni</th>
           </tr>
         </thead>
         <tbody></tbody>
@@ -69,12 +69,13 @@
           data: 'id',
           orderable: false,
           searchable: false,
+          className: 'col-actions text-center',
           render(id) {
             return `
-            <a href="/all-users/${id}/edit" class="btn btn-sm btn-anpas-edit me-1">
+            <a href="/all-users/${id}/edit" class="btn btn-sm btn-anpas-edit me-1 btn-icon" title="Modifica">
               <i class="fas fa-edit"></i>
             </a>
-            <button class="btn btn-sm btn-anpas-delete" data-id="${id}">
+            <button class="btn btn-sm btn-anpas-delete btn-icon" data-id="${id}" title="Elimina">
               <i class="fas fa-trash-alt"></i>
             </button>
           `;
@@ -84,6 +85,14 @@
       language: {
         url: '/js/i18n/Italian.json'
       },
+      rowCallback: function(row, data, index) {
+        if (index % 2 === 0) {
+          $(row).removeClass('even').removeClass('odd').addClass('even');
+        } else {
+          $(row).removeClass('even').removeClass('odd').addClass('odd');
+        }
+      },
+      stripeClasses: ['table-white', 'table-striped-anpas'],
       paging: true,
       searching: true,
       ordering: true

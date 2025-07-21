@@ -132,4 +132,32 @@ public function store(Request $request) {
 
         return redirect()->route('riepilogo.costi')->with('success', 'Voce eliminata con successo');
     }
+
+    public function checkDuplicazione(): JsonResponse {
+        $annoCorrente = session('anno_riferimento', now()->year);
+        $annoPrecedente = $annoCorrente - 1;
+        $user = Auth::user();
+
+        $idAssociazione = $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])
+            ? null
+            : $user->IdAssociazione;
+
+        $queryCorrente = DB::table('riepilogo_dati')->where('idAnno', $annoCorrente);
+        $queryPrecedente = DB::table('riepilogo_dati')->where('idAnno', $annoPrecedente);
+
+        if ($idAssociazione) {
+            $queryCorrente->where('idAssociazione', $idAssociazione);
+            $queryPrecedente->where('idAssociazione', $idAssociazione);
+        }
+
+        $vuotoCorrente = !$queryCorrente->exists();
+        $pienoPrecedente = $queryPrecedente->exists();
+
+        return response()->json([
+            'mostraMessaggio'  => $vuotoCorrente && $pienoPrecedente,
+            'annoCorrente'     => $annoCorrente,
+            'annoPrecedente'   => $annoPrecedente
+        ]);
+    }
+
 }

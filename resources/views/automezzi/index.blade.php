@@ -106,12 +106,20 @@ document.addEventListener('DOMContentLoaded', () => {
       { data: 'TipoCarburante' },
       { data: 'DataUltimaAutorizzazioneSanitaria' },
       { data: 'DataUltimoCollaudo' },
-      { data: 'Azioni', orderable: false, searchable: false }
+      { data: 'Azioni', orderable: false, searchable: false, className: 'actions col-actions text-center' }
     ],
     language: {
       url: '/js/i18n/Italian.json'
     },
-    stripeClasses: ['table-striped-anpas','']  // usa la tua classe per l’alternanza
+    stripeClasses: ['table-striped-anpas',''],
+    rowCallback: function(row, data, index) {
+      if (index % 2 === 0) {
+        $(row).removeClass('even').removeClass('odd').addClass('even');
+      } else {
+        $(row).removeClass('even').removeClass('odd').addClass('odd');
+      }
+    }  
+    
   });
 
   // Mostra/Nascondi messaggio “no data”
