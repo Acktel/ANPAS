@@ -4,12 +4,12 @@
 <div class="container-fluid">
   <h1 class="container-title mb-4">Configurazioni → Personale</h1>
 
-  {{-- Messaggi di successo --}}
+  {{-- ✅ Successo --}}
   @if (session('success'))
     <div class="alert alert-success">{{ session('success') }}</div>
   @endif
 
-  {{-- Errori di validazione --}}
+  {{-- ⚠️ Errori --}}
   @if ($errors->any())
     <div class="alert alert-danger">
       <ul class="mb-0">
@@ -21,7 +21,7 @@
   @endif
 
   <div class="row">
-    {{-- QUALIFICHE --}}
+    {{-- 🔹 QUALIFICHE --}}
     <div class="col-md-6">
       <div class="card-anpas mb-4">
         <div class="card-header bg-anpas-primary text-white">Qualifiche</div>
@@ -29,29 +29,33 @@
           <form action="{{ route('configurazioni.qualifiche.store') }}" method="POST" class="d-flex p-3 border-bottom">
             @csrf
             <input type="text" name="nome" class="form-control me-2" placeholder="Nome qualifica (es. AUTISTA)" >
-            <button type="submit" class="btn btn-anpas-green"><i class="fas fa-plus me-1"></i> Aggiungi</button>
+            <button type="submit" class="btn btn-anpas-green">
+              <i class="fas fa-plus me-1"></i> Aggiungi
+            </button>
           </form>
 
-          <table class="common-css-dataTable table table-hover table-striped table-bordered dt-responsive nowrap mb-0">
+          <table class="common-css-dataTable table table-hover table-striped-anpas table-bordered dt-responsive nowrap mb-0">
             <thead class="thead-anpas">
               <tr>
                 <th>Qualifica</th>
-                <th>Azioni</th>
+                <th class="text-center">Azioni</th>
               </tr>
             </thead>
             <tbody>
               @forelse($qualifiche as $q)
                 <tr>
                   <td>{{ $q->nome }}</td>
-                  <td>
+                  <td class="text-center">
                     <form action="{{ route('configurazioni.qualifiche.destroy', $q->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Confermi eliminazione?')">
                       @csrf @method('DELETE')
-                      <button class="btn btn-sm btn-anpas-delete"><i class="fas fa-trash-alt"></i></button>
+                      <button class="btn btn-sm btn-anpas-delete">
+                        <i class="fas fa-trash-alt"></i>
+                      </button>
                     </form>
                   </td>
                 </tr>
               @empty
-                <tr><td colspan="3" class="text-center py-3">Nessuna qualifica.</td></tr>
+                <tr><td colspan="2" class="text-center py-3">Nessuna qualifica.</td></tr>
               @endforelse
             </tbody>
           </table>
@@ -59,7 +63,7 @@
       </div>
     </div>
 
-    {{-- CONTRATTI APPLICATI --}}
+    {{-- 📜 CONTRATTI --}}
     <div class="col-md-6">
       <div class="card-anpas mb-4">
         <div class="card-header bg-anpas-primary text-white">Contratti Applicati</div>
@@ -67,24 +71,28 @@
           <form action="{{ route('configurazioni.contratti.store') }}" method="POST" class="d-flex p-3 border-bottom">
             @csrf
             <input type="text" name="nome" class="form-control me-2" placeholder="Nome contratto (es. CCNL ANPAS)" >
-            <button type="submit" class="btn btn-anpas-green"><i class="fas fa-plus me-1"></i> Aggiungi</button>
+            <button type="submit" class="btn btn-anpas-green">
+              <i class="fas fa-plus me-1"></i> Aggiungi
+            </button>
           </form>
 
-          <table class="common-css-dataTable table table-hover table-striped table-bordered dt-responsive nowrap mb-0">
+          <table class="common-css-dataTable table table-hover table-striped-anpas table-bordered dt-responsive nowrap mb-0">
             <thead class="thead-anpas">
               <tr>
                 <th>Contratto</th>
-                <th>Azioni</th>
+                <th class="text-center">Azioni</th>
               </tr>
             </thead>
             <tbody>
               @forelse($contratti as $c)
                 <tr>
                   <td>{{ $c->nome }}</td>
-                  <td>
+                  <td class="text-center">
                     <form action="{{ route('configurazioni.contratti.destroy', $c->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Confermi eliminazione?')">
                       @csrf @method('DELETE')
-                      <button class="btn btn-sm btn-anpas-delete"><i class="fas fa-trash-alt"></i></button>
+                      <button class="btn btn-sm btn-anpas-delete">
+                        <i class="fas fa-trash-alt"></i>
+                      </button>
                     </form>
                   </td>
                 </tr>
@@ -97,7 +105,7 @@
       </div>
     </div>
 
-    {{-- LIVELLI MANSIONE --}}
+    {{-- 🧱 LIVELLI MANSIONE --}}
     <div class="col-md-6">
       <div class="card-anpas mb-4">
         <div class="card-header bg-anpas-primary text-white">Livelli Mansione</div>
@@ -105,24 +113,28 @@
           <form action="{{ route('configurazioni.livelli.store') }}" method="POST" class="d-flex p-3 border-bottom">
             @csrf
             <input type="text" name="nome" class="form-control me-2" placeholder="Livello mansione (es. C4)">
-            <button type="submit" class="btn btn-anpas-green"><i class="fas fa-plus me-1"></i> Aggiungi</button>
+            <button type="submit" class="btn btn-anpas-green">
+              <i class="fas fa-plus me-1"></i> Aggiungi
+            </button>
           </form>
 
-          <table class="common-css-dataTable table table-hover table-striped table-bordered dt-responsive nowrap mb-0">
+          <table class="common-css-dataTable table table-hover table-striped-anpas table-bordered dt-responsive nowrap mb-0">
             <thead class="thead-anpas">
               <tr>
                 <th>Livello</th>
-                <th>Azioni</th>
+                <th class="text-center">Azioni</th>
               </tr>
             </thead>
             <tbody>
               @forelse($livelli as $l)
                 <tr>
                   <td>{{ $l->nome }}</td>
-                  <td>
+                  <td class="text-center">
                     <form action="{{ route('configurazioni.livelli.destroy', $l->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Confermi eliminazione?')">
                       @csrf @method('DELETE')
-                      <button class="btn btn-sm btn-anpas-delete"><i class="fas fa-trash-alt"></i></button>
+                      <button class="btn btn-sm btn-anpas-delete">
+                        <i class="fas fa-trash-alt"></i>
+                      </button>
                     </form>
                   </td>
                 </tr>

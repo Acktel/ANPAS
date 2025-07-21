@@ -570,6 +570,10 @@ td.col-actions {
   text-align: center;
   vertical-align: middle;
 }
+
+.btn-qualifica {
+    margin-top: 10px;
+}
 /*!
  * Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com
  * License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License)
