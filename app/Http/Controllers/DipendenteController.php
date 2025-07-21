@@ -34,8 +34,14 @@ class DipendenteController extends Controller {
         $user = Auth::user();
         $anno = session('anno_riferimento', now()->year);
         $associazioni = $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])
-            ? DB::table('associazioni')->get()
-            : DB::table('associazioni')->where('idAssociazione', $user->IdAssociazione)->get();
+            ? DB::table('associazioni')
+            ->whereNull('deleted_at')                        
+            ->whereNot("idAssociazione", 1)
+            ->get()
+            : DB::table('associazioni')->where('idAssociazione', $user->IdAssociazione)
+            ->whereNull('deleted_at')                        
+            ->whereNot("idAssociazione", 1)
+            ->get();
 
         $anni = DB::table('anni')->orderByDesc('anno')->get();
         $qualifiche = DB::table('qualifiche')->get();

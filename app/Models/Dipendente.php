@@ -203,8 +203,14 @@ class Dipendente {
 
     public static function getAssociazioni($user, bool $isImpersonating): Collection {
         return ($user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor']) && !$isImpersonating)
-            ? DB::table('associazioni')->select('idAssociazione', 'Associazione')->whereNull('deleted_at')->orderBy('Associazione')->get()
-            : DB::table('associazioni')->select('idAssociazione', 'Associazione')->where('idAssociazione', $user->IdAssociazione)->whereNull('deleted_at')->get();
+            ? DB::table('associazioni')->select('idAssociazione', 'Associazione')
+            ->whereNull('deleted_at')                        
+            ->whereNot("idAssociazione", 1) 
+            ->orderBy('Associazione')->get()
+            : DB::table('associazioni')->select('idAssociazione', 'Associazione')
+            ->where('idAssociazione', $user->IdAssociazione) 
+            ->whereNull('deleted_at')                        
+            ->whereNot("idAssociazione", 1) ->get();
     }
 
     public static function getAutistiEBarellieri(int $anno, $idAssociazione = null) {

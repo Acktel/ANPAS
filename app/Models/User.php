@@ -52,7 +52,7 @@ class User extends Authenticatable {
     public static function getDataTableForAdmin($request) {
         // 1) Query base: selezioniamo utenti e join con associazioni
         $base = DB::table('users as u')
-            ->select(
+            ->select([
                 'u.id',
                 'u.firstname',
                 'u.lastname',
@@ -60,9 +60,12 @@ class User extends Authenticatable {
                 'u.email',
                 'u.active',
                 'u.created_at',
-                'a.Associazione as association_name'
-            )
-            ->leftJoin('associazioni as a', 'u.IdAssociazione', '=', 'a.IdAssociazione');
+                'a.Associazione as association_name',
+            ])
+            ->leftJoin('associazioni as a', 'u.IdAssociazione', '=', 'a.IdAssociazione')
+            ->whereNull('a.deleted_at')
+            ->where('a.IdAssociazione', '!=', 1);
+
 
         // 2) Filtraggio (search di DataTables)
         if ($val = $request->input('search.value')) {

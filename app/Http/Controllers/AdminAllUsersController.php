@@ -30,6 +30,7 @@ class AdminAllUsersController extends Controller {
     public function create() {
         $associazioni = DB::table('associazioni')
             ->whereNull('deleted_at')
+            ->whereNot("IdAssociazione", 1) // Non mostrare SuperAdmin
             ->orderBy('Associazione')
             ->get();
 
@@ -82,6 +83,7 @@ class AdminAllUsersController extends Controller {
         $user = User::findOrFail($id);
         $associazioni = DB::table('associazioni')
             ->whereNull('deleted_at')
+            ->whereNot("IdAssociazione", 1) 
             ->orderBy('Associazione')
             ->get();
 

@@ -13,6 +13,8 @@ class RiepilogoController extends Controller
     {
         $associazioni = DB::table('associazioni')
             ->select('idAssociazione', 'Associazione')
+            ->whereNull('deleted_at')
+            ->whereNot("idAssociazione", 1) 
             ->orderBy('Associazione')
             ->get();
 
@@ -99,6 +101,8 @@ class RiepilogoController extends Controller
     {
         $associazioni = DB::table('associazioni')
             ->select('idAssociazione', 'Associazione')
+            ->whereNull('deleted_at')
+            ->whereNot("idAssociazione", 1) 
             ->orderBy('Associazione')
             ->get();
 

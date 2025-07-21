@@ -36,6 +36,8 @@ class ConvenzioniController extends Controller {
     public function create() {
         $associazioni = DB::table('associazioni')
             ->select('idAssociazione', 'Associazione')
+            ->whereNull('deleted_at') 
+            ->whereNot("idAssociazione", 1) 
             ->orderBy('Associazione')->get();
 
         $anni = DB::table('anni')
@@ -65,6 +67,8 @@ class ConvenzioniController extends Controller {
 
         $associazioni = DB::table('associazioni')
             ->select('idAssociazione', 'Associazione')
+            ->whereNull('deleted_at') 
+            ->whereNot("idAssociazione", 1) 
             ->orderBy('Associazione')->get();
 
         $anni = DB::table('anni')

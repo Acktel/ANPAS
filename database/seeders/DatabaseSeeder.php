@@ -12,7 +12,7 @@ class DatabaseSeeder extends Seeder
     /**
      * Seed the application's database.
      */
-    public function run(): void
+   /* public function run(): void
     {
         $this->call(createAssociazioni::class);
         $this->call(SuperAdminSeeder::class);
@@ -29,9 +29,9 @@ class DatabaseSeeder extends Seeder
         $this->call(DipendenteFittizioSeeder::class);
         $this->call(ContrattiSeeder::class);
         $this->call(AdminSeeder::class);
-    }
+    }*/
 
-    /*PER PRODUZIONE
+    //PER PRODUZIONE
         public function run(): void 
     {
         $this->call(createAssociazioni::class);
@@ -53,6 +53,6 @@ class DatabaseSeeder extends Seeder
     
     
     
-    */
+    
 
 }
