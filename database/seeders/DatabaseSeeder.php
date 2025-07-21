@@ -34,7 +34,7 @@ class DatabaseSeeder extends Seeder
     //PER PRODUZIONE
         public function run(): void 
     {
-        $this->call(createAssociazioni::class);gi
+        $this->call(createAssociazioni::class);
         $this->call(SuperAdminSeeder::class);
         $this->call(CreateRole ::class);
         $this->call(AnniSeeder::class);
