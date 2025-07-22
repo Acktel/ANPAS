@@ -14,8 +14,9 @@
     <div class="col-md-6">
       {{-- Tipologie Veicolo --}}
       <div class="card-anpas mb-4">
-        <div class="card-header bg-anpas-primary text-white">
-          Tipologie Veicolo
+        <div class="card-header bg-anpas-primary">
+          <b>Tipologie Veicolo: </b>
+          &nbsp;inserire qui di seguito le tipologie di veicolo (esempio: AMBULANZA TRAUMA)
         </div>
         <div class="card-body bg-anpas-white p-0">
           <form action="{{ route('configurazioni.tipologia-veicolo.store') }}" method="POST" class="d-flex p-3 border-bottom">
@@ -56,8 +57,9 @@
     <div class="col-md-6">
       {{-- Tipologie Carburante --}}
       <div class="card-anpas mb-4">
-        <div class="card-header bg-anpas-primary text-white">
-          Tipologie Carburante
+        <div class="card-header bg-anpas-primary">
+          <b>Tipologie Carburante:  </b>
+          &nbsp;inserire qui di seguito le tipologie di carburante (esempio: DIESEL)
         </div>
         <div class="card-body bg-anpas-white p-0">
           <form action="{{ route('configurazioni.carburante.store') }}" method="POST" class="d-flex p-3 border-bottom">

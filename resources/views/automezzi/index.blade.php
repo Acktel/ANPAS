@@ -1,5 +1,29 @@
 @extends('layouts.app')
 
+@php
+
+use App\Http\Controllers\ConfigurazioneVeicoliController;
+
+
+$configVeicoli = ConfigurazioneVeicoliController::getConfigurazioneVeicoli();
+$config = true;
+
+foreach ($configVeicoli as $key => $value) {
+    if ($key == 'vehicleTypes' && sizeof($value) <= 0) {
+        $config = false;
+        $testo = 'Mancano le configurazioni riguardanti i tipi di veicolo.';
+        $link = route('configurazioni.veicoli');
+        break;
+    }
+    if ($key == 'fuelTypes' && sizeof($value) <= 0) {
+        $config = false;
+        $testo = 'Mancano le configurazioni riguardanti i tipi di carburante.';
+        $link = route('configurazioni.veicoli');
+        break;
+    }
+}
+@endphp
+
 @section('content')
 <div class="container-fluid container-margin">
 
@@ -8,11 +32,25 @@
     <h1 class="container-title">
       Elenco Automezzi – Anno {{ $anno }}
     </h1>
-    <a 
-      href="{{ route('automezzi.create') }}" 
-      class="btn btn-anpas-green"
-    >
-      <i class="fas fa-plus me-1"></i> Nuovo Automezzo
+    @if ($config)
+        <a href="{{ route('automezzi.create') }}" class="btn btn-anpas-green">
+            <i class="fas fa-plus me-1"></i> Nuovo Automezzo
+        </a>
+    @else
+        <div class="text-end container-warning-create">
+            <p class="mb-2 fw-bold">
+                Non puoi aggiungere automezzi se prima<br>
+                non completi le configurazioni:
+            </p>
+            <a href="{{ route('configurazioni.veicoli') }}" class="btn btn-warning">
+                <i class="fas fa-cogs me-1"></i> Vai alle Configurazioni
+            </a>
+        </div>
+    @endif
+
+
+
+      
     </a>
   </div>
 

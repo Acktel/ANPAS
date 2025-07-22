@@ -24,7 +24,8 @@
     {{-- 🔹 QUALIFICHE --}}
     <div class="col-md-6">
       <div class="card-anpas mb-4">
-        <div class="card-header bg-anpas-primary text-white">Qualifiche</div>
+        <div class="card-header bg-anpas-primary "><b>Qualifiche: </b> 
+        &nbsp;inserire qui di seguito le tipologie di qualifica (esempio: COORDINATORE TECNICO) </div>
         <div class="card-body bg-anpas-white p-0">
           <form action="{{ route('configurazioni.qualifiche.store') }}" method="POST" class="d-flex p-3 border-bottom">
             @csrf
@@ -66,7 +67,8 @@
     {{-- 📜 CONTRATTI --}}
     <div class="col-md-6">
       <div class="card-anpas mb-4">
-        <div class="card-header bg-anpas-primary text-white">Contratti Applicati</div>
+        <div class="card-header bg-anpas-primary "><b>Contratti Applicati: </b>
+        &nbsp;inserire qui di seguito le tipologie di contratti (esempio: CCNL ANPAS) </div>
         <div class="card-body bg-anpas-white p-0">
           <form action="{{ route('configurazioni.contratti.store') }}" method="POST" class="d-flex p-3 border-bottom">
             @csrf
@@ -106,9 +108,10 @@
     </div>
 
     {{-- 🧱 LIVELLI MANSIONE --}}
-    <div class="col-md-6">
+    <div class="col-md-6 container-livello-mansione">
       <div class="card-anpas mb-4">
-        <div class="card-header bg-anpas-primary text-white">Livelli Mansione</div>
+        <div class="card-header bg-anpas-primary"><b>Livelli Mansione: </b>
+      &nbsp;inserire qui di seguito la sigla del livello di mansione (esempio: C4) </div>
         <div class="card-body bg-anpas-white p-0">
           <form action="{{ route('configurazioni.livelli.store') }}" method="POST" class="d-flex p-3 border-bottom">
             @csrf

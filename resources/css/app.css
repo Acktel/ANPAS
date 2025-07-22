@@ -428,7 +428,7 @@ button.btn-qualifica:hover {
 }
 
 div#associazioniTable_wrapper {
-  padding: 35px 0px;
+  padding: 50px 0px;
 }
 
 /* stili allineati*/
@@ -510,3 +510,24 @@ td.col-actions {
     margin-top: 10px;
 }
 
+.text-end.container-warning-create {
+    margin-top: 10px;
+}
+
+.container-livello-mansione{
+  margin-top: 25px!important;
+}
+
+select#dt-length-0 {
+    padding: 5px;
+    border-radius: 3px;
+}
+
+input#dt-search-0 {
+    padding: 5px;
+    border-radius: 3px;
+}
+
+input#dt-search-0:active{
+  border: 2px solid red;
+}
