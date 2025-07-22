@@ -83,7 +83,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 </button>
               </form>`;
           }
-
           return btns;
         }
       }

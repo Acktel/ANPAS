@@ -1,6 +1,9 @@
 @extends('layouts.app')
 
 @php
+use App\Http\Controllers\ConfigurazioneVeicoliController;
+use App\Http\Controllers\ConfigurazionePersonaleController;
+
 $user = Auth::user();
 $isImpersonating = session()->has('impersonate');
 $hasEditRoles = $user->hasAnyRole(['SuperAdmin','Admin','Supervisor','AdminUser']) || $isImpersonating;
@@ -11,6 +14,31 @@ $impersonatorId = session('impersonate');
 $impersonator = \App\Models\User::find($impersonatorId);
 $impersonatorName = $impersonator?->username ?? '—';
 }
+
+
+$configPersone = ConfigurazionePersonaleController::getConfigurazionePersonale();
+$config = true;
+
+foreach ($configPersone as $key => $value) {
+    if ($key == 'qualifiche' && sizeof($value) <= 0) {
+        $config = false;
+        $testo = 'Mancano le configurazioni riguardanti le qualifiche del personale.';
+        $link = route('configurazioni.personale');
+        break;
+    }
+    if ($key == 'contratti' && sizeof($value) <= 0) {
+        $config = false;
+        $testo = 'Mancano le configurazioni riguardanti i contratti del personale.';
+        $link = route('configurazioni.personale');
+        break;
+    }
+    if ($key == 'livelli' && sizeof($value) <= 0) {
+        $config = false;
+        $testo = 'Mancano le configurazioni riguardanti i livelli di mansione del personale.';
+        $link = route('configurazioni.personale');
+        break;
+    }
+}
 @endphp
 
 @section('content')
@@ -18,9 +46,23 @@ $impersonatorName = $impersonator?->username ?? '—';
   <div class="d-flex justify-content-between align-items-center mb-4">
     <h1 class="container-title">{{ $titolo }}</h1>
     @if($hasEditRoles)
+
+    @if ($config)
     <a href="{{ route('dipendenti.create') }}" class="btn btn-anpas-green">
       <i class="fas fa-plus me-1"></i> Nuovo Dipendente
     </a>
+    @else
+        <div class="text-end container-warning-create">
+            <p class="mb-2 fw-bold">
+                Non puoi aggiungere dipendenti se prima<br>
+                non completi le configurazioni:
+            </p>
+            <a href="{{ route('configurazioni.personale') }}" class="btn btn-warning">
+                <i class="fas fa-cogs me-1"></i> Vai alle Configurazioni
+            </a>
+        </div>
+    @endif
+
     @endif
   </div>
 
