@@ -90,7 +90,7 @@ class RiepilogoCosti {
             ->where('r.idAnno', $anno)
             ->when($idAssociazione, fn($q) => $q->where('r.idAssociazione', $idAssociazione))
             ->groupBy('tr.descrizione')
-            ->orderBy('tr.descrizione')
+            ->orderBy('tr.id')
             ->get();
     }
 }
