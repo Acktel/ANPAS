@@ -76,6 +76,9 @@
   --anpas-green-dark: #006934;
   --anpas-red: #E30613;
   --anpas-white: #FFFFFF;
+  --anpas-preventivo: #ffffff;
+  --anpas-consuntivo: #ffffff;
+  --anpas-scostamento: #ffffff;
 }
 
 /* Reset e sfondo pagina */

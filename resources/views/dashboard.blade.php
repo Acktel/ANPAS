@@ -47,6 +47,24 @@ foreach ($configVeicoli as $key => $value) {
 }
 
 $anno= session('anno_riferimento');
+
+$tipologie = [];
+$preventivi = [];
+$consuntivi = [];
+$scostamenti = [];
+
+foreach ($dati as $row) {
+    $tipologie[] = $row->tipologia;
+    $preventivi[] = $row->preventivo;
+    $consuntivi[] = $row->consuntivo;
+
+    if ($row->preventivo != 0) {
+        $scostamento = (($row->consuntivo - $row->preventivo) / $row->preventivo) * 100;
+    } else {
+        $scostamento = 0;
+    }
+    $scostamenti[] = round($scostamento, 2);
+}
 @endphp
 
 @section('content')
@@ -108,20 +126,27 @@ $anno= session('anno_riferimento');
 
 <script>
 const ctx = document.getElementById('riepilogoChart').getContext('2d');
+
 const chart = new Chart(ctx, {
     type: 'bar',
     data: {
-        labels: {!! json_encode($dati->pluck('tipologia')) !!},
+        labels: {!! json_encode($tipologie) !!},
         datasets: [
             {
                 label: 'Preventivo',
-                data: {!! json_encode($dati->pluck('preventivo')) !!},
+                data: {!! json_encode($preventivi) !!},
                 backgroundColor: 'rgba(54, 162, 235, 0.7)',
             },
             {
                 label: 'Consuntivo',
-                data: {!! json_encode($dati->pluck('consuntivo')) !!},
+                data: {!! json_encode($consuntivi) !!},
                 backgroundColor: 'rgba(255, 99, 132, 0.7)',
+            },
+            {
+                label: 'Scostamento %',
+                data: {!! json_encode($scostamenti) !!},
+                backgroundColor: 'rgba(255, 206, 86, 0.7)',
+                yAxisID: 'y1', // 👈 grafico a doppia scala
             }
         ]
     },
@@ -136,12 +161,33 @@ const chart = new Chart(ctx, {
         scales: {
             y: {
                 beginAtZero: true,
+                min: 0,
+                title: {
+                    display: true,
+                    text: 'Importo €'
+                }
+            },
+            y1: {
+                beginAtZero: true,
+                min: 0,
+                max: 100, // opzionale, regola se hai % basse
+                position: 'right',
+                title: {
+                    display: true,
+                    text: 'Scostamento %'
+                },
                 ticks: {
-                    stepSize: 500
+                    callback: function (value) {
+                        return value + '%';
+                    }
+                },
+                grid: {
+                    drawOnChartArea: false
                 }
             }
         }
     }
 });
+
 </script>
 @endpush
