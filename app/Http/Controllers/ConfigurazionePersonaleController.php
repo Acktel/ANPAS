@@ -8,15 +8,12 @@ use App\Models\Qualifica;
 use App\Models\ContrattoApplicato;
 use App\Models\LivelloMansione;
 
-class ConfigurazionePersonaleController extends Controller
-{
-    public function __construct()
-    {
+class ConfigurazionePersonaleController extends Controller {
+    public function __construct() {
         $this->middleware('auth');
     }
 
-    public function index()
-    {
+    public function index() {
         $qualifiche = Qualifica::getAll();
         $contratti = ContrattoApplicato::getAll();
         $livelli   = LivelloMansione::getAll();
@@ -24,8 +21,7 @@ class ConfigurazionePersonaleController extends Controller
         return view('configurazioni.personale', compact('qualifiche', 'contratti', 'livelli'));
     }
 
-    public function storeQualifica(Request $request)
-    {
+    public function storeQualifica(Request $request) {
         $data = $request->validate([
             'nome' => 'string|max:255',
             'livello_mansione' => 'string|max:255',
@@ -36,8 +32,7 @@ class ConfigurazionePersonaleController extends Controller
         return back()->with('success', 'Qualifica aggiunta.');
     }
 
-    public function destroyQualifica(int $id)
-    {
+    public function destroyQualifica(int $id) {
         $used = DB::table('dipendenti_qualifiche')->where('idQualifica', $id)->exists();
         if ($used) {
             return back()->withErrors(['error' => 'Qualifica in uso da uno o più dipendenti.']);
@@ -50,8 +45,7 @@ class ConfigurazionePersonaleController extends Controller
         return back()->with('success', 'Qualifica rimossa.');
     }
 
-    public function storeContratto(Request $request)
-    {
+    public function storeContratto(Request $request) {
         $data = $request->validate([
             'nome' => 'string|max:255|unique:contratti_applicati,nome',
         ]);
@@ -61,8 +55,7 @@ class ConfigurazionePersonaleController extends Controller
         return back()->with('success', 'Contratto applicato aggiunto.');
     }
 
-    public function destroyContratto(int $id)
-    {
+    public function destroyContratto(int $id) {
         $used = DB::table('dipendenti')->where('ContrattoApplicato', $id)->exists();
         if ($used) {
             return back()->withErrors(['error' => 'Contratto in uso da uno o più dipendenti.']);
@@ -75,8 +68,7 @@ class ConfigurazionePersonaleController extends Controller
         return back()->with('success', 'Contratto rimosso.');
     }
 
-    public function storeLivelloMansione(Request $request)
-    {
+    public function storeLivelloMansione(Request $request) {
         $data = $request->validate([
             'nome' => 'required|string|max:255|unique:livello_mansione,nome',
         ]);
@@ -86,8 +78,7 @@ class ConfigurazionePersonaleController extends Controller
         return back()->with('success', 'Livello mansione aggiunto.');
     }
 
-    public function destroyLivelloMansione(int $id)
-    {
+    public function destroyLivelloMansione(int $id) {
         $used = DB::table('dipendenti_livelli_mansione')->where('idLivelloMansione', $id)->exists();
         if ($used) {
             return back()->withErrors(['error' => 'Livello in uso da uno o più dipendenti.']);
@@ -98,5 +89,17 @@ class ConfigurazionePersonaleController extends Controller
         }
 
         return back()->with('success', 'Livello mansione rimosso.');
+    }
+
+    public static function getConfigurazionePersonale() {
+        $qualifiche = Qualifica::getAll();
+        $contratti = ContrattoApplicato::getAll();
+        $livelli = LivelloMansione::getAll();
+
+        return [
+            'qualifiche' => $qualifiche,
+            'contratti' => $contratti,
+            'livelli' => $livelli,
+        ];
     }
 }

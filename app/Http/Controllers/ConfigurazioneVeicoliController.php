@@ -74,4 +74,14 @@ class ConfigurazioneVeicoliController extends Controller {
 
         return back()->with('success', 'Carburante rimosso.');
     }
+
+        public static function getConfigurazioneVeicoli() {
+            $vehicleTypes = VehicleType::getAll();
+            $fuelTypes = FuelType::getAll();
+
+        return [
+            'vehicleTypes' => $vehicleTypes,
+            'fuelTypes' => $fuelTypes,
+        ];
+    }
 }

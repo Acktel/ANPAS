@@ -4,8 +4,7 @@ namespace App\Models;
 
 use Illuminate\Support\Facades\DB;
 
-class RiepilogoCosti
-{
+class RiepilogoCosti {
     protected static array $views = [
         'personale' => 'view_riepilogo_costi_personale',
         'struttura' => 'view_riepilogo_gestione_struttura',
@@ -15,8 +14,7 @@ class RiepilogoCosti
     /**
      * Restituisce le voci di una tipologia per anno e associazione
      */
-    public static function getByTipologia(int $idTipologia, int $anno, ?int $idAssociazione = null)
-    {
+    public static function getByTipologia(int $idTipologia, int $anno, ?int $idAssociazione = null) {
         $query = DB::table('riepilogo_dati as rd')
             ->join('riepiloghi as r', 'rd.idRiepilogo', '=', 'r.idRiepilogo')
             ->where('r.idAnno', $anno)
@@ -27,32 +25,30 @@ class RiepilogoCosti
         }
 
         return $query->select([
-                'rd.id',
-                'rd.descrizione',
-                'rd.preventivo',
-                'rd.consuntivo',
-                'rd.idTipologiaRiepilogo',
-            ])
+            'rd.id',
+            'rd.descrizione',
+            'rd.preventivo',
+            'rd.consuntivo',
+            'rd.idTipologiaRiepilogo',
+        ])
             ->get()
-->map(function ($item) {
-    $item->scostamento = $item->preventivo != 0
-        ? number_format((($item->consuntivo - $item->preventivo) / $item->preventivo) * 100, 2) . '%'
-        : '0%';
+            ->map(function ($item) {
+                $item->scostamento = $item->preventivo != 0
+                    ? number_format((($item->consuntivo - $item->preventivo) / $item->preventivo) * 100, 2) . '%'
+                    : '0%';
 
-    $item->actions = view('partials.actions_inline', [
-        'id' => $item->id
-    ])->render();
+                $item->actions = view('partials.actions_inline', [
+                    'id' => $item->id
+                ])->render();
 
-    return $item;
-});
-
+                return $item;
+            });
     }
 
     /**
      * Restituisce l'id di riepilogo per anno e associazione, creandolo se non esiste
      */
-    public static function getOrCreateRiepilogo(int $idAssociazione, int $anno): int
-    {
+    public static function getOrCreateRiepilogo(int $idAssociazione, int $anno): int {
         $record = DB::table('riepiloghi')
             ->where('idAssociazione', $idAssociazione)
             ->where('idAnno', $anno)
@@ -73,8 +69,7 @@ class RiepilogoCosti
     /**
      * Inserisce una nuova voce nel riepilogo_dati
      */
-    public static function createVoce(array $data): bool
-    {
+    public static function createVoce(array $data): bool {
         return DB::table('riepilogo_dati')->insert([
             'idRiepilogo'           => $data['idRiepilogo'],
             'idAnno'                => $data['idAnno'],
@@ -85,5 +80,17 @@ class RiepilogoCosti
             'created_at'           => now(),
             'updated_at'           => now(),
         ]);
+    }
+
+    public static function getTotaliPerTipologia(int $anno, ?int $idAssociazione = null) {
+        return DB::table('riepilogo_dati as rd')
+            ->join('tipologia_riepilogo as tr', 'rd.idTipologiaRiepilogo', '=', 'tr.id')
+            ->join('riepiloghi as r', 'rd.idRiepilogo', '=', 'r.idRiepilogo')
+            ->selectRaw('tr.descrizione as tipologia, SUM(rd.preventivo) as preventivo, SUM(rd.consuntivo) as consuntivo')
+            ->where('r.idAnno', $anno)
+            ->when($idAssociazione, fn($q) => $q->where('r.idAssociazione', $idAssociazione))
+            ->groupBy('tr.descrizione')
+            ->orderBy('tr.descrizione')
+            ->get();
     }
 }

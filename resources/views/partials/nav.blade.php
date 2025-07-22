@@ -4,7 +4,7 @@
 @php
 $assocCorr = \App\Models\Associazione::getById(Auth::user()->IdAssociazione)->Associazione;
 if (!$assocCorr || $assocCorr === 'Anpas Nazionale') {
-$assocCorr = 'ANPAS Piemonte';
+$assocCorr = 'Anpas Nazionale';
 }
 @endphp
 @endauth
