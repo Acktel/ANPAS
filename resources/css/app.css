@@ -8,9 +8,15 @@
   --anpas-green-dark: #006934;
   --anpas-red: #E30613;
   --anpas-white: #FFFFFF;
+<<<<<<< HEAD
   --anpas-preventivo: #ffffff;
   --anpas-consuntivo: #ffffff;
   --anpas-scostamento: #ffffff;
+=======
+  --anpas-preventivo: #FFB563;
+  --anpas-consuntivo: #F3DE2C;
+  --anpas-scostamento: #C1B098;
+>>>>>>> e5037f2 (divisione grafico dashboard in 5 card diverse, aggiunto titoli e descrizione, scomparsa bottone configurazioni quando complete, modifica titolo vista)
 }
 
 /* Reset e sfondo pagina */
@@ -531,3 +537,37 @@ input#dt-search-0 {
 input#dt-search-0:active{
   border: 2px solid red;
 }
+
+
+
+
+
+
+
+
+
+
+
+/* #charts-container {
+  display: flex;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  gap: 1.5rem;
+  padding-bottom: 1rem;
+}
+
+#charts-container canvas {
+  flex: 0 0 400px;
+  height: 300px !important;
+} */
+
+/* #charts-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 2rem;
+}
+
+#charts-container canvas {
+  width: 100% !important;
+  height: 300px !important;
+} */
