@@ -6,6 +6,8 @@ use App\Http\Controllers\RipartizioneVolontarioController;
 use App\Http\Controllers\RipartizioneServizioCivileController;
 use App\Http\Controllers\RipartizioneMaterialeSanitarioController;
 use App\Http\Controllers\CostiPersonaleController;
+use App\Http\Controllers\CostiAutomezziController;
+use App\Http\Controllers\CostiRadioController;
 
 Route::middleware(['auth'])->prefix('ripartizioni')->group(function () {
 
@@ -30,8 +32,7 @@ Route::middleware(['auth'])->prefix('ripartizioni')->group(function () {
             Route::delete('/{id}', [CostiPersonaleController::class, 'destroy'])->name('destroy');
             Route::get('/{idDipendente}', [CostiPersonaleController::class, 'show'])->name('ripartizioni.personale.costi.show');
         });
-
- });
+    });
 
     // ─── VOLONTARI ────────────────────────────────────────────────
     Route::prefix('volontari')->name('ripartizioni.volontari.')->group(function () {
@@ -57,4 +58,21 @@ Route::middleware(['auth'])->prefix('ripartizioni')->group(function () {
         Route::put('/update', [RipartizioneMaterialeSanitarioController::class, 'update'])->name('update');
         Route::post('/aggiorna-inclusione', [RipartizioneMaterialeSanitarioController::class, 'aggiornaInclusione'])->name('aggiornaInclusione');
     });
+
+    // ─── COSTI AUTOMEZZI ─────────────────────────────────────
+    Route::prefix('costi-automezzi')->name('ripartizioni.costi_automezzi.')->group(function () {
+        Route::get('/', [CostiAutomezziController::class, 'index'])->name('index');
+        Route::get('/data', [CostiAutomezziController::class, 'getData'])->name('data');
+        Route::get('/{idAutomezzo}/edit', [CostiAutomezziController::class, 'edit'])->name('edit');
+        Route::put('/{idAutomezzo}', [CostiAutomezziController::class, 'update'])->name('update');
+    });
+
+    // ─── COSTI RADIO ─────────────────────────────────────────────
+    Route::prefix('costi-radio')->name('ripartizioni.costi_radio.')->group(function () {
+        Route::get('/', [CostiRadioController::class, 'index'])->name('index');
+        Route::get('/data', [CostiRadioController::class, 'getData'])->name('getData');
+        Route::get('/edit-totale', [CostiRadioController::class, 'editTotale'])->name('editTotale');
+        Route::put('/update-totale', [CostiRadioController::class, 'updateTotale'])->name('updateTotale');
+    });
+
 });

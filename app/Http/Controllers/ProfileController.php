@@ -6,12 +6,13 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use App\Models\User;
+use Illuminate\Support\Facades\Auth;
 
 class ProfileController extends Controller
 {
     public function edit(Request $request)
     {
-        return view('profile.edit', ['user' => $request->user()]);
+        return view('profilo.edit', ['user' => $request->user()]);
     }
 
     public function update(Request $request)
@@ -35,7 +36,14 @@ class ProfileController extends Controller
 
     public function destroy(Request $request)
     {
-        $request->user()->delete();
+        $user = $request->user();
+
+        Auth::logout(); // Logout prima dell'eliminazione
+        $user->delete();
+
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+
         return redirect('/')->with('status', 'Account eliminato.');
     }
 }

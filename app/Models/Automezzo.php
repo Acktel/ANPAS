@@ -7,12 +7,10 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use App\Models\User;
 
-class Automezzo
-{
+class Automezzo {
     protected const TABLE = 'automezzi';
 
-    public static function getAll(?int $anno = null): Collection
-    {
+    public static function getAll(?int $anno = null): Collection {
         $anno = $anno ?? session('anno_riferimento', now()->year);
 
         return DB::table('automezzi as a')
@@ -26,6 +24,7 @@ class Automezzo
             ->leftJoin('fuel_types as ft', 'a.idTipoCarburante', '=', 'ft.id')
             ->select([
                 'a.idAutomezzo',
+                'a.idAssociazione',
                 's.Associazione',
                 'y.anno',
                 'a.Automezzo',
@@ -49,8 +48,7 @@ class Automezzo
             ->get();
     }
 
-    public static function createAutomezzo(array $data): int
-    {
+    public static function createAutomezzo(array $data): int {
         return DB::table('automezzi')->insertGetId([
             'idAssociazione'                     => $data['idAssociazione'],
             'idAnno'                             => $data['idAnno'],
@@ -71,8 +69,7 @@ class Automezzo
         ]);
     }
 
-    public static function getById(int $idAutomezzo, ?int $anno = null)
-    {
+    public static function getById(int $idAutomezzo, ?int $anno = null) {
         $anno = $anno ?? session('anno_riferimento', now()->year);
 
         return DB::table('automezzi as a')
@@ -92,8 +89,7 @@ class Automezzo
             ->first();
     }
 
-    public static function updateAutomezzo(int $idAutomezzo, array $data): void
-    {
+    public static function updateAutomezzo(int $idAutomezzo, array $data): void {
         DB::table('automezzi')
             ->where('idAutomezzo', $idAutomezzo)
             ->update([
@@ -115,14 +111,12 @@ class Automezzo
             ]);
     }
 
-    public static function deleteAutomezzo(int $idAutomezzo): void
-    {
+    public static function deleteAutomezzo(int $idAutomezzo): void {
         AutomezzoKmRiferimento::deleteByAutomezzo($idAutomezzo);
         DB::table('automezzi')->where('idAutomezzo', $idAutomezzo)->delete();
     }
 
-    public static function getByAssociazione(?int $idAssociazione, ?int $anno = null): Collection
-    {
+    public static function getByAssociazione(?int $idAssociazione, ?int $anno = null): Collection {
         $anno = $anno ?? session('anno_riferimento', now()->year);
 
         return DB::table(self::TABLE . ' as a')
@@ -158,8 +152,7 @@ class Automezzo
             ->get();
     }
 
-    public static function getForDataTable(int $anno, ?User $user): Collection
-    {
+    public static function getForDataTable(int $anno, ?User $user): Collection {
         $query = DB::table('automezzi as a')
             ->join('associazioni as ass', 'ass.idAssociazione', '=', 'a.idAssociazione')
             ->leftJoin('automezzi_km_riferimento as km', function ($join) use ($anno) {
@@ -170,10 +163,10 @@ class Automezzo
             ->leftJoin('fuel_types as ft', 'a.idTipoCarburante', '=', 'ft.id')
             ->where('a.idAnno', $anno);
 
-        if (!$user || (!$user->isSuperAdmin() && !$user->isAdmin())) {          
+        if (!$user || (!$user->isSuperAdmin() && !$user->isAdmin())) {
             $query->where('a.idAssociazione', $user->IdAssociazione);
         }
-        
+
         return $query->select([
             'a.idAutomezzo',
             'ass.Associazione',
@@ -196,12 +189,20 @@ class Automezzo
         });
     }
 
-    public static function getLightForAnno(int $anno, ?int $idAssociazione = null): Collection
-    {
+    public static function getLightForAnno(int $anno, ?int $idAssociazione = null): Collection {
         return DB::table('automezzi')
             ->where('idAnno', operator: $anno)
             ->when($idAssociazione, fn($q) => $q->where('idAssociazione', $idAssociazione))
             ->select('idAutomezzo', 'Automezzo', 'Targa', 'CodiceIdentificativo')
+            ->get();
+    }
+
+    public static function getForRipartizione(int $anno, ?int $idAssociazione = null): Collection {
+        return DB::table('automezzi')
+            ->where('idAnno', $anno)
+            ->when($idAssociazione, fn($q) => $q->where('idAssociazione', $idAssociazione))
+            ->select('idAutomezzo', 'Targa', 'CodiceIdentificativo')
+            ->orderBy('Targa')
             ->get();
     }
 }

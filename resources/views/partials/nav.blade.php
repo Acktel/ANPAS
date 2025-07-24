@@ -132,8 +132,12 @@ $assocCorr = 'Anpas Nazionale';
                                     </a>
                                 </li>
                                 <li>
-                                    <a class="dropdown-item" href="#">
+                                    <a class="dropdown-item" href="{{ route('ripartizioni.costi_automezzi.index') }}">
                                         Distinta riparto automezzi
+                                    </a>
+                                </li>                                                                <li>
+                                    <a class="dropdown-item" href="{{ route('ripartizioni.costi_radio.index')   }}">
+                                        Distinta riparto costi radio
                                     </a>
                                 </li>
                             </ul>
@@ -183,7 +187,7 @@ $assocCorr = 'Anpas Nazionale';
                     {{ Auth::user()->firstname }}
                 </a>
                 <ul class="dropdown-menu dropdown-menu-end">
-                    <li><a class="dropdown-item" href="#">Profilo</a></li>
+                    <li><a class="dropdown-item" href="{{ route('profile.edit') }}">Profilo</a></li>
                     <li>
                         <hr class="dropdown-divider">
                     </li>
