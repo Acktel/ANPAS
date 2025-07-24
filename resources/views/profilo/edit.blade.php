@@ -8,7 +8,6 @@ $lastLogin = $user->last_login_at ? $user->last_login_at->format('d/m/Y H:i') : 
 @endphp
 
 @section('content')
-<h1>DIVERTITI LUCONE!</h1>
 
 <div class="row">
   <div class="col-md-8">
