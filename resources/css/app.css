@@ -8,6 +8,9 @@
   --anpas-green-dark: #006934;
   --anpas-red: #E30613;
   --anpas-white: #FFFFFF;
+  --anpas-preventivo: #FFB563;
+  --anpas-consuntivo: #F3DE2C;
+  --anpas-scostamento: #C1B098;
 }
 
 /* Reset e sfondo pagina */
@@ -507,3 +510,37 @@ td.col-actions {
     margin-top: 10px;
 }
 
+
+
+
+
+
+
+
+
+
+
+
+/* #charts-container {
+  display: flex;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  gap: 1.5rem;
+  padding-bottom: 1rem;
+}
+
+#charts-container canvas {
+  flex: 0 0 400px;
+  height: 300px !important;
+} */
+
+/* #charts-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 2rem;
+}
+
+#charts-container canvas {
+  width: 100% !important;
+  height: 300px !important;
+} */
