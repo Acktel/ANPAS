@@ -24,6 +24,7 @@ class User extends Authenticatable {
         'role_id',
         'active',
         'IdAssociazione',
+        'last_login_at',
     ];
 
     /**
@@ -40,6 +41,7 @@ class User extends Authenticatable {
     protected $casts = [
         'email_verified_at' => 'datetime',
         'active'            => 'boolean',
+        'last_login_at'     => 'datetime',
     ];
 
     /**

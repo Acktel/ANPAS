@@ -8,18 +8,22 @@ use Illuminate\Support\Facades\Hash;
 use App\Models\User;
 use Illuminate\Support\Facades\Auth;
 
-class ProfileController extends Controller
-{
-    public function edit(Request $request)
-    {
-        return view('profilo.edit', ['user' => $request->user()]);
+class ProfileController extends Controller {
+    public function edit(Request $request) {
+        $user = $request->user();
+        $firstRole = $user->roles()->first();
+        $roleName = $firstRole?->name ?? 'N/A';
+        
+        return view('profilo.edit', [
+            'user' => $user,
+            'roleName' => $roleName,
+        ]);
     }
 
-    public function update(Request $request)
-    {
+    public function update(Request $request) {
         $data = $request->validate([
             'name'     => 'required|string|max:255',
-            'email'    => 'required|email|unique:users,email,'.$request->user()->id,
+            'email'    => 'required|email|unique:users,email,' . $request->user()->id,
             'password' => 'nullable|string|min:8|confirmed',
         ]);
 
@@ -34,8 +38,7 @@ class ProfileController extends Controller
         return back()->with('status', 'Profilo aggiornato.');
     }
 
-    public function destroy(Request $request)
-    {
+    public function destroy(Request $request) {
         $user = $request->user();
 
         Auth::logout(); // Logout prima dell'eliminazione
