@@ -47,25 +47,7 @@
         }
     }
 
-    $anno = session('anno_riferimento');
-
-    $tipologie = [];
-    $preventivi = [];
-    $consuntivi = [];
-    $scostamenti = [];
-
-    foreach ($dati as $row) {
-        $tipologie[] = $row->tipologia;
-        $preventivi[] = $row->preventivo;
-        $consuntivi[] = $row->consuntivo;
-
-        if ($row->preventivo != 0) {
-            $scostamento = (($row->consuntivo - $row->preventivo) / $row->preventivo) * 100;
-        } else {
-            $scostamento = 0;
-        }
-        $scostamenti[] = round($scostamento, 2);
-    }
+$anno= session('anno_riferimento');
 @endphp
 
 @section('content')
@@ -139,128 +121,43 @@
 @endsection
 
 @push('scripts')
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            // 1) Dati da Blade
-            const labelsAll = {!! json_encode($tipologie) !!};
-            const preventiviAll = {!! json_encode($preventivi) !!};
-            const consuntiviAll = {!! json_encode($consuntivi) !!};
-            const scostamentiAll = {!! json_encode($scostamenti) !!};
 
-            const chunkSize = 2;
-            const numCharts = Math.ceil(labelsAll.length / chunkSize);
-
-            // 2) Funzione di suddivisione
-            function chunkArray(arr, size) {
-                const chunks = [];
-                for (let i = 0; i < arr.length; i += size) {
-                    chunks.push(arr.slice(i, i + size));
+<script>
+const ctx = document.getElementById('riepilogoChart').getContext('2d');
+const chart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+        labels: {!! json_encode($dati->pluck('tipologia')) !!},
+        datasets: [
+            {
+                label: 'Preventivo',
+                data: {!! json_encode($dati->pluck('preventivo')) !!},
+                backgroundColor: 'rgba(54, 162, 235, 0.7)',
+            },
+            {
+                label: 'Consuntivo',
+                data: {!! json_encode($dati->pluck('consuntivo')) !!},
+                backgroundColor: 'rgba(255, 99, 132, 0.7)',
+            }
+        ]
+    },
+    options: {
+        responsive: true,
+        plugins: {
+            title: {
+                display: true,
+                text: 'Riepilogo Costi per Tipologia'
+            }
+        },
+        scales: {
+            y: {
+                beginAtZero: true,
+                ticks: {
+                    stepSize: 500
                 }
-                return chunks;
             }
-
-            // 3) Creazione array di chunk
-            const labelsChunks = chunkArray(labelsAll, chunkSize);
-            const preventiviChunks = chunkArray(preventiviAll, chunkSize);
-            const consuntiviChunks = chunkArray(consuntiviAll, chunkSize);
-            const scostamentiChunks = chunkArray(scostamentiAll, chunkSize);
-
-            // 4) Istanzio Chart per ogni blocco e imposto footer
-            for (let i = 0; i < numCharts; i++) {
-                const ctx = document.getElementById(`riepilogoChart-${i}`).getContext('2d');
-
-                const titleText = labelsChunks[i].join(' e ');
-                const descText = `Confronto tra ${titleText}: preventivo vs consuntivo e relative variazioni.`;
-
-                new Chart(ctx, {
-                    type: 'bar',
-                    data: {
-                        labels: labelsChunks[i],
-                        datasets: [{
-                                label: 'Preventivo',
-                                data: preventiviChunks[i],
-                                backgroundColor: 'rgba(255, 181,  99, 1)',
-                            },
-                            {
-                                label: 'Consuntivo',
-                                data: consuntiviChunks[i],
-                                backgroundColor: 'rgba(193, 176, 152, 1)',
-                            },
-                            {
-                                label: 'Scostamento %',
-                                data: scostamentiChunks[i],
-                                backgroundColor: 'rgba(243, 222,  44, 1)',
-                                yAxisID: 'y1'
-                            }
-                        ]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            title: {
-                                display: false // Disattivato: ora gestiamo noi il titolo nel DOM
-                            }
-                        },
-                        scales: {
-                            y: {
-                                beginAtZero: true,
-                                title: {
-                                    display: true,
-                                    text: 'Importo €'
-                                }
-                            },
-                            y1: {
-                                beginAtZero: true,
-                                position: 'right',
-                                title: {
-                                    display: true,
-                                    text: 'Scostamento %'
-                                },
-                                ticks: {
-                                    callback: v => v + '%'
-                                },
-                                grid: {
-                                    drawOnChartArea: false
-                                }
-                            }
-                        }
-                    }
-                });
-
-                // Inietta titolo e descrizione nel card-header
-                const header = document.getElementById(`chart-header-${i}`);
-                header.innerHTML = `
-    <div class="container-header">
-        <h2>${titleText}</h2>
-        <span class="text-muted d-block mt-1">${descText}</span>
-    </div>
-`;
-            }
-
-        });
-    </script>
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const successAlert = document.querySelector('.card-body .alert-success');
-            if (successAlert) {
-                const card = successAlert.closest('.card');
-                setTimeout(() => {
-                    // card.fadeOut();
-                    card.style.transition = 'opacity 0.5s';
-                    card.style.opacity = '0';
-                    setTimeout(() => {
-                        card.remove();
-
-                        // Rimuove la classe 'mt-4' dal blocco "Benvenuto nella dashboard"
-                        const welcomeRow = document.querySelector('.row.row-deck.row-cards.mt-4');
-                        if (welcomeRow) {
-                            welcomeRow.classList.remove('mt-4');
-                        }
-
-                    }, 500);
-                }, 3500);
-            }
-        });
-    </script>
+        }
+    }
+});
+</script>
 @endpush
