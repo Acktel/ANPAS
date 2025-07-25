@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Support\Facades\DB;
 use App\Models\Convenzione;
+use Illuminate\Support\Collection;
 
 class RipartizioneMaterialeSanitario {
     private const RIPARTO_SI = 'SI';
@@ -154,5 +155,36 @@ class RipartizioneMaterialeSanitario {
                     'updated_at'      => now(),
                 ]);
         }
+    }
+
+    public static function getTotaleServizi(Collection $automezzi, int $anno): int {
+        if ($automezzi->isEmpty()) {
+            return 0;
+        }
+
+        $idAutomezziInclusi = $automezzi
+            ->filter(fn($a) => filter_var($a->incluso_riparto, FILTER_VALIDATE_BOOLEAN))
+            ->pluck('idAutomezzo');
+
+        if ($idAutomezziInclusi->isEmpty()) {
+            return 0;
+        }
+
+        // Prendo una delle associazioni degli automezzi inclusi (assumo siano tutti della stessa)
+        $idAssociazione = $automezzi->first()->idAssociazione ?? null;
+
+        // Convenzioni da considerare
+        $convenzioni = Convenzione::getByAssociazioneAnno($idAssociazione, $anno);
+        $idConvenzioni = $convenzioni->pluck('idConvenzione');
+
+        if ($idConvenzioni->isEmpty()) {
+            return 0;
+        }
+
+        // Somma tutti i servizi svolti da automezzi inclusi e per convenzioni valide
+        return DB::table('automezzi_servizi')
+            ->whereIn('idAutomezzo', $idAutomezziInclusi)
+            ->whereIn('idConvenzione', $idConvenzioni)
+            ->sum('NumeroServizi');
     }
 }

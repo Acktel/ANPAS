@@ -8,6 +8,7 @@ use App\Http\Controllers\RipartizioneMaterialeSanitarioController;
 use App\Http\Controllers\CostiPersonaleController;
 use App\Http\Controllers\CostiAutomezziController;
 use App\Http\Controllers\CostiRadioController;
+use App\Http\Controllers\CostoMaterialeSanitarioController;
 
 Route::middleware(['auth'])->prefix('ripartizioni')->group(function () {
 
@@ -74,5 +75,16 @@ Route::middleware(['auth'])->prefix('ripartizioni')->group(function () {
         Route::get('/edit-totale', [CostiRadioController::class, 'editTotale'])->name('editTotale');
         Route::put('/update-totale', [CostiRadioController::class, 'updateTotale'])->name('updateTotale');
     });
+
+    // ─── COSTI MATERIALE SANITARIO ─────────────────────────────────────────────
+    Route::prefix('imputazioni/materiale-sanitario')
+        ->name('imputazioni.materiale_sanitario.')
+        ->middleware('auth')
+        ->group(function () {
+            Route::get('/', [CostoMaterialeSanitarioController::class, 'index'])->name('index');
+            Route::get('/edit-totale', [CostoMaterialeSanitarioController::class, 'editTotale'])->name('editTotale');
+            Route::post('/update-totale', [CostoMaterialeSanitarioController::class, 'updateTotale'])->name('updateTotale');
+            Route::get('/get-data', [CostoMaterialeSanitarioController::class, 'getData'])->name('getData');
+        });
 
 });

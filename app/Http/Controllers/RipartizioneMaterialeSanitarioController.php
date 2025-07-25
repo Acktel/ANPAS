@@ -12,11 +12,10 @@ class RipartizioneMaterialeSanitarioController extends Controller
     public function index()
     {
         $anno = session('anno_riferimento', now()->year);
-        $user = Auth::user();
+        $automezzi = Automezzo::getFiltratiByUtente($anno); // logica centralizzata
+        $idAssociazioni = $automezzi->pluck('idAssociazione')->unique();
 
-        $idAssociazione = (!$this->isImpersonating() && $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor']))
-            ? null
-            : $user->IdAssociazione;
+        $idAssociazione = $idAssociazioni->count() === 1 ? $idAssociazioni->first() : null;
 
         $dati = RipartizioneMaterialeSanitario::getRipartizione($idAssociazione, $anno);
 

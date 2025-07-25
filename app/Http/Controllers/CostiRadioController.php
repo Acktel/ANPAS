@@ -9,10 +9,13 @@ use App\Models\Automezzo;
 
 class CostiRadioController extends Controller {
     public function index() {
-        return view('ripartizioni.costi_radio.index');
-    }
+        $anno = session('anno_riferimento', now()->year);
+        $automezzi = Automezzo::getFiltratiByUtente($anno);
+        $numeroAutomezzi = count($automezzi);
 
-    private function getAutomezziFiltrati($anno) {
+        return view('ripartizioni.costi_radio.index', compact('numeroAutomezzi', 'anno'));
+    }
+    private function getAutomezziFiltrati($anno): Collection {
         $user = Auth::user();
         if ($user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])) {
             return Automezzo::getAll($anno);

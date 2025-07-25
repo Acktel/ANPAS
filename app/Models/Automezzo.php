@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use App\Models\User;
+use Illuminate\Support\Facades\Auth;
 
 class Automezzo {
     protected const TABLE = 'automezzi';
@@ -204,5 +205,16 @@ class Automezzo {
             ->select('idAutomezzo', 'Targa', 'CodiceIdentificativo')
             ->orderBy('Targa')
             ->get();
+    }
+
+    public static function getFiltratiByUtente($anno): Collection {
+        $user = Auth::user();
+        if ($user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])) {
+            return self::getAll($anno);
+        }
+
+        $idAssoc = $user->IdAssociazione;
+        abort_if(!$idAssoc, 403, "Associazione non trovata per l'utente.");
+        return self::getByAssociazione($idAssoc, $anno);
     }
 }

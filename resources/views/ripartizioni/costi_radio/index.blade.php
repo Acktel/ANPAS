@@ -1,5 +1,6 @@
 @extends('layouts.app')
 
+
 @section('title', 'Costi Radio')
 
 @section('content')
@@ -9,6 +10,13 @@
     @if (session('success'))
     <div class="alert alert-success">{{ session('success') }}</div>
     @endif
+
+    <div class="card-anpas mb-3">
+        <div class="card-body d-flex align-items-center">
+            <h3 class="mb-0">NUMERO TOTALE AUTOMEZZI: </h3>&nbsp;
+            <h3 class="mb-0 fw-bold text-anpas-green"> {{ $numeroAutomezzi }} </h3>
+        </div>
+    </div>
 
     <div class="mb-3 d-flex justify-content-end">
         <a href="{{ route('ripartizioni.costi_radio.editTotale') }}" class="btn btn-anpas-edit">
@@ -39,6 +47,7 @@
 @push('scripts')
 <script>
     $(function() {
+
         $('#costiRadioTable').DataTable({
             ajax: '{{ route("ripartizioni.costi_radio.getData") }}',
             processing: true,

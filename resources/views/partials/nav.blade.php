@@ -124,7 +124,7 @@ $assocCorr = 'Anpas Nazionale';
                             </ul>
                         </li>
                         <li class="dropdown-submenu">
-                            <a class="dropdown-item dropdown-toggle" href="#">Dist. riparto costi</a>
+                            <a class="dropdown-item dropdown-toggle" href="#">Distinta riparto costi</a>
                             <ul class="dropdown-menu">
                                 <li>
                                     <a class="dropdown-item" href="{{ route('ripartizioni.personale.costi.index') }}">
@@ -142,9 +142,18 @@ $assocCorr = 'Anpas Nazionale';
                                 </li>
                             </ul>
                         </li>
+                        <li class="dropdown-submenu">
+                            <a class="dropdown-item dropdown-toggle" href="#">Imputazioni Costi</a>
+                            <ul class="dropdown-menu">
+                                <li>
+                                    <a class="dropdown-item" href="{{ route('imputazioni.materiale_sanitario.index') }}">
+                                        Imputazione costi Materiale sanitario
+                                    </a>
+                                </li>
+                            </ul>
+                        </li>
                     </ul>
                 </li>
-
 
                 {{-- Dropdown Personale --}}
                 <li class="nav-item dropdown">
