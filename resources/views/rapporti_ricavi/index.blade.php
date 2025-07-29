@@ -92,7 +92,7 @@ $(async function () {
     data,
     columns: cols,
     responsive: true,
-    language: { url: 'https://cdn.datatables.net/plug-ins/1.11.3/i18n/it_it.json' }
+    language: { url: '/js/i18n/Italian.json' }
   });
 });
 </script>

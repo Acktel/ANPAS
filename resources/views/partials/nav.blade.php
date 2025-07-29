@@ -93,51 +93,50 @@ $assocCorr = 'Anpas Nazionale';
                 @can('manage-own-association')
                 <li class="nav-item"><a class="nav-link" href="{{ route('my-users.index') }}">Utenti</a></li>
                 @endcan
-
-                {{-- Dropdown Automezzi --}}
-                <li class="nav-item dropdown">
-                    <a class="nav-link dropdown-toggle" href="#" id="automezziDropdown" data-bs-toggle="dropdown">Automezzi</a>
-                    <ul class="dropdown-menu">
-                        <li><a class="dropdown-item" href="{{ route('automezzi.index') }}">Elenco</a></li>
-                    </ul>
-                </li>
-
+                <li class="nav-item"><a class="nav-link" href="{{ route('automezzi.index') }}">Automezzi</a></li>
+                        
                 {{-- Dropdown Voci di bilancio --}}
                 <li class="nav-item dropdown dropdown-hover">
                     <a class="nav-link dropdown-toggle" href="#" id="riepiloghiDropdown" data-bs-toggle="dropdown" aria-expanded="false">
                         Voci di bilancio
                     </a>
                     <ul class="dropdown-menu" aria-labelledby="riepiloghiDropdown">
-                        <li><a class="dropdown-item" href="{{ route('riepiloghi.index') }}">Consuntivo Anno {{ session('anno_riferimento') }}</a></li>
+                        <li><a class="dropdown-item" href="{{ route('riepiloghi.index') }}">Riepilogo dati caratteristici</a></li>
                         <li><a class="dropdown-item" href="{{ route('riepilogo.costi') }}">Riepilogo Costi</a></li>
                         {{-- Sottomenu Schede di riparto costi --}}
                         <li class="dropdown-submenu">
                             <a class="dropdown-item dropdown-toggle" href="#">Schede di riparto costi</a>
                             <ul class="dropdown-menu">
-                                <li><a class="dropdown-item" href="{{ route('km-percorsi.index') }}">Distinta Km percorsi per convenzione</a></li>
-                                <li><a class="dropdown-item" href="{{ route('servizi-svolti.index') }}">Distinta Servizi svolti per convenzione</a></li>
                                 <li><a class="dropdown-item" href="{{ route('ripartizioni.personale.index') }}">Personale dipendente (Autisti e Barellieri)</a></li>
                                 <li><a class="dropdown-item" href="{{ route('ripartizioni.volontari.index') }}">Personale volontario</a></li>
                                 <li><a class="dropdown-item" href="{{ route('ripartizioni.servizio_civile.index') }}">Servizio Civile</a></li>
                                 <li><a class="dropdown-item" href="{{ route('ripartizioni.materiale_sanitario.index') }}">Materiale sanitario</a></li>
-                                <li><a class="dropdown-item" href="{{ route('rapporti-ricavi.index') }}">Rapporto tra ricavi e convenzioni</a></li>
+                               <!-- <li><a class="dropdown-item" href="{{ route('rapporti-ricavi.index') }}">Rapporto tra ricavi e convenzioni</a></li>-->
                             </ul>
                         </li>
                         <li class="dropdown-submenu">
                             <a class="dropdown-item dropdown-toggle" href="#">Distinta riparto costi</a>
                             <ul class="dropdown-menu">
+                                <li><a class="dropdown-item" href="{{ route('km-percorsi.index') }}">Km percorsi per convenzione</a></li>
+                                <li><a class="dropdown-item" href="{{ route('servizi-svolti.index') }}">Servizi svolti per convenzione</a></li>
                                 <li>
                                     <a class="dropdown-item" href="{{ route('ripartizioni.personale.costi.index') }}">
-                                        Distinta riparto costi dipendenti
+                                       Dipendenti
                                     </a>
                                 </li>
                                 <li>
                                     <a class="dropdown-item" href="{{ route('ripartizioni.costi_automezzi.index') }}">
-                                        Distinta riparto automezzi
+                                        Automezzi
                                     </a>
-                                </li>                                                                <li>
+                                </li>
+                                <li>
                                     <a class="dropdown-item" href="{{ route('ripartizioni.costi_radio.index')   }}">
-                                        Distinta riparto costi radio
+                                       Radio
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item" href="{{ route('ripartizioni.costi_automezzi_sanitari.index')   }}">
+                                        Automezzi - materiale ed attrezzatura sanitaria - costi radio
                                     </a>
                                 </li>
                             </ul>
@@ -147,7 +146,12 @@ $assocCorr = 'Anpas Nazionale';
                             <ul class="dropdown-menu">
                                 <li>
                                     <a class="dropdown-item" href="{{ route('imputazioni.materiale_sanitario.index') }}">
-                                        Imputazione costi Materiale sanitario
+                                        Materiale sanitario
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item" href="{{ route('imputazioni.ossigeno.index') }}">
+                                        Ossigeno
                                     </a>
                                 </li>
                             </ul>

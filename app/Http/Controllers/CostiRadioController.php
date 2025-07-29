@@ -6,6 +6,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use App\Models\Automezzo;
+use Illuminate\Support\Collection;
+
 
 class CostiRadioController extends Controller {
     public function index() {

@@ -40,24 +40,27 @@ Route::middleware(['auth'])->group(function () {
 
      // 📦 Rotte complete per gestione servizi svolti per convenzione
      Route::prefix('servizi-svolti')->name('servizi-svolti.')->group(function () {
-     Route::get('/', [ServiziSvoltiController::class, 'index'])->name('index');
-     Route::get('/datatable', [ServiziSvoltiController::class, 'getData'])->name('datatable');
-     Route::get('/create', [ServiziSvoltiController::class, 'create'])->name('create');
-     Route::post('/', [ServiziSvoltiController::class, 'store'])->name('store');
+          Route::get('/', [ServiziSvoltiController::class, 'index'])->name('index');
+          Route::get('/datatable', [ServiziSvoltiController::class, 'getData'])->name('datatable');
+          Route::get('/create', [ServiziSvoltiController::class, 'create'])->name('create');
+          Route::post('/', [ServiziSvoltiController::class, 'store'])->name('store');
 
-     Route::get('/{id}', [ServiziSvoltiController::class, 'show'])
-          ->whereNumber('id')->name('show');
+          Route::get('/{id}', [ServiziSvoltiController::class, 'show'])
+               ->whereNumber('id')->name('show');
 
-     Route::get('/{id}/edit', [ServiziSvoltiController::class, 'edit'])
-          ->whereNumber('id')->name('edit');
+          Route::get('/{id}/edit', [ServiziSvoltiController::class, 'edit'])
+               ->whereNumber('id')->name('edit');
 
-     Route::put('/{id}', [ServiziSvoltiController::class, 'update'])
-          ->whereNumber('id')->name('update');
+          Route::put('/{id}', [ServiziSvoltiController::class, 'update'])
+               ->whereNumber('id')->name('update');
 
-     Route::delete('/{id}', [ServiziSvoltiController::class, 'destroy'])
-          ->whereNumber('id')->name('destroy');
+          Route::delete('/{id}', [ServiziSvoltiController::class, 'destroy'])
+               ->whereNumber('id')->name('destroy');
      });
 
+     //Ripartizioni per la scelta automezzi
+     Route::get('/get-automezzi/{idAssociazione}', [AutomezziController::class, 'getByAssociazione'])
+          ->name('get.automezzi');
 
 
      // 📦 CRUD automezzi

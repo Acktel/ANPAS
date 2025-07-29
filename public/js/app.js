@@ -41619,7 +41619,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 
 document.addEventListener('DOMContentLoaded', function () {
   var _document$getElementB2, _document$getElementB3;
-  var italian = "https://cdn.datatables.net/plug-ins/1.11.3/i18n/it_it.json";
+  var italian = '/js/i18n/Italian.json';
   var _window$riepilogoCost = window.riepilogoCosti,
     sezioni = _window$riepilogoCost.sezioni,
     csrf = _window$riepilogoCost.csrf;

@@ -157,14 +157,19 @@ body {
   font-size: 1rem;
 }
 
-.btn.active.btn-anpas-green-active {
-  background-color: var(--anpas-green-dark) !important;
-  color: var(--anpas-white);
-}
-
 .btn-anpas-green:hover {
   background-color: var(--anpas-green-dark);
 }
+
+.active>.page-link, .page-link.active{
+  background-color: var(--anpas-green)!important;
+  color: var(--anpas-white)!important;
+}
+
+.active>.page-link:hover, .page-link.active:hover{
+  background-color: var(--anpas-green-dark)!important;
+}
+
 
 /* ============================= */
 /* NAVBAR INFERIORE              */

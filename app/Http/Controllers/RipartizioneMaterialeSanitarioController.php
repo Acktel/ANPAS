@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Http\JsonResponse;
 use App\Models\RipartizioneMaterialeSanitario;
+use App\Models\Automezzo;
 
 class RipartizioneMaterialeSanitarioController extends Controller
 {

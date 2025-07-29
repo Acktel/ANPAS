@@ -88,9 +88,9 @@ document.addEventListener('DOMContentLoaded', function () {
       }
     ],
     stripeClasses: ['table-white', 'table-striped-anpas'],
-    language: {
-      url: '/js/i18n/Italian.json'
-    },
+      language: {
+        url: '/js/i18n/Italian.json'
+      },
     rowCallback: function(row, data, index) {
       if (index % 2 === 0) {
         $(row).removeClass('even').removeClass('odd').addClass('even');

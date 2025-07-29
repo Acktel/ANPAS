@@ -30,8 +30,8 @@ class AutomezziController extends Controller {
     public function create() {
         $associazioni = DB::table('associazioni')
             ->select('idAssociazione', 'Associazione')
-            ->whereNull('deleted_at') 
-            ->whereNot("idAssociazione", 1) 
+            ->whereNull('deleted_at')
+            ->whereNot("idAssociazione", 1)
             ->orderBy('Associazione')
             ->get();
 
@@ -101,8 +101,8 @@ class AutomezziController extends Controller {
 
         $associazioni = DB::table('associazioni')
             ->select('idAssociazione', 'Associazione')
-            ->whereNull('deleted_at') 
-            ->whereNot("idAssociazione", 1) 
+            ->whereNull('deleted_at')
+            ->whereNot("idAssociazione", 1)
             ->orderBy('Associazione')
             ->get();
 
@@ -255,5 +255,18 @@ class AutomezziController extends Controller {
         $data = Automezzo::getForDataTable($anno, $user);
 
         return response()->json(['data' => $data]);
+    }
+
+    public function getByAssociazione($idAssociazione): JsonResponse {
+        $anno = session('anno_riferimento', now()->year);
+        $automezzi = Automezzo::getByAssociazione($idAssociazione, $anno)
+            ->map(function ($a) {
+                return [
+                    'id' => $a->idAutomezzo,
+                    'text' => $a->Targa . ' - ' . $a->CodiceIdentificativo
+                ];
+            });
+
+        return response()->json($automezzi);
     }
 }

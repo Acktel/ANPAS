@@ -78,7 +78,7 @@ $(async function(){
     info: false,
     responsive: true,
     language: {
-      url: '//cdn.datatables.net/plug-ins/1.11.3/i18n/it_it.json'
+      url: '/js/i18n/Italian.json'
     },
     rowCallback: function(row, data, index) {
       if (index % 2 === 0) {

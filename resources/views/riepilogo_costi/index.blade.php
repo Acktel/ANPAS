@@ -108,17 +108,16 @@ $(function () {
     const tableId = $table.attr('id');
 
     if (!$.fn.DataTable.isDataTable($table)) {
-      console.log('Initializing DataTable for:', tableId);
 
-      $table.DataTable({
-        paging: false,
-        searching: false,
-        info: false,
-        ordering: false,
-        language: {
-          url: '/js/i18n/Italian.json'
-        }
-      });
+    $table.DataTable({
+            paging: false,
+            searching: false,
+            info: false,
+            ordering: false,
+            language: {
+              url: '/js/i18n/Italian.json'
+            },
+          });
     }
 
     // Observer per riapplicare zebra quando il contenuto cambia

@@ -99,9 +99,7 @@
         }
       ],
       language: {
-        language: {
-          url: '/js/i18n/Italian.json'
-        }
+        url: '/js/i18n/Italian.json'
       },
       rowCallback: function(row, data, index) {
         if (index % 2 === 0) {

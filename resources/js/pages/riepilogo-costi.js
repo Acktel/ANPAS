@@ -3,7 +3,7 @@ import 'datatables.net-bs5';
 import Sortable from 'sortablejs';
 
 document.addEventListener('DOMContentLoaded', function () {
-  const italian = "https://cdn.datatables.net/plug-ins/1.11.3/i18n/it_it.json";
+  const italian = '/js/i18n/Italian.json';
   const { sezioni, csrf } = window.riepilogoCosti;
   let totalePreventivo = 0;
   let totaleConsuntivo = 0;

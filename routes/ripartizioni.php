@@ -9,6 +9,8 @@ use App\Http\Controllers\CostiPersonaleController;
 use App\Http\Controllers\CostiAutomezziController;
 use App\Http\Controllers\CostiRadioController;
 use App\Http\Controllers\CostoMaterialeSanitarioController;
+use App\Http\Controllers\CostoOssigenoController;
+use App\Http\Controllers\RipartizioneCostiAutomezziSanitariController;
 
 Route::middleware(['auth'])->prefix('ripartizioni')->group(function () {
 
@@ -86,5 +88,25 @@ Route::middleware(['auth'])->prefix('ripartizioni')->group(function () {
             Route::post('/update-totale', [CostoMaterialeSanitarioController::class, 'updateTotale'])->name('updateTotale');
             Route::get('/get-data', [CostoMaterialeSanitarioController::class, 'getData'])->name('getData');
         });
+
+    // ─── COSTI OSSIGENO ───────────────────────────────────────────────────────────
+    Route::prefix('imputazioni/ossigeno')
+        ->name('imputazioni.ossigeno.')
+        ->middleware('auth')
+        ->group(function () {
+            Route::get('/', [CostoOssigenoController::class, 'index'])->name('index');
+            Route::get('/edit-totale', [CostoOssigenoController::class, 'editTotale'])->name('editTotale');
+            Route::post('/update-totale', [CostoOssigenoController::class, 'updateTotale'])->name('updateTotale');
+            Route::get('/get-data', [CostoOssigenoController::class, 'getData'])->name('getData');
+        });
+
+    // ─── COSTI AUTOMEZZI RADIO E SANITARI ─────────────────────────────────────────────
+    Route::prefix('costi-automezzi-sanitari')->name('ripartizioni.costi_automezzi_sanitari.')->group(function () {
+        Route::get('/', [RipartizioneCostiAutomezziSanitariController::class, 'index'])->name('index');
+        Route::get('/data', [RipartizioneCostiAutomezziSanitariController::class, 'getData'])->name('getData');
+
+        // ✅ Nuova rotta per la tabella finale (ripartizione completa per voce/convenzione)
+        Route::get('/tabella-finale', [RipartizioneCostiAutomezziSanitariController::class, 'getTabellaFinale'])->name('tabellaFinale');
+    });
 
 });

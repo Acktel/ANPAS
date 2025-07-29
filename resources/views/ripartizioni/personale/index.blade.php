@@ -95,7 +95,7 @@ $(async function () {
     orderFixed: [[0, 'asc']],
     responsive: true,
     language: {
-      url: 'https://cdn.datatables.net/plug-ins/1.11.3/i18n/it_it.json'
+      url: '/js/i18n/Italian.json'
     },
     rowCallback: (rowEl, rowData, index) => {
       if (rowData.is_totale === -1) {

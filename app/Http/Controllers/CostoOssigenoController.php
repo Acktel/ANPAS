@@ -4,28 +4,25 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use App\Models\RipartizioneMaterialeSanitario;
-use App\Models\CostoMaterialeSanitario;
-use App\Models\Automezzo;
 use Illuminate\Http\JsonResponse;
+use App\Models\Automezzo;
+use App\Models\CostoOssigeno;
+use App\Models\RipartizioneOssigeno;
 
-
-class CostoMaterialeSanitarioController extends Controller {
+class CostoOssigenoController extends Controller {
     /**
-     * Mostra la vista con la tabella di imputazione costi del materiale sanitario.
+     * Mostra la vista con la tabella di imputazione costi dell'ossigeno.
      */
     public function index() {
         $anno = session('anno_riferimento', now()->year);
         $automezzi = Automezzo::getFiltratiByUtente($anno);
-
-        // Estraggo l'ID dell'associazione (assumo tutti gli automezzi siano della stessa associazione)
         $idAssociazione = $automezzi->first()->idAssociazione ?? null;
 
-        $numeroServizi  = RipartizioneMaterialeSanitario::getTotaleServizi($automezzi, $anno);
-        $totaleBilancio = CostoMaterialeSanitario::getTotale($idAssociazione, $anno);
-        $dati           = RipartizioneMaterialeSanitario::getRipartizione($idAssociazione, $anno);
+        $numeroServizi  = RipartizioneOssigeno::getTotaleServizi($automezzi, $anno);
+        $totaleBilancio = CostoOssigeno::getTotale($idAssociazione, $anno);
+        $dati           = RipartizioneOssigeno::getRipartizione($idAssociazione, $anno);
 
-        return view('imputazioni.materiale_sanitario.index', [
+        return view('imputazioni.ossigeno.index', [
             'anno'           => $anno,
             'numeroServizi'  => $numeroServizi,
             'totaleBilancio' => $totaleBilancio,
@@ -35,7 +32,7 @@ class CostoMaterialeSanitarioController extends Controller {
     }
 
     /**
-     * Aggiorna il valore totale a bilancio del materiale sanitario.
+     * Aggiorna il valore totale a bilancio dell'ossigeno.
      */
     public function updateTotale(Request $request) {
         $request->validate([
@@ -44,15 +41,13 @@ class CostoMaterialeSanitarioController extends Controller {
 
         $anno = session('anno_riferimento', now()->year);
         $automezzi = Automezzo::getFiltratiByUtente($anno);
-
-        // Estraggo l'ID dell'associazione (assumo tutti gli automezzi siano della stessa associazione)
         $idAssociazione = $automezzi->first()->idAssociazione ?? null;
 
-        CostoMaterialeSanitario::upsertTotale($idAssociazione, $anno, $request->TotaleBilancio);
+        CostoOssigeno::upsertTotale($idAssociazione, $anno, $request->TotaleBilancio);
 
         return redirect()
-            ->route('imputazioni.materiale_sanitario.index')
-            ->with('success', 'Aggiornamento completato.');
+            ->route('imputazioni.ossigeno.index')
+            ->with('success', 'Totale a bilancio aggiornato correttamente.');
     }
 
     public function getData(): JsonResponse {
@@ -60,13 +55,12 @@ class CostoMaterialeSanitarioController extends Controller {
         $automezzi = Automezzo::getFiltratiByUtente($anno);
         $idAssociazione = $automezzi->first()->idAssociazione ?? null;
 
-        $dati = RipartizioneMaterialeSanitario::getRipartizione($idAssociazione, $anno);
-        $totaleBilancio = CostoMaterialeSanitario::getTotale($idAssociazione, $anno);
+        $dati = RipartizioneOssigeno::getRipartizione($idAssociazione, $anno);
+        $totaleBilancio = CostoOssigeno::getTotale($idAssociazione, $anno);
 
         $righe = [];
 
         foreach ($dati['righe'] as $riga) {
-            // Riga totale
             if (isset($riga['is_totale']) && $riga['is_totale']) {
                 $righe[] = [
                     'Targa'       => 'TOTALE',
@@ -105,17 +99,13 @@ class CostoMaterialeSanitarioController extends Controller {
         return response()->json(['data' => $righe]);
     }
 
-
     public function editTotale(Request $request) {
         $anno = session('anno_riferimento', now()->year);
         $automezzi = Automezzo::getFiltratiByUtente($anno);
-
-        // Prendi l'associazione dell'utente o dei mezzi
         $idAssociazione = $automezzi->first()->idAssociazione ?? null;
+        $totale = CostoOssigeno::getTotale($idAssociazione, $anno);
 
-        $totale = CostoMaterialeSanitario::getTotale($idAssociazione, $anno);
-
-        return view('imputazioni.materiale_sanitario.edit_totale', [
+        return view('imputazioni.ossigeno.edit_totale', [
             'totale' => $totale,
             'anno'   => $anno
         ]);

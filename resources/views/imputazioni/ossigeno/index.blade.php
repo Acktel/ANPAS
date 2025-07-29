@@ -1,10 +1,10 @@
 @extends('layouts.app')
 
-@section('title', 'Imputazione Materiale Sanitario di Consumo')
+@section('title', 'Imputazione Costi Ossigeno')
 
 @section('content')
 <div class="container-fluid">
-    <h1 class="container-title mb-4">Imputazione Costi Materiale Sanitario di Consumo</h1>
+    <h1 class="container-title mb-4">Imputazione Costi Ossigeno</h1>
 
     @if (session('success'))
     <div class="alert alert-success">{{ session('success') }}</div>
@@ -23,14 +23,14 @@
     </div>
 
     <div class="mb-3 d-flex justify-content-end">
-        <a href="{{ route('imputazioni.materiale_sanitario.editTotale') }}" class="btn btn-anpas-edit">
+        <a href="{{ route('imputazioni.ossigeno.editTotale') }}" class="btn btn-anpas-edit">
             <i class="fas fa-edit me-1"></i> Modifica Totale a Bilancio
         </a>
     </div>
 
     <div class="card-anpas">
         <div class="card-body">
-            <table id="materialeSanitarioTable" class="common-css-dataTable table table-hover table-bordered w-100 table-striped-anpas">
+            <table id="ossigenoTable" class="common-css-dataTable table table-hover table-bordered w-100 table-striped-anpas">
                 <thead class="thead-anpas text-center">
                     <tr>
                         <th>Targa</th>
@@ -50,27 +50,19 @@
 @push('scripts')
 <script>
     $(function() {
-        $('#materialeSanitarioTable').DataTable({
-            ajax: '{{ route("imputazioni.materiale_sanitario.getData") }}',
+        $('#ossigenoTable').DataTable({
+            ajax: '{{ route("imputazioni.ossigeno.getData") }}',
             processing: true,
             serverSide: false,
             paging: false,
             searching: false,
             ordering: true,
-            order: [
-                [5, 'asc']
-            ], // is_totale
-            orderFixed: [
-                [5, 'asc']
-            ],
+            order: [[5, 'asc']], // is_totale
+            orderFixed: [[5, 'asc']],
             info: false,
-            columns: [{
-                    data: 'Targa'
-                },
-                {
-                    data: 'n_servizi',
-                    className: 'text-end'
-                },
+            columns: [
+                { data: 'Targa' },
+                { data: 'n_servizi', className: 'text-end' },
                 {
                     data: 'percentuale',
                     className: 'text-end',
@@ -85,16 +77,12 @@
                     data: null,
                     className: 'text-center',
                     render: function(row) {
-                        return (row.is_totale === -1) ?
-                            `<a href="{{ route('imputazioni.materiale_sanitario.editTotale') }}" class="btn btn-sm btn-anpas-edit"><i class="fas fa-edit"></i></a>` :
-                            '-';
+                        return (row.is_totale === -1)
+                            ? `<a href="{{ route('imputazioni.ossigeno.editTotale') }}" class="btn btn-sm btn-anpas-edit"><i class="fas fa-edit"></i></a>`
+                            : '-';
                     }
                 },
-                {
-                    data: 'is_totale',
-                    visible: false,
-                    searchable: false
-                }
+                { data: 'is_totale', visible: false, searchable: false }
             ],
             rowCallback: function(row, data) {
                 if (data.is_totale === -1) {
