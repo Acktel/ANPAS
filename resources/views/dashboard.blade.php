@@ -102,18 +102,6 @@
             </div>
         </div>
 
-        {{-- <div class="row row-deck row-cards mt-4 classe-test">
-            <div class="col-12">
-                <div class="card">
-                    <div class="card-body">
-                        <h2>{{ __('Benvenuto nella dashboard') }}</h2>
-                        <p>{{ __('Questa è la tua dashboard principale. Da qui puoi accedere a tutte le funzionalità del sistema.') }}
-                        </p>
-                    </div>
-                </div>
-            </div>
-        </div> --}}
-
         {{-- Grafici divisi in blocchi --}}
         <div id="charts-container" class="row row-deck row-cards mt-4">
             @php
@@ -122,18 +110,18 @@
                 $numCharts = ceil($total / $chunkSize);
             @endphp
 
-            @for ($i = 0; $i < $numCharts; $i++)
-                <div class="col-md-6 mb-4">
+            @for ($i = 0; $i < $total; $i++)
+                <div class="col-md-4 my-5 px-5 g-5">
                     <div class="card h-100">
-                        <div class="card-header text-center card-title" id="chart-header-{{ $i }}">
-                            {{-- Il contenuto verrà iniettato da JS --}}
+                        <div class="card-header bg-light text-center card-title" id="chart-header-{{ $i }}">
                         </div>
                         <div class="card-body">
-                            <canvas id="riepilogoChart-{{ $i }}" height="400"></canvas>
+                            <canvas id="riepilogoChart-{{ $i }}" height="300"></canvas>
                         </div>
                     </div>
                 </div>
             @endfor
+
         </div>
     </div>
 @endsection
@@ -141,55 +129,40 @@
 @push('scripts')
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            // 1) Dati da Blade
             const labelsAll = {!! json_encode($tipologie) !!};
             const preventiviAll = {!! json_encode($preventivi) !!};
             const consuntiviAll = {!! json_encode($consuntivi) !!};
             const scostamentiAll = {!! json_encode($scostamenti) !!};
 
-            const chunkSize = 2;
-            const numCharts = Math.ceil(labelsAll.length / chunkSize);
-
-            // 2) Funzione di suddivisione
-            function chunkArray(arr, size) {
-                const chunks = [];
-                for (let i = 0; i < arr.length; i += size) {
-                    chunks.push(arr.slice(i, i + size));
-                }
-                return chunks;
-            }
-
-            // 3) Creazione array di chunk
-            const labelsChunks = chunkArray(labelsAll, chunkSize);
-            const preventiviChunks = chunkArray(preventiviAll, chunkSize);
-            const consuntiviChunks = chunkArray(consuntiviAll, chunkSize);
-            const scostamentiChunks = chunkArray(scostamentiAll, chunkSize);
-
-            // 4) Istanzio Chart per ogni blocco e imposto footer
-            for (let i = 0; i < numCharts; i++) {
+            for (let i = 0; i < labelsAll.length; i++) {
                 const ctx = document.getElementById(`riepilogoChart-${i}`).getContext('2d');
 
-                const titleText = labelsChunks[i].join(' e ');
-                const descText = `Confronto tra ${titleText}: preventivo vs consuntivo e relative variazioni.`;
+                const label = labelsAll[i];
+                const preventivo = preventiviAll[i];
+                const consuntivo = consuntiviAll[i];
+                const scostamento = scostamentiAll[i];
+
+                const titleText = label;
+                const descText = `Grafico con scostamento di ${label} `;
 
                 new Chart(ctx, {
                     type: 'bar',
                     data: {
-                        labels: labelsChunks[i],
+                        labels: [label],
                         datasets: [{
                                 label: 'Preventivo',
-                                data: preventiviChunks[i],
-                                backgroundColor: 'rgba(255, 181,  99, 1)',
+                                data: [preventivo],
+                                backgroundColor: 'rgba(255, 181, 99, 1)',
                             },
                             {
                                 label: 'Consuntivo',
-                                data: consuntiviChunks[i],
+                                data: [consuntivo],
                                 backgroundColor: 'rgba(193, 176, 152, 1)',
                             },
                             {
                                 label: 'Scostamento %',
-                                data: scostamentiChunks[i],
-                                backgroundColor: 'rgba(243, 222,  44, 1)',
+                                data: [scostamento],
+                                backgroundColor: 'rgba(243, 222, 44, 1)',
                                 yAxisID: 'y1'
                             }
                         ]
@@ -199,7 +172,7 @@
                         maintainAspectRatio: false,
                         plugins: {
                             title: {
-                                display: false // Disattivato: ora gestiamo noi il titolo nel DOM
+                                display: false
                             }
                         },
                         scales: {
@@ -228,18 +201,17 @@
                     }
                 });
 
-                // Inietta titolo e descrizione nel card-header
                 const header = document.getElementById(`chart-header-${i}`);
                 header.innerHTML = `
-    <div class="container-header">
-        <h2>${titleText}</h2>
-        <span class="text-muted d-block mt-1">${descText}</span>
-    </div>
-`;
+                <div class="container-header">
+                    <h2>${titleText}</h2>
+                    <span class="text-muted d-block mt-1">${descText}</span>
+                </div>
+            `;
             }
-
         });
     </script>
+
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const successAlert = document.querySelector('.card-body .alert-success');
