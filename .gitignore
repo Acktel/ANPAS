@@ -13,11 +13,7 @@
 /.zed
 /auth.json
 /node_modules
-/public/build
-/public/hot
-/public/storage
-/public/css/app.css
-/public/mix-manifest.json
+/public/*
 /storage/*.key
 /storage/pail
 /vendor
@@ -29,8 +25,6 @@ yarn-error.log
 /vendor
 /.env
 /node_modules
-/public/hot
-/public/storage
 /storage/*.key
 /storage/*.sqlite
 /.idea
