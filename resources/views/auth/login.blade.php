@@ -17,7 +17,7 @@
           </div>
 
           <!-- TITOLO -->
-          <h2 class="h3 text-center mb-3">Login to your account</h2>
+          <h2 class="h3 text-center mb-3">{{ __('login.login') }}</h2>
 
           <!-- FORM -->
           <form method="POST" action="{{ route('login') }}" autocomplete="off" novalidate>
@@ -25,12 +25,12 @@
 
             <!-- EMAIL -->
             <div class="mb-3">
-              <label class="form-label" for="email">Email address</label>
+              <label class="form-label" for="email">{{ __('login.address') }}</label>
               <input id="email" type="email"
                      class="form-control @error('email') is-invalid @enderror"
                      name="email" value="{{ old('email') }}"
                      required autocomplete="email" autofocus
-                     placeholder="you@example.com">
+                     placeholder="{{ __('login.example') }}">
               @error('email')
                 <div class="invalid-feedback">{{ $message }}</div>
               @enderror
@@ -42,7 +42,7 @@
                 Password
                 <span class="form-label-description">
                   @if(Route::has('password.request'))
-                    <a href="{{ route('password.request') }}">Forgot password?</a>
+                    <a href="{{ route('password.request') }}">{{ __('login.psw forgot') }}</a>
                   @endif
                 </span>
               </label>
@@ -50,7 +50,7 @@
                 <input id="password" type="password"
                        class="form-control @error('password') is-invalid @enderror"
                        name="password" required autocomplete="current-password"
-                       placeholder="Your password">
+                       placeholder="{{ __('login.your psw') }}">
                 <span class="input-group-text">
                   <a href="#" class="link-secondary" data-bs-toggle="tooltip" title="Show password">
                     <!-- icona “occhio” -->
@@ -74,20 +74,15 @@
                 <input type="checkbox" name="remember"
                        class="form-check-input"
                        {{ old('remember') ? 'checked' : '' }}>
-                <span class="form-check-label">Remember me on this device</span>
+                <span class="form-check-label">{{ __('login.remember me') }}</span>
               </label>
             </div>
 
             <!-- BOTTONE -->
             <div class="form-footer">
-              <button type="submit" class="btn btn-primary w-100">Sign in</button>
+              <button type="submit" class="btn btn-primary w-100">{{ __('login.sign in') }}</button>
             </div>
           </form>
-
-          <!-- REGISTRAZIONE -->
-          <div class="text-center text-secondary mt-3">
-            Don’t have an account yet? <a href="{{ route('register') }}">Sign up</a>
-          </div>
 
         </div>
       </div>

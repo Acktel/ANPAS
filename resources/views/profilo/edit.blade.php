@@ -1,33 +1,18 @@
-@extends('layouts.app')
-
 @php
-$nome = $user->firstname;
-$ruolo = $roleName;
-$lastLogin = $user->last_login_at ? $user->last_login_at->format('d/m/Y H:i') : '';
-
+    // use Illuminate\Support\Facades\Auth;
+    $user = Auth::user();
+    $nome = $user->firstname;
+    // $ruolo = $roleName;
+    $roleName = $firstRole?->name ?? 'N/A';
+    $lastLogin = $user->last_login_at ? $user->last_login_at->format('d/m/Y H:i') : '';
 @endphp
-
-@section('content')
-
-<div class="row">
-  <div class="col-md-8">
-    <div class="card">
-      <div class="card-header">
-        <h4 class="card-title">Dati Anagrafici</h4>
-      </div>
-      <div class="card-body">
-        <dl class="row">
-          <dt class="col-sm-4">Email</dt>
-          <dd class="col-sm-8">{{ $user->email }}</dd>
-
-          <dt class="col-sm-4">Telefono</dt>
-          <dd class="col-sm-8">{{ $user->telefono }}</dd>
-
-          <dt class="col-sm-4">Ultimo Accesso</dt>
-          <dd class="col-sm-8">{{ $user->last_login_at }}</dd>
-        </dl>
-      </div>
-    </div>
-  </div>
-</div>
-@endsection
+<li class="mb-2 d-flex mt-1 justify-content-between"><strong>Nome:</strong><span class="ms-1">{{ $user->firstname }}</span></li>
+<li class="mb-2 d-flex justify-content-between align-items-center"><strong>Cognome:</strong><span class="ms-1">{{ $user->lastname }}</span></li>
+<li class="mb-2 d-flex justify-content-between align-items-center"><strong>Username:</strong><span class="ms-1">{{ $user->username }}</span></li>
+<li class="mb-2 d-flex justify-content-between align-items-center"><strong>Email:</strong><span class="ms-1">{{ $user->email }}</span></li>
+<li class="mb-2 d-flex justify-content-between align-items-center"><strong>Ultimo accesso:</strong> <span class="ms-1">{{ $lastLogin }}</span></li>
+<li class="mb-2 d-flex justify-content-between align-items-center"><strong>Password:</strong>
+  <a href="{{ route('password.request') }}" class="btn btn-sm btn-anpas-green">
+        Cambia Password
+    </a>
+</li>

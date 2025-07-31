@@ -15,6 +15,7 @@
     referrerpolicy="no-referrer" />
   <!-- CSRF Token -->
   <meta name="csrf-token" content="{{ csrf_token() }}">
+  @stack('styles')
 </head>
 
 <body>
@@ -25,9 +26,6 @@
 
     <main class="page-wrapper">
       <div class="container-fluid">
-        @if(session('status'))
-        <div class="alert alert-success">{{ session('status') }}</div>
-        @endif
         @yield('content')
       </div>
     </main>
@@ -38,10 +36,23 @@
   <link href="https://cdn.datatables.net/1.13.5/css/jquery.dataTables.min.css" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <!-- il tuo bundle compilato -->
-  <script type="module" src="{{ mix('js/app.js') }}"></script>
+  <script src="{{ mix('js/app.js') }}"></script>
 
   <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+  {{-- <script>
+  console.log('jQuery test:', typeof jQuery);
+  window.$ && console.log('jQuery versione:', $.fn.jquery);
+  </script> --}}
   @stack('scripts')
 </body>
 
 </html>
+
+
+
+
+
+
+
+
+
