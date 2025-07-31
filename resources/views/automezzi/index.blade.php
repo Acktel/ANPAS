@@ -81,7 +81,6 @@ foreach ($configVeicoli as $key => $value) {
             <th>ID</th>
             <th>Associazione</th>
             <th>Anno</th>
-            <th>Veicolo</th>
             <th>Targa</th>
             <th>Codice ID</th>
             <th>Incluso Riparto</th>
@@ -132,7 +131,6 @@ document.addEventListener('DOMContentLoaded', () => {
       { data: 'idAutomezzo' },
       { data: 'Associazione' },
       { data: 'idAnno' },
-      { data: 'Automezzo' },
       { data: 'Targa' },
       { data: 'CodiceIdentificativo' },
       { data: 'incluso_riparto', render: data => data ? '✔️' : '❌' },

@@ -74,6 +74,7 @@ document.addEventListener('DOMContentLoaded', function () {
               </button>
             </form>`;
 
+          
           if (row.supervisor_user_id) {
             btns += `
               <form action="/impersonate/${row.supervisor_user_id}" method="POST" style="display:inline">

@@ -78,7 +78,7 @@
           <div class="col-md-6">
             <label for="Automezzo" class="form-label">Nome Automezzo</label>
             <input type="text" name="Automezzo" id="Automezzo" class="form-control"
-                   value="{{ old('Automezzo', $automezzo->Automezzo) }}" required>
+                   value="{{ old('Automezzo', $automezzo->Automezzo) }}">
           </div>
           <div class="col-md-6">
             <label for="Targa" class="form-label">Targa</label>
