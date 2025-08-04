@@ -55,19 +55,24 @@ class AutomezzoServiziSvolti
     /**
      * Recupera i servizi raggruppati per automezzo e convenzione.
      */
-    public static function getGroupedByAutomezzoAndConvenzione(int $anno, ?User $user): Collection
-    {
-        $query = DB::table(self::TABLE . ' as s')
-            ->join('automezzi as a', 'a.idAutomezzo', '=', 's.idAutomezzo')
-            ->join('convenzioni as c', 'c.idConvenzione', '=', 's.idConvenzione')
-            ->where('a.idAnno', $anno)
-            ->where('c.idAnno', $anno)
-            ->select('s.*');
+    public static function getGroupedByAutomezzoAndConvenzione(int $anno, ?int $idAssociazione = null): Collection {
 
-        if (!$user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])) {
-            $query->where('a.idAssociazione', $user->IdAssociazione);
+        $query = DB::table('automezzi_servizi as s')
+            ->join('automezzi as a', 's.idAutomezzo', '=', 'a.idAutomezzo')
+            ->where('a.idAnno', $anno);
+
+        if (!is_null($idAssociazione)) {
+            $query->where('a.idAssociazione', $idAssociazione);
         }
 
-        return $query->get()->groupBy(fn($r) => $r->idAutomezzo . '-' . $r->idConvenzione);
+        return $query->select(
+            's.idAutomezzo',
+            's.idConvenzione',
+            DB::raw('SUM(s.NumeroServizi) as NumeroServizi')
+        )
+        ->groupBy('s.idAutomezzo', 's.idConvenzione')
+        ->get()
+        ->groupBy(fn($row) => $row->idAutomezzo . '-' . $row->idConvenzione);
     }
+
 }

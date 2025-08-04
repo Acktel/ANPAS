@@ -3,44 +3,74 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Spatie\Permission\Models\Role;
-use App\Models\Associazione;
+use App\Models\User;
 
-class AdminAllUsersController extends Controller {
-    public function __construct() {
+class AdminAllUsersController extends Controller
+{
+    public function __construct()
+    {
         $this->middleware('auth');
         $this->middleware('can:manage-all-associations');
     }
 
-    /** GET /all-users */
-    public function index() {
-        return view('admin.all_users_index');
-    }
-
-    /** GET /all-users/data */
-    public function getData(Request $request) {
-        $response = User::getDataTableForAdmin($request);
-        return response()->json($response);
-    }
-
-    /** GET /all-users/create */
-    public function create() {
+    /**
+     * GET /all-users
+     * Mostra la lista utenti con filtro per associazione (solo per ruoli elevati).
+     */
+    public function index(Request $request)
+    {
+        // Carica tutte le associazioni valide (escludi SuperAdmin)
         $associazioni = DB::table('associazioni')
             ->whereNull('deleted_at')
-            ->whereNot("IdAssociazione", 1) // Non mostrare SuperAdmin
+            ->where('IdAssociazione', '!=', 1)
             ->orderBy('Associazione')
             ->get();
 
-        $ruoli = Role::select('name')->orderBy('name')->get();
+        // Prendi il filtro dalla querystring o fallback alla prima
+        $selectedAssoc = $request->get('idAssociazione')
+            ?? ($associazioni->first()->IdAssociazione ?? null);
+
+        return view('admin.all_users_index', compact('associazioni', 'selectedAssoc'));
+    }
+
+    /**
+     * GET /all-users/data
+     * Restituisce JSON per DataTables, filtrato lato server.
+     */
+    public function getData(Request $request)
+    {
+        // Ritorna direttamente la risposta JSON prodotta dal model
+        return User::getDataTableForAdmin($request);
+    }
+
+    /**
+     * GET /all-users/create
+     * Form di creazione utente
+     */
+    public function create()
+    {
+        $associazioni = DB::table('associazioni')
+            ->whereNull('deleted_at')
+            ->where('IdAssociazione', '!=', 1)
+            ->orderBy('Associazione')
+            ->get();
+
+        $ruoli = Role::select('name')
+            ->orderBy('name')
+            ->get();
 
         return view('admin.all_users_create', compact('associazioni', 'ruoli'));
     }
 
-    /** POST /all-users */
-    public function store(Request $request) {
+    /**
+     * POST /all-users
+     * Salva un nuovo utente
+     */
+    public function store(Request $request)
+    {
         $validated = $request->validate([
             'firstname'      => 'required|string|max:255',
             'lastname'       => 'nullable|string|max:255',
@@ -78,22 +108,34 @@ class AdminAllUsersController extends Controller {
             return back()->withErrors(['error' => 'Errore nella creazione: ' . $e->getMessage()]);
         }
     }
-    /** GET /all-users/{id}/edit */
-    public function edit($id) {
+
+    /**
+     * GET /all-users/{id}/edit
+     * Form di modifica utente
+     */
+    public function edit($id)
+    {
         $user = User::findOrFail($id);
+
         $associazioni = DB::table('associazioni')
             ->whereNull('deleted_at')
-            ->whereNot("IdAssociazione", 1) 
+            ->where('IdAssociazione', '!=', 1)
             ->orderBy('Associazione')
             ->get();
 
-        $ruoli = Role::select('name')->orderBy('name')->get();
+        $ruoli = Role::select('name')
+            ->orderBy('name')
+            ->get();
 
         return view('admin.all_users_edit', compact('user', 'associazioni', 'ruoli'));
     }
 
-    /** PUT /all-users/{id} */
-    public function update(Request $request, $id) {
+    /**
+     * PUT /all-users/{id}
+     * Aggiorna i dati utente
+     */
+    public function update(Request $request, $id)
+    {
         $validated = $request->validate([
             'firstname'      => 'required|string|max:255',
             'lastname'       => 'nullable|string|max:255',
@@ -128,7 +170,12 @@ class AdminAllUsersController extends Controller {
         }
     }
 
-    public function destroy($id) {
+    /**
+     * DELETE /all-users/{id}
+     * Elimina un utente
+     */
+    public function destroy($id)
+    {
         DB::beginTransaction();
 
         try {
@@ -139,7 +186,7 @@ class AdminAllUsersController extends Controller {
                 return back()->withErrors(['error' => 'Non puoi eliminare te stesso.']);
             }
 
-            $user->syncRoles([]); // Rimuove i ruoli
+            $user->syncRoles([]);
             $user->delete();
 
             DB::commit();

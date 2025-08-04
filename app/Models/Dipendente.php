@@ -77,7 +77,7 @@ class Dipendente {
             ->groupBy('idDipendente')
             ->map(fn($items) => $items->pluck('idQualifica')->toArray());
 
-        return $dipendenti->filter(fn($d) => in_array(13, $map[$d->idDipendente] ?? []));
+        return $dipendenti->filter(fn($d) => in_array(3, $map[$d->idDipendente] ?? []));
     }
 
     public static function getAltri(int $anno): Collection {
@@ -120,21 +120,21 @@ class Dipendente {
 
         $id = DB::table(self::TABLE)->insertGetId($data);
 
-        foreach ($qualifiche as $idQualifica) {
+        foreach (array_unique($qualifiche) as $idQualifica) {
             DB::table('dipendenti_qualifiche')->insert([
-                'idDipendente' => $id,
-                'idQualifica' => $idQualifica,
-                'created_at' => $now,
-                'updated_at' => $now,
+                'idDipendente'   => $id,
+                'idQualifica'    => $idQualifica,
+                'created_at'     => $now,
+                'updated_at'     => $now,
             ]);
         }
 
-        foreach ($livelli as $idLivello) {
+        foreach (array_unique($livelli) as $idLivello) {
             DB::table('dipendenti_livelli_mansione')->insert([
-                'idDipendente' => $id,
-                'idLivelloMansione' => $idLivello,
-                'created_at' => $now,
-                'updated_at' => $now,
+                'idDipendente'        => $id,
+                'idLivelloMansione'   => $idLivello,
+                'created_at'          => $now,
+                'updated_at'          => $now,
             ]);
         }
 
@@ -204,13 +204,13 @@ class Dipendente {
     public static function getAssociazioni($user, bool $isImpersonating): Collection {
         return ($user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor']) && !$isImpersonating)
             ? DB::table('associazioni')->select('idAssociazione', 'Associazione')
-            ->whereNull('deleted_at')                        
-            ->whereNot("idAssociazione", 1) 
+            ->whereNull('deleted_at')
+            ->whereNot("idAssociazione", 1)
             ->orderBy('Associazione')->get()
             : DB::table('associazioni')->select('idAssociazione', 'Associazione')
-            ->where('idAssociazione', $user->IdAssociazione) 
-            ->whereNull('deleted_at')                        
-            ->whereNot("idAssociazione", 1) ->get();
+            ->where('idAssociazione', $user->IdAssociazione)
+            ->whereNull('deleted_at')
+            ->whereNot("idAssociazione", 1)->get();
     }
 
     public static function getAutistiEBarellieri(int $anno, $idAssociazione = null) {

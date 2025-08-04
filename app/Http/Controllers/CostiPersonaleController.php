@@ -12,21 +12,36 @@ use App\Models\RipartizionePersonale;
 class CostiPersonaleController extends Controller {
     public function index() {
         $anno = session('anno_riferimento', now()->year);
+        $selectedAssoc = session('associazione_selezionata') ?? $request->query('idAssociazione');
+
         $user = Auth::user();
+        $isImpersonating = session()->has('impersonate');
+        $associazioni = Dipendente::getAssociazioni($user, $isImpersonating);
         $qualifiche = $this->getQualificheDisponibili($anno, $user);
 
-        return view('ripartizioni.costi_personale.index', compact('anno', 'qualifiche'));
+        return view('ripartizioni.costi_personale.index', compact('anno', 'selectedAssoc', 'associazioni', 'qualifiche'));
     }
 
     public function getData() {
         $anno = session('anno_riferimento', now()->year);
         $user = Auth::user();
         $qualificaInput = strtolower(request()->query('qualifica', ''));
+        $selectedAssoc = session('associazione_selezionata');
 
-        $dipendenti = $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])
-            ? Dipendente::getAll($anno)
-            : Dipendente::getByAssociazione($user->IdAssociazione, $anno);
+        // Selezione Associazione
+        $idAssociazione = $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])
+            ? $selectedAssoc
+            : $user->IdAssociazione;
 
+        // Blocca se non selezionata (per sicurezza)
+        if (!$idAssociazione) {
+            return response()->json(['data' => [], 'labels' => []]);
+        }
+
+        // Carica dipendenti filtrati per associazione
+        $dipendenti = Dipendente::getByAssociazione($idAssociazione, $anno);
+
+        // Filtra per qualifica
         $filtrati = $dipendenti->filter(function ($d) use ($qualificaInput) {
             $q = strtolower($d->Qualifica ?? '');
             $liv = strtolower($d->LivelloMansione ?? '');
@@ -37,14 +52,8 @@ class CostiPersonaleController extends Controller {
         });
 
         $costi = CostiPersonale::getAllByAnno($anno)->keyBy('idDipendente');
-
-        $raw = RipartizionePersonale::getAll($anno, $user)->groupBy('idDipendente');
-
-        $associazioneId = $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])
-            ? null
-            : $user->IdAssociazione;
-
-        $convenzioni = Convenzione::getByAssociazioneAnno($associazioneId, $anno)
+        $ripartizioni = RipartizionePersonale::getAll($anno, $user)->groupBy('idDipendente');
+        $convenzioni = Convenzione::getByAssociazioneAnno($idAssociazione, $anno)
             ->sortBy('idConvenzione')
             ->values();
 
@@ -84,12 +93,12 @@ class CostiPersonaleController extends Controller {
                 $totali[$k] += $r[$k];
             }
 
-            $ripartizioni = $raw->get($id, collect());
-            $oreTot = $ripartizioni->sum('OreServizio');
+            $rip = $ripartizioni->get($id, collect());
+            $oreTot = $rip->sum('OreServizio');
 
             foreach ($convenzioni as $conv) {
                 $convKey = "C{$conv->idConvenzione}";
-                $entry = $ripartizioni->firstWhere('idConvenzione', $conv->idConvenzione);
+                $entry = $rip->firstWhere('idConvenzione', $conv->idConvenzione);
                 $percent = ($oreTot > 0 && $entry) ? round($entry->OreServizio / $oreTot * 100, 2) : 0;
                 $importo = round(($percent / 100) * $totale, 2);
 
@@ -105,10 +114,10 @@ class CostiPersonaleController extends Controller {
 
         $rows[] = array_merge([
             'idDipendente' => null,
-            'Dipendente' => 'TOTALE',
-            'Qualifica' => '',
-            'Contratto' => '',
-            'is_totale' => true,
+            'Dipendente'   => 'TOTALE',
+            'Qualifica'    => '',
+            'Contratto'    => '',
+            'is_totale'    => true,
         ], $totali, $totPerConv);
 
         return response()->json([
@@ -116,6 +125,7 @@ class CostiPersonaleController extends Controller {
             'labels' => $labels,
         ]);
     }
+
 
     public function salva(Request $request) {
         $data = $request->validate([

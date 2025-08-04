@@ -10,40 +10,41 @@ use App\Models\AutomezzoServiziSvolti;
 use Illuminate\Support\Collection;
 use App\Models\User;
 
-class ServiziSvoltiController extends Controller
-{
+class ServiziSvoltiController extends Controller {
     /**
      * Mostra la vista principale
      */
-    public function index()
-    {
-        return view('servizi_svolti.index');
+    public function index() {
+        $user = Auth::user();
+        $isImpersonating = session()->has('impersonate');
+        $anno = session('anno_riferimento', now()->year);
+        $idAssociazione = session('associazione_selezionata') ?? $user->IdAssociazione;
+
+        if (!$user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])) {
+            $idAssociazione = $user->IdAssociazione;
+        }
+
+        $associazioni = \App\Models\Dipendente::getAssociazioni($user, $isImpersonating);
+        $selectedAssoc = $idAssociazione;
+        return view('servizi_svolti.index', compact('anno', 'selectedAssoc', 'associazioni'));
     }
 
     /**
      * Restituisce i dati per DataTables, pivotati per convenzione.
      */
-    public function getData(Request $request)
-    {
+    public function getData(Request $request) {
         $user = Auth::user();
-        /*if (session()->has('impersonate')) {
-            $user = User::find(session('impersonate'));
-        }*/
-
         $anno = session('anno_riferimento', now()->year);
+        $idAssociazione = $request->query('idAssociazione') ?? $user->IdAssociazione;
 
-        // Automezzi filtrati per ruolo/associazione
-        $automezzi = $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])
-            ? Automezzo::getAll($anno)
-            : Automezzo::getByAssociazione($user->IdAssociazione, $anno);
+        if (!$user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])) {
+            $idAssociazione = $user->IdAssociazione;
+        }
 
-        // Convenzioni filtrate per anno/associazione
-        $convenzioni = Convenzione::getByAnno($anno, $user)
-            ->sortBy('idConvenzione')
-            ->values();
-
+        $automezzi = Automezzo::getByAssociazione($idAssociazione, $anno);
+        $convenzioni = Convenzione::getByAssociazioneAnno($idAssociazione, $anno)->sortBy('idConvenzione')->values();
         // Raggruppa i servizi esistenti
-        $serviziRaw = AutomezzoServiziSvolti::getGroupedByAutomezzoAndConvenzione($anno, $user);
+        $serviziRaw = AutomezzoServiziSvolti::getGroupedByAutomezzoAndConvenzione($anno, $idAssociazione);
 
         $rows = [];
         // inizializza riga TOTALE
@@ -127,29 +128,37 @@ class ServiziSvoltiController extends Controller
     /**
      * Mostra form di creazione.
      */
-    public function create()
-    {
+    public function create() {
         $user = Auth::user();
         $anno = session('anno_riferimento', now()->year);
+        $idAssociazione = session('associazione_selezionata') ?? $user->IdAssociazione;
 
-        // automezzi filtrati
-        $automezzi = $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])
-            ? Automezzo::getLightForAnno($anno)
-            : Automezzo::getLightForAnno($anno, $user->IdAssociazione);
+        if (!$user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])) {
+            $idAssociazione = $user->IdAssociazione;
+        }
 
-        // convenzioni filtrate per anno/associazione
-        $convenzioni = Convenzione::getByAnno($anno, $user)
+        $automezzi = Automezzo::getByAssociazione($idAssociazione, $anno);
+        $convenzioni = Convenzione::getByAssociazioneAnno($idAssociazione, $anno)
             ->sortBy('idConvenzione')
             ->values();
 
-        return view('servizi_svolti.create', compact('automezzi', 'convenzioni'));
+        $associazioni = $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])
+            ? \App\Models\Dipendente::getAssociazioni($user, session()->has('impersonate'))
+            : collect();
+
+        return view('servizi_svolti.create', compact(
+            'automezzi',
+            'convenzioni',
+            'associazioni',
+            'idAssociazione' // opzionale
+        ))->with('selectedAssoc', $idAssociazione);
     }
+
 
     /**
      * Salva i servizi inseriti.
      */
-    public function store(Request $request)
-    {
+    public function store(Request $request) {
         $data = $request->validate([
             'servizi' => 'required|array',
             '*.servizi.*' => 'nullable|integer|min:0',
@@ -171,8 +180,7 @@ class ServiziSvoltiController extends Controller
     /**
      * Mostra i dettagli di un automezzo.
      */
-    public function show(int $id)
-    {
+    public function show(int $id) {
         $user = Auth::user();
         $anno = session('anno_riferimento', now()->year);
 
@@ -195,15 +203,29 @@ class ServiziSvoltiController extends Controller
     /**
      * Mostra form di modifica.
      */
-    public function edit(int $id)
-    {
+    public function edit(int $id) {
         $user = Auth::user();
         $anno = session('anno_riferimento', now()->year);
 
-        $automezzo = Automezzo::getById($id, $anno);
-        $convenzioni = Convenzione::getByAnno($anno, $user)->sortBy('idConvenzione')->values();
+        // Determina l'associazione in base ai privilegi
+        $idAssociazione = session('associazione_selezionata') ?? $user->IdAssociazione;
+        if (!$user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])) {
+            $isImpersonating = session()->has('impersonate');
+            $idAssociazione = $user->IdAssociazione;
+            $associazioni = \App\Models\Dipendente::getAssociazioni($user, $isImpersonating);
+        }else {
+            $associazioni = collect(); // lista vuota se non servono
+        }
 
-        $raw = AutomezzoServiziSvolti::getGroupedByAutomezzoAndConvenzione($anno, $user);
+        // Ottieni automezzo e convenzioni
+        $automezzo = Automezzo::getById($id, $anno);
+        $convenzioni = Convenzione::getByAssociazioneAnno($idAssociazione, $anno)
+            ->sortBy('idConvenzione')
+            ->values();
+
+        // Dati servizi esistenti raggruppati
+        $raw = AutomezzoServiziSvolti::getGroupedByAutomezzoAndConvenzione($anno, $idAssociazione);
+
         $servizi = collect();
         foreach ($raw as $k => $rows) {
             [$idAuto, $idConv] = explode('-', $k);
@@ -213,17 +235,19 @@ class ServiziSvoltiController extends Controller
         }
 
         return view('servizi_svolti.edit', [
-            'automezzo'      => $automezzo,
-            'convenzioni'    => $convenzioni,
+            'automezzo'        => $automezzo,
+            'convenzioni'      => $convenzioni,
             'serviziEsistenti' => $servizi,
+            'associazioni'     => $associazioni,
+            'selectedAssoc'    => $idAssociazione,
         ]);
     }
+
 
     /**
      * Applica l’aggiornamento.
      */
-    public function update(Request $request, int $id)
-    {
+    public function update(Request $request, int $id) {
         $data = $request->validate([
             'servizi' => 'required|array',
             '*.servizi.*' => 'nullable|integer|min:0',
@@ -243,8 +267,7 @@ class ServiziSvoltiController extends Controller
     /**
      * Elimina tutti i servizi di un automezzo.
      */
-    public function destroy(int $id)
-    {
+    public function destroy(int $id) {
         AutomezzoServiziSvolti::deleteByAutomezzo($id);
         return redirect()
             ->route('servizi-svolti.index')

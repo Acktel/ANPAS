@@ -20,6 +20,9 @@ Route::middleware(['auth'])->prefix('ripartizioni')->group(function () {
         Route::get('/data', [RipartizionePersonaleController::class, 'getData'])->name('data');
         Route::get('/create', [RipartizionePersonaleController::class, 'create'])->name('create');
         Route::post('/', [RipartizionePersonaleController::class, 'store'])->name('store');
+        Route::get('{idDipendente}', [RipartizionePersonaleController::class, 'show'])
+            ->where('idDipendente', '[0-9]+')
+            ->name('show');
         Route::get('{idDipendente}/edit', [RipartizionePersonaleController::class, 'edit'])->name('edit');
         Route::put('{idDipendente}', [RipartizionePersonaleController::class, 'update'])->name('update');
         Route::delete('{idDipendente}', [RipartizionePersonaleController::class, 'destroy'])->name('destroy');

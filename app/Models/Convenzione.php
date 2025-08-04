@@ -36,7 +36,6 @@ class Convenzione {
      * Recupera convenzioni per anno e (opzionalmente) filtro utente.
      */
     public static function getByAnno(int $anno, ?\App\Models\User $user = null): Collection {
-      
         $sql = "
             SELECT
                 c.idConvenzione,
@@ -48,9 +47,9 @@ class Convenzione {
             FROM " . self::TABLE . " AS c
             WHERE c.idAnno = :anno
         ";
-        
+
         $params = ['anno' => $anno];
-        if ($user && ! $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])) {
+        if ($user && !$user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])) {
             $sql .= " AND c.idAssociazione = :idAssociazione";
             $params['idAssociazione'] = $user->IdAssociazione;
         }
@@ -98,7 +97,6 @@ class Convenzione {
     public static function createConvenzione(array $data): int {
         $now = now()->toDateTimeString();
 
-        // Calcola il prossimo valore di ordinamento per l'associazione e anno
         $maxOrd = DB::table(self::TABLE)
             ->where('idAssociazione', $data['idAssociazione'])
             ->where('idAnno', $data['idAnno'])
@@ -106,12 +104,10 @@ class Convenzione {
 
         $ordinamento = is_null($maxOrd) ? 0 : $maxOrd + 1;
 
-        DB::insert("
-            INSERT INTO " . self::TABLE . "
-                (idAssociazione, idAnno, Convenzione, lettera_identificativa, ordinamento, created_at, updated_at)
+        DB::insert("INSERT INTO " . self::TABLE . "
+            (idAssociazione, idAnno, Convenzione, lettera_identificativa, ordinamento, created_at, updated_at)
             VALUES
-                (:idAssociazione, :idAnno, :Convenzione, :lettera_identificativa, :ordinamento, :created_at, :updated_at)
-        ", [
+            (:idAssociazione, :idAnno, :Convenzione, :lettera_identificativa, :ordinamento, :created_at, :updated_at)", [
             'idAssociazione'         => $data['idAssociazione'],
             'idAnno'                 => $data['idAnno'],
             'Convenzione'            => $data['Convenzione'],
@@ -130,16 +126,14 @@ class Convenzione {
     public static function updateConvenzione(int $id, array $data): void {
         $now = Carbon::now()->toDateTimeString();
 
-        DB::update("
-            UPDATE " . self::TABLE . "
+        DB::update("UPDATE " . self::TABLE . "
             SET
                 idAssociazione         = :idAssociazione,
                 idAnno                 = :idAnno,
                 Convenzione            = :Convenzione,
                 lettera_identificativa = :lettera_identificativa,
                 updated_at             = :updated_at
-            WHERE idConvenzione = :id
-        ", [
+            WHERE idConvenzione = :id", [
             'idAssociazione'         => $data['idAssociazione'],
             'idAnno'                 => $data['idAnno'],
             'Convenzione'            => $data['Convenzione'],
@@ -156,22 +150,24 @@ class Convenzione {
         DB::delete("DELETE FROM " . self::TABLE . " WHERE idConvenzione = ?", [$id]);
     }
 
-    public static function getWithAssociazione($idAssociazione, $anno) {
-        return DB::table('convenzioni as c')
-            ->join('associazioni as a', 'a.idAssociazione', '=', 'c.idAssociazione')
-            ->where('c.idAssociazione', $idAssociazione)
-            ->where('c.idAnno', $anno)
-            ->select('c.*', 'a.Associazione')
-            ->orderBy('c.ordinamento')
-            ->get();
+    public static function getWithAssociazione($idAssociazione, $anno): Collection {
+        $sql = "
+            SELECT c.*, a.Associazione
+            FROM convenzioni AS c
+            JOIN associazioni AS a ON a.idAssociazione = c.idAssociazione
+            WHERE c.idAssociazione = :idAssociazione
+              AND c.idAnno = :idAnno
+            ORDER BY c.ordinamento
+        ";
+
+        return collect(DB::select($sql, [
+            'idAssociazione' => $idAssociazione,
+            'idAnno' => $anno,
+        ]));
     }
 
-    /**
-     * Restituisce le convenzioni per una specifica associazione e anno (senza join).
-     */
     public static function getByAssociazioneAnno(?int $idAssociazione, int $idAnno): Collection {
-        $query = DB::table(self::TABLE)
-            ->where('idAnno', $idAnno);
+        $query = DB::table(self::TABLE)->where('idAnno', $idAnno);
 
         if (!is_null($idAssociazione)) {
             $query->where('idAssociazione', $idAssociazione);
@@ -179,5 +175,4 @@ class Convenzione {
 
         return $query->orderBy('Convenzione')->get();
     }
-
 }

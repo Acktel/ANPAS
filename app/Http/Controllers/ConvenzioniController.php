@@ -13,36 +13,48 @@ class ConvenzioniController extends Controller {
         $this->middleware('auth');
     }
 
-    public function index() {
+    public function index(Request $request) {
         $user = Auth::user();
-        $anno = session('anno_riferimento', now()->year); // ✅ Anno dinamico
+        $anno = session('anno_riferimento', now()->year);
+
+        $associazioni = [];
+        $selectedAssoc = null;
 
         if ($user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])) {
-            // 🔁 Logica SuperAdmin: mostra tutte le convenzioni dell’anno corrente
-            $convenzioni = DB::table('convenzioni as c')
-                ->join('associazioni as a', 'a.idAssociazione', '=', 'c.idAssociazione')
-                ->where('c.idAnno', $anno)
-                ->select('c.*', 'a.Associazione')
-                ->orderBy('c.ordinamento')
+            $associazioni = DB::table('associazioni')
+                ->select('idAssociazione', 'Associazione')
+                ->whereNull('deleted_at')
+                ->orderBy('Associazione')
                 ->get();
+                
+            if ($request->has('idAssociazione')) {
+                session(['associazione_selezionata' => $request->get('idAssociazione')]);
+            }
+
+            $selectedAssoc = $request->get('idAssociazione') ?? ($associazioni->first()->idAssociazione ?? null);
         } else {
-            
-            $convenzioni = Convenzione::getWithAssociazione($user->IdAssociazione, $anno);
+            $selectedAssoc = $user->IdAssociazione;
         }
 
-        return view('convenzioni.index', compact('convenzioni', 'anno'));
+        $convenzioni = Convenzione::getWithAssociazione($selectedAssoc, $anno);
+
+        return view('convenzioni.index', compact(
+            'convenzioni', 'anno', 'associazioni', 'selectedAssoc'
+        ));
     }
 
     public function create() {
         $associazioni = DB::table('associazioni')
             ->select('idAssociazione', 'Associazione')
-            ->whereNull('deleted_at') 
-            ->whereNot("idAssociazione", 1) 
-            ->orderBy('Associazione')->get();
+            ->whereNull('deleted_at')
+            ->whereNot('idAssociazione', 1)
+            ->orderBy('Associazione')
+            ->get();
 
         $anni = DB::table('anni')
             ->select('idAnno', 'anno')
-            ->orderBy('anno', 'desc')->get();
+            ->orderBy('anno', 'desc')
+            ->get();
 
         return view('convenzioni.create', compact('associazioni', 'anni'));
     }
@@ -57,8 +69,7 @@ class ConvenzioniController extends Controller {
 
         Convenzione::createConvenzione($data);
 
-        return redirect()->route('convenzioni.index')
-            ->with('success', 'Convenzione creata.');
+        return redirect()->route('convenzioni.index')->with('success', 'Convenzione creata.');
     }
 
     public function edit(int $id) {
@@ -67,13 +78,15 @@ class ConvenzioniController extends Controller {
 
         $associazioni = DB::table('associazioni')
             ->select('idAssociazione', 'Associazione')
-            ->whereNull('deleted_at') 
-            ->whereNot("idAssociazione", 1) 
-            ->orderBy('Associazione')->get();
+            ->whereNull('deleted_at')
+            ->whereNot('idAssociazione', 1)
+            ->orderBy('Associazione')
+            ->get();
 
         $anni = DB::table('anni')
             ->select('idAnno', 'anno')
-            ->orderBy('anno', 'desc')->get();
+            ->orderBy('anno', 'desc')
+            ->get();
 
         return view('convenzioni.edit', compact('conv', 'associazioni', 'anni'));
     }
@@ -88,8 +101,7 @@ class ConvenzioniController extends Controller {
 
         Convenzione::updateConvenzione($id, $data);
 
-        return redirect()->route('convenzioni.index')
-            ->with('success', 'Convenzione aggiornata.');
+        return redirect()->route('convenzioni.index')->with('success', 'Convenzione aggiornata.');
     }
 
     public function destroy(int $id) {
@@ -97,8 +109,7 @@ class ConvenzioniController extends Controller {
 
         Convenzione::deleteConvenzione($id);
 
-        return redirect()->route('convenzioni.index')
-            ->with('success', 'Convenzione eliminata.');
+        return redirect()->route('convenzioni.index')->with('success', 'Convenzione eliminata.');
     }
 
     public function checkDuplicazioneDisponibile(): JsonResponse {
@@ -106,13 +117,11 @@ class ConvenzioniController extends Controller {
         $annoPrec = $anno - 1;
         $user = Auth::user();
 
-        // 🔐 Se SuperAdmin, controlla su TUTTE le convenzioni
-        if ($user->hasRole('SuperAdmin') || $user->hasRole('Admin') || $user->hasRole('Supervisor')) {
+        if ($user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])) {
             $correnteVuoto = DB::table('convenzioni')->where('idAnno', $anno)->doesntExist();
             $precedentePieno = DB::table('convenzioni')->where('idAnno', $annoPrec)->exists();
         } else {
             $idAssoc = $user->IdAssociazione;
-
             $correnteVuoto = Convenzione::getByAssociazioneAnno($idAssoc, $anno)->isEmpty();
             $precedentePieno = Convenzione::getByAssociazioneAnno($idAssoc, $annoPrec)->isNotEmpty();
         }
@@ -130,41 +139,24 @@ class ConvenzioniController extends Controller {
         $user = Auth::user();
 
         try {
-            // 🔐 Se SuperAdmin: duplica TUTTE le convenzioni per TUTTE le associazioni
-            if ($user->hasRole('SuperAdmin') || $user->hasRole('Admin') || $user->hasRole('Supervisor')) {
-                $convenzioni = DB::table('convenzioni')
-                    ->where('idAnno', $annoPrec)
-                    ->get();
-
-                if ($convenzioni->isEmpty()) {
-                    return response()->json(['message' => 'Nessuna convenzione da duplicare'], 404);
-                }
-
-                foreach ($convenzioni as $c) {
-                    Convenzione::createConvenzione([
-                        'idAssociazione' => $c->idAssociazione,
-                        'idAnno' => $anno,
-                        'Convenzione' => $c->Convenzione,
-                        'lettera_identificativa' => $c->lettera_identificativa,
-                    ]);
-                }
+            if ($user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])) {
+                $convenzioni = DB::table('convenzioni')->where('idAnno', $annoPrec)->get();
             } else {
                 $idAssoc = $user->IdAssociazione;
-
                 $convenzioni = Convenzione::getByAssociazioneAnno($idAssoc, $annoPrec);
+            }
 
-                if ($convenzioni->isEmpty()) {
-                    return response()->json(['message' => 'Nessuna convenzione da duplicare'], 404);
-                }
+            if ($convenzioni->isEmpty()) {
+                return response()->json(['message' => 'Nessuna convenzione da duplicare'], 404);
+            }
 
-                foreach ($convenzioni as $c) {
-                    Convenzione::createConvenzione([
-                        'idAssociazione' => $idAssoc,
-                        'idAnno' => $anno,
-                        'Convenzione' => $c->Convenzione,
-                        'lettera_identificativa' => $c->lettera_identificativa,
-                    ]);
-                }
+            foreach ($convenzioni as $c) {
+                Convenzione::createConvenzione([
+                    'idAssociazione'         => $c->idAssociazione,
+                    'idAnno'                 => $anno,
+                    'Convenzione'            => $c->Convenzione,
+                    'lettera_identificativa' => $c->lettera_identificativa,
+                ]);
             }
 
             return response()->json(['message' => 'Convenzioni duplicate.']);
@@ -174,7 +166,7 @@ class ConvenzioniController extends Controller {
     }
 
     public function riordina(Request $request): JsonResponse {
-        $ids = $request->input('order'); // array ordinato di idConvenzione
+        $ids = $request->input('order');
 
         if (!is_array($ids)) {
             return response()->json(['message' => 'Formato dati non valido'], 422);

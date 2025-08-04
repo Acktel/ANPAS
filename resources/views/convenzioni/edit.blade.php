@@ -30,25 +30,12 @@ $assoCorr = $associazioni->firstWhere('idAssociazione', $conv->idAssociazione);
 
         <div class="row">
           {{-- Associazione --}}
-          @if (! $isImpersonating && $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor']))
-          <div class="col-md-6 mb-3">
-            <label for="idAssociazione" class="form-label">Associazione</label>
-            <select name="idAssociazione" id="idAssociazione" class="form-select" required>
-              @foreach($associazioni as $asso)
-              <option value="{{ $asso->idAssociazione }}"
-                {{ old('idAssociazione', $conv->idAssociazione) == $asso->idAssociazione ? 'selected' : '' }}>
-                {{ $asso->Associazione }}
-              </option>
-              @endforeach
-            </select>
-          </div>
-          @else
           <div class="col-md-6 mb-3">
             <label class="form-label">Associazione</label>
             <input type="text" class="form-control" value="{{ $assoCorr->Associazione }}" readonly>
             <input type="hidden" name="idAssociazione" value="{{ $assoCorr->idAssociazione }}">
           </div>
-          @endif
+
 
           {{-- Anno --}}
           @if (! $isImpersonating && $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor']))
@@ -97,7 +84,9 @@ $assoCorr = $associazioni->firstWhere('idAssociazione', $conv->idAssociazione);
           <button type="submit" class="btn btn-anpas-green me-2">
             <i class="fas fa-check me-1"></i> Aggiorna Convenzione
           </button>
-          <a href="{{ route('convenzioni.index') }}" class="btn btn-secondary">
+          <a href="{{ route('convenzioni.index', [
+                'idAssociazione' => old('idAssociazione', $conv->idAssociazione),
+                'idAnno' => old('idAnno', $conv->idAnno) ]) }}" class="btn btn-secondary">
             Annulla
           </a>
         </div>

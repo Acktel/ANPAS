@@ -3,7 +3,8 @@
 $user = Auth::user();
 $isImpersonating = session()->has('impersonate');
 $annoCorr = session('anno_riferimento', now()->year);
-$assoCorr = $associazioni->firstWhere('idAssociazione', $user->IdAssociazione);
+$selectedAssociazione = session('associazione_selezionata') ?? $user->IdAssociazione;
+$assoCorr = $associazioni->firstWhere('idAssociazione', $selectedAssociazione);
 @endphp
 
 @section('content')
@@ -31,10 +32,10 @@ $assoCorr = $associazioni->firstWhere('idAssociazione', $user->IdAssociazione);
             <select name="idAssociazione" id="idAssociazione" class="form-select" required>
               <option value="">-- seleziona --</option>
               @foreach($associazioni as $asso)
-              <option value="{{ $asso->idAssociazione }}"
-                {{ old('idAssociazione') == $asso->idAssociazione ? 'selected' : '' }}>
-                {{ $asso->Associazione }}
-              </option>
+            <option value="{{ $asso->idAssociazione }}"
+            {{ old('idAssociazione', $assoCorr->idAssociazione) == $asso->idAssociazione ? 'selected' : '' }}>
+            {{ $asso->Associazione }}
+          </option>
               @endforeach
             </select>
           </div>
@@ -92,12 +93,35 @@ $assoCorr = $associazioni->firstWhere('idAssociazione', $user->IdAssociazione);
           <button type="submit" class="btn btn-anpas-green me-2">
             <i class="fas fa-check me-1"></i> Salva Convenzione
           </button>
-          <a href="{{ route('convenzioni.index') }}" class="btn btn-secondary">
-            Annulla
-          </a>
+        <a href="{{ route('convenzioni.index') }}" id="btnAnnulla" class="btn btn-secondary">
+          Annulla
+        </a>
+
         </div>
       </form>
     </div>
   </div>
 </div>
 @endsection
+@push('scripts')
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    const select = document.getElementById('idAssociazione');
+    const btnAnnulla = document.getElementById('btnAnnulla');
+
+    if (select && btnAnnulla) {
+      select.addEventListener('change', () => {
+        const id = select.value;
+        const baseUrl = "{{ route('convenzioni.index') }}";
+        btnAnnulla.href = id ? `${baseUrl}?idAssociazione=${id}` : baseUrl;
+      });
+
+      // Inizializza subito l'href corretto
+      const initialId = select.value;
+      if (initialId) {
+        btnAnnulla.href = "{{ route('convenzioni.index') }}" + `?idAssociazione=${initialId}`;
+      }
+    }
+  });
+</script>
+@endpush

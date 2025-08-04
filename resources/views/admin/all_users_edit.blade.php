@@ -93,7 +93,9 @@
 
         <div class="col-12 mt-3">
           <button type="submit" class="btn btn-anpas-primary">Salva Modifiche</button>
-          <a href="{{ route('all-users.index') }}" class="btn btn-secondary ms-2">Annulla</a>
+        <a href="{{ route('all-users.index', ['idAssociazione' => old('IdAssociazione', $user->IdAssociazione)]) }}" class="btn btn-secondary ms-2">
+          Annulla
+        </a>
         </div>
 
       </div>

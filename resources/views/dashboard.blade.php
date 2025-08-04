@@ -104,6 +104,22 @@
 
         {{-- Grafici divisi in blocchi --}}
         <div id="charts-container" class="row row-deck row-cards mt-4">
+
+        @if(auth()->user()->hasAnyRole(['SuperAdmin','Admin','Supervisor']))
+        <div class="d-flex mb-3">
+            <form method="GET" action="{{ route('dashboard') }}">
+            <select id="assocSelect" name="idAssociazione" class="form-select" onchange="this.form.submit()">
+                @foreach($associazioni as $assoc)
+                <option value="{{ $assoc->idAssociazione }}" {{ $assoc->idAssociazione == $selectedAssoc ? 'selected' : '' }}>
+                    {{ $assoc->Associazione }}
+                </option>
+                @endforeach
+            </select>
+            </form>
+        </div>
+        @endif
+
+
             @php
                 $chunkSize = 2;
                 $total = count($tipologie);

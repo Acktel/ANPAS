@@ -10,6 +10,20 @@
         </a>
     </div>
 
+    @if(auth()->user()->hasAnyRole(['SuperAdmin','Admin','Supervisor']))
+    <div class="d-flex mb-3">
+        <form id="assocFilterForm" action="{{ route('sessione.setAssociazione') }}" method="POST" class="me-3">
+        @csrf
+        <select id="assocSelect" name="idAssociazione" class="form-select" onchange="this.form.submit()">
+            @foreach($associazioni as $assoc)
+            <option value="{{ $assoc->idAssociazione }}" {{ $assoc->idAssociazione == $selectedAssoc ? 'selected' : '' }}>
+                {{ $assoc->Associazione }}
+            </option>
+            @endforeach
+        </select>
+        </form>
+    </div>
+    @endif
     {{-- Tabella --}}
     <div class="table-responsive">
         <table id="table-km" class="table table-bordered w-100 text-center align-middle">
@@ -26,8 +40,10 @@
 @push('scripts')
 <script>
     $(async function() {
-        const res = await fetch("{{ route('km-percorsi.datatable') }}");
-        const {
+    const selectedAssoc = document.getElementById('assocSelect')?.value || null;
+
+    const res = await fetch("{{ route('km-percorsi.datatable') }}");
+     const {
             data,
             labels
         } = await res.json();

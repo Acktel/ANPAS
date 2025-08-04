@@ -2,19 +2,21 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
-use Illuminate\Database\Eloquent\Model;
 
-class Riepilogo extends Model {
+class Riepilogo extends Model
+{
     protected $table = 'riepiloghi';
     protected $primaryKey = 'idRiepilogo';
     public $incrementing = true;
     protected $keyType = 'int';
     public $timestamps = false;
 
-    public static function createRiepilogo(int $idAssociazione, int $idAnno): int {
+    public static function createRiepilogo(int $idAssociazione, int $idAnno): int
+    {
         return DB::table('riepiloghi')->insertGetId([
             'idAssociazione' => $idAssociazione,
             'idAnno'         => $idAnno,
@@ -23,31 +25,58 @@ class Riepilogo extends Model {
         ], 'idRiepilogo');
     }
 
-    public static function addDato(int $idRiepilogo, string $descrizione, float $preventivo, float $consuntivo, ?int $idTipologia = null, $idAnno): void {
+    public static function addDato(int $idRiepilogo, string $descrizione, float $preventivo, float $consuntivo, ?int $idTipologia = null, int $idAnno): void
+    {
         $data = [
-            'idRiepilogo' => $idRiepilogo,
-            'descrizione' => $descrizione,
-            'preventivo'  => $preventivo,
-            'consuntivo'  => $consuntivo,
-            'idAnno'      => $idAnno,
-            'created_at'  => now(),
-            'updated_at'  => now(),
+            'idRiepilogo'        => $idRiepilogo,
+            'descrizione'        => $descrizione,
+            'preventivo'         => $preventivo,
+            'consuntivo'         => $consuntivo,
+            'idAnno'             => $idAnno,
+            'idTipologiaRiepilogo'=> $idTipologia ?? 1,
+            'created_at'         => now(),
+            'updated_at'         => now(),
         ];
-
-        if (!is_null($idTipologia)) {
-            $data['idTipologiaRiepilogo'] = $idTipologia;
-        } else {
-            $data['idTipologiaRiepilogo'] = 1;
-        }
 
         DB::table('riepilogo_dati')->insert($data);
     }
 
-
     /**
-     * 🔁 Riepiloghi per admin filtrati per anno in sessione
+     * Restituisce dati per DataTables filtrati per anno e associazione.
+     * @param int $anno
+     * @param int|null $assocId
+     * @return array
      */
-    public static function getAllForAdmin(?int $anno = null): Collection {
+    public static function getForDataTable(int $anno, ?int $assocId): array
+    {
+        $query = DB::table('riepiloghi as r')
+            ->join('associazioni as s', 'r.idAssociazione', '=', 's.idAssociazione')
+            ->join('riepilogo_dati as d', 'r.idRiepilogo', '=', 'd.idRiepilogo')
+            ->where('r.idAnno', $anno)
+            ->where('d.idTipologiaRiepilogo', 1)
+            ->select([
+                's.Associazione',
+                'r.idAnno as anno',
+                'd.descrizione',
+                'r.idRiepilogo',
+                'd.preventivo',
+                'd.consuntivo',
+                'r.idRiepilogo as actions_id',
+            ]);
+
+        if ($assocId) {
+            $query->where('r.idAssociazione', $assocId);
+        }
+
+        $data = $query->orderBy('s.Associazione')
+                      ->orderBy('r.idAnno', 'desc')
+                      ->get();
+
+        return $data->toArray();
+    }
+
+    public static function getAllForAdmin(?int $anno = null): Collection
+    {
         $anno = $anno ?? session('anno_riferimento', now()->year);
 
         return DB::table('riepiloghi as r')
@@ -55,47 +84,51 @@ class Riepilogo extends Model {
             ->join('riepilogo_dati as d', 'r.idRiepilogo', '=', 'd.idRiepilogo')
             ->where('r.idAnno', $anno)
             ->where('d.idTipologiaRiepilogo', 1)
-            ->select(
+            ->select([
                 'r.idRiepilogo',
                 's.Associazione',
                 'r.idAnno as anno',
                 'r.created_at'
-            )
+            ])
             ->distinct()
             ->orderBy('s.Associazione')
             ->orderBy('r.created_at', 'desc')
             ->get();
     }
 
-
-    /**
-     * 🔒 Riepiloghi per associazione e anno dinamico
-     */
-    public static function getByAssociazione(int $idAssociazione, ?int $anno = null): Collection {
+    public static function getByAssociazione(int $idAssociazione, ?int $anno = null): Collection
+    {
         $anno = $anno ?? session('anno_riferimento', now()->year);
 
         return DB::table('riepiloghi as r')
             ->where('r.idAssociazione', $idAssociazione)
             ->where('r.idAnno', $anno)
-            ->select('r.idRiepilogo', 'r.idAnno as anno', 'r.created_at')
+            ->select([
+                'r.idRiepilogo',
+                'r.idAnno as anno',
+                'r.created_at'
+            ])
             ->orderBy('r.created_at', 'desc')
             ->get();
     }
 
-    public static function getSingle(int $idRiepilogo) {
+    public static function getSingle(int $idRiepilogo)
+    {
         return DB::table('riepiloghi')
             ->where('idRiepilogo', $idRiepilogo)
             ->first();
     }
 
-    public static function getDati(int $idRiepilogo): Collection {
+    public static function getDati(int $idRiepilogo): Collection
+    {
         return DB::table('riepilogo_dati')
             ->where('idRiepilogo', $idRiepilogo)
             ->orderBy('id', 'asc')
             ->get();
     }
 
-    public static function updateRiepilogo(int $idRiepilogo, int $idAssociazione, int $idAnno): void {
+    public static function updateRiepilogo(int $idRiepilogo, int $idAssociazione, int $idAnno): void
+    {
         DB::table('riepiloghi')
             ->where('idRiepilogo', $idRiepilogo)
             ->update([
@@ -105,13 +138,15 @@ class Riepilogo extends Model {
             ]);
     }
 
-    public static function deleteDati(int $idRiepilogo): void {
+    public static function deleteDati(int $idRiepilogo): void
+    {
         DB::table('riepilogo_dati')
             ->where('idRiepilogo', $idRiepilogo)
             ->delete();
     }
 
-    public static function deleteRiepilogo(int $idRiepilogo): void {
+    public static function deleteRiepilogo(int $idRiepilogo): void
+    {
         DB::table('riepiloghi')
             ->where('idRiepilogo', $idRiepilogo)
             ->delete();

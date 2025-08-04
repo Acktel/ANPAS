@@ -7,15 +7,19 @@ use Illuminate\Support\Facades\Auth;
 use App\Models\CostiAutomezzi;
 use App\Models\Automezzo;
 use App\Models\Associazione;
+use App\Models\Dipendente;
 
 class CostiAutomezziController extends Controller {
     public function index() {
-        $isElevatedUser = auth()->user()->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor']);
-        $isImpersonating = session()->has('impersonate');
-        $showAssociazione = $isElevatedUser && !$isImpersonating;
-
         $anno = session('anno_riferimento', now()->year);
-        return view('ripartizioni.costi_automezzi.index', compact('anno', 'showAssociazione'));
+        $user = Auth::user();
+        $isImpersonating = session()->has('impersonate');
+
+        $associazioni = Dipendente::getAssociazioni($user, $isImpersonating);
+        $selectedAssoc = session('associazione_selezionata') ?? $user->IdAssociazione;
+        $showAssociazione = $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor']);
+
+        return view('ripartizioni.costi_automezzi.index', compact('anno', 'showAssociazione', 'associazioni', 'selectedAssoc'));
     }
 
     public function getData() {
@@ -23,17 +27,21 @@ class CostiAutomezziController extends Controller {
         $user = Auth::user();
         $isImpersonating = session()->has('impersonate');
 
-        $automezzi = $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])
-            ? Automezzo::getAll($anno)
-            : Automezzo::getByAssociazione($user->IdAssociazione, $anno);
+        // 🔍 ID Associazione da sessione o da utente se non admin
+        $selectedAssoc = session('associazione_selezionata');
+        $idAssociazione = $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])
+            ? $selectedAssoc
+            : $user->IdAssociazione;
 
-        $showAssociazione = !$isImpersonating && $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor']);
+        // 🧾 Prendi solo gli automezzi della associazione selezionata
+        $automezzi = Automezzo::getByAssociazione($idAssociazione, $anno);
+
+        $showAssociazione = $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor']);
 
         $costi = CostiAutomezzi::getAllByAnno($anno)->keyBy('idAutomezzo');
 
         $rows = [];
 
-        // Inizializzazione riga totale
         $totali = [
             'idAutomezzo' => null,
             'Targa' => '',
@@ -89,22 +97,20 @@ class CostiAutomezziController extends Controller {
                 $row['Associazione'] = $a->Associazione ?? '-';
             }
 
-            // Aggiunta riga all'elenco
             $rows[] = $row;
 
-            // Somma nei totali
             foreach ($row as $key => $val) {
-                if (in_array($key, array_keys($totali)) && is_numeric($val)) {
+                if (isset($totali[$key]) && is_numeric($val)) {
                     $totali[$key] += $val;
                 }
             }
         }
 
-        // Inserisce i totali in cima
         array_unshift($rows, $totali);
 
         return response()->json(['data' => $rows]);
     }
+
 
     public function edit($idAutomezzo) {
         $anno = session('anno_riferimento', now()->year);
@@ -138,6 +144,6 @@ class CostiAutomezziController extends Controller {
 
         CostiAutomezzi::updateOrInsert($data);
 
-        return redirect()->route('ripartizioni.costi_automezzi.index')->with('success', 'Dati aggiornati.');
+        return redirect()->route('ripartizioni.costi_automezzi.index',  ['idAssociazione' => $request->input('idAssociazione')])->with('success', 'Dati aggiornati.');
     }
 }

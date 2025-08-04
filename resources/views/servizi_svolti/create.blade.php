@@ -3,7 +3,20 @@
 @section('content')
 <div class="container">
   <h1 class="container-title mb-4">Nuovo inserimento Servizi Svolti – Anno {{ session('anno_riferimento') }}</h1>
-
+  
+  @if(auth()->user()->hasAnyRole(['SuperAdmin','Admin','Supervisor']))
+    <form id="assocFilterForm" action="{{ route('sessione.setAssociazione') }}" method="POST" class="mb-4">
+      @csrf
+      <select id="assocSelect" name="idAssociazione" class="form-select w-auto d-inline-block" onchange="this.form.submit()">
+        @foreach($associazioni as $assoc)
+          <option value="{{ $assoc->idAssociazione }}" {{ $assoc->idAssociazione == $selectedAssoc ? 'selected' : '' }}>
+            {{ $assoc->Associazione }}
+          </option>
+        @endforeach
+      </select>
+    </form>
+  @endif
+  
   <form method="POST" action="{{ route('servizi-svolti.store') }}">
     @csrf
 

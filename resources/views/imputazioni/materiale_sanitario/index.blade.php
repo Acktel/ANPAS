@@ -37,7 +37,6 @@
                         <th>N. SERVIZI SINGOLO AUTOMEZZO</th>
                         <th>PERCENTUALE DI RIPARTO</th>
                         <th>IMPORTO</th>
-                        <th>Azioni</th>
                     </tr>
                 </thead>
                 <tbody></tbody>
@@ -80,15 +79,6 @@
                     data: 'importo',
                     className: 'text-end',
                     render: d => parseFloat(d).toFixed(2).replace('.', ',')
-                },
-                {
-                    data: null,
-                    className: 'text-center',
-                    render: function(row) {
-                        return (row.is_totale === -1) ?
-                            `<a href="{{ route('imputazioni.materiale_sanitario.editTotale') }}" class="btn btn-sm btn-anpas-edit"><i class="fas fa-edit"></i></a>` :
-                            '-';
-                    }
                 },
                 {
                     data: 'is_totale',

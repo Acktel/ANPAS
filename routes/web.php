@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ImpersonationController;
+use App\Http\Controllers\SessioneController;
 use Illuminate\Support\Facades\Auth;
 
 // 1) Rotte di autenticazione Laravel
@@ -50,6 +51,9 @@ Route::middleware('auth')->group(function () {
 
         return back();
     })->name('anno.set');
+
+    Route::post('/sessione/associazione', [SessioneController::class, 'setAssociazione'])->name('sessione.setAssociazione');
+    Route::post('/sessione/anno', [SessioneController::class, 'setAnno'])->name('sessione.setAnno');
 
     // 4.3) Sezione Automezzi (rotte incluse da file esterno)
     require __DIR__ . '/automezzi.php';

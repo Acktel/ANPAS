@@ -5,13 +5,13 @@
   <h1 class="container-title mb-4">Nuovo Automezzo</h1>
 
   @if ($errors->any())
-  <div class="alert alert-danger">
-    <ul class="mb-0">
-      @foreach ($errors->all() as $error)
-      <li>{{ $error }}</li>
-      @endforeach
-    </ul>
-  </div>
+    <div class="alert alert-danger">
+      <ul class="mb-0">
+        @foreach ($errors->all() as $error)
+          <li>{{ $error }}</li>
+        @endforeach
+      </ul>
+    </div>
   @endif
 
   <div class="card-anpas">
@@ -19,37 +19,35 @@
       <form action="{{ route('automezzi.store') }}" method="POST">
         @csrf
 
+        @php
+          use App\Models\Associazione;
+
+          $user = Auth::user();
+          $isImpersonating = session()->has('impersonate');
+
+          $selectedAssociazione = old('idAssociazione', session('associazione_selezionata') ?? $user->IdAssociazione);
+          $annoCorr = old('idAnno', session('anno_riferimento', now()->year));
+          $assocCorr = Associazione::getById($selectedAssociazione);
+        @endphp
+
         {{-- RIGA 1: Associazione | Anno --}}
         <div class="row mb-3">
           <div class="col-md-6">
-            @php
-            $assocCorr = \App\Models\Associazione::getById(Auth::user()->IdAssociazione);
-
-            @endphp
-
-            @if(session()->has('impersonate') || Auth::user()->role_id == 4)
-
             <label class="form-label">Associazione</label>
-            <input type="text" class="form-control" value="{{ $assocCorr->Associazione }}" readonly>
-            <input type="hidden" name="idAssociazione" value="{{ $assocCorr->IdAssociazione }}">
+            @if($isImpersonating || $user->role_id == 4)
+              <input type="text" class="form-control" value="{{ $assocCorr->Associazione }}" readonly>
+              <input type="hidden" name="idAssociazione" value="{{ $assocCorr->IdAssociazione }}">
             @else
-            <label for="idAssociazione" class="form-label">Associazione</label>
-            <select name="idAssociazione" id="idAssociazione" class="form-select" required>
-              <option value="">-- Seleziona Associazione --</option>
-              @foreach($associazioni as $asso)
-              <option value="{{ $asso->idAssociazione }}" {{ old('idAssociazione') == $asso->idAssociazione ? 'selected' : '' }}>
-                {{ $asso->Associazione }}
-              </option>
-              @endforeach
-            </select>
+              <select name="idAssociazione" id="idAssociazione" class="form-select" required>
+                <option value="">-- Seleziona Associazione --</option>
+                @foreach($associazioni as $asso)
+                  <option value="{{ $asso->idAssociazione }}" {{ $selectedAssociazione == $asso->idAssociazione ? 'selected' : '' }}>
+                    {{ $asso->Associazione }}
+                  </option>
+                @endforeach
+              </select>
             @endif
-
-
           </div>
-          @php
-          $annoCorr = session('anno_riferimento', now()->year);
-          @endphp
-
           @if(session()->has('impersonate') || Auth::user()->role_id == 4)
           <div class="col-md-6">
             <label class="form-label">Anno</label>
@@ -172,9 +170,11 @@
             <button type="submit" class="btn btn-anpas-green me-2">
               <i class="fas fa-save me-1"></i> Salva
             </button>
-            <a href="{{ route('automezzi.index') }}" class="btn btn-secondary">
-              <i class="fas fa-times me-1"></i> Annulla
-            </a>
+               <a href="{{ route('automezzi.index', [
+              'idAssociazione' => $selectedAssociazione,
+              'idAnno' => $annoCorr]) }}" class="btn btn-secondary">
+                <i class="fas fa-times me-1"></i> Annulla
+              </a>
           </div>
 
       </form>

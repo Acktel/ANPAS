@@ -12,19 +12,33 @@ use App\Models\FuelType;
 use Illuminate\Http\JsonResponse;
 
 class AutomezziController extends Controller {
-    public function index() {
+    /**
+     * GET /automezzi
+     * Mostra lista automezzi con filtro per associazione (solo per ruoli elevati)
+     */
+    public function index(Request $request) {
         $user = Auth::user();
         $anno = session('anno_riferimento', now()->year);
 
+        $associazioni = collect();
         if ($user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])) {
-            $automezzi = Automezzo::getAll($anno);
+            $associazioni = DB::table('associazioni')
+                ->select('IdAssociazione', 'Associazione')
+                ->whereNull('deleted_at')
+                ->where('IdAssociazione', '!=', 1)
+                ->orderBy('Associazione')
+                ->get();
+            $selectedAssoc = $request->get('idAssociazione')
+                ?? ($associazioni->first()->IdAssociazione ?? null);
         } else {
-            $idAssoc = $user->IdAssociazione;
-            abort_if(!$idAssoc, 403, "Associazione non trovata per l'utente.");
-            $automezzi = Automezzo::getByAssociazione($idAssoc, $anno);
+            $selectedAssoc = $user->IdAssociazione;
         }
 
-        return view('automezzi.index', compact('automezzi', 'anno'));
+        return view('automezzi.index', compact(
+            'anno',
+            'associazioni',
+            'selectedAssoc'
+        ));
     }
 
     public function create() {
@@ -249,10 +263,23 @@ class AutomezziController extends Controller {
         }
     }
 
-    public function datatable() {
-        $anno = session('anno_riferimento', now()->year);
+    /**
+     * GET /automezzi/datatable
+     * Restituisce JSON per DataTables, filtrato lato server
+     */
+    public function datatable(Request $request): JsonResponse {
         $user = Auth::user();
-        $data = Automezzo::getForDataTable($anno, $user);
+        $anno = session('anno_riferimento', now()->year);
+
+        // Determina l'associazione su cui filtrare
+        if ($user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])) {
+            $assocId = $request->get('idAssociazione');
+        } else {
+            $assocId = $user->IdAssociazione;
+        }
+
+        // *** Qui passi SOLO $anno e $assocId ***
+        $data = Automezzo::getForDataTable($anno, $assocId);
 
         return response()->json(['data' => $data]);
     }
@@ -268,5 +295,15 @@ class AutomezziController extends Controller {
             });
 
         return response()->json($automezzi);
+    }
+
+    public function setAssociazioneSelezionata(Request $request) {
+        $request->validate([
+            'idAssociazione' => 'required|integer|exists:associazioni,IdAssociazione',
+        ]);
+
+        session(['associazione_selezionata' => $request->idAssociazione]);
+
+        return redirect()->route('automezzi.index'); // oppure redirect()->route('automezzi.index') se vuoi forzare reload
     }
 }

@@ -2,7 +2,20 @@
 
 @section('content')
 <div class="container-fluid">
-
+@if(auth()->user()->hasAnyRole(['SuperAdmin','Admin','Supervisor']))
+  <div class="d-flex mb-3">
+    <form id="assocFilterForm" action="{{ route('sessione.setAssociazione') }}" method="POST" class="me-3">
+      @csrf
+      <select id="assocSelect" name="idAssociazione" class="form-select" onchange="this.form.submit()">
+        @foreach($associazioni as $assoc)
+          <option value="{{ $assoc->idAssociazione }}" {{ $assoc->idAssociazione == $selectedAssoc ? 'selected' : '' }}>
+            {{ $assoc->Associazione }}
+          </option>
+        @endforeach
+      </select>
+    </form>
+  </div>
+@endif
     {{-- 🔘 Menu qualifiche --}}
     <div class="mb-4">
         <div class="btn-group" role="group" aria-label="Qualifiche">

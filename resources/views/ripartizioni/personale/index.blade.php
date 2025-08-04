@@ -8,6 +8,21 @@
     </h1>
   </div>
 
+  @if(auth()->user()->hasAnyRole(['SuperAdmin','Admin','Supervisor']))
+    <div class="d-flex mb-3">
+    <form id="assocFilterForm" action="{{ route('sessione.setAssociazione') }}" method="POST" class="me-3">
+      @csrf
+      <select id="assocSelect" name="idAssociazione" class="form-select" onchange="this.form.submit()">
+        @foreach($associazioni as $assoc)
+          <option value="{{ $assoc->idAssociazione }}" {{ $assoc->idAssociazione == $selectedAssoc ? 'selected' : '' }}>
+            {{ $assoc->Associazione }}
+          </option>
+        @endforeach
+      </select>
+    </form>
+    </div>
+  @endif
+
   <div class="card-anpas">
     <div class="card-body bg-anpas-white">
       <div class="table-responsive">
@@ -27,7 +42,8 @@
 @push('scripts')
 <script>
 $(async function () {
-  const res = await fetch("{{ route('ripartizioni.personale.data') }}");
+  const selectedAssoc = document.getElementById('assocSelect')?.value || null;
+  const res = await fetch("{{ route('ripartizioni.personale.data') }}" + (selectedAssoc ? `?idAssociazione=${selectedAssoc}` : ''));
   const { data, labels } = await res.json();
   if (!data.length) return;
 

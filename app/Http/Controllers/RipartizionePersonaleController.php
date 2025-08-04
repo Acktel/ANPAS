@@ -9,27 +9,35 @@ use App\Models\RipartizionePersonale;
 use App\Models\Dipendente;
 
 class RipartizionePersonaleController extends Controller {
-    public function index() {
+    public function index(Request $request) {
         $anno = session('anno_riferimento', now()->year);
-        return view('ripartizioni.personale.index', compact('anno'));
-    }
 
+        // Corretto: leggi prima dalla sessione, poi da query string (fallback)
+        $selectedAssoc = session('associazione_selezionata') ?? $request->query('idAssociazione');
+
+        $user = Auth::user();
+        $isImpersonating = session()->has('impersonate');
+        $associazioni = Dipendente::getAssociazioni($user, $isImpersonating);
+
+        return view('ripartizioni.personale.index', compact('anno', 'selectedAssoc', 'associazioni'));
+    }
+    
     public function getData(Request $request) {
         $user = Auth::user();
         $anno = session('anno_riferimento', now()->year);
-        
-        $dipendenti = Dipendente::getAutistiEBarellieri(
-            $anno,
-            $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])
-                ? null
-                : $user->IdAssociazione
-        );
+        $selectedAssoc = $request->query('idAssociazione');
+
+        $assocId = $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])
+            ? ($selectedAssoc ?: null)
+            : $user->IdAssociazione;
+
+        $dipendenti = Dipendente::getAutistiEBarellieri($anno, $assocId);
 
         $convenzioni = Convenzione::getByAnno($anno, $user)
             ->sortBy('idConvenzione')
             ->values();
 
-        $raw = RipartizionePersonale::getAll($anno, $user)
+        $raw = RipartizionePersonale::getAll($anno, $user, $assocId)
             ->groupBy('idDipendente');
 
         $labels = $convenzioni
@@ -114,13 +122,18 @@ class RipartizionePersonaleController extends Controller {
         }
 
         return redirect()
-            ->route('ripartizioni.personale.index')
+            ->route('ripartizioni.personale.index', ['idAssociazione' => $request->input('idAssociazione')])
             ->with('success', 'Ore salvate correttamente.');
     }
 
-    public function edit(int $idDipendente) {
+    public function edit(int $idDipendente, Request $request) {
         $user  = Auth::user();
         $anno  = session('anno_riferimento', now()->year);
+        $selectedAssoc = $request->query('idAssociazione');
+
+        $idAssociazione = $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])
+            ? ($selectedAssoc ?: null)
+            : $user->IdAssociazione;
 
         $convenzioni = Convenzione::getByAnno($anno, $user)
             ->sortBy('idConvenzione')
@@ -133,9 +146,11 @@ class RipartizionePersonaleController extends Controller {
             'idDipendente',
             'convenzioni',
             'record',
-            'anno'
+            'anno',
+            'idAssociazione'
         ));
     }
+
 
     public function update(Request $request, int $idDipendente) {
         $anno = session('anno_riferimento', now()->year);
@@ -150,7 +165,7 @@ class RipartizionePersonaleController extends Controller {
         }
 
         return redirect()
-            ->route('ripartizioni.personale.index')
+            ->route('ripartizioni.personale.index', ['idAssociazione' => $request->input('idAssociazione')])
             ->with('success', 'Aggiornamento avvenuto con successo.');
     }
 

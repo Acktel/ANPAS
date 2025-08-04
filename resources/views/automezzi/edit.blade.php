@@ -2,10 +2,8 @@
 
 @section('content')
 <div class="container-fluid">
-  {{-- Titolo --}}
   <h1 class="container-title mb-4">Modifica Automezzo #{{ $automezzo->idAutomezzo }}</h1>
 
-  {{-- Errori di validazione --}}
   @if ($errors->any())
     <div class="alert alert-danger">
       <ul class="mb-0">
@@ -22,55 +20,42 @@
         @csrf
         @method('PUT')
 
+        @php
+          use App\Models\Associazione;
+
+          $user = Auth::user();
+          $isImpersonating = session()->has('impersonate');
+          $selectedAssociazione = old('idAssociazione', $automezzo->idAssociazione);
+          $assocCorr = Associazione::getById($selectedAssociazione);
+
+          $annoCorr = old('idAnno', $automezzo->idAnno ?? session('anno_riferimento', now()->year));
+        @endphp
+
         {{-- RIGA 1: Associazione | Anno --}}
         <div class="row mb-3">
           <div class="col-md-6">
- @php
-        $assocCorr = \App\Models\Associazione::getById(Auth::user()->IdAssociazione);
-
-        @endphp
-
-        @if(session()->has('impersonate') || Auth::user()->role_id == 4)
-
-        <label class="form-label">Associazione</label>
-        <input type="text" class="form-control" value="{{ $assocCorr->Associazione }}" readonly>
-        <input type="hidden" name="idAssociazione" value="{{ $assocCorr->IdAssociazione }}">
-        @else
-        <label for="idAssociazione" class="form-label">Associazione</label>
-        <select name="idAssociazione" id="idAssociazione" class="form-select" required>
-          <option value="">-- Seleziona Associazione --</option>
-          @foreach($associazioni as $asso)
-          <option value="{{ $asso->idAssociazione }}" {{ old('idAssociazione') == $asso->idAssociazione ? 'selected' : '' }}>
-            {{ $asso->Associazione }}
-          </option>
-          @endforeach
-        </select>
-        @endif
-
+            <label class="form-label">Associazione</label>
+            <input type="text" class="form-control" value="{{ $assocCorr->Associazione }}" readonly>
+            <input type="hidden" name="idAssociazione" value="{{ $assocCorr->IdAssociazione }}">
           </div>
-@php
-  $annoCorr = session('anno_riferimento', now()->year);
-@endphp
 
-@if(session()->has('impersonate') || Auth::user()->role_id == 4)
-  <div class="col-md-6">
-    <label class="form-label">Anno</label>
-    <input type="text" class="form-control" value="{{ $annoCorr }}" readonly>
-    <input type="hidden" name="idAnno" value="{{ $annoCorr }}">
-  </div>
-@else
-  <div class="col-md-6">
-    <label for="idAnno" class="form-label">Anno</label>
-    <select name="idAnno" id="idAnno" class="form-select" required>
-      <option value="">-- Seleziona Anno --</option>
-      @foreach($anni as $y)
-        <option value="{{ $y->idAnno }}" {{ old('idAnno', $annoCorr) == $y->idAnno ? 'selected' : '' }}>
-          {{ $y->anno }}
-        </option>
-      @endforeach
-    </select>
-  </div>
-@endif
+          <div class="col-md-6">
+            @if($isImpersonating || $user->role_id == 4)
+              <label class="form-label">Anno</label>
+              <input type="text" class="form-control" value="{{ $annoCorr }}" readonly>
+              <input type="hidden" name="idAnno" value="{{ $annoCorr }}">
+            @else
+              <label for="idAnno" class="form-label">Anno</label>
+              <select name="idAnno" id="idAnno" class="form-select" required>
+                <option value="">-- Seleziona Anno --</option>
+                @foreach($anni as $y)
+                  <option value="{{ $y->idAnno }}" {{ $annoCorr == $y->idAnno ? 'selected' : '' }}>
+                    {{ $y->anno }}
+                  </option>
+                @endforeach
+              </select>
+            @endif
+          </div>
         </div>
 
         {{-- RIGA 2: Nome Automezzo | Targa --}}
@@ -78,7 +63,7 @@
           <div class="col-md-6">
             <label for="Automezzo" class="form-label">Nome Automezzo</label>
             <input type="text" name="Automezzo" id="Automezzo" class="form-control"
-                   value="{{ old('Automezzo', $automezzo->Automezzo) }}">
+                   value="{{ old('Automezzo', $automezzo->Automezzo) }}" required>
           </div>
           <div class="col-md-6">
             <label for="Targa" class="form-label">Targa</label>
@@ -105,9 +90,7 @@
         {{-- RIGA 4: Anno Acquisto | Modello --}}
         <div class="row mb-3">
           <div class="col-md-6">
-            <label for="AnnoAcquisto" class="form-label">
-              Anno Acquisto <small class="text-muted">(opzionale)</small>
-            </label>
+            <label for="AnnoAcquisto" class="form-label">Anno Acquisto <small class="text-muted">(opzionale)</small></label>
             <input type="number" name="AnnoAcquisto" id="AnnoAcquisto" class="form-control"
                    min="1900" max="{{ date('Y') }}"
                    value="{{ old('AnnoAcquisto', $automezzo->AnnoAcquisto) }}">
@@ -122,14 +105,14 @@
         {{-- RIGA 5: Tipo Veicolo | Km di Riferimento --}}
         <div class="row mb-3">
           <div class="col-md-6">
-            <label for="TipoVeicolo" class="form-label">Tipo Veicolo</label>
-           <select name="idTipoVeicolo" id="idTipoVeicolo" class="form-select" required>
-                <option value="">-- Seleziona Tipo Veicolo --</option>
-                @foreach($vehicleTypes as $tipo)
-                  <option value="{{ $tipo->id }}" {{ old('idTipoVeicolo', $automezzo->idTipoVeicolo) == $tipo->id ? 'selected' : '' }}>
-                    {{ $tipo->nome }}
-                  </option>
-                @endforeach
+            <label for="idTipoVeicolo" class="form-label">Tipo Veicolo</label>
+            <select name="idTipoVeicolo" id="idTipoVeicolo" class="form-select" required>
+              <option value="">-- Seleziona Tipo Veicolo --</option>
+              @foreach($vehicleTypes as $tipo)
+                <option value="{{ $tipo->id }}" {{ old('idTipoVeicolo', $automezzo->idTipoVeicolo) == $tipo->id ? 'selected' : '' }}>
+                  {{ $tipo->nome }}
+                </option>
+              @endforeach
             </select>
           </div>
           <div class="col-md-6">
@@ -149,24 +132,24 @@
                    value="{{ old('KmTotali', $automezzo->KmTotali) }}" required>
           </div>
           <div class="col-md-6">
-            <label for="TipoCarburante" class="form-label">Tipo Carburante</label>
+            <label for="idTipoCarburante" class="form-label">Tipo Carburante</label>
             <select name="idTipoCarburante" id="idTipoCarburante" class="form-select" required>
-                <option value="">-- Seleziona Tipo Carburante --</option>
-                @foreach($fuelTypes as $tipo)
-                  <option value="{{ $tipo->id }}" {{ old('idTipoCarburante', $automezzo->idTipoCarburante) == $tipo->id ? 'selected' : '' }}>
-                    {{ $tipo->nome }}
-                  </option>
-                @endforeach
+              <option value="">-- Seleziona Tipo Carburante --</option>
+              @foreach($fuelTypes as $carb)
+                <option value="{{ $carb->id }}" {{ old('idTipoCarburante', $automezzo->idTipoCarburante) == $carb->id ? 'selected' : '' }}>
+                  {{ $carb->nome }}
+                </option>
+              @endforeach
             </select>
           </div>
         </div>
 
-        {{-- RIGA 7: Date Sanitarie | Date Revisione --}}
+        {{-- RIGA 7: Date Sanitarie | Revisione --}}
         <div class="row mb-4">
           <div class="col-md-6">
             <label for="DataUltimaAutorizzazioneSanitaria" class="form-label">Data Ultima Aut. Sanitaria</label>
-            <input type="date" name="DataUltimaAutorizzazioneSanitaria"
-                   id="DataUltimaAutorizzazioneSanitaria" class="form-control"
+            <input type="date" name="DataUltimaAutorizzazioneSanitaria" id="DataUltimaAutorizzazioneSanitaria"
+                   class="form-control"
                    value="{{ old('DataUltimaAutorizzazioneSanitaria', $automezzo->DataUltimaAutorizzazioneSanitaria) }}">
           </div>
           <div class="col-md-6">
@@ -175,23 +158,27 @@
                    value="{{ old('DataUltimoCollaudo', $automezzo->DataUltimoCollaudo) }}">
           </div>
         </div>
-      {{-- RIGA 8: Incluso in Riparto --}}
-      <div class="row mb-4">
-        <div class="col-md-6">
-          <label for="incluso_riparto" class="form-label">Incluso nel riparto materiale sanitario?</label>
-          <select name="incluso_riparto" id="incluso_riparto" class="form-select">
-            <option value="1" {{ old('incluso_riparto', $automezzo->incluso_riparto) == 1 ? 'selected' : '' }}>Sì</option>
-            <option value="0" {{ old('incluso_riparto', $automezzo->incluso_riparto) == 0 ? 'selected' : '' }}>No</option>
-          </select>
-        </div>
-      </div>
 
-        {{-- PULSANTI CENTRATI --}}
+        {{-- RIGA 8: Incluso in Riparto --}}
+        <div class="row mb-4">
+          <div class="col-md-6">
+            <label for="incluso_riparto" class="form-label">Incluso nel riparto materiale sanitario?</label>
+            <select name="incluso_riparto" id="incluso_riparto" class="form-select">
+              <option value="1" {{ old('incluso_riparto', $automezzo->incluso_riparto) == 1 ? 'selected' : '' }}>Sì</option>
+              <option value="0" {{ old('incluso_riparto', $automezzo->incluso_riparto) == 0 ? 'selected' : '' }}>No</option>
+            </select>
+          </div>
+        </div>
+
+        {{-- PULSANTI --}}
         <div class="text-center">
           <button type="submit" class="btn btn-anpas-green me-2">
             <i class="fas fa-save me-1"></i> Aggiorna
           </button>
-          <a href="{{ route('automezzi.index') }}" class="btn btn-secondary">
+          <a href="{{ route('automezzi.index', [
+              'idAssociazione' => $selectedAssociazione,
+              'idAnno' => $annoCorr
+          ]) }}" class="btn btn-secondary">
             <i class="fas fa-times me-1"></i> Annulla
           </a>
         </div>

@@ -2,18 +2,19 @@
 
 namespace App\Models;
 
-use Illuminate\Contracts\Auth\MustVerifyEmail;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Notifications\Notifiable;
 use Spatie\Permission\Traits\HasRoles;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Http\Request;
 
-class User extends Authenticatable {
+class User extends Authenticatable
+{
     use HasFactory, Notifiable, HasRoles;
 
     /**
-     * Attributi che si possono assegnare in massa
+     * Attributi mass assignable
      */
     protected $fillable = [
         'firstname',
@@ -28,7 +29,7 @@ class User extends Authenticatable {
     ];
 
     /**
-     * Attributi da nascondere nelle serializzazioni (es. JSON)
+     * Attributi nascosti nelle serializzazioni
      */
     protected $hidden = [
         'password',
@@ -36,7 +37,7 @@ class User extends Authenticatable {
     ];
 
     /**
-     * Casting automatici di alcuni campi
+     * Casting automatici
      */
     protected $casts = [
         'email_verified_at' => 'datetime',
@@ -45,14 +46,18 @@ class User extends Authenticatable {
     ];
 
     /**
-     * Recupera tutti gli utenti (per Admin/Supervisor) in formato DataTable.
-     * Restituisce un array con chiavi: draw, recordsTotal, recordsFiltered, data.
+     * Recupera dati utente per DataTables, filtrati lato server.
+     * Supporta filtro per associazione selezionata.
+     * Restituisce array con chiavi: draw, recordsTotal, recordsFiltered, data.
      *
-     * @param  \Illuminate\Http\Request  $request
+     * @param  Request  $request
      * @return array
      */
-    public static function getDataTableForAdmin($request) {
-        // 1) Query base: selezioniamo utenti e join con associazioni
+    public static function getDataTableForAdmin(Request $request)
+    {
+        $assocId = $request->input('idAssociazione');
+
+        // 1) Query di base con join associazioni
         $base = DB::table('users as u')
             ->select([
                 'u.id',
@@ -68,35 +73,39 @@ class User extends Authenticatable {
             ->whereNull('a.deleted_at')
             ->where('a.IdAssociazione', '!=', 1);
 
+        // 2) Filtro per associazione selezionata
+        if ($assocId) {
+            $base->where('u.IdAssociazione', $assocId);
+        }
 
-        // 2) Filtraggio (search di DataTables)
-        if ($val = $request->input('search.value')) {
-            $base->where(function ($q) use ($val) {
-                $q->where('u.firstname', 'like', "%{$val}%")
-                    ->orWhere('u.lastname', 'like', "%{$val}%")
-                    ->orWhere('u.email', 'like', "%{$val}%")
-                    ->orWhere('u.username', 'like', "%{$val}%")
-                    ->orWhere('a.Associazione', 'like', "%{$val}%");
+        // 3) Search globale di DataTables
+        if ($search = $request->input('search.value')) {
+            $base->where(function ($q) use ($search) {
+                $q->where('u.firstname', 'like', "%{$search}%")
+                  ->orWhere('u.lastname', 'like', "%{$search}%")
+                  ->orWhere('u.username', 'like', "%{$search}%")
+                  ->orWhere('u.email', 'like', "%{$search}%")
+                  ->orWhere('a.Associazione', 'like', "%{$search}%");
             });
         }
 
-        // 3) Conteggi (totale + filtrati)
+        // 4) Conteggio record totali e filtrati
         $total    = DB::table('users')->count();
         $filtered = (clone $base)->count();
 
-        // 4) Ordinamento (se specificato da DataTables)
+        // 5) Ordinamento dinamico
         if ($order = $request->input('order.0')) {
             $col = $request->input("columns.{$order['column']}.data");
             $dir = $order['dir'];
             $base->orderBy($col, $dir);
         }
 
-        // 5) Paginazione (start, length)
+        // 6) Paginazione
         $start  = max(0, (int)$request->input('start', 0));
         $length = max(1, (int)$request->input('length', 10));
         $data   = $base->skip($start)->take($length)->get();
 
-        // 6) Restituiamo l’array formattato per DataTables
+        // 7) Risposta formattata per DataTables
         return [
             'draw'            => (int)$request->input('draw', 1),
             'recordsTotal'    => $total,
@@ -105,11 +114,19 @@ class User extends Authenticatable {
         ];
     }
 
-    public function isSuperAdmin(): bool {
+    /**
+     * Controllo ruolo SuperAdmin
+     */
+    public function isSuperAdmin(): bool
+    {
         return $this->hasRole('SuperAdmin');
     }
 
-    public function isAdmin(): bool {
+    /**
+     * Controllo ruolo Admin
+     */
+    public function isAdmin(): bool
+    {
         return $this->hasRole('Admin');
     }
 }

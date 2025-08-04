@@ -53,9 +53,9 @@
         </tbody>
       </table>
     </div>
-
+    <input type="hidden" name="idAssociazione" value="{{ $idAssociazione }}">
     <div class="mt-4 d-flex justify-content-between">
-      <a href="{{ route('ripartizioni.personale.index') }}" class="btn btn-secondary">
+     <a href="{{ route('ripartizioni.personale.index', ['idAssociazione' => $idAssociazione]) }}" class="btn btn-secondary">
         <i class="fas fa-arrow-left me-1"></i> Indietro
       </a>
       <button type="submit" class="btn btn-success">

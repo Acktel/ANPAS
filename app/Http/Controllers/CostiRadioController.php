@@ -6,17 +6,28 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use App\Models\Automezzo;
+use App\Models\Dipendente;
 use Illuminate\Support\Collection;
 
 
 class CostiRadioController extends Controller {
     public function index() {
         $anno = session('anno_riferimento', now()->year);
-        $automezzi = Automezzo::getFiltratiByUtente($anno);
+        $user = Auth::user();
+        $isImpersonating = session()->has('impersonate');
+        $associazioni = Dipendente::getAssociazioni($user, $isImpersonating);
+        // Prendi l'associazione selezionata (se sei admin) oppure quella dell'utente
+        $selectedAssoc = session('associazione_selezionata');
+        $idAssociazione = $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])
+            ? $selectedAssoc
+            : $user->IdAssociazione;
+
+        $automezzi = Automezzo::getFiltratiByUtente($anno, $idAssociazione);
         $numeroAutomezzi = count($automezzi);
 
-        return view('ripartizioni.costi_radio.index', compact('numeroAutomezzi', 'anno'));
+        return view('ripartizioni.costi_radio.index', compact('numeroAutomezzi', 'anno', 'idAssociazione', 'associazioni'));
     }
+
     private function getAutomezziFiltrati($anno): Collection {
         $user = Auth::user();
         if ($user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])) {
@@ -31,15 +42,21 @@ class CostiRadioController extends Controller {
     public function getData() {
         $anno = session('anno_riferimento', now()->year);
         $user = Auth::user();
-        $automezzi = $this->getAutomezziFiltrati($anno);
-        $numAutomezzi = max(count($automezzi), 1);
+        $isImpersonating = session()->has('impersonate');
 
+        // Recupero ID Associazione
+        $selectedAssoc = session('associazione_selezionata');
         $idAssociazione = $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])
-            ? ($automezzi[0]->idAssociazione ?? null)
+            ? $selectedAssoc
             : $user->IdAssociazione;
 
         abort_if(!$idAssociazione, 403, "Associazione non determinata.");
 
+        // Recupero automezzi
+        $automezzi = Automezzo::getByAssociazione($idAssociazione, $anno);
+        $numAutomezzi = max(count($automezzi), 1);
+
+        // Recupero totali
         $totali = DB::table('costi_radio')
             ->where('idAnno', $anno)
             ->where('idAssociazione', $idAssociazione)
@@ -47,30 +64,31 @@ class CostiRadioController extends Controller {
 
         $rows = [];
 
-        // Riga totale (prima)
+        // Riga totale
         $rows[] = [
             'Targa' => 'TOTALE',
-            'ManutenzioneApparatiRadio' => round($totali->ManutenzioneApparatiRadio ?? 0, 2),
-            'MontaggioSmontaggioRadio118' => round($totali->MontaggioSmontaggioRadio118 ?? 0, 2),
-            'LocazionePonteRadio' => round($totali->LocazionePonteRadio ?? 0, 2),
-            'AmmortamentoImpiantiRadio' => round($totali->AmmortamentoImpiantiRadio ?? 0, 2),
-            'is_totale' => -1
+            'ManutenzioneApparatiRadio'     => round($totali->ManutenzioneApparatiRadio ?? 0, 2),
+            'MontaggioSmontaggioRadio118'   => round($totali->MontaggioSmontaggioRadio118 ?? 0, 2),
+            'LocazionePonteRadio'           => round($totali->LocazionePonteRadio ?? 0, 2),
+            'AmmortamentoImpiantiRadio'     => round($totali->AmmortamentoImpiantiRadio ?? 0, 2),
+            'is_totale'                     => -1,
         ];
 
-        // Righe automezzi
+        // Righe per ogni automezzo
         foreach ($automezzi as $a) {
-          
             $rows[] = [
                 'Targa' => $a->Targa,
-                'ManutenzioneApparatiRadio' => round(($totali->ManutenzioneApparatiRadio ?? 0) / $numAutomezzi, 2),
-                'MontaggioSmontaggioRadio118' => round(($totali->MontaggioSmontaggioRadio118 ?? 0) / $numAutomezzi, 2),
-                'LocazionePonteRadio' => round(($totali->LocazionePonteRadio ?? 0) / $numAutomezzi, 2),
-                'AmmortamentoImpiantiRadio' => round(($totali->AmmortamentoImpiantiRadio ?? 0) / $numAutomezzi, 2),
-                'is_totale' => 0
+                'ManutenzioneApparatiRadio'     => round(($totali->ManutenzioneApparatiRadio ?? 0) / $numAutomezzi, 2),
+                'MontaggioSmontaggioRadio118'   => round(($totali->MontaggioSmontaggioRadio118 ?? 0) / $numAutomezzi, 2),
+                'LocazionePonteRadio'           => round(($totali->LocazionePonteRadio ?? 0) / $numAutomezzi, 2),
+                'AmmortamentoImpiantiRadio'     => round(($totali->AmmortamentoImpiantiRadio ?? 0) / $numAutomezzi, 2),
+                'is_totale'                     => 0,
             ];
         }
+
         return response()->json(['data' => $rows]);
     }
+
 
     public function editTotale() {
         $anno = session('anno_riferimento', now()->year);

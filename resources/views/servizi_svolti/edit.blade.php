@@ -1,14 +1,20 @@
 @extends('layouts.app')
-
+@php
+  $assocCorr = \App\Models\Associazione::getById(session('associazione_selezionata', Auth::user()->IdAssociazione));
+@endphp
 @section('content')
 <div class="container">
-    <h1 class="container-title mb-4">
-        Modifica Servizi Svolti – {{ $automezzo->Automezzo }} ({{ $automezzo->Targa }}) – Anno {{ session('anno_riferimento') }}
-    </h1>
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="container-title">
+            Modifica Servizi Svolti – {{ $automezzo->Automezzo }} ({{ $automezzo->Targa }}) – Anno {{ session('anno_riferimento') }}
+        </h1>
+    </div>
+
 
     <form method="POST" action="{{ route('servizi-svolti.update', $automezzo->idAutomezzo) }}">
         @csrf
         @method('PUT')
+
         <div class="table-responsive">
             <table class="table table-bordered align-middle text-center">
                 <thead class="table-light">
@@ -20,8 +26,7 @@
                 <tbody>
                     @foreach($convenzioni as $conv)
                     @php
-                    $nServizi = $serviziEsistenti->get($conv->idConvenzione)?->NumeroServizi ?? 0;     
-                            
+                        $nServizi = $serviziEsistenti->get($conv->idConvenzione)?->NumeroServizi ?? 0;
                     @endphp
                     <tr>
                         <td>{{ $conv->Convenzione }}</td>

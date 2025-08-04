@@ -65,7 +65,20 @@ foreach ($configPersone as $key => $value) {
 
     @endif
   </div>
-
+@if($user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor']) || $isImpersonating)
+  <form method="POST" action="{{ route('sessione.setAssociazione') }}" class="mb-3 d-flex align-items-center gap-2">
+      @csrf
+      <label for="assocSelect" class="mb-0 fw-bold">Associazione:</label>
+      <select id="assocSelect" name="idAssociazione" class="form-select w-auto" onchange="this.form.submit()">
+          @foreach($associazioni as $assoc)
+              <option value="{{ $assoc->idAssociazione }}"
+                {{ session('associazione_selezionata') == $assoc->idAssociazione ? 'selected' : '' }}>
+                {{ $assoc->Associazione }}
+              </option>
+          @endforeach
+      </select>
+  </form>
+@endif
   @if(session('success'))
   <div class="alert alert-success">{{ session('success') }}</div>
   @endif

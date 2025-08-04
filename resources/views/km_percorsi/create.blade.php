@@ -6,6 +6,7 @@
 
   <form method="POST" action="{{ route('km-percorsi.store') }}">
     @csrf
+    <input type="hidden" name="idAssociazione" value="{{ $idAssociazione }}">
 
     <div class="mb-4">
       <label for="idAutomezzo" class="form-label">Automezzo</label>

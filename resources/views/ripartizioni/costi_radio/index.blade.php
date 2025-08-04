@@ -5,7 +5,24 @@
 
 @section('content')
 <div class="container-fluid">
-    <h1 class="container-title mb-4">Distinta Rilevazione Analitica Costi Radio</h1>
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="container-title mb-0">Distinta Rilevazione Analitica Costi Radio − Anno {{ $anno }}</h1>
+    </div>
+
+    @if(auth()->user()->hasAnyRole(['SuperAdmin','Admin','Supervisor']))
+        <div class="mb-3">
+            <form method="POST" action="{{ route('sessione.setAssociazione') }}">
+                @csrf
+                <select name="idAssociazione" class="form-select w-auto d-inline-block" onchange="this.form.submit()">
+                    @foreach($associazioni as $assoc)
+                        <option value="{{ $assoc->idAssociazione }}" {{ $assoc->idAssociazione == $idAssociazione ? 'selected' : '' }}>
+                            {{ $assoc->Associazione }}
+                        </option>
+                    @endforeach
+                </select>
+            </form>
+        </div>
+    @endif
 
     @if (session('success'))
     <div class="alert alert-success">{{ session('success') }}</div>
@@ -23,6 +40,7 @@
             <i class="fas fa-edit me-1"></i> Modifica Totali a Bilancio
         </a>
     </div>
+    
 
     <div class="card-anpas">
         <div class="card-body">

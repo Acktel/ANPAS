@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Automezzo;
 use App\Models\Convenzione;
 use App\Models\AutomezzoKm;
+use App\Models\Dipendente;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -13,34 +14,48 @@ class KmPercorsiController extends Controller {
     /**
      * Mostra la vista principale con intestazioni dinamiche.
      */
-    public function index() {
+    public function index(Request $request) {
         $anno = session('anno_riferimento', now()->year);
         $user = Auth::user();
+        $isImpersonating = session()->has('impersonate');
 
-        $convenzioni = Convenzione::getByAnno($anno, $user);
+        $selectedAssoc = session('associazione_selezionata', $user->IdAssociazione);
+        $associazioni = Dipendente::getAssociazioni($user, $isImpersonating);
 
-        return view('km_percorsi.index', compact('anno', 'convenzioni'));
+        $convenzioni = Convenzione::getByAnno($anno, $user, $selectedAssoc);
+
+        return view('km_percorsi.index', compact('anno', 'convenzioni', 'associazioni', 'selectedAssoc'));
     }
 
     /**
      * Restituisce i dati per DataTables, pivotati per convenzione.
      */
-    public function getData() {
+    public function getData(Request $request) {
         $user = Auth::user();
-
-        /*if (session()->has('impersonate')) {
-            $user = User::find(session('impersonate'));
-        }*/
-
         $anno = session('anno_riferimento', now()->year);
 
-        
-        $automezzi = $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])
-            ? Automezzo::getAll($anno)
-            : Automezzo::getByAssociazione($user->IdAssociazione, $anno);
+        // Recupera l'associazione da query o sessione
+        $idAssociazione = $request->query('idAssociazione')
+            ?? session('associazione_selezionata')
+            ?? $user->IdAssociazione;
 
-        $convenzioni = Convenzione::getByAnno($anno, $user)->sortBy('idConvenzione')->values();
-        $kmData = AutomezzoKm::getGroupedByAutomezzoAndConvenzione($anno, $user);
+        // Se l'utente NON ha ruoli alti, forziamo la sua associazione
+        if (!$user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])) {
+            $idAssociazione = $user->IdAssociazione;
+        }
+
+        // Dati filtrati per associazione
+        $automezzi = Automezzo::getByAssociazione($idAssociazione, $anno);
+        $convenzioni = Convenzione::getByAnno($anno, $user)
+            ->where('idAssociazione', $idAssociazione)
+            ->sortBy('idConvenzione')
+            ->values();
+        $kmData = AutomezzoKm::getGroupedByAutomezzoAndConvenzione($anno, $user)
+            ->filter(function ($group, $key) use ($automezzi) {
+                // filtro i dati per i soli automezzi validi (in caso di dati sporchi)
+                [$idAutomezzo,] = explode('-', $key);
+                return $automezzi->pluck('idAutomezzo')->contains((int) $idAutomezzo);
+            });
 
         $labels = [];
         foreach ($convenzioni as $c) {
@@ -48,8 +63,6 @@ class KmPercorsiController extends Controller {
         }
 
         $rows = [];
-
-        // Riga totale inizializzata
         $totali = [
             'idAutomezzo' => null,
             'Automezzo' => 'TOTALE',
@@ -78,7 +91,6 @@ class KmPercorsiController extends Controller {
                 'Totale' => $totKm,
                 'is_totale' => 0
             ];
-
             $totali['Totale'] += $totKm;
 
             foreach ($convenzioni as $c) {
@@ -101,7 +113,8 @@ class KmPercorsiController extends Controller {
 
             $rows[] = $riga;
         }
-        // Calcolo percentuali totali per ogni convenzione, con correzione finale
+
+        // Calcola percentuali totali
         $percentSum = 0;
         $lastIndex = count($convenzioni) - 1;
         foreach ($convenzioni as $i => $c) {
@@ -117,16 +130,18 @@ class KmPercorsiController extends Controller {
             }
         }
 
-        $rows[] = $totali;  
+        $rows[] = $totali;
+
         return response()->json([
             'data' => $rows,
             'labels' => $labels
         ]);
     }
 
+
     public function edit(int $id) {
         $user = Auth::user();
-        
+
         $anno = session('anno_riferimento', now()->year);
         $automezzo = Automezzo::getById($id, $anno);
 
@@ -137,14 +152,28 @@ class KmPercorsiController extends Controller {
     }
 
     public function create() {
-        $user =  Auth::user();
+        $user = Auth::user();
         $anno = session('anno_riferimento', now()->year);
-     
-        $automezzi = Automezzo::getLightForAnno($anno, ($user->isSuperAdmin() || $user->isAdmin()) ? null : $user->IdAssociazione);
-        $convenzioni = Convenzione::getByAnno($anno, $user)->sortBy('idConvenzione')->values();
 
-        return view('km_percorsi.create', compact('automezzi', 'convenzioni'));
+        // Associazione da sessione o fallback su quella dell’utente
+        $idAssociazione = session('associazione_selezionata') ?? $user->IdAssociazione;
+        
+        // Se non hai i privilegi, forzi comunque l’associazione utente
+        if (!$user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])) {
+            $idAssociazione = $user->IdAssociazione;
+        }
+
+        // Automezzi filtrati per anno e associazione (null = tutte se admin)
+        $automezzi = Automezzo::getLightForAnno($anno, $user->hasAnyRole(['SuperAdmin', 'Admin']) ? null : $idAssociazione);
+
+        // Convenzioni correttamente filtrate per associazione + anno
+        $convenzioni = Convenzione::getByAssociazioneAnno($idAssociazione, $anno)
+            ->sortBy('idConvenzione')
+            ->values();
+
+        return view('km_percorsi.create', compact('automezzi', 'convenzioni', 'idAssociazione'));
     }
+
 
     public function store(Request $request) {
         $request->validate([

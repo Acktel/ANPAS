@@ -3,7 +3,7 @@
 @php
   $user = Auth::user();
   $isImpersonating = session()->has('impersonate');
-
+$assoCorr = $associazioni->firstWhere('idAssociazione', $dipendente->idAssociazione);
   // Valori selezionati
   $qualificheSelezionate = old('Qualifica', $qualificheAttuali ?? []);
   $livelliSelezionati = old('LivelloMansione', \App\Models\Dipendente::getLivelliMansioneByDipendente($dipendente->idDipendente ) ?? []);
@@ -30,29 +30,12 @@
         @method('PUT')
 
         {{-- Associazione e Anno --}}
-        <div class="row mb-3">
-          @if (! $isImpersonating && $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor']))
-            <div class="col-md-6 mb-3">
-              <label for="idAssociazione" class="form-label">Associazione</label>
-              <select name="idAssociazione" id="idAssociazione" class="form-select" required>
-                @foreach($associazioni as $asso)
-                  <option value="{{ $asso->idAssociazione }}"
-                    {{ old('idAssociazione', $dipendente->idAssociazione) == $asso->idAssociazione ? 'selected' : '' }}>
-                    {{ $asso->Associazione }}
-                  </option>
-                @endforeach
-              </select>
-            </div>
-          @else
-            @php
-              $assoCorr = $associazioni->firstWhere('idAssociazione', $dipendente->idAssociazione);
-            @endphp
-            <div class="col-md-6 mb-3">
-              <label class="form-label">Associazione</label>
-              <input type="text" class="form-control" value="{{ $assoCorr->Associazione }}" readonly>
-              <input type="hidden" name="idAssociazione" value="{{ $assoCorr->idAssociazione }}">
-            </div>
-          @endif
+          <div class="col-md-6 mb-3">
+            <label class="form-label">Associazione</label>
+            <input type="text" class="form-control" value="{{ $assoCorr->Associazione }}" readonly>
+            <input type="hidden" name="idAssociazione" value="{{ $assoCorr->idAssociazione }}">
+          </div>
+
 
           <div class="col-md-6 mb-3">
             <label for="idAnno" class="form-label">Anno</label>

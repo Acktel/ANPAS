@@ -11,7 +11,8 @@ use Illuminate\Support\Facades\Auth;
 class Automezzo {
     protected const TABLE = 'automezzi';
 
-    public static function getAll(?int $anno = null): Collection {
+    public static function getAll(?int $anno = null): Collection
+    {
         $anno = $anno ?? session('anno_riferimento', now()->year);
 
         return DB::table('automezzi as a')
@@ -153,7 +154,16 @@ class Automezzo {
             ->get();
     }
 
-    public static function getForDataTable(int $anno, ?User $user): Collection {
+    /**
+     * Recupera dati per DataTables filtrati per anno e associazione.
+     * Il filter $assocId è già determinato dal controller in base ai ruoli.
+     *
+     * @param int $anno
+     * @param int|null $assocId
+     * @return Collection
+     */
+    public static function getForDataTable(int $anno, ?int $assocId): Collection
+    {
         $query = DB::table('automezzi as a')
             ->join('associazioni as ass', 'ass.idAssociazione', '=', 'a.idAssociazione')
             ->leftJoin('automezzi_km_riferimento as km', function ($join) use ($anno) {
@@ -164,11 +174,11 @@ class Automezzo {
             ->leftJoin('fuel_types as ft', 'a.idTipoCarburante', '=', 'ft.id')
             ->where('a.idAnno', $anno);
 
-        if (!$user || (!$user->isSuperAdmin() && !$user->isAdmin())) {
-            $query->where('a.idAssociazione', $user->IdAssociazione);
+        if ($assocId) {
+            $query->where('a.idAssociazione', $assocId);
         }
 
-        return $query->select([
+        $rows = $query->select([
             'a.idAutomezzo',
             'ass.Associazione',
             'a.idAnno',
@@ -184,10 +194,14 @@ class Automezzo {
             'ft.nome as TipoCarburante',
             'a.DataUltimaAutorizzazioneSanitaria',
             'a.DataUltimoCollaudo',
-        ])->get()->map(function ($row) {
+        ])
+        ->get()
+        ->map(function ($row) {
             $row->Azioni = view('partials.actions_automezzo', ['id' => $row->idAutomezzo])->render();
             return $row;
         });
+
+        return $rows;
     }
 
     public static function getLightForAnno(int $anno, ?int $idAssociazione = null): Collection {

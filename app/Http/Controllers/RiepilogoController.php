@@ -14,7 +14,7 @@ class RiepilogoController extends Controller
         $associazioni = DB::table('associazioni')
             ->select('idAssociazione', 'Associazione')
             ->whereNull('deleted_at')
-            ->whereNot("idAssociazione", 1) 
+            ->where('idAssociazione', '!=', 1)
             ->orderBy('Associazione')
             ->get();
 
@@ -48,14 +48,20 @@ class RiepilogoController extends Controller
                 $validated['idAnno']
             );
             if (!empty($validated['riep_descrizione'])) {
-                foreach ($validated['riep_descrizione'] as $i => $descr) {                  
-           
+                foreach ($validated['riep_descrizione'] as $i => $descr) {
                     if (trim($descr) === '') continue;
 
                     $prev = $validated['riep_preventivo'][$i] ?? 0;
                     $cons = $validated['riep_consuntivo'][$i] ?? 0;
                     $idTipologia = 1;
-                    Riepilogo::addDato($idRiepilogo, $descr, (float) $prev, (float) $cons, $idTipologia, $validated['idAnno']);
+                    Riepilogo::addDato(
+                        $idRiepilogo,
+                        $descr,
+                        (float) $prev,
+                        (float) $cons,
+                        $idTipologia,
+                        $validated['idAnno']
+                    );
                 }
             }
 
@@ -71,24 +77,26 @@ class RiepilogoController extends Controller
         }
     }
 
-    public function index()
+    public function index(Request $request)
     {
         $user = Auth::user();
         $anno = session('anno_riferimento', now()->year);
 
+        $associazioni = collect();
         if ($user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])) {
-            $riepiloghi = Riepilogo::getAllForAdmin($anno);
+            $associazioni = DB::table('associazioni')
+                ->select('idAssociazione', 'Associazione')
+                ->whereNull('deleted_at')
+                ->where('idAssociazione', '!=', 1)
+                ->orderBy('Associazione')
+                ->get();
+            $selectedAssoc = $request->get('idAssociazione')
+                ?? ($associazioni->first()->idAssociazione ?? null);
         } else {
-            $idAssociazione = $user->IdAssociazione ?? null;
-
-            if (!$idAssociazione) {
-                abort(403, "Associazione non trovata per l'utente.");
-            }
-
-            $riepiloghi = Riepilogo::getByAssociazione($idAssociazione, $anno);
+            $selectedAssoc = $user->IdAssociazione;
         }
 
-        return view('riepiloghi.index', compact('riepiloghi'));
+        return view('riepiloghi.index', compact('associazioni', 'selectedAssoc', 'anno'));
     }
 
     public function show(Riepilogo $riepilogo)
@@ -102,7 +110,7 @@ class RiepilogoController extends Controller
         $associazioni = DB::table('associazioni')
             ->select('idAssociazione', 'Associazione')
             ->whereNull('deleted_at')
-            ->whereNot("idAssociazione", 1) 
+            ->where('idAssociazione', '!=', 1)
             ->orderBy('Associazione')
             ->get();
 
@@ -147,7 +155,14 @@ class RiepilogoController extends Controller
                     $prev = $validated['riep_preventivo'][$i] ?? 0;
                     $cons = $validated['riep_consuntivo'][$i] ?? 0;
                     $idTipologia = 1;
-                    Riepilogo::addDato($riepilogo->idRiepilogo, $descr, (float) $prev, (float) $cons,   $idTipologia ,  $validated['idAnno']);
+                    Riepilogo::addDato(
+                        $riepilogo->idRiepilogo,
+                        $descr,
+                        (float) $prev,
+                        (float) $cons,
+                        $idTipologia,
+                        $validated['idAnno']
+                    );
                 }
             }
         });
@@ -167,13 +182,13 @@ class RiepilogoController extends Controller
             ->with('success', 'Riepilogo eliminato correttamente.');
     }
 
-    public function getData()
+    public function getData(Request $request)
     {
         $user = Auth::user();
         $anno = session('anno_riferimento', now()->year);
 
         $q = DB::table('riepiloghi as r')
-            ->join('associazioni as s', 'r.idAssociazione', '=', 's.IdAssociazione')
+            ->join('associazioni as s', 'r.idAssociazione', '=', 's.idAssociazione')
             ->join('anni as a', 'r.idAnno', '=', 'a.idAnno')
             ->join('riepilogo_dati as d', 'r.idRiepilogo', '=', 'd.idRiepilogo')
             ->where('r.idAnno', $anno)
@@ -189,14 +204,16 @@ class RiepilogoController extends Controller
             ->orderBy('s.Associazione')
             ->orderBy('r.idAnno', 'desc');
 
-        if (!$user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])) {
-            $idAssociazione = $user->IdAssociazione ?? null;
-          
-            if (!$idAssociazione) {
-                return response()->json(['data' => []]); // niente datidd
+        if ($user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])) {
+            $assocId = $request->get('idAssociazione');
+            if ($assocId) {
+                $q->where('r.idAssociazione', $assocId);
             }
+        } else {
+            $idAssociazione = $user->IdAssociazione;
             $q->where('r.idAssociazione', $idAssociazione);
         }
+
         return response()->json(['data' => $q->get()]);
     }
 }

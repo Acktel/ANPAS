@@ -62,7 +62,8 @@ Route::middleware(['auth'])->group(function () {
      Route::get('/get-automezzi/{idAssociazione}', [AutomezziController::class, 'getByAssociazione'])
           ->name('get.automezzi');
 
-
+     Route::post('/automezzi/set-associazione', [AutomezziController::class, 'setAssociazioneSelezionata'])
+          ->name('automezzi.setAssociazione');
      // 📦 CRUD automezzi
      Route::resource('automezzi', AutomezziController::class);
 });
