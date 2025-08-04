@@ -104,7 +104,7 @@ foreach ($configVeicoli as $key => $value) {
             <th>Km Totali</th>
             <th>Carburante</th>
             <th>Ult. Aut. Sanitaria</th>
-            <th>Ult. Collaudo</th>
+            <th>Ult. Revisione</th>
             <th>Azioni</th>
           </tr>
         </thead>
@@ -161,8 +161,20 @@ foreach ($configVeicoli as $key => $value) {
         { data: 'KmRiferimento' },
         { data: 'KmTotali' },
         { data: 'TipoCarburante' },
-        { data: 'DataUltimaAutorizzazioneSanitaria' },
-        { data: 'DataUltimoCollaudo' },
+        { data: 'DataUltimaAutorizzazioneSanitaria',
+              render: function (data) {
+                if (!data) return '';
+                const date = new Date(data);
+                return `${String(date.getDate()).padStart(2, '0')}-${String(date.getMonth() + 1).padStart(2, '0')}-${date.getFullYear()}`;
+              }
+         },
+        { data: 'DataUltimoCollaudo',
+              render: function (data) {
+                if (!data) return '';
+                const date = new Date(data);
+                return `${String(date.getDate()).padStart(2, '0')}-${String(date.getMonth() + 1).padStart(2, '0')}-${date.getFullYear()}`;
+              }
+         },
         { data: 'Azioni', orderable: false, searchable: false, className: 'actions col-actions text-center' }
       ],
       language: {

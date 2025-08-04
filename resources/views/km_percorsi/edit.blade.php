@@ -32,6 +32,9 @@
                                 min="0"
                                 name="km[{{ $conv->idConvenzione }}]"
                                 class="form-control text-end"
+                                pattern="^\d+(,\d{0,2})?$"
+                                inputmode="decimal"
+                                onkeydown="if(event.key === '.') event.preventDefault();"
                                 value="{{ $km }}">
                         </td>
                     </tr>
