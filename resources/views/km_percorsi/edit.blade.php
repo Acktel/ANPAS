@@ -41,9 +41,7 @@
         </div>
 
         <div class="mt-4 d-flex justify-content-between">
-            <a href="{{ route('km-percorsi.index') }}" class="btn btn-secondary">
-                <i class="fas fa-arrow-left me-1"></i> Indietro
-            </a>
+            <a href="{{ route('km-percorsi.index') }}" class="btn btn-secondary"> <i class="fas fa-times me-1"></i>Annulla</a>
             <button type="submit" class="btn btn-success">
                 <i class="fas fa-save me-1"></i> Salva
             </button>

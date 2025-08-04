@@ -43,4 +43,5 @@ Route::middleware(['auth'])->group(function () {
     Route::delete('/riepiloghi/{riepilogo}', [RiepilogoController::class, 'destroy'])
         ->whereNumber('riepilogo')
         ->name('riepiloghi.destroy');
+    
 });

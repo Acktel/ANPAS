@@ -11,7 +11,7 @@ $assocCorr = 'Anpas Nazionale';
 
 <nav class="anpas-topbar">
     <div class="topbar-logo">
-        <a href="{{ route('dashboard') }}">
+        <a href="{{ route(name: 'dashboard') }}">
             <img src="{{ asset('images/logo.png') }}" alt="ANPAS" height="60">
         </a>
     </div>

@@ -32,16 +32,38 @@ class RipartizioneCostiAutomezziSanitariController extends Controller {
         return response()->json(['data' => $dati]);
     }
 
-    public function getTabellaFinale(Request $request) {
-        $anno = session('anno_riferimento', now()->year);
-        $user = Auth::user();
+public function getTabellaFinale(Request $request) {
+    $anno = session('anno_riferimento', now()->year);
+    $user = Auth::user();
 
-        $idAssociazione = $user->IdAssociazione;
-        if ($user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor']) && $request->filled('idAssociazione')) {
-            $idAssociazione = $request->input('idAssociazione');
-        }
-        $tabella = RipartizioneCostiService::calcolaRipartizioneTabellaFinale($idAssociazione, $anno, $request->idAutomezzo);
-
-        return response()->json(['data' => $tabella]);
+    $idAssociazione = $user->IdAssociazione;
+    if ($user->hasAnyRole(['SuperAdmin','Admin','Supervisor'])
+        && $request->filled('idAssociazione')) {
+        $idAssociazione = $request->input('idAssociazione');
     }
+
+    // recupera i nomi delle convenzioni in ordine
+    $convenzioni = DB::table('convenzioni')
+        ->where('idAssociazione', $idAssociazione)
+        ->where('idAnno', $anno)
+        ->pluck('Convenzione')
+        ->toArray();
+
+    // calcola la tabella
+    $tabella = RipartizioneCostiService::calcolaRipartizioneTabellaFinale(
+        $idAssociazione, $anno, $request->input('idAutomezzo')
+    );
+
+    // costruisci l’array colonne
+    $colonne = array_merge(
+      ['voce','totale'],
+      $convenzioni
+    );
+
+    return response()->json([
+      'data'    => $tabella,
+      'colonne' => $colonne,
+    ]);
+}
+
 }

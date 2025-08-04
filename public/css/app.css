@@ -623,6 +623,15 @@ input#dt-search-0:active{
   padding-bottom: 100px;
 }
 
+
+/* zebra striping per la classe .table-striped-anpas */
+.table-striped-anpas tbody tr.odd {
+  background-color: rgba(0, 133, 62, 0.05) !important;
+}
+.table-striped-anpas tbody tr.even {
+  background-color: #ffffff !important;
+}
+
 /*!
  * Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com
  * License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License)

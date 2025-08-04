@@ -554,3 +554,12 @@ input#dt-search-0:active{
 .card-anpas {
   padding-bottom: 100px;
 }
+
+
+/* zebra striping per la classe .table-striped-anpas */
+.table-striped-anpas tbody tr.odd {
+  background-color: rgba(0, 133, 62, 0.05) !important;
+}
+.table-striped-anpas tbody tr.even {
+  background-color: #ffffff !important;
+}

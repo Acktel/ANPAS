@@ -30,7 +30,7 @@
 
     <div class="card-anpas">
         <div class="card-body">
-            <table id="materialeSanitarioTable" class="common-css-dataTable table table-hover table-bordered w-100 table-striped-anpas">
+            <table id="materialeSanitarioTable" class="common-css-dataTable table table-hover table-striped-anpas table-bordered dt-responsive nowrap w-100 mb-0 text-center align-middle">
                 <thead class="thead-anpas text-center">
                     <tr>
                         <th>Targa</th>
@@ -56,6 +56,7 @@
             paging: false,
             searching: false,
             ordering: true,
+            stripeClasses: ['odd', 'even'],
             order: [
                 [5, 'asc']
             ], // is_totale
@@ -86,10 +87,11 @@
                     searchable: false
                 }
             ],
-            rowCallback: function(row, data) {
+            rowCallback: function(row, data,index) {
                 if (data.is_totale === -1) {
                     $(row).addClass('table-warning fw-bold');
                 }
+                 $(row).removeClass('even odd').addClass(index % 2 === 0 ? 'even' :'odd');
             },
             language: {
                 url: '/js/i18n/Italian.json'

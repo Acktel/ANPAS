@@ -59,6 +59,7 @@
             order: [[5, 'asc']], // is_totale
             orderFixed: [[5, 'asc']],
             info: false,
+            stripeClasses: ['odd', 'even'],
             columns: [
                 { data: 'Targa' },
                 { data: 'n_servizi', className: 'text-end' },
@@ -74,10 +75,11 @@
                 },
                 { data: 'is_totale', visible: false, searchable: false }
             ],
-            rowCallback: function(row, data) {
+            rowCallback: function(row, data,index) {
                 if (data.is_totale === -1) {
                     $(row).addClass('table-warning fw-bold');
                 }
+                $(row).removeClass('even odd').addClass(index % 2 === 0 ? 'even' :'odd');
             },
             language: {
                 url: '/js/i18n/Italian.json'

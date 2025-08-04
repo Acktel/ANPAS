@@ -89,14 +89,7 @@ $(async function () {
         </a>
         <a href="/ripartizioni/personale/${row.idDipendente}/edit" class="btn btn-sm btn-warning me-1 btn-icon" title="Modifica">
           <i class="fas fa-edit"></i>
-        </a>
-        <form method="POST" action="/ripartizioni/personale/${row.idDipendente}" class="d-inline-block" onsubmit="return confirm('Confermi eliminazione?')">
-          <input type="hidden" name="_token" value="{{ csrf_token() }}">
-          <input type="hidden" name="_method" value="DELETE">
-          <button type="submit" class="btn btn-sm btn-danger btn-icon" title="Elimina">
-            <i class="fas fa-trash-alt"></i>
-          </button>
-        </form>
+        </a>        
       `;
     }
   });

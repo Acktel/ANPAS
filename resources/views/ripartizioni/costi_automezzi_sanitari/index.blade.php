@@ -37,7 +37,7 @@
     </div>
     @endif
 
-    <table id="tabellaCosti" class="table table-bordered table-striped w-100" style="display: none;">
+    <table id="tabellaCosti" class="table table-striped-anpas table-bordered w-100 text-center align-middle" style="display: none;">
         <thead>
             <tr id="headerFinale"></tr>
         </thead>
@@ -48,86 +48,113 @@
 @endsection
 @push('scripts')
 <script>
-function formatEuro(val) {
-    const num = parseFloat(val);
-    if (isNaN(num)) return '€ 0,00';
-    return '€ ' + num.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
+    document.addEventListener('DOMContentLoaded', function() {
+        // recuperiamo il CSRF token, se serve in futuro
+        const csrfToken = document.head.querySelector('meta[name="csrf-token"]')?.content;
 
-function caricaTabellaCosti(idAutomezzo) {
-    // Svuota tabella
-    $('#tabellaCosti thead tr#headerFinale').empty();
-    $('#tabellaCosti tbody').empty();
-    $('#tabellaCosti tfoot').empty();
-
-    $.get(`{{ route('ripartizioni.costi_automezzi_sanitari.tabellaFinale') }}?idAutomezzo=${idAutomezzo}`, function (data) {
-        let righe = data.data || [];
-
-        // Ricava sempre le colonne, anche se righe è vuoto
-        let colonne = [];
-        if (righe.length > 0) {
-            colonne = Object.keys(righe[0]);
-        } else if (data.colonne) {
-            // fallback: struttura fissa dal backend
-            colonne = data.colonne;
-        }
-
-        // Se ancora non ci sono colonne, non mostrare la tabella
-        if (colonne.length === 0) {
+        // se sei “elevato”, quando cambio associazione resetto l’automezzo e la tabella
+        @if($isElevato)
+        $('#selectAssociazione').on('change', function() {
+            $('#selectAutomezzo')
+                .prop('disabled', true)
+                .html('<option value="">-- Seleziona Automezzo --</option>');
             $('#tabellaCosti').hide();
-            return;
-        }
-
-        // Header
-        const headerHtml = colonne.map(col => `<th>${col.toUpperCase()}</th>`).join('');
-        $('#tabellaCosti thead tr#headerFinale').html(headerHtml);
-
-        // Se non ci sono righe, genera una riga vuota con zeri
-        if (righe.length === 0) {
-            const emptyRow = colonne.map(col => '<td>€ 0,00</td>').join('');
-            $('#tabellaCosti tbody').html(`<tr>${emptyRow}</tr>`);
-        } else {
-            const bodyHtml = righe.map(riga => {
-                return '<tr>' + colonne.map(col => {
-                    const val = riga[col];
-                    const isNumero = typeof val === 'number' || (!isNaN(val) && val !== '');
-                    const display = isNumero ? formatEuro(val) : (val ?? '-');
-                    return `<td>${display}</td>`;
-                }).join('') + '</tr>';
-            }).join('');
-            $('#tabellaCosti tbody').html(bodyHtml);
-        }
-
-        $('#tabellaCosti').show();
-    });
-}
-
-$(document).ready(function () {
-    @if($isElevato)
-    $('#selectAssociazione').on('change', function () {
-        const idAssociazione = $(this).val();
-        $('#selectAutomezzo').prop('disabled', true).html('<option value="">-- Seleziona Automezzo --</option>');
-        $('#tabellaCosti').hide();
-
-        if (!idAssociazione) return;
-
-        $.get('/get-automezzi/' + idAssociazione, function (data) {
-            data.forEach(auto => {
-                $('#selectAutomezzo').append(`<option value="${auto.id}">${auto.text}</option>`);
+            const idAss = $(this).val();
+            if (!idAss) return;
+            $.get('/get-automezzi/' + idAss, function(data) {
+                data.forEach(a => {
+                    $('#selectAutomezzo').append(
+                        `<option value="${a.id}">${a.text}</option>`
+                    );
+                });
+                $('#selectAutomezzo').prop('disabled', false);
             });
-            $('#selectAutomezzo').prop('disabled', false);
         });
-    });
-    @endif
+        @endif
 
-    $('#selectAutomezzo').on('change', function () {
-        const idAutomezzo = $(this).val();
-        if (idAutomezzo) {
+        // ad ogni selezione di automezzo carico la tabella
+        $('#selectAutomezzo').on('change', function() {
+            const idAutomezzo = $(this).val();
+            if (!idAutomezzo) {
+                $('#tabellaCosti').hide();
+                return;
+            }
             caricaTabellaCosti(idAutomezzo);
-        } else {
-            $('#tabellaCosti').hide();
+        });
+
+        function formatEuro(val) {
+            const num = parseFloat(val);
+            if (isNaN(num)) return '€ 0,00';
+            return '€ ' + num.toLocaleString('it-IT', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            });
+        }
+
+        function caricaTabellaCosti(idAutomezzo) {
+            // setto i parametri
+            const params = {
+                idAutomezzo: idAutomezzo
+            };
+            @if($isElevato)
+            params.idAssociazione = $('#selectAssociazione').val();
+            @endif
+
+            // chiamo il controller
+            $.get("{{ route('ripartizioni.costi_automezzi_sanitari.tabellaFinale') }}", params, function(res) {
+                const righe = res.data || [];
+                let colonne = [];
+
+                // se ho righe uso le chiavi del primo oggetto
+                if (righe.length) {
+                    colonne = Object.keys(righe[0]);
+                } else {
+                    // fallback: uso il ’colonne’ che ho passato da PHP
+                    colonne = res.colonne || [];
+                }
+
+                // se ancora non ci sono colonne non mostro nulla
+                if (!colonne.length) {
+                    $('#tabellaCosti').hide();
+                    return;
+                }
+
+                // costruisco l’header (uppercase)
+                const headerHtml = colonne
+                    .map(c => `<th>${c.toUpperCase()}</th>`)
+                    .join('');
+                $('#tabellaCosti thead tr#headerFinale')
+                    .html(headerHtml);
+
+                // costruisco il body (righe)
+                let bodyHtml = '';
+                if (!righe.length) {
+                    // riga di zeri
+                    const vuoti = colonne.map(_ => '€ 0,00').map(v => `<td>${v}</td>`).join('');
+                    bodyHtml = `<tr>${vuoti}</tr>`;
+                } else {
+                    bodyHtml = righe.map(riga => {
+                        return '<tr>' + colonne.map(col => {
+                            const v = riga[col];
+                            // se è numero lo formatto
+                            if (typeof v === 'number' || (!isNaN(v) && v !== '')) {
+                                return `<td class="text-end">${formatEuro(v)}</td>`;
+                            }
+                            // altrimenti testo o trattino
+                            return `<td>${(v||v===0)? v : '-'}</td>`;
+                        }).join('') + '</tr>';
+                    }).join('');
+                }
+                $('#tabellaCosti tbody').html(bodyHtml);
+                $('#tabellaCosti tbody tr').each(function(i) {
+                    // fila 0,2,4... = even (sfondo bianco), 1,3,5... = odd (verde chiaro)
+                    $(this)
+                        .removeClass('odd even')
+                        .addClass(i % 2 === 0 ? 'even' : 'odd');
+                });
+                $('#tabellaCosti').show();
+            });
         }
     });
-});
 </script>
 @endpush

@@ -7,10 +7,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use App\Models\Riepilogo;
 
-class RiepilogoController extends Controller
-{
-    public function create()
-    {
+class RiepilogoController extends Controller {
+    public function create() {
         $associazioni = DB::table('associazioni')
             ->select('idAssociazione', 'Associazione')
             ->whereNull('deleted_at')
@@ -26,8 +24,7 @@ class RiepilogoController extends Controller
         return view('riepiloghi.create', compact('associazioni', 'anni'));
     }
 
-    public function store(Request $request)
-    {
+    public function store(Request $request) {
         $rules = [
             'idAssociazione'      => 'required|exists:associazioni,idAssociazione',
             'idAnno'              => 'required|integer|min:2000|max:' . (date('Y') + 5),
@@ -68,7 +65,6 @@ class RiepilogoController extends Controller
             DB::commit();
             return redirect()->route('riepiloghi.index')
                 ->with('success', 'Riepilogo e convenzioni salvate correttamente.');
-
         } catch (\Throwable $e) {
             DB::rollBack();
             return redirect()->back()
@@ -77,8 +73,7 @@ class RiepilogoController extends Controller
         }
     }
 
-    public function index(Request $request)
-    {
+    public function index(Request $request) {
         $user = Auth::user();
         $anno = session('anno_riferimento', now()->year);
 
@@ -99,14 +94,12 @@ class RiepilogoController extends Controller
         return view('riepiloghi.index', compact('associazioni', 'selectedAssoc', 'anno'));
     }
 
-    public function show(Riepilogo $riepilogo)
-    {
+    public function show(Riepilogo $riepilogo) {
         $dati = Riepilogo::getDati($riepilogo->idRiepilogo);
         return view('riepiloghi.show', compact('riepilogo', 'dati'));
     }
 
-    public function edit(Riepilogo $riepilogo)
-    {
+    public function edit(Riepilogo $riepilogo) {
         $associazioni = DB::table('associazioni')
             ->select('idAssociazione', 'Associazione')
             ->whereNull('deleted_at')
@@ -124,8 +117,7 @@ class RiepilogoController extends Controller
         return view('riepiloghi.edit', compact('riepilogo', 'associazioni', 'anni', 'dati'));
     }
 
-    public function update(Request $request, Riepilogo $riepilogo)
-    {
+    public function update(Request $request, Riepilogo $riepilogo) {
         $rules = [
             'idAssociazione'      => 'required|exists:associazioni,idAssociazione',
             'idAnno'              => 'required|integer|min:2000|max:' . (date('Y') + 5),
@@ -171,19 +163,35 @@ class RiepilogoController extends Controller
             ->with('success', 'Riepilogo aggiornato correttamente.');
     }
 
-    public function destroy(Riepilogo $riepilogo)
-    {
+    public function destroy(Request $request, Riepilogo $riepilogo) {
+        // se arriva un dato_id, cancella solo quella riga
+        if ($request->filled('dato_id')) {
+            $datoId = $request->input('dato_id');
+            DB::table('riepilogo_dati')
+                ->where('id', $datoId)
+                ->delete();
+
+            return back()->with('success', 'Voce eliminata correttamente.');
+        }
+        // altrimenti elimini l’intero riepilogo + tutti i suoi dati
         DB::transaction(function () use ($riepilogo) {
-            Riepilogo::deleteDati($riepilogo->idRiepilogo);
-            Riepilogo::deleteRiepilogo($riepilogo->idRiepilogo);
+            // cancella prima i dati
+            DB::table('riepilogo_dati')
+                ->where('idRiepilogo', $riepilogo->idRiepilogo)
+                ->delete();
+
+            // poi il riepilogo padre
+            DB::table('riepiloghi')
+                ->where('idRiepilogo', $riepilogo->idRiepilogo)
+                ->delete();
         });
 
-        return redirect()->route('riepiloghi.index')
+        return redirect()
+            ->route('riepiloghi.index')
             ->with('success', 'Riepilogo eliminato correttamente.');
     }
 
-    public function getData(Request $request)
-    {
+    public function getData(Request $request) {
         $user = Auth::user();
         $anno = session('anno_riferimento', now()->year);
 
@@ -197,6 +205,7 @@ class RiepilogoController extends Controller
                 'r.idAnno as anno',
                 'd.descrizione',
                 'r.idRiepilogo',
+                'd.id as dato_id',
                 'd.preventivo',
                 'd.consuntivo',
                 'r.idRiepilogo as actions_id',
