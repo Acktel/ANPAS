@@ -214,14 +214,14 @@ class DipendenteController extends Controller {
         // opzionale: se vuoi ancora aggiungere nomi delle qualifiche
         $qualificheMap = DB::table('dipendenti_qualifiche')
             ->join('qualifiche', 'dipendenti_qualifiche.idQualifica', '=', 'qualifiche.id')
+            ->where('qualifiche.nome', 'LIKE', '%AMMINISTRATIVO%')
             ->select('dipendenti_qualifiche.idDipendente', 'qualifiche.nome')
             ->get()
-            ->groupBy('idDipendente')
-            ->map(fn($items) => $items->pluck('nome')->toArray());
+            ->groupBy('idDipendente');
 
-        $dataset->transform(function ($d) use ($qualificheMap) {
+       $dataset->transform(function ($d) use ($qualificheMap) {
             $d->Qualifica = isset($qualificheMap[$d->idDipendente])
-                ? implode(', ', $qualificheMap[$d->idDipendente])
+                ? implode(', ', $qualificheMap[$d->idDipendente]->pluck('nome')->toArray())
                 : '';
             return $d;
         });
@@ -276,29 +276,23 @@ class DipendenteController extends Controller {
 
         $dipendenti = Dipendente::getByAssociazione($idAssociazione, $anno);
 
-        $qualificheMap = DB::table('dipendenti_qualifiche')
-            ->whereIn('idQualifica', $idQualificheAutisti)
-            ->select('idDipendente', 'idQualifica')
-            ->get()
-            ->groupBy('idDipendente');
-
-        $filtered = $dipendenti->filter(fn($d) => isset($qualificheMap[$d->idDipendente]));
-
         // Aggiunta nome delle qualifiche
-        $nomiQualificheMap = DB::table('dipendenti_qualifiche')
+        $qualificheMap = DB::table('dipendenti_qualifiche')
             ->join('qualifiche', 'dipendenti_qualifiche.idQualifica', '=', 'qualifiche.id')
+            ->where('qualifiche.nome', 'LIKE', '%AUTISTA%')
             ->select('dipendenti_qualifiche.idDipendente', 'qualifiche.nome')
             ->get()
-            ->groupBy('idDipendente')
-            ->map(fn($items) => $items->pluck('nome')->toArray());
+            ->groupBy('idDipendente');
+            
+        $filtered = $dipendenti->filter(fn($d) => isset($qualificheMap[$d->idDipendente]));
 
-        $filtered->transform(function ($d) use ($nomiQualificheMap) {
-            $d->Qualifica = isset($nomiQualificheMap[$d->idDipendente])
-                ? implode(', ', $nomiQualificheMap[$d->idDipendente])
+        $filtered->transform(function ($d) use ($qualificheMap) {
+            $d->Qualifica = isset($qualificheMap[$d->idDipendente])
+                ? implode(', ', $qualificheMap[$d->idDipendente]->pluck('nome')->toArray())
                 : '';
             return $d;
         });
-
+        
         return response()->json(['data' => $filtered->values()]);
     }
 

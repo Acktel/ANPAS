@@ -14,6 +14,7 @@
       @csrf
       <select id="assocSelect" name="idAssociazione" class="form-select" onchange="this.form.submit()">
         @foreach($associazioni as $assoc)
+          
           <option value="{{ $assoc->idAssociazione }}" {{ $assoc->idAssociazione == $selectedAssoc ? 'selected' : '' }}>
             {{ $assoc->Associazione }}
           </option>
@@ -38,33 +39,36 @@
   </div>
 </div>
 @endsection
-
 @push('scripts')
 <script>
 $(async function () {
   const selectedAssoc = document.getElementById('assocSelect')?.value || null;
   const res = await fetch("{{ route('ripartizioni.personale.data') }}" + (selectedAssoc ? `?idAssociazione=${selectedAssoc}` : ''));
-  const { data, labels } = await res.json();
+  let { data, labels } = await res.json();
   if (!data.length) return;
+
+  // Sposta la riga totale in fondo
+  const totaleRow = data.find(r => r.is_totale === -1);
+  data = data.filter(r => r.is_totale !== -1);
+  if (totaleRow) data.push(totaleRow);
 
   const table = $('#table-ripartizione');
 
-  const staticCols = [
-    { key: 'is_totale',    label: '',               hidden: true  },
+  const staticCols = [   
     { key: 'idDipendente', label: '',               hidden: true  },
     { key: 'Associazione', label: 'Associazione',   hidden: false },
     { key: 'FullName',     label: 'Dipendente',     hidden: false },
     { key: 'OreTotali',    label: 'Ore Totali',     hidden: false },
+    { key: 'is_totale',    label: '',               hidden: true  },
   ];
 
   const convenzioni = Object.keys(labels).sort((a,b) => parseInt(a.slice(1)) - parseInt(b.slice(1)));
 
-  let hMain = '', hSub = '', cols = [], visibleIndex = 0;
+  let hMain = '', hSub = '', cols = [];
 
   staticCols.forEach(col => {
     hMain += `<th rowspan="2"${col.hidden ? ' style="display:none"' : ''}>${col.label}</th>`;
     cols.push({ data: col.key, visible: !col.hidden });
-    if (!col.hidden) visibleIndex++;
   });
 
   convenzioni.forEach(key => {
@@ -72,7 +76,6 @@ $(async function () {
     hSub   += `<th>Ore Servizio</th><th>%</th>`;
     cols.push({ data: `${key}_ore`, defaultContent: 0 });
     cols.push({ data: `${key}_percent`, defaultContent: 0 });
-    visibleIndex += 2;
   });
 
   hMain += `<th rowspan="2">Azioni</th>`;
@@ -89,8 +92,7 @@ $(async function () {
         </a>
         <a href="/ripartizioni/personale/${row.idDipendente}/edit" class="btn btn-sm btn-warning me-1 btn-icon" title="Modifica">
           <i class="fas fa-edit"></i>
-        </a>        
-      `;
+        </a>`;
     }
   });
 
@@ -100,21 +102,16 @@ $(async function () {
   table.DataTable({
     data,
     columns: cols,
-    order: [[0, 'asc']],
-    orderFixed: [[0, 'asc']],
+    order: [],
     responsive: true,
     language: {
       url: '/js/i18n/Italian.json'
     },
     rowCallback: (rowEl, rowData, index) => {
       if (rowData.is_totale === -1) {
-        $(rowEl).addClass('fw-bold table-totalRow');
+        $(rowEl).addClass('table-warning fw-bold');
       }
-      if (index % 2 === 0) {
-        $(rowEl).removeClass('even').removeClass('odd').addClass('even');
-      } else {
-        $(rowEl).removeClass('even').removeClass('odd').addClass('odd');
-      }
+      $(rowEl).removeClass('even odd').addClass(index % 2 === 0 ? 'even' : 'odd');
     },
     stripeClasses: ['table-white', 'table-striped-anpas']
   });

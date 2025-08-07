@@ -161,12 +161,20 @@ class RipartizioneCostiService {
 
     public static function calcolaRipartizioneTabellaFinale(int $idAssociazione, int $anno, int $idAutomezzo): array {
         $voci = [
-            'ASSICURAZIONI'                          => 'Assicurazione',
+            'LEASING/NOLEGGIO A LUNGO TERMINE'      => 'LeasingNoleggio',
+            'ASSICURAZIONI'                         => 'Assicurazione',
             'MANUTENZIONE ORDINARIA'                => 'ManutenzioneOrdinaria',
+            'MANUTENZIONE STRAORDINARIA AL NETTO RIMBORSI ASSICURATIVI'  => 'ManutenzioneStraordinaria',
+            'RIMBORSI ASSICURAZIONE'                => 'RimborsiAssicurazione',
+            'PULIZIA E DISINFEZIONE'                => 'PuliziaDisinfezione',
             'CARBURANTI AL NETTO RIMBORSI UTIF'     => 'Carburanti',
-            'ADDITIVI'                               => 'Additivi',
+            'ADDITIVI'                              => 'Additivi',
+            'INTERESSI PASS. F.TO, LEASING, NOL.'   => 'InteressiPassivi',
             'MANUTENZIONE ATTREZZATURA SANITARIA'   => 'ManutenzioneSanitaria',
+            'LEASING ATTREZZATURA SANITARIA'        => 'LeasingSanitaria',
+            'AMMORTAMENTO AUTOMEZZI'                => 'AmmortamentoMezzi',
             'AMMORTAMENTO ATTREZZATURA SANITARIA'   => 'AmmortamentoSanitaria',
+            'ALTRI COSTI MEZZI'                     =>  'AltriCostiMezzi',
         ];
 
         // Convenzioni attive (per intestare le colonne)
@@ -237,5 +245,46 @@ class RipartizioneCostiService {
         }
 
         return $tabella;
+    }
+
+    public static function calcolaTabellaTotale(int $idAssociazione, int $anno): array {
+        $automezzi = DB::table('automezzi')
+            ->where('idAssociazione', $idAssociazione)
+            ->where('idAnno', $anno)
+            ->where('incluso_riparto', 1)
+            ->pluck('idAutomezzo');
+
+        // Ottieni le convenzioni una sola volta
+        $convenzioni = DB::table('convenzioni')
+            ->where('idAssociazione', $idAssociazione)
+            ->where('idAnno', $anno)
+            ->pluck('Convenzione', 'idConvenzione')
+            ->toArray();
+
+        $tabellaTotale = [];
+
+        foreach ($automezzi as $idAutomezzo) {
+            $tabella = self::calcolaRipartizioneTabellaFinale($idAssociazione, $anno, $idAutomezzo);
+
+            foreach ($tabella as $riga) {
+                $voce = $riga['voce'];
+
+                if (!isset($tabellaTotale[$voce])) {
+                    // inizializza tutte le colonne (incluso 'totale' e convenzioni) a 0
+                    $tabellaTotale[$voce] = ['voce' => $voce, 'totale' => 0];
+                    foreach ($convenzioni as $conv) {
+                        $tabellaTotale[$voce][$conv] = 0;
+                    }
+                }
+
+                // somma i valori
+                $tabellaTotale[$voce]['totale'] += floatval($riga['totale'] ?? 0);
+                foreach ($convenzioni as $conv) {
+                    $tabellaTotale[$voce][$conv] += floatval($riga[$conv] ?? 0);
+                }
+            }
+        }
+
+        return array_values($tabellaTotale);
     }
 }

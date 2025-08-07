@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\ConfigurazioneVeicoliController;
 use App\Http\Controllers\ConfigurazionePersonaleController;
+use App\Http\Controllers\ConfigurazioneLottiController;
 
 Route::middleware(['auth'])->prefix('configurazioni')->group(function () {
     // VEICOLI
@@ -22,4 +23,9 @@ Route::middleware(['auth'])->prefix('configurazioni')->group(function () {
     // LIVELLI MANSIONE
     Route::post('livelli', [ConfigurazionePersonaleController::class, 'storeLivelloMansione'])->name('configurazioni.livelli.store');
     Route::delete('livelli/{id}', [ConfigurazionePersonaleController::class, 'destroyLivelloMansione'])->name('configurazioni.livelli.destroy');
+
+    //AZIENDE SANITARIE
+    Route::get('aziende-sanitarie', [ConfigurazioneLottiController::class, 'index'])->name('configurazioni.aziende_sanitarie');
+    Route::post('aziende-sanitarie', [ConfigurazioneLottiController::class, 'store'])->name('configurazioni.aziende_sanitarie.store');
+    Route::delete('aziende-sanitarie/{id}', [ConfigurazioneLottiController::class, 'destroy'])->name('configurazioni.aziende_sanitarie.destroy');
 });

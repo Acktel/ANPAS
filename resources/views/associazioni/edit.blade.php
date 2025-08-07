@@ -47,7 +47,7 @@
             <div class="col-md-12 mb-3">
               <label for="indirizzo" class="form-label">Indirizzo</label>
               <input type="text" class="form-control" id="indirizzo" name="indirizzo"
-                    value="{{ old('indirizzo', $associazione->indirizzo) }}" required>
+                    value="{{ old('indirizzo', $associazione->indirizzo) }}">
             </div>
         </div>
 

@@ -87,14 +87,14 @@ $assocCorr = 'Anpas Nazionale';
                 @if(!session()->has('impersonate'))
                 <li class="nav-item"><a class="nav-link" href="{{ route('associazioni.index') }}">Associazioni</a></li>
                 <li class="nav-item"><a class="nav-link" href="{{ route('all-users.index') }}">Utenti</a></li>
+                <li class="nav-item"><a class="nav-link" href="{{ route('aziende-sanitarie.index') }}">Aziende Sanitarie</a></li>
                 @endif
                 <li class="nav-item"><a class="nav-link" href="{{ route('convenzioni.index') }}">Convenzioni</a></li>
                 @endcan
                 @can('manage-own-association')
                 <li class="nav-item"><a class="nav-link" href="{{ route('my-users.index') }}">Utenti</a></li>
                 @endcan
-                <li class="nav-item"><a class="nav-link" href="{{ route('automezzi.index') }}">Automezzi</a></li>
-                        
+                <li class="nav-item"><a class="nav-link" href="{{ route('automezzi.index') }}">Automezzi</a></li>                 
                 {{-- Dropdown Voci di bilancio --}}
                 <li class="nav-item dropdown dropdown-hover">
                     <a class="nav-link dropdown-toggle" href="#" id="riepiloghiDropdown" data-bs-toggle="dropdown" aria-expanded="false">
@@ -102,7 +102,7 @@ $assocCorr = 'Anpas Nazionale';
                     </a>
                     <ul class="dropdown-menu" aria-labelledby="riepiloghiDropdown">
                         <li><a class="dropdown-item" href="{{ route('riepiloghi.index') }}">Riepilogo dati caratteristici</a></li>
-                        <li><a class="dropdown-item" href="{{ route('riepilogo.costi') }}">Riepilogo Costi</a></li>
+                        <li><a class="dropdown-item" href="{{ route('riepilogo.costi') }}">Riepilogo Costi</a></li>                      
                         {{-- Sottomenu Schede di riparto costi --}}
                         <li class="dropdown-submenu">
                             <a class="dropdown-item dropdown-toggle" href="#">Schede di riparto costi</a>
@@ -154,12 +154,14 @@ $assocCorr = 'Anpas Nazionale';
                                         Ossigeno
                                     </a>
                                 </li>
-                            </ul>
-                        </li>
+                            </ul>                        
+                        </li>    
+                        <li><a class="dropdown-item" href="{{ route('distinta.imputazione.index') }}">Distinta imputazione costi</a></li>                         
                     </ul>
+                    
+                    
                 </li>
-
-                {{-- Dropdown Personale --}}
+               {{-- Dropdown Personale --}}
                 <li class="nav-item dropdown">
                     <a class="nav-link dropdown-toggle" href="#" id="personaleDropdown" data-bs-toggle="dropdown">Personale</a>
                     <ul class="dropdown-menu">
@@ -179,6 +181,7 @@ $assocCorr = 'Anpas Nazionale';
                     </ul>
                 </li>
                 @endauth
+
             </ul>
 
             {{-- User menu / Login --}}
@@ -193,7 +196,7 @@ $assocCorr = 'Anpas Nazionale';
                     <ul class="dropdown-menu dropdown-menu-end">
                         <li><a class="dropdown-item" href="{{ route('configurazioni.veicoli') }}">Veicoli</a></li>
                         <li><a class="dropdown-item" href="{{ route('configurazioni.personale') }}">Personale</a></li>
-                        <li><a class="dropdown-item" href="#">Altro</a></li>
+                        <li><a class="dropdown-item"  href="{{ route('configurazioni.aziende_sanitarie') }}">Aziende Sanitarie</a></li>
                     </ul>
                 </li>
                 <a class="nav-link dropdown-toggle" href="#" id="userMenu" data-bs-toggle="dropdown">

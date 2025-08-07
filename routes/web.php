@@ -67,4 +67,6 @@ Route::middleware('auth')->group(function () {
     require __DIR__ . '/configurazioni.php';
     require __DIR__ . '/rapportiRicavi.php';
     require __DIR__ . '/ripartizioni.php';
+    require __DIR__ . '/aziendeSanitarie.php';
+    require __DIR__ . '/distintaImputazioneCosti.php';
 });
