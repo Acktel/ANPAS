@@ -300,13 +300,13 @@ h1.fw-bolder {
 }
 
 /* Header table: verde chiaro opacità 15% */
-.thead-anpas th {
-  background-color: rgba(0, 133, 62, 0.15) !important;
-  color: var(--anpas-green) !important;
+/* .thead-anpas th { */
+  /* background-color: rgba(0, 133, 62, 0.15) !important; */
+  /* color: var(--anpas-green) !important; */
   /* rimuovo bordi verticali e lascio solo bottom verde */
-  border-left: none !important;
-  border-right: none !important;
-}
+  /* border-left: none !important; */
+  /* border-right: none !important; */
+/* } */
 
 /* Zebra‐striping: righe alternate più tenue */
 .table-striped-anpas,
@@ -383,9 +383,33 @@ tr.even {
 .thead-anpas th {
   background-color: rgba(0, 133, 62, 0.15) !important;
   color: var(--anpas-green) !important;
-  border-left: none !important;
-  border-right: none !important;
+  border-left: 0.5px solid !important;
+  border-right: 0.5px solid !important;
+  /* border-bottom: 0.5px solid !important; */
 }
+
+.border-bottom-special {
+  color: var(--anpas-green) !important;
+  border-bottom: 2px solid !important;
+  border-left: 2px solid !important;
+  border-right: 2px solid !important;
+}
+
+/* .border-sides-special {
+  color: var(--anpas-green) !important;
+  border-left: 1px solid !important;
+  border-right: 1px solid !important;
+} */
+
+/* #header-main th[colspan]:not([rowspan]) {
+  border-bottom: 2px solid !important;
+} */
+
+/* .table-custom-bordered th,
+.table-custom-bordered td {
+  border: 1px solid #ccc;
+  padding: 8px;
+} */
 
 /* Zebra striping */
 .table-striped-anpas:nth-of-type(odd) {

@@ -50,19 +50,28 @@
 <script>
     $(function() {
         $('#materialeSanitarioTable').DataTable({
-            ajax: '{{ route("imputazioni.materiale_sanitario.getData") }}',
+            // '{{ route("imputazioni.materiale_sanitario.getData") }}',
+            ajax: {
+    url: '{{ route("imputazioni.materiale_sanitario.getData") }}',
+    dataSrc: function(res) {
+        let data = res.data || [];
+
+        // Sposta la riga "TOTALE" in fondo
+        const totaleRow = data.find(r => r.is_totale === -1);
+        data = data.filter(r => r.is_totale !== -1);
+        if (totaleRow) data.push(totaleRow);
+
+        return data;
+    }
+},
             processing: true,
             serverSide: false,
             paging: false,
             searching: false,
             ordering: true,
             stripeClasses: ['odd', 'even'],
-            order: [
-                [5, 'asc']
-            ], // is_totale
-            orderFixed: [
-                [5, 'asc']
-            ],
+            //cambiato da 5 a 4 per metterlo in cima
+            order: [], // is_totale
             info: false,
             columns: [{
                     data: 'Targa'

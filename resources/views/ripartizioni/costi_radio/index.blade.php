@@ -67,15 +67,27 @@
     $(function() {
 
         $('#costiRadioTable').DataTable({
-            ajax: '{{ route("ripartizioni.costi_radio.getData") }}',
+            ajax: {
+    url: '{{ route("ripartizioni.costi_radio.getData") }}',
+    dataSrc: function(res) {
+        let data = res.data || [];
+
+        // Sposta la riga "TOTALE" in fondo
+        const totaleRow = data.find(r => r.is_totale === -1);
+        data = data.filter(r => r.is_totale !== -1);
+        if (totaleRow) data.push(totaleRow);
+
+        return data;
+    }
+},
             processing: true,
             serverSide: false,
             paging: false,
             searching: false,
             ordering: true,
-            order: [[6, 'asc']], // is_totale
-            orderFixed: [[6, 'asc']],
+            order: [], // is_totale
             info: false,
+            stripeClasses: ['odd', 'even'],
             columns: [
                 { data: 'Targa', title: 'Automezzo' },
                 { data: 'ManutenzioneApparatiRadio', className: 'text-end' },
@@ -87,17 +99,20 @@
                     className: 'text-center',
                     render: function(row) {
                         return (row.is_totale === -1)
-                            ? `<a href="{{ route('ripartizioni.costi_radio.editTotale') }}" class="btn btn-sm btn-anpas-edit"><i class="fas fa-edit"></i></a>`
+                            ? `<a href="{{ route('ripartizioni.costi_radio.editTotale') }}" class="btn btn-anpas-edit"><i class="fas fa-edit"></i></a>`
                             : '-';
                     }
                 },
                 { data: 'is_totale', visible: false, searchable: false }
             ],
-            rowCallback: function(row, data) {
-                if (data.is_totale === -1) {
-                    $(row).addClass('table-warning fw-bold');
-                }
-            },
+                rowCallback: function(row, data, index) {
+                    if (data.is_totale === -1) {
+                        $(row).addClass('table-warning fw-bold');
+                    }
+                
+                    //Serve a forzare l'aggiunta delle classi odd/even per zebra striping se non basta "stripeClasses: ['odd', 'even']"
+                    $(row).removeClass('odd even').addClass(index % 2 === 0 ? 'even' : 'odd');
+                },
             language: {
                 url: '/js/i18n/Italian.json'
             }

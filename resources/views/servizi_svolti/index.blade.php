@@ -48,11 +48,14 @@
     if (selectedId) url.searchParams.append('idAssociazione', selectedId);
     console.log("url ",url);
     const res = await fetch(url);
-    const {
-      data,
-      labels
-    } = await res.json();
-    if (!data.length) return;
+  let { data, labels } = await res.json();
+  if (!data.length) return;
+
+
+  // Sposta la riga totale in fondo
+  const totaleRow = data.find(r => r.is_totale === -1);
+  data = data.filter(r => r.is_totale !== -1);
+  if (totaleRow) data.push(totaleRow);
 
     const table = $('#serviziTable');
 
@@ -128,16 +131,16 @@
       render: function(row) {
         if (row.Automezzo === 'TOTALE') return '';
         return `
-        <a href="/servizi-svolti/${row.idAutomezzo}" class="btn btn-sm btn-info me-1 btn-icon" title="Visualizza">
+        <a href="/servizi-svolti/${row.idAutomezzo}" class="btn  btn-anpas-green me-1 btn-icon" title="Visualizza">
           <i class="fas fa-eye"></i>
         </a>
-        <a href="/servizi-svolti/${row.idAutomezzo}/edit" class="btn btn-sm btn-warning me-1 btn-icon" title="Modifica">
+        <a href="/servizi-svolti/${row.idAutomezzo}/edit" class="btn  btn-warning me-1 btn-icon" title="Modifica">
           <i class="fas fa-edit"></i>
         </a>
         <form method="POST" action="/servizi-svolti/${row.idAutomezzo}" class="d-inline-block" onsubmit="return confirm('Confermi eliminazione?')">
           <input type="hidden" name="_token" value="{{ csrf_token() }}">
           <input type="hidden" name="_method" value="DELETE">
-          <button type="submit" class="btn btn-sm btn-danger btn-icon" title="Elimina">
+          <button type="submit" class="btn  btn-danger btn-icon" title="Elimina">
             <i class="fas fa-trash-alt"></i>
           </button>
         </form>
@@ -156,35 +159,26 @@
           visible: false,
           searchable: false
         }, // colonna is_totale
-        {
-          targets: nServiziColumnIndexes,
-          className: 'kmTh'
-        }
+        // {
+        //   targets: nServiziColumnIndexes,
+        //   className: 'kmTh'
+        // }
       ],
       createdCell: function(td) {
         $(td).addClass('col-azioni');
       },
-      order: [
-        [0, 'asc']
-      ], // riga TOTALE (is_totale)
-      orderFixed: [
-        [0, 'asc']
-      ], // forzata fissa
+      order: [],
       responsive: true,
       language: {
         url: '/js/i18n/Italian.json'
       },
-      rowCallback: function(row, data, index) {
-        if (data.Automezzo === 'TOTALE') {
-          $(row).addClass('fw-bold table-totalRow');
-        }
-        if (index % 2 === 0) {
-          $(row).removeClass('even').removeClass('odd').addClass('even');
-        } else {
-          $(row).removeClass('even').removeClass('odd').addClass('odd');
-        }
-      },
-      stripeClasses: ['table-white', 'table-striped-anpas'],
+    rowCallback: (rowEl, rowData, index) => {
+      if (rowData.is_totale === -1) {
+        $(rowEl).addClass('table-warning fw-bold');
+      }
+      $(rowEl).removeClass('even odd').addClass(index % 2 === 0 ? 'even' : 'odd');
+    },
+      stripeClass: ['table-striped-anpas'],
     });
   });
 </script>

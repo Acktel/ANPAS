@@ -178,7 +178,7 @@
         {{-- PULSANTI --}}
         <div class="text-center">
           <button type="submit" class="btn btn-anpas-green me-2">
-            <i class="fas fa-save me-1"></i> Aggiorna
+            <i class="fas fa-check me-1"></i> Aggiorna
           </button>
           <a href="{{ route('automezzi.index', [
               'idAssociazione' => $selectedAssociazione,

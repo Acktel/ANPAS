@@ -19,6 +19,12 @@ document.addEventListener('DOMContentLoaded', function () {
         { data: 'scostamento' },
         { data: 'actions', orderable: false, searchable: false }
       ],
+        columnDefs: [
+    {
+      targets: -1, // l’ultima colonna (actions)
+      className: 'text-center align-middle' // 👈 classe Bootstrap per centrare il contenuto
+    }
+  ],
       language: { url: italian },
       stripeClasses: ['table-striped-anpas', ''],
       rowId: 'id',

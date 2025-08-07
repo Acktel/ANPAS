@@ -44,36 +44,47 @@
 $(async function () {
   const selectedAssoc = document.getElementById('assocSelect')?.value || null;
   const res = await fetch("{{ route('ripartizioni.personale.data') }}" + (selectedAssoc ? `?idAssociazione=${selectedAssoc}` : ''));
-  const { data, labels } = await res.json();
+  let { data, labels } = await res.json();
   if (!data.length) return;
+
+
+  // Sposta la riga totale in fondo
+  const totaleRow = data.find(r => r.is_totale === -1);
+  data = data.filter(r => r.is_totale !== -1);
+  if (totaleRow) data.push(totaleRow);
+
 
   const table = $('#table-ripartizione');
 
-  const staticCols = [
-    { key: 'is_totale',    label: '',               hidden: true  },
+
+  const staticCols = [   
     { key: 'idDipendente', label: '',               hidden: true  },
     { key: 'Associazione', label: 'Associazione',   hidden: false },
     { key: 'FullName',     label: 'Dipendente',     hidden: false },
     { key: 'OreTotali',    label: 'Ore Totali',     hidden: false },
+    { key: 'is_totale',    label: '',               hidden: true  },
   ];
+
 
   const convenzioni = Object.keys(labels).sort((a,b) => parseInt(a.slice(1)) - parseInt(b.slice(1)));
 
-  let hMain = '', hSub = '', cols = [], visibleIndex = 0;
+
+  let hMain = '', hSub = '', cols = [];
+
 
   staticCols.forEach(col => {
     hMain += `<th rowspan="2"${col.hidden ? ' style="display:none"' : ''}>${col.label}</th>`;
     cols.push({ data: col.key, visible: !col.hidden });
-    if (!col.hidden) visibleIndex++;
   });
+
 
   convenzioni.forEach(key => {
     hMain += `<th colspan="2">${labels[key]}</th>`;
     hSub   += `<th>Ore Servizio</th><th>%</th>`;
     cols.push({ data: `${key}_ore`, defaultContent: 0 });
     cols.push({ data: `${key}_percent`, defaultContent: 0 });
-    visibleIndex += 2;
   });
+
 
   hMain += `<th rowspan="2">Azioni</th>`;
   cols.push({
@@ -84,39 +95,40 @@ $(async function () {
     render: row => {
       if (row.is_totale === -1) return '';
       return `
-        <a href="/ripartizioni/personale/${row.idDipendente}" class="btn btn-sm btn-info me-1 btn-icon" title="Visualizza">
+        <a href="/ripartizioni/personale/${row.idDipendente}" class="btn btn-anpas-green me-1 btn-icon" title="Visualizza">
           <i class="fas fa-eye"></i>
         </a>
-        <a href="/ripartizioni/personale/${row.idDipendente}/edit" class="btn btn-sm btn-warning me-1 btn-icon" title="Modifica">
+        <a href="/ripartizioni/personale/${row.idDipendente}/edit" class="btn btn-warning me-1 btn-icon" title="Modifica">
           <i class="fas fa-edit"></i>
-        </a>        
-      `;
+        </a>`;
     }
   });
 
+
   $('#header-main').html(hMain);
+  $('#header-main th').each(function() {
+      if ($(this).attr('colspan')) {
+       $(this).addClass('border-bottom-special');
+      }
+    });
   $('#header-sub').html(hSub);
+
 
   table.DataTable({
     data,
     columns: cols,
-    order: [[0, 'asc']],
-    orderFixed: [[0, 'asc']],
+    order: [],
     responsive: true,
     language: {
       url: '/js/i18n/Italian.json'
     },
     rowCallback: (rowEl, rowData, index) => {
       if (rowData.is_totale === -1) {
-        $(rowEl).addClass('fw-bold table-totalRow');
+        $(rowEl).addClass('table-warning fw-bold');
       }
-      if (index % 2 === 0) {
-        $(rowEl).removeClass('even').removeClass('odd').addClass('even');
-      } else {
-        $(rowEl).removeClass('even').removeClass('odd').addClass('odd');
-      }
+      $(rowEl).removeClass('even odd').addClass(index % 2 === 0 ? 'even' : 'odd');
     },
-    stripeClasses: ['table-white', 'table-striped-anpas']
+    stripeClass: ['table-striped-anpas'] //tolto table-white, e da Classes a Class
   });
 });
 </script>

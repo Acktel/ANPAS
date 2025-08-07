@@ -27,7 +27,7 @@
 
     <div class="table-responsive">
         <table id="table-costi-automezzi" class="table table-striped-anpas table-bordered w-100 text-center align-middle">
-            <thead>
+            <thead class="thead-anpas">
                 <tr>
                     @if ($showAssociazione)
                     <th>Associazione</th>
@@ -109,17 +109,18 @@
         render: function(id, type, row) {
             if (row.is_totale == -1) return '-';
             return `
-                    <a href="/ripartizioni/costi-automezzi/${id}/edit" class="btn btn-sm btn-anpas-edit">
+                                <a href="/ripartizioni/costi-automezzi/${id}" class="btn  btn-anpas-green me-1 btn-icon" title="Visualizza">
+                        <i class="fas fa-eye"></i>
+                    </a>
+                    <a href="/ripartizioni/costi-automezzi/${id}/edit" class="btn  btn-warning me-1 btn-icon" title="Modifica">
                         <i class="fas fa-edit"></i>
                     </a>
                     <form method="POST" action="/ripartizioni/costi-automezzi/${id}" class="d-inline-block" onsubmit="return confirm('Confermi eliminazione?')">
                         <input type="hidden" name="_token" value="{{ csrf_token() }}">
                         <input type="hidden" name="_method" value="DELETE">
-                        <button type="submit" class="btn btn-sm btn-anpas-delete"><i class="fas fa-trash"></i></button>
+                        <button type="submit" class="btn  btn-danger btn-icon" title="Elimina"><i class="fas fa-trash"></i></button>
                     </form>
-                    <a href="/ripartizioni/costi-automezzi/${id}" class="btn btn-sm btn-info">
-                        <i class="fas fa-eye"></i>
-                    </a>
+
                 `;
         }
     });
@@ -130,7 +131,19 @@
                     (selectedAssoc ? `?idAssociazione=${selectedAssoc}` : '');
                     
         $('#table-costi-automezzi').DataTable({
-            ajax: url,
+                ajax: {
+        url: url,
+        dataSrc: function(res) {
+            let data = res.data || [];
+
+            // Sposta la riga totale in fondo
+            const totaleRow = data.find(r => r.is_totale === -1);
+            data = data.filter(r => r.is_totale !== -1);
+            if (totaleRow) data.push(totaleRow);
+
+            return data;
+        }
+    },
             columns: columns,
             paging: false,
             searching: false,
@@ -138,17 +151,14 @@
             language: {
                 url: '/js/i18n/Italian.json'
             },
-            order: [
-                [0, 'asc']
-            ],
-            orderFixed: [
-                [0, 'asc']
-            ],
-            rowCallback: function(row, data) {
-                if (data.is_totale == -1) {
-                    $(row).addClass('table-warning fw-bold');
-                }
-            }
+            order: [],
+
+    rowCallback: (rowEl, rowData, index) => {
+      if (rowData.is_totale === -1) {
+        $(rowEl).addClass('table-warning fw-bold');
+      }
+      $(rowEl).removeClass('even odd').addClass(index % 2 === 0 ? 'even' : 'odd');
+    },
         });
     });
 </script>

@@ -22,4 +22,9 @@ Route::middleware(['auth'])->prefix('configurazioni')->group(function () {
     // LIVELLI MANSIONE
     Route::post('livelli', [ConfigurazionePersonaleController::class, 'storeLivelloMansione'])->name('configurazioni.livelli.store');
     Route::delete('livelli/{id}', [ConfigurazionePersonaleController::class, 'destroyLivelloMansione'])->name('configurazioni.livelli.destroy');
+
+    //CONVENZIONI
+    // Route::get('personale', [ConfigurazionePersonaleController::class, 'index'])->name('configurazioni.convenzioni');
+    // Route::post('qualifiche', [ConfigurazionePersonaleController::class, 'storeQualifica'])->name('configurazioni.convenzioni.store');
+    // Route::delete('qualifiche/{id}', [ConfigurazionePersonaleController::class, 'destroyQualifica'])->name('configurazioni.convenzioni.destroy');
 });

@@ -28,9 +28,9 @@
           <tbody></tbody>
           <tfoot class="table-light fw-bold">
             <tr>
-              <td colspan="{{ 5 + count($convenzioni) + 1 }}" class="text-end">
+              {{-- <td colspan="{{ 5 + count($convenzioni) + 1 }}" class="text-end">
                 Totale incluso nel riparto: <span id="totale-inclusi">0</span>
-              </td>
+              </td> --}}
             </tr>
           </tfoot>
         </table>
@@ -91,15 +91,21 @@ $(async function () {
     language: {
       url: '/js/i18n/Italian.json'
     },
-    rowCallback: (row, data, index) => {
-      $(row).toggleClass('table-secondary', !data.incluso_riparto);
-      if (index % 2 === 0) {
-        $(row).removeClass('even odd').addClass('even');
-      } else {
-        $(row).removeClass('even odd').addClass('odd');
+        rowCallback: (rowEl, rowData, index) => {
+      if (rowData.is_totale === true) {
+        $(rowEl).addClass('table-warning fw-bold');
       }
+      $(rowEl).removeClass('even odd').addClass(index % 2 === 0 ? 'even' : 'odd');
     },
-    stripeClasses: ['table-white', 'table-striped-anpas'],
+    // rowCallback: (row, data, index) => {
+    //   $(row).toggleClass('table-secondary', !data.incluso_riparto);
+    //   if (index % 2 === 0) {
+    //     $(row).removeClass('even odd').addClass('even');
+    //   } else {
+    //     $(row).removeClass('even odd').addClass('odd');
+    //   }
+    // },
+    stripeClass: ['table-striped-anpas'], //da <<stripeClasses con 'table-white'>> anche a <<stripeClass con solo 'table-striped-anpas'>>
     drawCallback: function () {
       let totale = 0;
       this.rows().every(function () {

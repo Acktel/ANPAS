@@ -52,7 +52,7 @@
   <div class="card-anpas">
     <div class="card-body bg-anpas-white p-0">
       <table id="convenzioniTable"
-             class="common-css-dataTable table table-hover table-striped table-bordered dt-responsive nowrap mb-0 table-striped-anpas">
+             class="common-css-dataTable table table-hover table-stripe-anpas table-bordered dt-responsive nowrap mb-0 table-striped-anpas">
         <thead class="thead-anpas">
           <tr>
             <th>ID</th>
@@ -67,7 +67,7 @@
               <td>{{ $c->idConvenzione }}</td>
               <td>{{ $c->idAnno }}</td>
               <td>{{ $c->Convenzione }}</td>
-              <td>
+              <td class="text-center align-middle">
                 <a href="{{ route('convenzioni.edit', $c->idConvenzione) }}"
                    class="btn btn-sm btn-anpas-edit me-1 btn-icon" title="Modifica">
                   <i class="fas fa-edit"></i>

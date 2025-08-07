@@ -80,12 +80,12 @@
                 searchable: false,
                 className: 'col-actions text-center',
                 render: row => row.is_totale || !row.idDipendente ? '-' : `
-                <a href="/ripartizioni/personale/costi/${row.idDipendente}" class="btn btn-sm btn-info me-1 btn-icon" title="Visualizza"><i class="fas fa-eye"></i></a>
-                <a href="/ripartizioni/personale/costi/${row.idDipendente}/edit" class="btn btn-sm btn-anpas-edit me-1 btn-icon" title="Modifica"><i class="fas fa-edit"></i></a>
+                <a href="/ripartizioni/personale/costi/${row.idDipendente}" class="btn btn-anpas-green me-1 btn-icon" title="Visualizza"><i class="fas fa-eye"></i></a>
+                <a href="/ripartizioni/personale/costi/${row.idDipendente}/edit" class="btn btn-anpas-edit me-1 btn-icon" title="Modifica"><i class="fas fa-edit"></i></a>
                 <form method="POST" action="/ripartizioni/personale/costi/${row.idDipendente}" class="d-inline-block" onsubmit="return confirm('Confermi eliminazione?')">
                     <input type="hidden" name="_token" value="{{ csrf_token() }}">
                     <input type="hidden" name="_method" value="DELETE">
-                    <button type="submit" class="btn btn-sm btn-anpas-delete btn-icon" title="Elimina"><i class="fas fa-trash-alt"></i></button>
+                    <button type="submit" class="btn btn-anpas-delete btn-icon" title="Elimina"><i class="fas fa-trash-alt"></i></button>
                 </form>`
             });
 
@@ -115,14 +115,13 @@
                 language: {
                     url: '/js/i18n/Italian.json'
                 },
-                rowCallback: function(row, data, index) {
-                    if (index % 2 === 0) {
-                        $(row).removeClass('even').removeClass('odd').addClass('even');
-                    } else {
-                        $(row).removeClass('even').removeClass('odd').addClass('odd');
-                    }
-                },
-                stripeClasses: ['table-white', 'table-striped-anpas'],
+    rowCallback: (rowEl, rowData, index) => {
+      if (rowData.is_totale === true) {
+        $(rowEl).addClass('table-warning fw-bold');
+      }
+      $(rowEl).removeClass('even odd').addClass(index % 2 === 0 ? 'even' : 'odd');
+    },
+                stripeClass: ['table-striped-anpas'],
             });
         }
 

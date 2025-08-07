@@ -79,10 +79,10 @@
 
         <div class="text-center">
           <button type="submit" class="btn btn-anpas-green me-2">
-            <i class="fas fa-save me-1"></i> Salva Modifiche
+            <i class="fas fa-check me-1"></i> Salva Modifiche
           </button>
           <a href="{{ route('ripartizioni.personale.costi.index') }}" class="btn btn-secondary">
-            Annulla
+            <i class="fas fa-times me-1"></i>Annulla
           </a>
         </div>
       </form>

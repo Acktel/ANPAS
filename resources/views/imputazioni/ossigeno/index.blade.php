@@ -50,14 +50,27 @@
 <script>
     $(function() {
         $('#ossigenoTable').DataTable({
-            ajax: '{{ route("imputazioni.ossigeno.getData") }}',
+            // 
+            ajax: {
+    url: '{{ route("imputazioni.ossigeno.getData") }}',
+    dataSrc: function(res) {
+        let data = res.data || [];
+
+        // Sposta la riga "TOTALE" in fondo
+        const totaleRow = data.find(r => r.is_totale === -1);
+        data = data.filter(r => r.is_totale !== -1);
+        if (totaleRow) data.push(totaleRow);
+
+        return data;
+    }
+},
             processing: true,
             serverSide: false,
             paging: false,
             searching: false,
             ordering: true,
-            order: [[5, 'asc']], // is_totale
-            orderFixed: [[5, 'asc']],
+            //modificato da 5 a 4 per mettere "TOTALE" in cima
+            order: [], // is_totale
             info: false,
             stripeClasses: ['odd', 'even'],
             columns: [
@@ -75,6 +88,7 @@
                 },
                 { data: 'is_totale', visible: false, searchable: false }
             ],
+            
             rowCallback: function(row, data,index) {
                 if (data.is_totale === -1) {
                     $(row).addClass('table-warning fw-bold');

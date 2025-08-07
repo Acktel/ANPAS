@@ -192,7 +192,7 @@ foreach ($configPersone as $key => $value) {
           searchable: false,
           render(id) {
             let html = `
-            <a href="/dipendenti/${id}" class="btn btn-sm btn-anpas-impersonate me-1" title="Visualizza">
+            <a href="/dipendenti/${id}" class="btn btn-sm btn-anpas-green me-1" title="Visualizza">
               <i class="fas fa-info-circle"></i>
             </a>`;
             if (canEdit) {

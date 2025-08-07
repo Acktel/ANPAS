@@ -38,9 +38,9 @@
                   step="0.01"
                   min="0"
                   name="ore[{{ $idDipendente }}][{{ $conv->idConvenzione }}]"
-                  class="form-control text-end"
-                  value="{{ old("ore.{$idDipendente}.{$conv->idConvenzione}", $val) }}"
-                >
+                  class="form-control text-start"
+                  value="{{ old("ore.{$idDipendente}.{$conv->idConvenzione}", $existing ? $existing->OreServizio : '') }}"
+                  placeholder="0">
               </td>
             </tr>
           @endforeach
@@ -48,13 +48,14 @@
       </table>
     </div>
     <input type="hidden" name="idAssociazione" value="{{ $idAssociazione }}">
-    <div class="mt-4 d-flex justify-content-between">
+    <div class="mt-4 text-center">
+            <button type="submit" class="btn btn-anpas-green">
+        <i class="fas fa-check me-1"></i> Salva
+      </button>
+
       <a href="{{ route('ripartizioni.personale.index', ['idAssociazione' => $idAssociazione]) }}" class="btn btn-secondary">
         <i class="fas fa-times me-1"></i> Annulla
       </a>
-      <button type="submit" class="btn btn-success">
-        <i class="fas fa-save me-1"></i> Salva
-      </button>
     </div>
 
   </form>

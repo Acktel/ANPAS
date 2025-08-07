@@ -51,7 +51,7 @@
           <div class="accordion-body">
             <div class="mb-2 text-end">
               <a href="{{ route('riepilogo.costi.create', $id) }}"
-                 class="btn btn-sm btn-anpas-green">
+                 class="btn btn-sm btn-anpas-green p-2">
                 <i class="fas fa-plus me-1"></i> Aggiungi Voce
               </a>
             </div>

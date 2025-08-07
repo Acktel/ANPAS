@@ -28,8 +28,13 @@
 <script>
 $(async function(){
   const res = await fetch("{{ route('ripartizioni.servizio_civile.data') }}");
-  const { data, labels } = await res.json();
+  let { data, labels } = await res.json();
   if (!data.length) return;
+
+    // Sposta la riga totale in fondo
+  const totaleRow = data.find(r => r.is_totale === -1);
+  data = data.filter(r => r.is_totale !== -1);
+  if (totaleRow) data.push(totaleRow);
 
   const table = $('#table-servizio-civile');
 
@@ -62,12 +67,17 @@ $(async function(){
     searchable: false,
     className: 'col-azioni',
     render: () => `
-      <a href="{{ route('ripartizioni.servizio_civile.edit') }}" class="btn btn-sm btn-warning btn-icon" title="Modifica">
+      <a href="{{ route('ripartizioni.servizio_civile.edit') }}" class="btn btn-warning btn-icon" title="Modifica">
         <i class="fas fa-edit"></i>
       </a>`
   });
 
   $('#header-main').html(hMain);
+    $('#header-main th').each(function() {
+      if ($(this).attr('colspan')) {
+       $(this).addClass('border-bottom-special');
+      }
+    });
   $('#header-sub').html(hSub);
 
   table.DataTable({
@@ -85,6 +95,11 @@ $(async function(){
         $(row).removeClass('even odd').addClass('even');
       } else {
         $(row).removeClass('even odd').addClass('odd');
+      }
+              //In grassetto la riga con"Totale Volontari"
+      if (data.FullName === 'Totale servizio civile') {
+        $(row).addClass('fw-bold');
+        //Oppure solo la cella "Descrizione": $(row).find('td:eq(1)').css('font-weight', 'bold');
       }
     },
     stripeClasses: ['table-white', 'table-striped-anpas']

@@ -193,6 +193,7 @@ $assocCorr = 'Anpas Nazionale';
                     <ul class="dropdown-menu dropdown-menu-end">
                         <li><a class="dropdown-item" href="{{ route('configurazioni.veicoli') }}">Veicoli</a></li>
                         <li><a class="dropdown-item" href="{{ route('configurazioni.personale') }}">Personale</a></li>
+                        {{-- <li><a class="dropdown-item" href="{{ route('configurazioni.convenzioni') }}">Convenzioni</a></li> --}}
                         <li><a class="dropdown-item" href="#">Altro</a></li>
                     </ul>
                 </li>

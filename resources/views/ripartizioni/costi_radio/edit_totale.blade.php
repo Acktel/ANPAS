@@ -2,7 +2,7 @@
 
 @section('content')
 <div class="container">
-    <h1 class="mb-4">Modifica Totali a Bilancio – Anno {{ $anno }}</h1>
+    <h1 class="mb-4 container-title">Modifica Totali a Bilancio – Anno {{ $anno }}</h1>
 
     <form action="{{ route('ripartizioni.costi_radio.updateTotale') }}" method="POST">
         @csrf
@@ -27,8 +27,10 @@
             </div>
         </div>
 
-        <button type="submit" class="btn btn-success">Salva</button>
-        <a href="{{ route('ripartizioni.costi_radio.index') }}" class="btn btn-secondary">Annulla</a>
+        <div class="my-4 text-center">
+        <button type="submit" class="btn btn-anpas-green"><i class="fas fa-check me-1"></i>Salva</button>
+        <a href="{{ route('ripartizioni.costi_radio.index') }}" class="btn btn-secondary"><i class="fas fa-times me-1"></i>Annulla</a>
+        </div>
     </form>
 </div>
 @endsection

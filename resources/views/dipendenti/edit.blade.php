@@ -112,7 +112,7 @@ $assoCorr = $associazioni->firstWhere('idAssociazione', $dipendente->idAssociazi
 
         {{-- Pulsanti --}}
         <div class="text-center">
-          <button type="submit" class="btn btn-anpas-green me-3">Salva Dipendente</button>
+          <button type="submit" class="btn btn-anpas-green me-3"><i class="fas fa-check me-1"></i>Salva Dipendente</button>
           <a href="{{ route('dipendenti.index') }}" class="btn btn-secondary"> <i class="fas fa-times me-1"></i>Annulla</a>
         </div>
 
