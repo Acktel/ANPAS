@@ -22,6 +22,7 @@
                    name="descrizione"
                    class="form-control"
                    value="{{ old('descrizione', $voce->descrizione) }}"
+                   style="text-transform: uppercase;"
                    required>
           </div>
           <div class="col-md-3 mb-3">

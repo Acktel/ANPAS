@@ -67,7 +67,7 @@
 
             @forelse($oldDescr as $i => $descr)
               <tr>
-                <td><input type="text" name="riep_descrizione[]" class="form-control" value="{{ $descr }}" maxlength="500"></td>
+                <td><input type="text" name="riep_descrizione[]" class="form-control" style="text-transform: uppercase;" value="{{ $descr }}" maxlength="500"></td>
                 <td><input type="text" name="riep_preventivo[]" class="form-control" value="{{ $oldPrev[$i] ?? '' }}"></td>
                 <td><input type="text" name="riep_consuntivo[]" class="form-control" value="{{ $oldCons[$i] ?? '' }}"></td>
                 <td class="text-center">

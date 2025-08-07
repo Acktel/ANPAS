@@ -62,12 +62,12 @@
         <div class="row mb-3">
           <div class="col-md-6">
             <label for="Automezzo" class="form-label">Nome Automezzo</label>
-            <input type="text" name="Automezzo" id="Automezzo" class="form-control"
+            <input type="text" name="Automezzo" id="Automezzo" class="form-control" style="text-transform: uppercase;"
                    value="{{ old('Automezzo', $automezzo->Automezzo) }}" required>
           </div>
           <div class="col-md-6">
             <label for="Targa" class="form-label">Targa</label>
-            <input type="text" name="Targa" id="Targa" class="form-control"
+            <input type="text" name="Targa" id="Targa" class="form-control" style="text-transform: uppercase;"
                    value="{{ old('Targa', $automezzo->Targa) }}" required>
           </div>
         </div>
@@ -76,7 +76,7 @@
         <div class="row mb-3">
           <div class="col-md-6">
             <label for="CodiceIdentificativo" class="form-label">Codice Identificativo</label>
-            <input type="text" name="CodiceIdentificativo" id="CodiceIdentificativo" class="form-control"
+            <input type="text" name="CodiceIdentificativo" id="CodiceIdentificativo" class="form-control" style="text-transform: uppercase;"
                    value="{{ old('CodiceIdentificativo', $automezzo->CodiceIdentificativo) }}" required>
           </div>
           <div class="col-md-6">
@@ -97,7 +97,7 @@
           </div>
           <div class="col-md-6">
             <label for="Modello" class="form-label">Modello</label>
-            <input type="text" name="Modello" id="Modello" class="form-control"
+            <input type="text" name="Modello" id="Modello" class="form-control" style="text-transform: uppercase;"
                    value="{{ old('Modello', $automezzo->Modello) }}" required>
           </div>
         </div>
@@ -117,9 +117,14 @@
           </div>
           <div class="col-md-6">
             <label for="KmRiferimento" class="form-label">Km di Riferimento</label>
-            <input type="number" name="KmRiferimento" id="KmRiferimento" class="form-control"
-                   min="0" step="0.01"
-                   value="{{ old('KmRiferimento', $automezzo->KmRiferimento) }}" required>
+            <input   type="number"
+                     name="KmRiferimento"
+                     id="KmRiferimento"
+                     class="form-control"
+                     step="0.01"
+                     value="{{ old('KmRiferimento', $automezzo->KmRiferimento) }}"
+                     required
+                     inputmode="decimal">
           </div>
         </div>
 
