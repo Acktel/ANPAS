@@ -7,17 +7,19 @@ Route::prefix('distinta-imputazione-costi')->name('distinta.imputazione.')->grou
     // Vista principale
     Route::get('/', [DistintaImputazioneCostiController::class, 'index'])->name('index');
 
-    // API per ottenere i dati (datatable dinamica)
+    // API per ottenere i dati per la datatable
     Route::get('/data', [DistintaImputazioneCostiController::class, 'getData'])->name('data');
 
-    // Create voce (costi diretti)
+    // Aggiunta costi diretti per sezione (form)
     Route::get('/create/{sezione}', [DistintaImputazioneCostiController::class, 'create'])->name('create');
-    Route::post('/', [DistintaImputazioneCostiController::class, 'store'])->name('store');
 
-    // Edit voce
+    // Salvataggio costi diretti multipli per voce/convenzione
+    Route::post('/store', [DistintaImputazioneCostiController::class, 'store'])->name('store');
+
+    // Modifica costi diretti esistenti (se prevista)
     Route::get('/{id}/edit', [DistintaImputazioneCostiController::class, 'edit'])->name('edit');
     Route::put('/{id}', [DistintaImputazioneCostiController::class, 'update'])->name('update');
 
-    // Destroy voce (se previsto)
+    // Eliminazione (se prevista)
     Route::delete('/{id}', [DistintaImputazioneCostiController::class, 'destroy'])->name('destroy');
 });

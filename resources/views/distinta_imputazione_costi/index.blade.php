@@ -18,8 +18,7 @@ $user = Auth::user();
     <label for="assocSelect" class="mb-0 fw-bold">Associazione:</label>
     <select id="assocSelect" name="idAssociazione" class="form-select w-auto" onchange="this.form.submit()">
       @foreach($associazioni as $assoc)
-      <option value="{{ $assoc->IdAssociazione }}"
-        {{ session('associazione_selezionata') == $assoc->IdAssociazione ? 'selected' : '' }}>
+      <option value="{{ $assoc->IdAssociazione }}" {{ session('associazione_selezionata') == $assoc->IdAssociazione ? 'selected' : '' }}>
         {{ $assoc->Associazione }}
       </option>
       @endforeach
@@ -46,11 +45,8 @@ $user = Auth::user();
     @foreach ($sezioni as $id => $titolo)
     <div class="accordion-item mb-2">
       <h2 class="accordion-header" id="heading-{{ $id }}">
-        <button class="accordion-button collapsed" type="button"
-          data-bs-toggle="collapse"
-          data-bs-target="#collapse-{{ $id }}"
-          aria-expanded="false"
-          aria-controls="collapse-{{ $id }}">
+        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+          data-bs-target="#collapse-{{ $id }}" aria-expanded="false" aria-controls="collapse-{{ $id }}">
           <div class="row w-100 text-start gx-2">
             <div class="col-6 fw-bold">{{ $titolo }}</div>
             <div class="col-2" id="summary-bilancio-{{ $id }}">-</div>
@@ -62,25 +58,24 @@ $user = Auth::user();
       <div id="collapse-{{ $id }}" class="accordion-collapse collapse" data-bs-parent="#accordionDistinta">
         <div class="accordion-body">
           <div class="mb-2 text-end">
-            <a href="#" class="btn btn-sm btn-anpas-green">
-              <i class="fas fa-plus me-1"></i> Aggiungi Voce
+            <a href="{{ route('distinta.imputazione.create', ['sezione' => $id]) }}" class="btn btn-sm btn-anpas-green">
+              <i class="fas fa-plus me-1"></i> Aggiungi Costi diretti
             </a>
           </div>
+
           <div class="table-responsive">
-          <table id="table-distinta-{{ $id }}"
-            class="common-css-dataTable table table-hover table-striped-anpas table-bordered w-100 mb-0">
-            <thead class="thead-anpas">
-              <tr id="header-main-{{ $id }}">
-                <th rowspan="2">Voce</th>
-                <th rowspan="2">Importo Totale da Bilancio Consuntivo</th>
-                <th rowspan="2">Costi di Diretta Imputazione</th>
-                <th rowspan="2">Totale Costi Ripartiti</th>
-              </tr>
-              <tr id="header-sub-{{ $id }}">
-              </tr>
-            </thead>
-            <tbody class="sortable" data-sezione="{{ $id }}"></tbody>
-          </table>
+            <table id="table-distinta-{{ $id }}" class="common-css-dataTable table table-hover table-striped-anpas table-bordered w-100 mb-0">
+              <thead class="thead-anpas">
+                <tr id="header-main-{{ $id }}">
+                  <th rowspan="2">Voce</th>
+                  <th rowspan="2">Importo Totale da Bilancio Consuntivo</th>
+                  <th rowspan="2">Costi di Diretta Imputazione</th>
+                  <th rowspan="2">Totale Costi Ripartiti</th>
+                </tr>
+                <tr id="header-sub-{{ $id }}"></tr>
+              </thead>
+              <tbody class="sortable" data-sezione="{{ $id }}"></tbody>
+            </table>
           </div>
         </div>
       </div>
@@ -103,101 +98,87 @@ $user = Auth::user();
 
 @push('scripts')
 <script>
-  window.distintaCosti = {
-    sezioni: @json($sezioni),
-    csrf: '{{ csrf_token() }}'
-  };
+window.distintaCosti = {
+  sezioni: @json($sezioni),
+  csrf: '{{ csrf_token() }}'
+};
 
-  $(function() {
-    const intestazioniAggiunte = new Set();
+$(function () {
+  const intestazioniAggiunte = new Set();
 
-    $.ajax({
-      url: '{{ route("distinta.imputazione.data") }}',
-      method: 'GET',
-      success: function(response) {
-        const convenzioni = response.convenzioni;
-        const righe = response.data;
+  $.ajax({
+    url: '{{ route("distinta.imputazione.data") }}',
+    method: 'GET',
+    success: function (response) {
+      const convenzioni = response.convenzioni;
+      const righe = response.data;
 
-        const totaliGenerali = {
-          bilancio: 0,
-          diretta: 0,
-          totale: 0
-        };
+      const totaliGenerali = { bilancio: 0, diretta: 0, totale: 0 };
+      const totaliPerSezione = {};
 
-        const totaliPerSezione = {};
+      Object.keys(window.distintaCosti.sezioni).forEach(idSezione => {
+        const headerMain = $(`#header-main-${idSezione}`);
+        const headerSub = $(`#header-sub-${idSezione}`);
 
-        Object.keys(window.distintaCosti.sezioni).forEach(idSezione => {
-          const headerMain = $(`#header-main-${idSezione}`);
-          const headerSub = $(`#header-sub-${idSezione}`);
-
-          if (!intestazioniAggiunte.has(idSezione)) {
-            convenzioni.forEach(conv => {
-              headerMain.append(`<th colspan="2" class="text-center">${conv}</th>`);
-              headerSub.append(`<th class="text-center">Diretti</th><th class="text-center">Indiretti</th>`);
-            });
-            intestazioniAggiunte.add(idSezione);
-          }
-
-          // Inizializza i totali di sezione
-          totaliPerSezione[idSezione] = {
-            bilancio: 0,
-            diretta: 0,
-            totale: 0
-          };
-        });
-
-        righe.forEach(riga => {
-          const idSezione = riga.sezione_id;
-          if (!idSezione) return;
-
-          const $tbody = $(`tbody[data-sezione="${idSezione}"]`);
-          if ($tbody.length === 0) return;
-
-          let html = `<tr>
-            <td>${riga.voce}</td>
-            <td class="text-end">${riga.bilancio?.toFixed(2) ?? '0.00'}</td>
-            <td class="text-end">${riga.diretta?.toFixed(2) ?? '0.00'}</td>
-            <td class="text-end">${riga.totale?.toFixed(2) ?? '0.00'}</td>`;
-
-          Object.keys(convenzioni).forEach(key => {
-            const valore = riga[convenzioni[key]] || {};
-            const diretti = valore.diretti ?? 0;
-            const indiretti = valore.indiretti ?? 0;
-
-            html += `<td class="text-end">${parseFloat(diretti).toFixed(2)}</td>`;
-            html += `<td class="text-end">${parseFloat(indiretti).toFixed(2)}</td>`;
+        if (!intestazioniAggiunte.has(idSezione)) {
+          convenzioni.forEach(conv => {
+            headerMain.append(`<th colspan="2" class="text-center">${conv}</th>`);
+            headerSub.append(`<th class="text-center">Diretti</th><th class="text-center">Indiretti</th>`);
           });
+          intestazioniAggiunte.add(idSezione);
+        }
 
-          html += `</tr>`;
-          $tbody.append(html);
+        totaliPerSezione[idSezione] = { bilancio: 0, diretta: 0, totale: 0 };
+      });
 
-          // Aggiorna i totali di sezione
-          totaliPerSezione[idSezione].bilancio += parseFloat(riga.bilancio || 0);
-          totaliPerSezione[idSezione].diretta += parseFloat(riga.diretta || 0);
-          totaliPerSezione[idSezione].totale += parseFloat(riga.totale || 0);
+      righe.forEach(riga => {
+        const idSezione = riga.sezione_id;
+        if (!idSezione) return;
 
-          // Aggiorna i totali generali
-          totaliGenerali.bilancio += parseFloat(riga.bilancio || 0);
-          totaliGenerali.diretta += parseFloat(riga.diretta || 0);
-          totaliGenerali.totale += parseFloat(riga.totale || 0);
+        const $tbody = $(`tbody[data-sezione="${idSezione}"]`);
+        if ($tbody.length === 0) return;
+
+        let html = `<tr>
+          <td>${riga.voce}</td>
+          <td class="text-end">${riga.bilancio?.toFixed(2) ?? '0.00'}</td>
+          <td class="text-end">${riga.diretta?.toFixed(2) ?? '0.00'}</td>
+          <td class="text-end">${riga.totale?.toFixed(2) ?? '0.00'}</td>`;
+
+        Object.keys(convenzioni).forEach(key => {
+          const valore = riga[convenzioni[key]] || {};
+          const diretti = valore.diretti ?? 0;
+          const indiretti = valore.indiretti ?? 0;
+
+          html += `<td class="text-end">${parseFloat(diretti).toFixed(2)}</td>`;
+          html += `<td class="text-end">${parseFloat(indiretti).toFixed(2)}</td>`;
         });
 
-        // Popola riepilogo sezioni
-        Object.keys(totaliPerSezione).forEach(id => {
-          $(`#summary-bilancio-${id}`).text(totaliPerSezione[id].bilancio.toFixed(2));
-          $(`#summary-diretta-${id}`).text(totaliPerSezione[id].diretta.toFixed(2));
-          $(`#summary-totale-${id}`).text(totaliPerSezione[id].totale.toFixed(2));
-        });
+        html += `</tr>`;
+        $tbody.append(html);
 
-        // Totali finali
-        $('#tot-bilancio').text(totaliGenerali.bilancio.toFixed(2));
-        $('#tot-diretta').text(totaliGenerali.diretta.toFixed(2));
-        $('#tot-totale').text(totaliGenerali.totale.toFixed(2));
-      },
-      error: function(xhr) {
-        console.error("Errore caricamento distinta costi", xhr);
-      }
-    });
+        totaliPerSezione[idSezione].bilancio += parseFloat(riga.bilancio || 0);
+        totaliPerSezione[idSezione].diretta += parseFloat(riga.diretta || 0);
+        totaliPerSezione[idSezione].totale += parseFloat(riga.totale || 0);
+
+        totaliGenerali.bilancio += parseFloat(riga.bilancio || 0);
+        totaliGenerali.diretta += parseFloat(riga.diretta || 0);
+        totaliGenerali.totale += parseFloat(riga.totale || 0);
+      });
+
+      Object.keys(totaliPerSezione).forEach(id => {
+        $(`#summary-bilancio-${id}`).text(totaliPerSezione[id].bilancio.toFixed(2));
+        $(`#summary-diretta-${id}`).text(totaliPerSezione[id].diretta.toFixed(2));
+        $(`#summary-totale-${id}`).text(totaliPerSezione[id].totale.toFixed(2));
+      });
+
+      $('#tot-bilancio').text(totaliGenerali.bilancio.toFixed(2));
+      $('#tot-diretta').text(totaliGenerali.diretta.toFixed(2));
+      $('#tot-totale').text(totaliGenerali.totale.toFixed(2));
+    },
+    error: function (xhr) {
+      console.error("Errore caricamento distinta costi", xhr);
+    }
   });
+});
 </script>
 @endpush

@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Auth;
 use App\Models\RipartizioneCostiAutomezziSanitari;
 use App\Models\Automezzo;
 use App\Services\RipartizioneCostiService;
+use App\Models\CostoDiretto;
 
 class RipartizioneCostiAutomezziSanitariController extends Controller {
     public function index() {
@@ -23,7 +24,6 @@ class RipartizioneCostiAutomezziSanitariController extends Controller {
 
         return view('ripartizioni.costi_automezzi_sanitari.index', compact('anno', 'associazioni', 'automezzi', 'isElevato'));
     }
-
 
     public function getData(Request $request) {
         $anno = session('anno_riferimento', now()->year);
@@ -56,7 +56,9 @@ class RipartizioneCostiAutomezziSanitariController extends Controller {
             $tabella = RipartizioneCostiService::calcolaTabellaTotale($idAssociazione, $anno);
         } else {
             $tabella = RipartizioneCostiService::calcolaRipartizioneTabellaFinale(
-                $idAssociazione, $anno, (int)$idAutomezzo
+                $idAssociazione,
+                $anno,
+                (int)$idAutomezzo
             );
         }
 

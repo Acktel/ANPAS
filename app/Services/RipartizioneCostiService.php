@@ -287,4 +287,44 @@ class RipartizioneCostiService {
 
         return array_values($tabellaTotale);
     }
+    public static function getCostiDiretti(int $idAssociazione, int $anno): array {
+        return DB::table('costi_diretti')
+            ->where('idAssociazione', $idAssociazione)
+            ->where('idAnno', $anno)
+            ->pluck('costo', 'idConvenzione')
+            ->toArray();
+    }
+
+    public static function estraiVociDaRiepilogoDati(int $idAssociazione, int $anno, array $tipologie): array {
+        // Recupera l'idRiepilogo per l'associazione e anno
+        $idRiepilogo = DB::table('riepiloghi')
+            ->where('idAssociazione', $idAssociazione)
+            ->where('idAnno', $anno)
+            ->value('idRiepilogo');
+
+        if (!$idRiepilogo) {
+            return [];
+        }
+
+        // Estrai le voci (descrizione) per le tipologie indicate
+        $voci = DB::table('riepilogo_dati')
+            ->where('idRiepilogo', $idRiepilogo)
+            ->whereIn('idTipologiaRiepilogo', $tipologie)
+            ->select('idTipologiaRiepilogo', 'descrizione')
+            ->distinct()
+            ->orderBy('idTipologiaRiepilogo')
+            ->orderBy('descrizione')
+            ->get();
+
+        // Ritorna un array strutturato per tipologia
+        $vociPerTipologia = [];
+
+        foreach ($voci as $voce) {
+            $idTipologia = (int) $voce->idTipologiaRiepilogo;
+            $descrizione = trim(strtoupper($voce->descrizione));
+            $vociPerTipologia[$idTipologia][] = $descrizione;
+        }
+
+        return $vociPerTipologia;
+    }
 }

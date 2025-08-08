@@ -13,7 +13,7 @@ class DistintaImputazioneService {
             ->toArray();
 
         $righeIndirette = RipartizioneCostiService::calcolaTabellaTotale($idAssociazione, $anno);
-        $voci = self::getVociBySezione($idSezione);
+        $voci = self::getVociBySezione($idSezione, $anno, $idAssociazione);
 
         $tabella = [];
 
@@ -52,9 +52,10 @@ class DistintaImputazioneService {
         return 0;
     }
 
-    private static function getVociBySezione(int $id): array {
-        return match ($id) {
-            2 => [ // Automezzi
+    private static function getVociBySezione(int $idSezione, int $anno, int $idAssociazione): array {
+        // Voci statiche per certe sezioni
+        $statiche = match ($idSezione) {
+            2 => [
                 'LEASING/ NOLEGGIO AUTOMEZZI',
                 'ASSICURAZIONE AUTOMEZZI',
                 'MANUTENZIONE ORDINARIA',
@@ -72,9 +73,52 @@ class DistintaImputazioneService {
             4 => [
                 'TELECOMUNICAZIONI',
             ],
-            default => []
+            default => [],
         };
+
+        // Sezione dinamica?
+        if (!in_array($idSezione, [5, 6, 7, 8, 9, 10, 11])) {
+            return $statiche;
+        }
+
+        // mappa tipologie --> sezione
+        $tipologiaToSezione = [
+            5 => 5,
+            6 => 6,
+            7 => 7,
+            8 => 8,
+            9 => 9,
+            10 => 10,
+            11 => 11,
+        ];
+
+        // Trova tipologie da includere per questa sezione
+        $tipologie = array_keys(array_filter($tipologiaToSezione, fn($s) => $s == $idSezione));
+        if (empty($tipologie)) return $statiche;
+
+        // Trova idRiepilogo corretto per questa associazione e anno
+        $idRiepilogo = DB::table('riepiloghi')
+            ->where('idAnno', $anno)
+            ->where('idAssociazione', $idAssociazione)
+            ->value('idRiepilogo');
+
+        if (!$idRiepilogo) return $statiche;
+
+        // Prendi le descrizioni delle voci da riepilogo_dati
+        $vociDb = DB::table('riepilogo_dati')
+                    ->where('idRiepilogo', $idRiepilogo)
+                    ->whereIn('idTipologiaRiepilogo', $tipologie)
+                    ->pluck('descrizione')
+                    ->map(fn($d) => trim(strtoupper($d)))
+                    ->unique()
+                    ->sort()
+                    ->values()
+                    ->toArray();
+
+        return array_merge($statiche, $vociDb);
     }
+
+
 
     public static function calcolaTotaliPerSezione(array $righe, int $sezioneId): array {
         $totaleBilancio = 0.0;
