@@ -63,13 +63,18 @@ $(async function(){
     className: 'col-azioni',
     render: () => {
       return `
-        <a href="{{ route('ripartizioni.volontari.edit') }}" class="btn btn-sm btn-warning btn-icon" title="Modifica">
+        <a href="{{ route('ripartizioni.volontari.edit') }}" class="btn btn-warning btn-icon" title="Modifica">
           <i class="fas fa-edit"></i>
         </a>`;
     }
   });
 
   $('#header-main').html(hMain);
+  $('#header-main th').each(function() {
+      if ($(this).attr('colspan')) {
+       $(this).addClass('border-bottom-special');
+      }
+    });
   $('#header-sub').html(hSub);
 
   table.DataTable({
@@ -87,6 +92,11 @@ $(async function(){
         $(row).removeClass('even').removeClass('odd').addClass('even');
       } else {
         $(row).removeClass('even').removeClass('odd').addClass('odd');
+      }
+        //In grassetto la riga con"Totale Volontari"
+      if (data.FullName === 'Totale volontari') {
+        $(row).addClass('fw-bold');
+        //Oppure solo la cella "Descrizione": $(row).find('td:eq(1)').css('font-weight', 'bold');
       }
     },
     stripeClasses: ['table-white', 'table-striped-anpas']

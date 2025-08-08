@@ -82,7 +82,11 @@ document.addEventListener('DOMContentLoaded', function () {
     },
     columns: [
       { data: 'anno' },
-      { data: 'descrizione' },
+      { data: 'descrizione',
+        render: function(data, type, row) {
+          return data ? data.toUpperCase() : '';
+        } 
+      },
       { data: 'idRiepilogo' },
       {
         data: 'preventivo',
@@ -104,17 +108,17 @@ document.addEventListener('DOMContentLoaded', function () {
           const datoId      = row.dato_id;
           
           return `
-            <a href="/riepiloghi/${riepilogoId}" class="btn btn-sm btn-anpas-green me-1 btn-icon" title="Dettagli">
+            <a href="/riepiloghi/${riepilogoId}" class="btn btn-anpas-green me-1 btn-icon" title="Dettagli">
               <i class="fas fa-info-circle"></i>
             </a>
-            <a href="/riepiloghi/${riepilogoId}/edit" class="btn btn-sm btn-anpas-edit me-1 btn-icon" title="Modifica">
+            <a href="/riepiloghi/${riepilogoId}/edit" class="btn btn-anpas-edit me-1 btn-icon" title="Modifica">
               <i class="fas fa-edit"></i>
             </a>
             <form action="/riepiloghi/${riepilogoId}" method="POST" style="display:inline-block" onsubmit="return confirm('Confermi cancellazione?')">
               <input type="hidden" name="_token" value="${csrfToken}">
               <input type="hidden" name="_method" value="DELETE">
               <input type="hidden" name="dato_id" value="${datoId}">
-              <button type="submit" class="btn btn-sm btn-anpas-delete btn-icon" title="Elimina voce">
+              <button type="submit" class="btn btn-anpas-delete btn-icon" title="Elimina voce">
                 <i class="fas fa-trash-alt"></i>
               </button>
             </form>
@@ -123,7 +127,10 @@ document.addEventListener('DOMContentLoaded', function () {
       }
     ],
     language: { url: '/js/i18n/Italian.json' },
-    stripeClasses: ['table-white', 'table-striped-anpas'],
+    stripeClasses: ['table-striped-anpas', ''], //removed 'table-white before table-striped-anpas'
+          rowCallback: function(row, data, index) {
+        $(row).toggleClass('even odd', false).addClass(index % 2 === 0 ? 'even' : 'odd');
+      },
     paging: true,
     searching: true,
     ordering: true,

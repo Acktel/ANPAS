@@ -28,9 +28,6 @@
           <tbody></tbody>
           <tfoot class="table-light fw-bold">
             <tr>
-              <td colspan="{{ 5 + count($convenzioni) + 1 }}" class="text-end">
-                Totale incluso nel riparto: <span id="totale-inclusi">0</span>
-              </td>
             </tr>
           </tfoot>
         </table>
@@ -46,11 +43,27 @@ $(async function () {
   const response = await fetch("{{ route('ripartizioni.materiale_sanitario.data') }}");
   const json = await response.json();
 
-  const data = Object.entries(json.righe).map(([id, riga]) => ({
+// Estrai e rimuovi la riga dei totali dai dati
+let totaleRow = null;
+
+const data = Object.entries(json.righe).reduce((acc, [id, riga]) => {
+  if (riga.is_totale === true) {
+    totaleRow = {
+      ...riga,
+      idAutomezzo: parseInt(id, 10),
+      totale_riga: riga.totale ?? 0
+    };
+    return acc; // non aggiungere la riga al dataset
+  }
+
+  acc.push({
     ...riga,
     idAutomezzo: parseInt(id, 10),
     totale_riga: riga.totale ?? 0
-  }));
+  });
+
+  return acc;
+}, []);
 
   const convenzioni = json.convenzioni;
 
@@ -83,7 +96,7 @@ $(async function () {
   $('#table-materiale').DataTable({
     data,
     columns,
-    paging: false,
+    paging: true,
     searching: false,
     ordering: false,
     info: false,
@@ -91,25 +104,58 @@ $(async function () {
     language: {
       url: '/js/i18n/Italian.json'
     },
-    rowCallback: (row, data, index) => {
-      $(row).toggleClass('table-secondary', !data.incluso_riparto);
-      if (index % 2 === 0) {
-        $(row).removeClass('even odd').addClass('even');
-      } else {
-        $(row).removeClass('even odd').addClass('odd');
+        rowCallback: (rowEl, rowData, index) => {
+      if (rowData.is_totale === true) {
+        $(rowEl).addClass('table-warning fw-bold');
       }
+      $(rowEl).removeClass('even odd').addClass(index % 2 === 0 ? 'even' : 'odd');
     },
-    stripeClasses: ['table-white', 'table-striped-anpas'],
-    drawCallback: function () {
-      let totale = 0;
-      this.rows().every(function () {
-        const row = this.data();
-        if (row.incluso_riparto) {
-          totale += parseInt(row.totale_riga || 0, 10);
-        }
-      });
-      $('#totale-inclusi').text(totale);
-    }
+
+    stripeClass: ['table-striped-anpas'],
+
+
+drawCallback: function (settings) {
+  const api = this.api();
+  const pageRows = api.rows({ page: 'current' }).nodes();
+
+  // Rimuovi righe "TOTALE" precedenti per evitare duplicati
+  $(pageRows).filter('.totale-row').remove();
+
+  // Trova la riga totale tra i dati
+if (!totaleRow) return;
+
+  // Se esiste la riga TOTALE
+  if (totaleRow) {
+    const $lastRow = $('<tr>').addClass('table-warning fw-bold totale-row');
+
+    api.columns().every(function (index) {
+      const col = columns[index];
+
+      // Salta le colonne nascoste
+      if (col.visible === false) return;
+
+      let cellValue = '';
+
+      if (typeof col.render === 'function') {
+        // Usa il renderer della colonna per il valore del totale
+        cellValue = col.render(totaleRow[col.data], 'display', totaleRow, {
+          row: -1,
+          col: index,
+          settings,
+        });
+      } else if (col.data) {
+        // Altrimenti usa il valore direttamente
+        cellValue = totaleRow[col.data] ?? '';
+      }
+
+      $lastRow.append(`<td>${cellValue}</td>`);
+    });
+
+    $(api.table().body()).append($lastRow);
+  }
+},
+
+
   });
 });
 </script>

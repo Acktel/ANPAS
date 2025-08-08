@@ -196,7 +196,12 @@ $assocCorr = 'Anpas Nazionale';
                     <ul class="dropdown-menu dropdown-menu-end">
                         <li><a class="dropdown-item" href="{{ route('configurazioni.veicoli') }}">Veicoli</a></li>
                         <li><a class="dropdown-item" href="{{ route('configurazioni.personale') }}">Personale</a></li>
+<<<<<<< HEAD
                         <li><a class="dropdown-item"  href="{{ route('configurazioni.aziende_sanitarie') }}">Aziende Sanitarie</a></li>
+=======
+                        {{-- <li><a class="dropdown-item" href="{{ route('configurazioni.convenzioni') }}">Convenzioni</a></li> --}}
+                        <li><a class="dropdown-item" href="#">Altro</a></li>
+>>>>>>> modifiche_tabelle_anpas_luca
                     </ul>
                 </li>
                 <a class="nav-link dropdown-toggle" href="#" id="userMenu" data-bs-toggle="dropdown">

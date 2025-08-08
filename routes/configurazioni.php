@@ -24,8 +24,15 @@ Route::middleware(['auth'])->prefix('configurazioni')->group(function () {
     Route::post('livelli', [ConfigurazionePersonaleController::class, 'storeLivelloMansione'])->name('configurazioni.livelli.store');
     Route::delete('livelli/{id}', [ConfigurazionePersonaleController::class, 'destroyLivelloMansione'])->name('configurazioni.livelli.destroy');
 
+<<<<<<< HEAD
     //AZIENDE SANITARIE
     Route::get('aziende-sanitarie', [ConfigurazioneLottiController::class, 'index'])->name('configurazioni.aziende_sanitarie');
     Route::post('aziende-sanitarie', [ConfigurazioneLottiController::class, 'store'])->name('configurazioni.aziende_sanitarie.store');
     Route::delete('aziende-sanitarie/{id}', [ConfigurazioneLottiController::class, 'destroy'])->name('configurazioni.aziende_sanitarie.destroy');
+=======
+    //CONVENZIONI
+    // Route::get('personale', [ConfigurazionePersonaleController::class, 'index'])->name('configurazioni.convenzioni');
+    // Route::post('qualifiche', [ConfigurazionePersonaleController::class, 'storeQualifica'])->name('configurazioni.convenzioni.store');
+    // Route::delete('qualifiche/{id}', [ConfigurazionePersonaleController::class, 'destroyQualifica'])->name('configurazioni.convenzioni.destroy');
+>>>>>>> modifiche_tabelle_anpas_luca
 });

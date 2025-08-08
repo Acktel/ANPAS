@@ -104,10 +104,10 @@
 {{-- Footer fisso con bottoni --}}
 <div class="fixed-footer bg-white border-top py-2 px-3 text-center shadow">
   <button type="submit" form="mainForm" class="btn btn-anpas-green me-2">
-    <i class="fas fa-save me-1"></i> Aggiorna Riepilogo
+    <i class="fas fa-check me-1"></i> Aggiorna Riepilogo
   </button>
   <a href="{{ route('riepiloghi.index') }}" class="btn btn-secondary">
-    Annulla
+    <i class="fas fa-times me-1"></i>Annulla
   </a>
 </div>
 @endsection

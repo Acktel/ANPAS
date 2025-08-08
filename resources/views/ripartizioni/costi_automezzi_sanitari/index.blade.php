@@ -38,7 +38,8 @@
     @endif
 
     <table id="tabellaCosti" class="table table-striped-anpas table-bordered w-100 text-center align-middle" style="display: none;">
-        <thead>
+        {{-- aggiunta classe thead --}}
+        <thead class="thead-anpas">
             <tr id="headerFinale"></tr>
         </thead>
         <tbody></tbody>

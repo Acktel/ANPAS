@@ -2,7 +2,7 @@
 
 @section('content')
 <div class="container">
-  <h1 class="mb-4">Modifica rimborsi Servizio Civile – Anno {{ $anno }}</h1>
+  <h1 class="mb-4 container-title">Modifica rimborsi Servizio Civile – Anno {{ $anno }}</h1>
 
   <form method="POST" action="{{ route('ripartizioni.servizio_civile.update') }}">
     @csrf
@@ -30,8 +30,10 @@
       </tbody>
     </table>
 
-    <button type="submit" class="btn btn-success">Salva</button>
-    <a href="{{ route('ripartizioni.servizio_civile.index') }}" class="btn btn-secondary">Annulla</a>
+        <div class="mt-4 text-center">
+    <button type="submit" class="btn btn-anpas-green"><i class="fas fa-check me-1"></i>Salva</button>
+    <a href="{{ route('ripartizioni.servizio_civile.index') }}" class="btn btn-secondary"><i class="fas fa-times me-1"></i>Annulla</a>
+    </div>
   </form>
 </div>
 @endsection

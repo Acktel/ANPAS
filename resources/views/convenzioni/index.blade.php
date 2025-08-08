@@ -55,7 +55,7 @@
   <div class="card-anpas">
     <div class="card-body bg-anpas-white p-0">
       <table id="convenzioniTable"
-        class="common-css-dataTable table table-hover table-striped table-bordered dt-responsive nowrap mb-0 table-striped-anpas">
+             class="common-css-dataTable table table-hover table-stripe-anpas table-bordered dt-responsive nowrap mb-0 table-striped-anpas">
         <thead class="thead-anpas">
           <tr>
             <th>ID</th>
@@ -67,6 +67,7 @@
         </thead>
         <tbody id="sortable-convenzioni" class="sortable">
           @forelse($convenzioni as $c)
+<<<<<<< HEAD
           <tr data-id="{{ $c->idConvenzione }}">
             <td>{{ $c->idConvenzione }}</td>
             <td>{{ $c->idAnno }}</td>
@@ -90,6 +91,29 @@
               </form>
             </td>
           </tr>
+=======
+            <tr data-id="{{ $c->idConvenzione }}">
+              <td>{{ $c->idConvenzione }}</td>
+              <td>{{ $c->idAnno }}</td>
+              <td>{{ $c->Convenzione }}</td>
+              <td class="text-center align-middle">
+                <a href="{{ route('convenzioni.edit', $c->idConvenzione) }}"
+                   class="btn btn-sm btn-anpas-edit me-1 btn-icon" title="Modifica">
+                  <i class="fas fa-edit"></i>
+                </a>
+                <form action="{{ route('convenzioni.destroy', $c->idConvenzione) }}"
+                      method="POST"
+                      class="d-inline"
+                      onsubmit="return confirm('Eliminare questa convenzione?')">
+                  @csrf
+                  @method('DELETE')
+                  <button class="btn btn-sm btn-anpas-delete btn-icon" title="Elimina">
+                    <i class="fas fa-trash-alt"></i>
+                  </button>
+                </form>
+              </td>
+            </tr>
+>>>>>>> modifiche_tabelle_anpas_luca
           @empty
           <tr>
             <td colspan="6" class="text-center py-3">Nessuna convenzione.</td>

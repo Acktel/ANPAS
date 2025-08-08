@@ -47,6 +47,7 @@ $(async function () {
   let { data, labels } = await res.json();
   if (!data.length) return;
 
+<<<<<<< HEAD
   // Sposta la riga totale in fondo
   const totaleRow = data.find(r => r.is_totale === -1);
   data = data.filter(r => r.is_totale !== -1);
@@ -54,6 +55,17 @@ $(async function () {
 
   const table = $('#table-ripartizione');
 
+=======
+
+  // Sposta la riga totale in fondo
+  const totaleRow = data.find(r => r.is_totale === -1);
+  data = data.filter(r => r.is_totale !== -1);
+
+
+  const table = $('#table-ripartizione');
+
+
+>>>>>>> modifiche_tabelle_anpas_luca
   const staticCols = [   
     { key: 'idDipendente', label: '',               hidden: true  },
     { key: 'Associazione', label: 'Associazione',   hidden: false },
@@ -62,14 +74,22 @@ $(async function () {
     { key: 'is_totale',    label: '',               hidden: true  },
   ];
 
+
   const convenzioni = Object.keys(labels).sort((a,b) => parseInt(a.slice(1)) - parseInt(b.slice(1)));
 
+<<<<<<< HEAD
   let hMain = '', hSub = '', cols = [];
+=======
+
+  let hMain = '', hSub = '', cols = [];
+
+>>>>>>> modifiche_tabelle_anpas_luca
 
   staticCols.forEach(col => {
     hMain += `<th rowspan="2"${col.hidden ? ' style="display:none"' : ''}>${col.label}</th>`;
     cols.push({ data: col.key, visible: !col.hidden });
   });
+
 
   convenzioni.forEach(key => {
     hMain += `<th colspan="2">${labels[key]}</th>`;
@@ -77,6 +97,7 @@ $(async function () {
     cols.push({ data: `${key}_ore`, defaultContent: 0 });
     cols.push({ data: `${key}_percent`, defaultContent: 0 });
   });
+
 
   hMain += `<th rowspan="2">Azioni</th>`;
   cols.push({
@@ -87,17 +108,24 @@ $(async function () {
     render: row => {
       if (row.is_totale === -1) return '';
       return `
-        <a href="/ripartizioni/personale/${row.idDipendente}" class="btn btn-sm btn-info me-1 btn-icon" title="Visualizza">
+        <a href="/ripartizioni/personale/${row.idDipendente}" class="btn btn-anpas-green me-1 btn-icon" title="Visualizza">
           <i class="fas fa-eye"></i>
         </a>
-        <a href="/ripartizioni/personale/${row.idDipendente}/edit" class="btn btn-sm btn-warning me-1 btn-icon" title="Modifica">
+        <a href="/ripartizioni/personale/${row.idDipendente}/edit" class="btn btn-warning me-1 btn-icon" title="Modifica">
           <i class="fas fa-edit"></i>
         </a>`;
     }
   });
 
+
   $('#header-main').html(hMain);
+  $('#header-main th').each(function() {
+      if ($(this).attr('colspan')) {
+       $(this).addClass('border-bottom-special');
+      }
+    });
   $('#header-sub').html(hSub);
+
 
   table.DataTable({
     data,
@@ -113,7 +141,43 @@ $(async function () {
       }
       $(rowEl).removeClass('even odd').addClass(index % 2 === 0 ? 'even' : 'odd');
     },
-    stripeClasses: ['table-white', 'table-striped-anpas']
+    stripeClass: ['table-striped-anpas'], //tolto table-white, e da Classes a Class
+
+
+    drawCallback: function(settings) {
+    const api = this.api();
+    const pageRows = api.rows({ page: 'current' }).nodes();
+
+    // Rimuovi eventuali righe "TOTALE" precedenti
+    $(pageRows).filter('.totale-row').remove();
+
+    // Aggiungi la riga TOTALE alla fine della pagina
+    if (totaleRow) {
+        const $lastRow = $('<tr>').addClass('table-warning fw-bold totale-row');
+
+        api.columns().every(function(index) {
+            const col = api.column(index);
+            if (!col.visible()) return;
+
+            let cellValue = '';
+            // Se usi render personalizzato, prova a usarlo qui, altrimenti prendi dati diretti:
+            const colData = col.dataSrc();
+
+            if (typeof colData === 'function') {
+                // se è funzione (render), chiamala con totaleRow
+                cellValue = colData(totaleRow);
+            } else {
+                cellValue = totaleRow[colData] ?? '';
+            }
+
+            $lastRow.append(`<td>${cellValue}</td>`);
+        });
+
+        $(api.table().body()).append($lastRow);
+    }
+}
+
+
   });
 });
 </script>

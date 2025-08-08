@@ -65,17 +65,30 @@
 @push('scripts')
 <script>
     $(function() {
+        let totaleRow = null; // Dichiariamo fuori
 
         $('#costiRadioTable').DataTable({
-            ajax: '{{ route("ripartizioni.costi_radio.getData") }}',
+            ajax: {
+                url: '{{ route("ripartizioni.costi_radio.getData") }}',
+                dataSrc: function(res) {
+                    let data = res.data || [];
+
+                    // Sposta la riga "TOTALE" in fondo
+                    totaleRow = data.find(r => r.is_totale === -1); // Salviamo qui
+                    data = data.filter(r => r.is_totale !== -1);
+                    // if (totaleRow) data.push(totaleRow);
+
+                    return data;
+                }
+            },
             processing: true,
             serverSide: false,
-            paging: false,
+            paging: true,
             searching: false,
             ordering: true,
-            order: [[6, 'asc']], // is_totale
-            orderFixed: [[6, 'asc']],
+            order: [],
             info: false,
+            stripeClasses: ['odd', 'even'],
             columns: [
                 { data: 'Targa', title: 'Automezzo' },
                 { data: 'ManutenzioneApparatiRadio', className: 'text-end' },
@@ -87,17 +100,46 @@
                     className: 'text-center',
                     render: function(row) {
                         return (row.is_totale === -1)
-                            ? `<a href="{{ route('ripartizioni.costi_radio.editTotale') }}" class="btn btn-sm btn-anpas-edit"><i class="fas fa-edit"></i></a>`
+                            ? `<a href="{{ route('ripartizioni.costi_radio.editTotale') }}" class="btn btn-anpas-edit"><i class="fas fa-edit"></i></a>`
                             : '-';
                     }
                 },
                 { data: 'is_totale', visible: false, searchable: false }
             ],
-            rowCallback: function(row, data) {
+            rowCallback: function(row, data, index) {
                 if (data.is_totale === -1) {
                     $(row).addClass('table-warning fw-bold');
                 }
+
+                $(row).removeClass('odd even').addClass(index % 2 === 0 ? 'even' : 'odd');
             },
+drawCallback: function(settings) {
+    const api = this.api();
+    const pageRows = api.rows({ page: 'current' }).nodes();
+
+    $(pageRows).filter('.totale-row').remove();
+
+    if (totaleRow) {
+        const $lastRow = $('<tr>').addClass('table-warning fw-bold totale-row');
+
+        api.columns().every(function(index) {
+            const col = api.settings()[0].aoColumns[index];
+            if (!col.bVisible) return;
+
+            let cellValue = '';
+            if (typeof col.mRender === 'function') {
+                cellValue = col.mRender(totaleRow, 'display', null, { row: -1, col: index, settings });
+            } else if (col.mData) {
+                cellValue = totaleRow[col.mData] ?? '';
+            }
+
+            const alignmentClass = col.sClass || ''; // className come text-end, text-center ecc.
+            $lastRow.append(`<td class="${alignmentClass}">${cellValue}</td>`);
+        });
+
+        $(api.table().body()).append($lastRow);
+    }
+},
             language: {
                 url: '/js/i18n/Italian.json'
             }
@@ -105,3 +147,4 @@
     });
 </script>
 @endpush
+

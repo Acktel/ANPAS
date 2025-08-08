@@ -106,7 +106,7 @@ $assoCorr = $associazioni->firstWhere('idAssociazione', $conv->idAssociazione);
           <a href="{{ route('convenzioni.index', [
                 'idAssociazione' => old('idAssociazione', $conv->idAssociazione),
                 'idAnno' => old('idAnno', $conv->idAnno) ]) }}" class="btn btn-secondary">
-            Annulla
+            <i class="fas fa-times me-1"></i>Annulla
           </a>
         </div>
       </form>

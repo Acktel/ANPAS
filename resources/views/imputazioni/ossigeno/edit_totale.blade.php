@@ -12,7 +12,7 @@
             <label for="TotaleBilancio">Totale a Bilancio (€)</label>
             <input type="number" step="0.01" class="form-control" id="TotaleBilancio" name="TotaleBilancio" value="{{ $totale }}" required>
         </div>
-        <button type="submit" class="btn btn-anpas-green mt-3">Salva</button>
+        <button type="submit" class="btn btn-anpas-green my-3"><i class="fas fa-check me-1"></i>Salva</button>
     </form>
 </div>
 @endsection

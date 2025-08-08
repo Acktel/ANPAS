@@ -65,6 +65,7 @@
 
 @push('scripts')
 <script>
+<<<<<<< HEAD
     $(function () {
         const table = $('#ossigenoTable').DataTable({
             ajax: {
@@ -73,13 +74,38 @@
                     d.idAssociazione = $('#assocSelect').val(); // passa idAssociazione selezionata
                 }
             },
+=======
+    $(function() {
+            let storedTotaleRow = null;
+
+        $('#ossigenoTable').DataTable({
+            // 
+            ajax: {
+    url: '{{ route("imputazioni.ossigeno.getData") }}',
+dataSrc: function(res) {
+    let data = res.data || [];
+
+    // Trova e isola la riga 'TOTALE'
+    storedTotaleRow = data.find(r => r.is_totale === -1);
+    data = data.filter(r => r.is_totale !== -1);
+
+    // Ritorna solo le righe normali
+    return data;
+}
+},
+>>>>>>> modifiche_tabelle_anpas_luca
             processing: true,
             serverSide: false,
-            paging: false,
+            paging: true,
             searching: false,
             ordering: true,
+<<<<<<< HEAD
             order: [[4, 'asc']], // is_totale
             orderFixed: [[4, 'asc']],
+=======
+            //modificato da 5 a 4 per mettere "TOTALE" in cima
+            order: [], // is_totale
+>>>>>>> modifiche_tabelle_anpas_luca
             info: false,
             columns: [
                 { data: 'Targa' },
@@ -88,12 +114,54 @@
                 { data: 'importo', className: 'text-end', render: d => parseFloat(d).toFixed(2).replace('.', ',') },
                 { data: 'is_totale', visible: false, searchable: false }
             ],
+<<<<<<< HEAD
             rowCallback: function (row, data, index) {
+=======
+            
+            rowCallback: function(row, data,index) {
+>>>>>>> modifiche_tabelle_anpas_luca
                 if (data.is_totale === -1) {
                     $(row).addClass('table-warning fw-bold');
                 }
                 $(row).removeClass('even odd').addClass(index % 2 === 0 ? 'even' : 'odd');
             },
+
+
+drawCallback: function(settings) {
+    const api = this.api();
+    const pageRows = api.rows({ page: 'current' }).nodes();
+
+    // Rimuove eventuali duplicati
+    $(pageRows).filter('.totale-row').remove();
+
+    // Se esiste la riga totale, la reinseriamo
+    if (storedTotaleRow) {
+        const $lastRow = $('<tr>').addClass('table-warning fw-bold totale-row');
+
+        api.columns().every(function(index) {
+            const col = api.settings()[0].aoColumns[index];
+
+            if (!col.bVisible) return;
+
+            const key = col.data;
+            let cellValue = '';
+
+            if (typeof col.render === 'function') {
+                cellValue = col.render(storedTotaleRow[key], 'display', storedTotaleRow, { row: -1, col: index, settings });
+            } else if (key) {
+                cellValue = storedTotaleRow[key] ?? '';
+            }
+
+            $lastRow.append(`<td class="${col.className || ''}">${cellValue}</td>`);
+        });
+
+        $(api.table().body()).append($lastRow);
+    }
+},
+
+
+
+
             language: {
                 url: '/js/i18n/Italian.json'
             }

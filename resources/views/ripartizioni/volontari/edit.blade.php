@@ -2,7 +2,7 @@
 
 @section('content')
 <div class="container">
-  <h1 class="mb-4">Modifica rimborsi volontari – Anno {{ $anno }}</h1>
+  <h1 class="mb-4 container-title">Modifica rimborsi volontari – Anno {{ $anno }}</h1>
 
   <form method="POST" action="{{ route('ripartizioni.volontari.update') }}">
     @csrf
@@ -23,15 +23,18 @@
           <tr>
             <td>{{ $conv->Convenzione }}</td>
             <td>
-              <input type="number" name="ore[{{ $conv->idConvenzione }}]" class="form-control" value="{{ $valore }}" step="0.01" min="0">
+              <input type="number" name="ore[{{ $conv->idConvenzione }}]" class="form-control" value="{{ ($valore !== null && $valore != 0) ? $valore : '' }}" step="0.01" min="0" placeholder="0">
             </td>
           </tr>
         @endforeach
       </tbody>
     </table>
 
-    <button type="submit" class="btn btn-success">Salva</button>
-    <a href="{{ route('ripartizioni.volontari.index') }}" class="btn btn-secondary">Annulla</a>
+        <div class="text-center mt-4">
+    <button type="submit" class="btn btn-anpas-green"><i class="fas fa-check me-1"></i>Salva</button>
+    <a href="{{ route('ripartizioni.volontari.index') }}" class="btn btn-secondary"><i class="fas fa-times me-1"></i>Annulla</a>
+    </div>
+
   </form>
 </div>
 @endsection

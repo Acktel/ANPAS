@@ -27,6 +27,7 @@
             {
                 key: 'TFR',
                 label: 'TFR'
+                
             },
             {
                 key: 'Consulenze',
@@ -50,6 +51,7 @@
                 headerMain += `<th rowspan="2"${col.hidden ? ' style="display:none"' : ''}>${col.label}</th>`;
                 columns.push({
                     data: col.key,
+                    className: 'text-end',
                     visible: !col.hidden
                 });
                 if (!col.hidden) visibleIndex++;
@@ -80,12 +82,12 @@
                 searchable: false,
                 className: 'col-actions text-center',
                 render: row => row.is_totale || !row.idDipendente ? '-' : `
-                <a href="/ripartizioni/personale/costi/${row.idDipendente}" class="btn btn-sm btn-info me-1 btn-icon" title="Visualizza"><i class="fas fa-eye"></i></a>
-                <a href="/ripartizioni/personale/costi/${row.idDipendente}/edit" class="btn btn-sm btn-anpas-edit me-1 btn-icon" title="Modifica"><i class="fas fa-edit"></i></a>
+                <a href="/ripartizioni/personale/costi/${row.idDipendente}" class="btn btn-anpas-green me-1 btn-icon" title="Visualizza"><i class="fas fa-eye"></i></a>
+                <a href="/ripartizioni/personale/costi/${row.idDipendente}/edit" class="btn btn-anpas-edit me-1 btn-icon" title="Modifica"><i class="fas fa-edit"></i></a>
                 <form method="POST" action="/ripartizioni/personale/costi/${row.idDipendente}" class="d-inline-block" onsubmit="return confirm('Confermi eliminazione?')">
                     <input type="hidden" name="_token" value="{{ csrf_token() }}">
                     <input type="hidden" name="_method" value="DELETE">
-                    <button type="submit" class="btn btn-sm btn-anpas-delete btn-icon" title="Elimina"><i class="fas fa-trash-alt"></i></button>
+                    <button type="submit" class="btn btn-anpas-delete btn-icon" title="Elimina"><i class="fas fa-trash-alt"></i></button>
                 </form>`
             });
 
@@ -109,20 +111,56 @@
                     [0, 'asc']
                 ],
                 responsive: true,
-                paging: false,
+                paging: true,
                 searching: false,
                 info: false,
                 language: {
                     url: '/js/i18n/Italian.json'
                 },
-                rowCallback: function(row, data, index) {
-                    if (index % 2 === 0) {
-                        $(row).removeClass('even').removeClass('odd').addClass('even');
-                    } else {
-                        $(row).removeClass('even').removeClass('odd').addClass('odd');
-                    }
-                },
-                stripeClasses: ['table-white', 'table-striped-anpas'],
+
+
+drawCallback: function(settings) {
+    const api = this.api();
+
+    // Rimuove eventuali righe TOTALE precedenti
+    api.rows({ page: 'current' }).nodes().to$().filter('.totale-clone').remove();
+
+    // Trova i dati della riga "totale"
+    const totaleData = api.rows().data().toArray().find(r => r.is_totale === true);
+    if (!totaleData) return;
+
+    const $row = $('<tr>').addClass('table-warning fw-bold totale-clone');
+
+    api.columns(':visible').every(function(index) {
+        const col = this.settings()[0].aoColumns[this.index()];
+        const dataKey = col.data;
+
+        let cellValue = '';
+
+        if (typeof col.render === 'function') {
+            // Passa TUTTO l'oggetto riga, non solo un valore singolo
+            cellValue = col.render(totaleData, 'display', null, { row: -1, col: index, settings });
+        } else if (dataKey) {
+            cellValue = totaleData[dataKey] ?? '';
+        }
+
+        $row.append(`<td class="text-end">${cellValue}</td>`);
+    });
+
+    // Aggiungi riga in fondo alla pagina corrente
+    $(api.table().body()).append($row);
+},
+
+
+rowCallback: function(rowElement, rowData, displayIndex) {
+    if (rowData.is_totale === true) {
+        $(rowElement).hide();  // nasconde la riga "totale" originale
+    }
+    const api = this.api();
+    const rowIndex = api.row(rowElement).index();
+    $(rowElement).removeClass('even odd').addClass(rowIndex % 2 === 0 ? 'even' : 'odd');
+},
+                stripeClass: ['table-striped-anpas'],
             });
         }
 
@@ -185,7 +223,7 @@
                             </form>`
                         }
                     ],
-                    paging: false,
+                    paging: true,
                     searching: false,
                     info: false,
                     ordering: false,
