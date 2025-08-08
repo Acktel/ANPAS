@@ -22,7 +22,7 @@ document.addEventListener('DOMContentLoaded', function () {
         columnDefs: [
     {
       targets: -1, // l’ultima colonna (actions)
-      className: 'text-center align-middle' // 👈 classe Bootstrap per centrare il contenuto
+      className: 'text-center align-middle' // classe Bootstrap per centrare il contenuto
     }
   ],
       language: { url: italian },

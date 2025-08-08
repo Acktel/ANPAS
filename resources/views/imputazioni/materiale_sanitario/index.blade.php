@@ -48,64 +48,94 @@
 
 @push('scripts')
 <script>
-    $(function() {
-        $('#materialeSanitarioTable').DataTable({
-            // '{{ route("imputazioni.materiale_sanitario.getData") }}',
-            ajax: {
-    url: '{{ route("imputazioni.materiale_sanitario.getData") }}',
-    dataSrc: function(res) {
-        let data = res.data || [];
+$(function () {
+    let totaleRow = null; // definito qui fuori, visibile ovunque nel DataTable
 
-        // Sposta la riga "TOTALE" in fondo
-        const totaleRow = data.find(r => r.is_totale === -1);
-        data = data.filter(r => r.is_totale !== -1);
-        if (totaleRow) data.push(totaleRow);
+    let storedTotaleRow = null;
 
-        return data;
+
+    $('#materialeSanitarioTable').DataTable({
+        ajax: {
+            url: '{{ route("imputazioni.materiale_sanitario.getData") }}',
+dataSrc: function(res) {
+    let data = res.data || [];
+
+    // Estrai e salva la riga 'TOTALE'
+    storedTotaleRow = data.find(r => r.is_totale === -1);
+    data = data.filter(r => r.is_totale !== -1); // rimuovi la riga totale dai dati normali
+
+    return data;
+}
+        },
+        processing: true,
+        serverSide: false,
+        paging: true,
+        searching: false,
+        ordering: true,
+        stripeClasses: ['odd', 'even'],
+        order: [],
+        info: false,
+        columns: [
+            { data: 'Targa' },
+            { data: 'n_servizi', className: 'text-end' },
+            {
+                data: 'percentuale',
+                className: 'text-end',
+                render: d => d + '%'
+            },
+            {
+                data: 'importo',
+                className: 'text-end',
+                render: d => parseFloat(d).toFixed(2).replace('.', ',')
+            },
+            {
+                data: 'is_totale',
+                visible: false,
+                searchable: false
+            }
+        ],
+        rowCallback: function (row, data, index) {
+            if (data.is_totale === -1) {
+                $(row).addClass('table-warning fw-bold');
+            }
+            $(row).removeClass('even odd').addClass(index % 2 === 0 ? 'even' : 'odd');
+        },
+drawCallback: function(settings) {
+    const api = this.api();
+    const pageRows = api.rows({ page: 'current' }).nodes();
+
+    // Rimuove eventuali duplicati
+    $(pageRows).filter('.totale-row').remove();
+
+    // Inserisce la riga TOTALE salvata solo se esiste
+    if (storedTotaleRow) {
+        const $lastRow = $('<tr>').addClass('table-warning fw-bold totale-row');
+
+        api.columns().every(function(index) {
+            const col = api.settings()[0].aoColumns[index];
+            if (!col.bVisible) return;
+
+            let cellValue = '';
+            const key = col.data;
+            if (typeof col.render === 'function') {
+                cellValue = col.render(storedTotaleRow[key], 'display', storedTotaleRow, { row: -1, col: index, settings });
+            } else if (key) {
+                cellValue = storedTotaleRow[key] ?? '';
+            }
+
+            const alignmentClass = col.sClass || '';
+            $lastRow.append(`<td class="${alignmentClass}">${cellValue}</td>`);
+        });
+
+        $(api.table().body()).append($lastRow);
     }
 },
-            processing: true,
-            serverSide: false,
-            paging: false,
-            searching: false,
-            ordering: true,
-            stripeClasses: ['odd', 'even'],
-            //cambiato da 5 a 4 per metterlo in cima
-            order: [], // is_totale
-            info: false,
-            columns: [{
-                    data: 'Targa'
-                },
-                {
-                    data: 'n_servizi',
-                    className: 'text-end'
-                },
-                {
-                    data: 'percentuale',
-                    className: 'text-end',
-                    render: d => d + '%'
-                },
-                {
-                    data: 'importo',
-                    className: 'text-end',
-                    render: d => parseFloat(d).toFixed(2).replace('.', ',')
-                },
-                {
-                    data: 'is_totale',
-                    visible: false,
-                    searchable: false
-                }
-            ],
-            rowCallback: function(row, data,index) {
-                if (data.is_totale === -1) {
-                    $(row).addClass('table-warning fw-bold');
-                }
-                 $(row).removeClass('even odd').addClass(index % 2 === 0 ? 'even' :'odd');
-            },
-            language: {
-                url: '/js/i18n/Italian.json'
-            }
-        });
+
+        language: {
+            url: '/js/i18n/Italian.json'
+        }
     });
+});
 </script>
+
 @endpush

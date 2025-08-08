@@ -46,7 +46,6 @@
     const selectedId = $('#assocSelect').val(); // legge dal <select>
     const url = new URL("{{ route('servizi-svolti.datatable') }}", window.location.origin);
     if (selectedId) url.searchParams.append('idAssociazione', selectedId);
-    console.log("url ",url);
     const res = await fetch(url);
   let { data, labels } = await res.json();
   if (!data.length) return;
@@ -55,7 +54,7 @@
   // Sposta la riga totale in fondo
   const totaleRow = data.find(r => r.is_totale === -1);
   data = data.filter(r => r.is_totale !== -1);
-  if (totaleRow) data.push(totaleRow);
+  // if (totaleRow) data.push(totaleRow);
 
     const table = $('#serviziTable');
 
@@ -179,6 +178,52 @@
       $(rowEl).removeClass('even odd').addClass(index % 2 === 0 ? 'even' : 'odd');
     },
       stripeClass: ['table-striped-anpas'],
+
+
+
+
+
+
+
+
+
+
+                  drawCallback: function(settings) {
+    const api = this.api();
+    const pageRows = api.rows({ page: 'current' }).nodes();
+
+    // Rimuovi eventuali righe "TOTALE" precedenti (evita duplicazioni)
+    $(pageRows).filter('.totale-row').remove();
+
+    // Aggiungi la riga TOTALE alla fine della pagina
+    if (totaleRow) {
+        const columnCount = api.columns().visible().reduce((acc, isVisible) => acc + (isVisible ? 1 : 0), 0);
+        const $lastRow = $('<tr>').addClass('table-warning fw-bold totale-row');
+
+        api.columns().every(function(index) {
+            const col = columns[index];
+            if (col.visible === false) return;
+
+            let cellValue = '';
+            if (typeof col.render === 'function') {
+                cellValue = col.render(totaleRow, 'display', null, { row: -1, col: index, settings });
+            } else if (col.data) {
+                cellValue = totaleRow[col.data] ?? '';
+            }
+
+            $lastRow.append(`<td>${cellValue}</td>`);
+        });
+
+        $(api.table().body()).append($lastRow);
+    }
+},
+
+
+
+
+
+
+
     });
   });
 </script>

@@ -49,24 +49,26 @@
 @push('scripts')
 <script>
     $(function() {
+            let storedTotaleRow = null;
+
         $('#ossigenoTable').DataTable({
             // 
             ajax: {
     url: '{{ route("imputazioni.ossigeno.getData") }}',
-    dataSrc: function(res) {
-        let data = res.data || [];
+dataSrc: function(res) {
+    let data = res.data || [];
 
-        // Sposta la riga "TOTALE" in fondo
-        const totaleRow = data.find(r => r.is_totale === -1);
-        data = data.filter(r => r.is_totale !== -1);
-        if (totaleRow) data.push(totaleRow);
+    // Trova e isola la riga 'TOTALE'
+    storedTotaleRow = data.find(r => r.is_totale === -1);
+    data = data.filter(r => r.is_totale !== -1);
 
-        return data;
-    }
+    // Ritorna solo le righe normali
+    return data;
+}
 },
             processing: true,
             serverSide: false,
-            paging: false,
+            paging: true,
             searching: false,
             ordering: true,
             //modificato da 5 a 4 per mettere "TOTALE" in cima
@@ -95,6 +97,43 @@
                 }
                 $(row).removeClass('even odd').addClass(index % 2 === 0 ? 'even' :'odd');
             },
+
+
+drawCallback: function(settings) {
+    const api = this.api();
+    const pageRows = api.rows({ page: 'current' }).nodes();
+
+    // Rimuove eventuali duplicati
+    $(pageRows).filter('.totale-row').remove();
+
+    // Se esiste la riga totale, la reinseriamo
+    if (storedTotaleRow) {
+        const $lastRow = $('<tr>').addClass('table-warning fw-bold totale-row');
+
+        api.columns().every(function(index) {
+            const col = api.settings()[0].aoColumns[index];
+
+            if (!col.bVisible) return;
+
+            const key = col.data;
+            let cellValue = '';
+
+            if (typeof col.render === 'function') {
+                cellValue = col.render(storedTotaleRow[key], 'display', storedTotaleRow, { row: -1, col: index, settings });
+            } else if (key) {
+                cellValue = storedTotaleRow[key] ?? '';
+            }
+
+            $lastRow.append(`<td class="${col.className || ''}">${cellValue}</td>`);
+        });
+
+        $(api.table().body()).append($lastRow);
+    }
+},
+
+
+
+
             language: {
                 url: '/js/i18n/Italian.json'
             }

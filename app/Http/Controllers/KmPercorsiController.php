@@ -228,4 +228,21 @@ class KmPercorsiController extends Controller {
             ->route('km-percorsi.index')
             ->with('success', 'KM percorsi aggiornati con successo.');
     }
+
+
+
+
+
+
+
+
+
+    //     public function destroy(int $id) {
+    //     abort_if(!Convenzione::getById($id), 404);
+
+    //     Convenzione::deleteConvenzione($id);
+
+    //     return redirect()->route('km_percorsi.index')->with('success', 'Distinta eliminata.');
+        
+    // }
 }

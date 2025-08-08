@@ -51,7 +51,6 @@ $(async function () {
   // Sposta la riga totale in fondo
   const totaleRow = data.find(r => r.is_totale === -1);
   data = data.filter(r => r.is_totale !== -1);
-  if (totaleRow) data.push(totaleRow);
 
 
   const table = $('#table-ripartizione');
@@ -128,7 +127,43 @@ $(async function () {
       }
       $(rowEl).removeClass('even odd').addClass(index % 2 === 0 ? 'even' : 'odd');
     },
-    stripeClass: ['table-striped-anpas'] //tolto table-white, e da Classes a Class
+    stripeClass: ['table-striped-anpas'], //tolto table-white, e da Classes a Class
+
+
+    drawCallback: function(settings) {
+    const api = this.api();
+    const pageRows = api.rows({ page: 'current' }).nodes();
+
+    // Rimuovi eventuali righe "TOTALE" precedenti
+    $(pageRows).filter('.totale-row').remove();
+
+    // Aggiungi la riga TOTALE alla fine della pagina
+    if (totaleRow) {
+        const $lastRow = $('<tr>').addClass('table-warning fw-bold totale-row');
+
+        api.columns().every(function(index) {
+            const col = api.column(index);
+            if (!col.visible()) return;
+
+            let cellValue = '';
+            // Se usi render personalizzato, prova a usarlo qui, altrimenti prendi dati diretti:
+            const colData = col.dataSrc();
+
+            if (typeof colData === 'function') {
+                // se è funzione (render), chiamala con totaleRow
+                cellValue = colData(totaleRow);
+            } else {
+                cellValue = totaleRow[colData] ?? '';
+            }
+
+            $lastRow.append(`<td>${cellValue}</td>`);
+        });
+
+        $(api.table().body()).append($lastRow);
+    }
+}
+
+
   });
 });
 </script>

@@ -65,27 +65,28 @@
 @push('scripts')
 <script>
     $(function() {
+        let totaleRow = null; // Dichiariamo fuori
 
         $('#costiRadioTable').DataTable({
             ajax: {
-    url: '{{ route("ripartizioni.costi_radio.getData") }}',
-    dataSrc: function(res) {
-        let data = res.data || [];
+                url: '{{ route("ripartizioni.costi_radio.getData") }}',
+                dataSrc: function(res) {
+                    let data = res.data || [];
 
-        // Sposta la riga "TOTALE" in fondo
-        const totaleRow = data.find(r => r.is_totale === -1);
-        data = data.filter(r => r.is_totale !== -1);
-        if (totaleRow) data.push(totaleRow);
+                    // Sposta la riga "TOTALE" in fondo
+                    totaleRow = data.find(r => r.is_totale === -1); // Salviamo qui
+                    data = data.filter(r => r.is_totale !== -1);
+                    // if (totaleRow) data.push(totaleRow);
 
-        return data;
-    }
-},
+                    return data;
+                }
+            },
             processing: true,
             serverSide: false,
-            paging: false,
+            paging: true,
             searching: false,
             ordering: true,
-            order: [], // is_totale
+            order: [],
             info: false,
             stripeClasses: ['odd', 'even'],
             columns: [
@@ -105,14 +106,40 @@
                 },
                 { data: 'is_totale', visible: false, searchable: false }
             ],
-                rowCallback: function(row, data, index) {
-                    if (data.is_totale === -1) {
-                        $(row).addClass('table-warning fw-bold');
-                    }
-                
-                    //Serve a forzare l'aggiunta delle classi odd/even per zebra striping se non basta "stripeClasses: ['odd', 'even']"
-                    $(row).removeClass('odd even').addClass(index % 2 === 0 ? 'even' : 'odd');
-                },
+            rowCallback: function(row, data, index) {
+                if (data.is_totale === -1) {
+                    $(row).addClass('table-warning fw-bold');
+                }
+
+                $(row).removeClass('odd even').addClass(index % 2 === 0 ? 'even' : 'odd');
+            },
+drawCallback: function(settings) {
+    const api = this.api();
+    const pageRows = api.rows({ page: 'current' }).nodes();
+
+    $(pageRows).filter('.totale-row').remove();
+
+    if (totaleRow) {
+        const $lastRow = $('<tr>').addClass('table-warning fw-bold totale-row');
+
+        api.columns().every(function(index) {
+            const col = api.settings()[0].aoColumns[index];
+            if (!col.bVisible) return;
+
+            let cellValue = '';
+            if (typeof col.mRender === 'function') {
+                cellValue = col.mRender(totaleRow, 'display', null, { row: -1, col: index, settings });
+            } else if (col.mData) {
+                cellValue = totaleRow[col.mData] ?? '';
+            }
+
+            const alignmentClass = col.sClass || ''; // className come text-end, text-center ecc.
+            $lastRow.append(`<td class="${alignmentClass}">${cellValue}</td>`);
+        });
+
+        $(api.table().body()).append($lastRow);
+    }
+},
             language: {
                 url: '/js/i18n/Italian.json'
             }
@@ -120,3 +147,4 @@
     });
 </script>
 @endpush
+

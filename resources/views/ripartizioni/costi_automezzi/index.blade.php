@@ -107,21 +107,20 @@
         className: 'col-actions text-center',
         orderable: false,
         render: function(id, type, row) {
-            if (row.is_totale == -1) return '-';
+            if (!row || row.is_totale == -1) return '-';
             return `
-                                <a href="/ripartizioni/costi-automezzi/${id}" class="btn  btn-anpas-green me-1 btn-icon" title="Visualizza">
-                        <i class="fas fa-eye"></i>
-                    </a>
-                    <a href="/ripartizioni/costi-automezzi/${id}/edit" class="btn  btn-warning me-1 btn-icon" title="Modifica">
-                        <i class="fas fa-edit"></i>
-                    </a>
-                    <form method="POST" action="/ripartizioni/costi-automezzi/${id}" class="d-inline-block" onsubmit="return confirm('Confermi eliminazione?')">
-                        <input type="hidden" name="_token" value="{{ csrf_token() }}">
-                        <input type="hidden" name="_method" value="DELETE">
-                        <button type="submit" class="btn  btn-danger btn-icon" title="Elimina"><i class="fas fa-trash"></i></button>
-                    </form>
-
-                `;
+                <a href="/ripartizioni/costi-automezzi/${id}" class="btn btn-anpas-green me-1 btn-icon" title="Visualizza">
+                    <i class="fas fa-eye"></i>
+                </a>
+                <a href="/ripartizioni/costi-automezzi/${id}/edit" class="btn btn-warning me-1 btn-icon" title="Modifica">
+                    <i class="fas fa-edit"></i>
+                </a>
+                <form method="POST" action="/ripartizioni/costi-automezzi/${id}" class="d-inline-block" onsubmit="return confirm('Confermi eliminazione?')">
+                    <input type="hidden" name="_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="_method" value="DELETE">
+                    <button type="submit" class="btn btn-danger btn-icon" title="Elimina"><i class="fas fa-trash"></i></button>
+                </form>
+            `;
         }
     });
 
@@ -129,23 +128,24 @@
         const selectedAssoc = document.getElementById('assocSelect')?.value || '';
         const url = '{{ route('ripartizioni.costi_automezzi.data') }}' + 
                     (selectedAssoc ? `?idAssociazione=${selectedAssoc}` : '');
-                    
+
+        let totaleRow = null; // variabile per riga totale
+
         $('#table-costi-automezzi').DataTable({
-                ajax: {
-        url: url,
-        dataSrc: function(res) {
-            let data = res.data || [];
+            ajax: {
+                url: url,
+                dataSrc: function(res) {
+                    let data = res.data || [];
 
-            // Sposta la riga totale in fondo
-            const totaleRow = data.find(r => r.is_totale === -1);
-            data = data.filter(r => r.is_totale !== -1);
-            if (totaleRow) data.push(totaleRow);
+                    // Trova e rimuovi la riga totale
+                    totaleRow = data.find(r => r.is_totale === -1);
+                    data = data.filter(r => r.is_totale !== -1);
 
-            return data;
-        }
-    },
+                    return data;
+                }
+            },
             columns: columns,
-            paging: false,
+            paging: true,
             searching: false,
             info: false,
             language: {
@@ -153,13 +153,49 @@
             },
             order: [],
 
-    rowCallback: (rowEl, rowData, index) => {
-      if (rowData.is_totale === -1) {
-        $(rowEl).addClass('table-warning fw-bold');
-      }
-      $(rowEl).removeClass('even odd').addClass(index % 2 === 0 ? 'even' : 'odd');
-    },
+            rowCallback: (rowEl, rowData, index) => {
+                if (rowData.is_totale === -1) {
+                    $(rowEl).addClass('table-warning fw-bold');
+                }
+                $(rowEl).removeClass('even odd').addClass(index % 2 === 0 ? 'even' : 'odd');
+            },
+
+            drawCallback: function(settings) {
+                const api = this.api();
+                const pageRows = api.rows({ page: 'current' }).nodes();
+
+                // Rimuovi eventuali righe "TOTALE" precedenti (evita duplicazioni)
+                $(pageRows).filter('.totale-row').remove();
+
+                // Aggiungi la riga TOTALE alla fine della pagina
+                if (totaleRow) {
+                    const $lastRow = $('<tr>').addClass('table-warning fw-bold totale-row');
+
+                    api.columns().every(function(index) {
+                        const col = columns[index];
+                        if (col.visible === false) return;
+
+                        let cellValue = '';
+                        if (typeof col.render === 'function') {
+                            cellValue = col.render(
+                                totaleRow[col.data],  // singolo dato per la cella
+                                'display',            // tipo render
+                                totaleRow,            // riga completa
+                                { row: -1, col: index, settings }
+                            );
+                        } else if (col.data) {
+                            cellValue = totaleRow[col.data] ?? '';
+                        }
+
+                        $lastRow.append(`<td>${cellValue}</td>`);
+                    });
+
+                    $(api.table().body()).append($lastRow);
+                }
+            },
+
         });
     });
 </script>
+
 @endpush

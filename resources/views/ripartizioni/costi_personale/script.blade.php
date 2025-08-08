@@ -27,6 +27,7 @@
             {
                 key: 'TFR',
                 label: 'TFR'
+                
             },
             {
                 key: 'Consulenze',
@@ -50,6 +51,7 @@
                 headerMain += `<th rowspan="2"${col.hidden ? ' style="display:none"' : ''}>${col.label}</th>`;
                 columns.push({
                     data: col.key,
+                    className: 'text-end',
                     visible: !col.hidden
                 });
                 if (!col.hidden) visibleIndex++;
@@ -109,18 +111,55 @@
                     [0, 'asc']
                 ],
                 responsive: true,
-                paging: false,
+                paging: true,
                 searching: false,
                 info: false,
                 language: {
                     url: '/js/i18n/Italian.json'
                 },
-    rowCallback: (rowEl, rowData, index) => {
-      if (rowData.is_totale === true) {
-        $(rowEl).addClass('table-warning fw-bold');
-      }
-      $(rowEl).removeClass('even odd').addClass(index % 2 === 0 ? 'even' : 'odd');
-    },
+
+
+drawCallback: function(settings) {
+    const api = this.api();
+
+    // Rimuove eventuali righe TOTALE precedenti
+    api.rows({ page: 'current' }).nodes().to$().filter('.totale-clone').remove();
+
+    // Trova i dati della riga "totale"
+    const totaleData = api.rows().data().toArray().find(r => r.is_totale === true);
+    if (!totaleData) return;
+
+    const $row = $('<tr>').addClass('table-warning fw-bold totale-clone');
+
+    api.columns(':visible').every(function(index) {
+        const col = this.settings()[0].aoColumns[this.index()];
+        const dataKey = col.data;
+
+        let cellValue = '';
+
+        if (typeof col.render === 'function') {
+            // Passa TUTTO l'oggetto riga, non solo un valore singolo
+            cellValue = col.render(totaleData, 'display', null, { row: -1, col: index, settings });
+        } else if (dataKey) {
+            cellValue = totaleData[dataKey] ?? '';
+        }
+
+        $row.append(`<td class="text-end">${cellValue}</td>`);
+    });
+
+    // Aggiungi riga in fondo alla pagina corrente
+    $(api.table().body()).append($row);
+},
+
+
+rowCallback: function(rowElement, rowData, displayIndex) {
+    if (rowData.is_totale === true) {
+        $(rowElement).hide();  // nasconde la riga "totale" originale
+    }
+    const api = this.api();
+    const rowIndex = api.row(rowElement).index();
+    $(rowElement).removeClass('even odd').addClass(rowIndex % 2 === 0 ? 'even' : 'odd');
+},
                 stripeClass: ['table-striped-anpas'],
             });
         }
@@ -184,7 +223,7 @@
                             </form>`
                         }
                     ],
-                    paging: false,
+                    paging: true,
                     searching: false,
                     info: false,
                     ordering: false,
