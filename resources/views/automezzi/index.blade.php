@@ -52,26 +52,19 @@ foreach ($configVeicoli as $key => $value) {
 
   {{-- Filtro per associazione solo per ruoli elevati --}}
   @if(auth()->user()->hasAnyRole(['SuperAdmin','Admin','Supervisor']))
-<div class="d-flex mb-3">
-  <form id="assocFilterForm" method="POST" action="{{ route('automezzi.setAssociazione') }}" class="me-3">
-    @csrf
-    <label for="assocInput" class="visually-hidden">Associazione</label>
-    <input
-      id="assocInput"
-      name="idAssociazione"
-      class="form-control"
-      list="assocList"
-      placeholder="Seleziona un'associazione"
-      onchange="this.form.submit()"
-      value="{{ $selectedAssoc }}"
-    >
-    <datalist id="assocList">
-      @foreach($associazioni as $assoc)
-        <option value="{{ $assoc->IdAssociazione }}">{{ $assoc->Associazione }}</option>
-      @endforeach
-    </datalist>
-  </form>
-</div>
+    <div class="d-flex mb-3">
+    <form id="assocFilterForm" method="POST" action="{{ route('automezzi.setAssociazione') }}" class="me-3">
+      @csrf
+        <label for="assocSelect" class="visually-hidden">Associazione</label>
+        <select id="assocSelect" name="idAssociazione" class="form-select" onchange="this.form.submit()">
+          @foreach($associazioni as $assoc)
+            <option value="{{ $assoc->IdAssociazione }}" {{ $assoc->IdAssociazione == $selectedAssoc ? 'selected' : '' }}>
+              {{ $assoc->Associazione }}
+            </option>
+          @endforeach
+        </select>
+      </form>
+    </div>
   @endif
 
   {{-- Success message --}}
