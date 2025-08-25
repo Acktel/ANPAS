@@ -22,7 +22,7 @@
                 </span>
             </h4>
         </div>
-        
+
     </div>
     {{-- Select associazione --}}
     @if(auth()->user()->hasAnyRole(['SuperAdmin','Admin','Supervisor']))
@@ -65,61 +65,50 @@
 
 @push('scripts')
 <script>
-<<<<<<< HEAD
-    $(function () {
+    $(function() {
         const table = $('#ossigenoTable').DataTable({
             ajax: {
                 url: '{{ route("imputazioni.ossigeno.getData") }}',
-                data: function (d) {
+                data: function(d) {
                     d.idAssociazione = $('#assocSelect').val(); // passa idAssociazione selezionata
                 }
             },
-=======
-    $(function() {
-            let storedTotaleRow = null;
-
-        $('#ossigenoTable').DataTable({
-            // 
-            ajax: {
-    url: '{{ route("imputazioni.ossigeno.getData") }}',
-dataSrc: function(res) {
-    let data = res.data || [];
-
-    // Trova e isola la riga 'TOTALE'
-    storedTotaleRow = data.find(r => r.is_totale === -1);
-    data = data.filter(r => r.is_totale !== -1);
-
-    // Ritorna solo le righe normali
-    return data;
-}
-},
->>>>>>> modifiche_tabelle_anpas_luca
             processing: true,
             serverSide: false,
             paging: true,
             searching: false,
             ordering: true,
-<<<<<<< HEAD
-            order: [[4, 'asc']], // is_totale
-            orderFixed: [[4, 'asc']],
-=======
-            //modificato da 5 a 4 per mettere "TOTALE" in cima
-            order: [], // is_totale
->>>>>>> modifiche_tabelle_anpas_luca
-            info: false,
-            columns: [
-                { data: 'Targa' },
-                { data: 'n_servizi', className: 'text-end' },
-                { data: 'percentuale', className: 'text-end', render: d => d + '%' },
-                { data: 'importo', className: 'text-end', render: d => parseFloat(d).toFixed(2).replace('.', ',') },
-                { data: 'is_totale', visible: false, searchable: false }
+            order: [
+                [4, 'asc']
+            ], // is_totale
+            orderFixed: [
+                [4, 'asc']
             ],
-<<<<<<< HEAD
-            rowCallback: function (row, data, index) {
-=======
-            
-            rowCallback: function(row, data,index) {
->>>>>>> modifiche_tabelle_anpas_luca
+            info: false,
+            columns: [{
+                    data: 'Targa'
+                },
+                {
+                    data: 'n_servizi',
+                    className: 'text-end'
+                },
+                {
+                    data: 'percentuale',
+                    className: 'text-end',
+                    render: d => d + '%'
+                },
+                {
+                    data: 'importo',
+                    className: 'text-end',
+                    render: d => parseFloat(d).toFixed(2).replace('.', ',')
+                },
+                {
+                    data: 'is_totale',
+                    visible: false,
+                    searchable: false
+                }
+            ],
+            rowCallback: function(row, data, index) {
                 if (data.is_totale === -1) {
                     $(row).addClass('table-warning fw-bold');
                 }
@@ -127,48 +116,50 @@ dataSrc: function(res) {
             },
 
 
-drawCallback: function(settings) {
-    const api = this.api();
-    const pageRows = api.rows({ page: 'current' }).nodes();
+            drawCallback: function(settings) {
+                const api = this.api();
+                const pageRows = api.rows({
+                    page: 'current'
+                }).nodes();
 
-    // Rimuove eventuali duplicati
-    $(pageRows).filter('.totale-row').remove();
+                // Rimuove eventuali duplicati
+                $(pageRows).filter('.totale-row').remove();
 
-    // Se esiste la riga totale, la reinseriamo
-    if (storedTotaleRow) {
-        const $lastRow = $('<tr>').addClass('table-warning fw-bold totale-row');
+                // Se esiste la riga totale, la reinseriamo
+                if (storedTotaleRow) {
+                    const $lastRow = $('<tr>').addClass('table-warning fw-bold totale-row');
 
-        api.columns().every(function(index) {
-            const col = api.settings()[0].aoColumns[index];
+                    api.columns().every(function(index) {
+                        const col = api.settings()[0].aoColumns[index];
 
-            if (!col.bVisible) return;
+                        if (!col.bVisible) return;
 
-            const key = col.data;
-            let cellValue = '';
+                        const key = col.data;
+                        let cellValue = '';
 
-            if (typeof col.render === 'function') {
-                cellValue = col.render(storedTotaleRow[key], 'display', storedTotaleRow, { row: -1, col: index, settings });
-            } else if (key) {
-                cellValue = storedTotaleRow[key] ?? '';
-            }
+                        if (typeof col.render === 'function') {
+                            cellValue = col.render(storedTotaleRow[key], 'display', storedTotaleRow, {
+                                row: -1,
+                                col: index,
+                                settings
+                            });
+                        } else if (key) {
+                            cellValue = storedTotaleRow[key] ?? '';
+                        }
 
-            $lastRow.append(`<td class="${col.className || ''}">${cellValue}</td>`);
-        });
+                        $lastRow.append(`<td class="${col.className || ''}">${cellValue}</td>`);
+                    });
 
-        $(api.table().body()).append($lastRow);
-    }
-},
-
-
-
-
+                    $(api.table().body()).append($lastRow);
+                }
+            },
             language: {
                 url: '/js/i18n/Italian.json'
             }
         });
 
         // Cambio associazione
-        $('#assocSelect').on('change', function () {
+        $('#assocSelect').on('change', function() {
             const idAssociazione = $(this).val();
             $.post("{{ route('sessione.setAssociazione') }}", {
                 _token: '{{ csrf_token() }}',

@@ -46,13 +46,8 @@
           </div>
             <div class="col-md-12 mb-3">
               <label for="indirizzo" class="form-label">Indirizzo</label>
-<<<<<<< HEAD
               <input type="text" class="form-control" id="indirizzo" name="indirizzo"
                     value="{{ old('indirizzo', $associazione->indirizzo) }}">
-=======
-              <input type="text" class="form-control" id="indirizzo" name="indirizzo" style="text-transform: uppercase;"
-                    value="{{ old('indirizzo', $associazione->indirizzo) }}" required>
->>>>>>> b2a48fb31b6f7626713c8fa82924ab95622b37b0
             </div>
         </div>
 
