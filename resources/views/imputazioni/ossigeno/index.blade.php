@@ -17,11 +17,28 @@
                 <span class="text-danger fw-bold">
                     (al netto dei servizi effettuati per convenzioni MSA, MSAB e ASA <u>SE PRESENTI</u>):
                 </span>
-                <span class="fw-bold text-anpas-green  align-items-center">{{ isset($totale_inclusi) ? number_format($totale_inclusi, 0, ',', '.') : 'N/A' }}</span>
-            </h4>            
+                <span id="totaleServizi" class="fw-bold text-anpas-green align-items-center">
+                    {{ isset($totale_inclusi) ? number_format($totale_inclusi, 0, ',', '.') : 'N/A' }}
+                </span>
+            </h4>
         </div>
+        
     </div>
-
+    {{-- Select associazione --}}
+    @if(auth()->user()->hasAnyRole(['SuperAdmin','Admin','Supervisor']))
+    <div class="d-flex mb-3">
+        <form id="assocFilterForm" method="POST" class="me-3">
+            @csrf
+            <select id="assocSelect" name="idAssociazione" class="form-select">
+                @foreach($associazioni as $assoc)
+                <option value="{{ $assoc->idAssociazione }}" {{ $assoc->idAssociazione == $selectedAssoc ? 'selected' : '' }}>
+                    {{ $assoc->Associazione }}
+                </option>
+                @endforeach
+            </select>
+        </form>
+    </div>
+    @endif
     <div class="mb-3 d-flex justify-content-end">
         <a href="{{ route('imputazioni.ossigeno.editTotale') }}" class="btn btn-anpas-edit">
             <i class="fas fa-edit me-1"></i> Modifica Totale a Bilancio
@@ -30,7 +47,7 @@
 
     <div class="card-anpas">
         <div class="card-body">
-            <table id="ossigenoTable" class="common-css-dataTable table table-hover table-bordered w-100 table-striped-anpas">
+            <table id="ossigenoTable" class="common-css-dataTable table table-hover table-bordered w-100 table-striped-anpas text-center align-middle">
                 <thead class="thead-anpas text-center">
                     <tr>
                         <th>Targa</th>
@@ -48,6 +65,16 @@
 
 @push('scripts')
 <script>
+<<<<<<< HEAD
+    $(function () {
+        const table = $('#ossigenoTable').DataTable({
+            ajax: {
+                url: '{{ route("imputazioni.ossigeno.getData") }}',
+                data: function (d) {
+                    d.idAssociazione = $('#assocSelect').val(); // passa idAssociazione selezionata
+                }
+            },
+=======
     $(function() {
             let storedTotaleRow = null;
 
@@ -66,36 +93,37 @@ dataSrc: function(res) {
     return data;
 }
 },
+>>>>>>> modifiche_tabelle_anpas_luca
             processing: true,
             serverSide: false,
             paging: true,
             searching: false,
             ordering: true,
+<<<<<<< HEAD
+            order: [[4, 'asc']], // is_totale
+            orderFixed: [[4, 'asc']],
+=======
             //modificato da 5 a 4 per mettere "TOTALE" in cima
             order: [], // is_totale
+>>>>>>> modifiche_tabelle_anpas_luca
             info: false,
-            stripeClasses: ['odd', 'even'],
             columns: [
                 { data: 'Targa' },
                 { data: 'n_servizi', className: 'text-end' },
-                {
-                    data: 'percentuale',
-                    className: 'text-end',
-                    render: d => d + '%'
-                },
-                {
-                    data: 'importo',
-                    className: 'text-end',
-                    render: d => parseFloat(d).toFixed(2).replace('.', ',')
-                },
+                { data: 'percentuale', className: 'text-end', render: d => d + '%' },
+                { data: 'importo', className: 'text-end', render: d => parseFloat(d).toFixed(2).replace('.', ',') },
                 { data: 'is_totale', visible: false, searchable: false }
             ],
+<<<<<<< HEAD
+            rowCallback: function (row, data, index) {
+=======
             
             rowCallback: function(row, data,index) {
+>>>>>>> modifiche_tabelle_anpas_luca
                 if (data.is_totale === -1) {
                     $(row).addClass('table-warning fw-bold');
                 }
-                $(row).removeClass('even odd').addClass(index % 2 === 0 ? 'even' :'odd');
+                $(row).removeClass('even odd').addClass(index % 2 === 0 ? 'even' : 'odd');
             },
 
 
@@ -137,6 +165,18 @@ drawCallback: function(settings) {
             language: {
                 url: '/js/i18n/Italian.json'
             }
+        });
+
+        // Cambio associazione
+        $('#assocSelect').on('change', function () {
+            const idAssociazione = $(this).val();
+            $.post("{{ route('sessione.setAssociazione') }}", {
+                _token: '{{ csrf_token() }}',
+                idAssociazione: idAssociazione
+            }).done(() => {
+                table.ajax.reload(); // Ricarica solo la tabella
+                // location.reload(); // se vuoi aggiornare anche {{ $totale_inclusi }} da backend
+            });
         });
     });
 </script>

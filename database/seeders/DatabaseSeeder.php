@@ -14,7 +14,7 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        $this->call(createAssociazioni::class);
+      /*  $this->call(createAssociazioni::class);
         $this->call(SuperAdminSeeder::class);
         $this->call(CreateRole ::class);
         $this->call(AnniSeeder::class);
@@ -22,13 +22,13 @@ class DatabaseSeeder extends Seeder
         $this->call(AutomezziSeeder::class);
         $this->call(TipologiaRiepilogoSeeder::class);
         $this->call(RiepilogoDatiSeeder::class);
-        $this->call(AssociazioniAdminSeeder::class);        
+        $this->call(AssociazioniAdminSeeder::class);    */    
         $this->call(RiepilogoDati2Seeder::class);
-        $this->call(QualificheSeeder::class);
+      /*  $this->call(QualificheSeeder::class);
         $this->call(DipendentiSeeder::class);
         $this->call(DipendenteFittizioSeeder::class);
         $this->call(ContrattiSeeder::class);
-        $this->call(AdminSeeder::class);
+        $this->call(AdminSeeder::class);*/
     }
 
     //PER PRODUZIONE

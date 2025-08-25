@@ -87,7 +87,7 @@ foreach ($configVeicoli as $key => $value) {
     <div class="card-body bg-anpas-white p-0">
       <table 
         id="automezziTable" 
-        class="common-css-dataTable table table-hover table-striped-anpas table-bordered mb-0 w-100"
+        class="common-css-dataTable table table-hover table-striped-anpas table-bordered mb-0 w-100 table-bordered "
       >
         <thead class="thead-anpas">
           <tr>

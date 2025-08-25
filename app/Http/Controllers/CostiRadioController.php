@@ -22,7 +22,7 @@ class CostiRadioController extends Controller {
             ? $selectedAssoc
             : $user->IdAssociazione;
 
-        $automezzi = Automezzo::getFiltratiByUtente($anno, $idAssociazione);
+        $automezzi = Automezzo::getForRipartizione($anno, $idAssociazione);
         $numeroAutomezzi = count($automezzi);
 
         return view('ripartizioni.costi_radio.index', compact('numeroAutomezzi', 'anno', 'idAssociazione', 'associazioni'));

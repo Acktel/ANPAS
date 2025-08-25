@@ -14,6 +14,7 @@
       @csrf
       <select id="assocSelect" name="idAssociazione" class="form-select" onchange="this.form.submit()">
         @foreach($associazioni as $assoc)
+          
           <option value="{{ $assoc->idAssociazione }}" {{ $assoc->idAssociazione == $selectedAssoc ? 'selected' : '' }}>
             {{ $assoc->Associazione }}
           </option>
@@ -38,7 +39,6 @@
   </div>
 </div>
 @endsection
-
 @push('scripts')
 <script>
 $(async function () {
@@ -47,6 +47,15 @@ $(async function () {
   let { data, labels } = await res.json();
   if (!data.length) return;
 
+<<<<<<< HEAD
+  // Sposta la riga totale in fondo
+  const totaleRow = data.find(r => r.is_totale === -1);
+  data = data.filter(r => r.is_totale !== -1);
+  if (totaleRow) data.push(totaleRow);
+
+  const table = $('#table-ripartizione');
+
+=======
 
   // Sposta la riga totale in fondo
   const totaleRow = data.find(r => r.is_totale === -1);
@@ -56,6 +65,7 @@ $(async function () {
   const table = $('#table-ripartizione');
 
 
+>>>>>>> modifiche_tabelle_anpas_luca
   const staticCols = [   
     { key: 'idDipendente', label: '',               hidden: true  },
     { key: 'Associazione', label: 'Associazione',   hidden: false },
@@ -67,9 +77,13 @@ $(async function () {
 
   const convenzioni = Object.keys(labels).sort((a,b) => parseInt(a.slice(1)) - parseInt(b.slice(1)));
 
+<<<<<<< HEAD
+  let hMain = '', hSub = '', cols = [];
+=======
 
   let hMain = '', hSub = '', cols = [];
 
+>>>>>>> modifiche_tabelle_anpas_luca
 
   staticCols.forEach(col => {
     hMain += `<th rowspan="2"${col.hidden ? ' style="display:none"' : ''}>${col.label}</th>`;

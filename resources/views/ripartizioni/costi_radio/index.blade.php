@@ -14,7 +14,7 @@
             <form method="POST" action="{{ route('sessione.setAssociazione') }}">
                 @csrf
                 <select name="idAssociazione" class="form-select w-auto d-inline-block" onchange="this.form.submit()">
-                    @foreach($associazioni as $assoc)
+                    @foreach($associazioni as $assoc)                        
                         <option value="{{ $assoc->idAssociazione }}" {{ $assoc->idAssociazione == $idAssociazione ? 'selected' : '' }}>
                             {{ $assoc->Associazione }}
                         </option>

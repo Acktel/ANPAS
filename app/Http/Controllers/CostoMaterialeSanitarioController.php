@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Auth;
 use App\Models\RipartizioneMaterialeSanitario;
 use App\Models\CostoMaterialeSanitario;
 use App\Models\Automezzo;
+use App\Models\Dipendente;
 use Illuminate\Http\JsonResponse;
 
 
@@ -14,25 +15,37 @@ class CostoMaterialeSanitarioController extends Controller {
     /**
      * Mostra la vista con la tabella di imputazione costi del materiale sanitario.
      */
-    public function index() {
-        $anno = session('anno_riferimento', now()->year);
-        $automezzi = Automezzo::getFiltratiByUtente($anno);
+public function index(Request $request) {
+    $anno = session('anno_riferimento', now()->year);
+    $user = Auth::user();
+    $isImpersonating = session()->has('impersonate');
 
-        // Estraggo l'ID dell'associazione (assumo tutti gli automezzi siano della stessa associazione)
-        $idAssociazione = $automezzi->first()->idAssociazione ?? null;
+    $associazioni = Dipendente::getAssociazioni($user, $isImpersonating);
 
-        $numeroServizi  = RipartizioneMaterialeSanitario::getTotaleServizi($automezzi, $anno);
-        $totaleBilancio = CostoMaterialeSanitario::getTotale($idAssociazione, $anno);
-        $dati           = RipartizioneMaterialeSanitario::getRipartizione($idAssociazione, $anno);
-
-        return view('imputazioni.materiale_sanitario.index', [
-            'anno'           => $anno,
-            'numeroServizi'  => $numeroServizi,
-            'totaleBilancio' => $totaleBilancio,
-            'righe'          => $dati['righe'],
-            'totale_inclusi' => $dati['totale_inclusi'] ?? 0,
-        ]);
+    // Se cambia la select aggiorna la sessione
+    if ($request->has('idAssociazione')) {
+        session(['associazione_selezionata' => $request->get('idAssociazione')]);
     }
+
+    $selectedAssoc = session('associazione_selezionata') ?? $user->IdAssociazione;
+
+    $automezzi = Automezzo::getByAssociazione($selectedAssoc, $anno);
+
+    $numeroServizi  = RipartizioneMaterialeSanitario::getTotaleServizi($automezzi, $anno);
+    $totaleBilancio = CostoMaterialeSanitario::getTotale($selectedAssoc, $anno);
+    $dati           = RipartizioneMaterialeSanitario::getRipartizione($selectedAssoc, $anno);
+
+    return view('imputazioni.materiale_sanitario.index', [
+        'anno'           => $anno,
+        'numeroServizi'  => $numeroServizi,
+        'totaleBilancio' => $totaleBilancio,
+        'righe'          => $dati['righe'],
+        'associazioni'   => $associazioni,
+        'selectedAssoc'  => $selectedAssoc,
+        'totale_inclusi' => $dati['totale_inclusi'] ?? 0,
+    ]);
+}
+
 
     /**
      * Aggiorna il valore totale a bilancio del materiale sanitario.
@@ -55,55 +68,63 @@ class CostoMaterialeSanitarioController extends Controller {
             ->with('success', 'Aggiornamento completato.');
     }
 
-    public function getData(): JsonResponse {
-        $anno = session('anno_riferimento', now()->year);
-        $automezzi = Automezzo::getFiltratiByUtente($anno);
-        $idAssociazione = $automezzi->first()->idAssociazione ?? null;
+    public function getData(Request $request): JsonResponse {
+    $anno = session('anno_riferimento', now()->year);
+    $user = Auth::user();
 
-        $dati = RipartizioneMaterialeSanitario::getRipartizione($idAssociazione, $anno);
-        $totaleBilancio = CostoMaterialeSanitario::getTotale($idAssociazione, $anno);
+    // Prendi idAssociazione dalla query string, oppure dalla sessione, oppure dal fallback utente
+    $idAssociazione = $request->query('idAssociazione')
+        ?? session('associazione_selezionata')
+        ?? $user->IdAssociazione;
 
-        $righe = [];
+    // Ottieni gli automezzi filtrati per associazione
+    $automezzi = Automezzo::getByAssociazione($idAssociazione, $anno);
 
-        foreach ($dati['righe'] as $riga) {
-            // Riga totale
-            if (isset($riga['is_totale']) && $riga['is_totale']) {
-                $righe[] = [
-                    'Targa'       => 'TOTALE',
-                    'n_servizi'   => $riga['totale'],
-                    'percentuale' => 100,
-                    'importo'     => $totaleBilancio,
-                    'is_totale'   => -1
-                ];
-                continue;
-            }
+    // Ricalcola i dati con la giusta associazione
+    $dati = RipartizioneMaterialeSanitario::getRipartizione($idAssociazione, $anno);
+    $totaleBilancio = CostoMaterialeSanitario::getTotale($idAssociazione, $anno);
 
-            $incluso = $riga['incluso_riparto'];
+    $righe = [];
 
-            if ($incluso) {
-                $percentuale = ($dati['totale_inclusi'] > 0)
-                    ? round(($riga['totale'] / $dati['totale_inclusi']) * 100, 2)
-                    : 0;
-
-                $importo = ($dati['totale_inclusi'] > 0)
-                    ? round(($riga['totale'] / $dati['totale_inclusi']) * $totaleBilancio, 2)
-                    : 0;
-            } else {
-                $percentuale = 0;
-                $importo = 0;
-            }
-
+    foreach ($dati['righe'] as $riga) {
+        if (isset($riga['is_totale']) && $riga['is_totale']) {
             $righe[] = [
-                'Targa'       => $riga['Targa'],
+                'Targa'       => 'TOTALE',
                 'n_servizi'   => $riga['totale'],
-                'percentuale' => $percentuale,
-                'importo'     => $importo,
-                'is_totale'   => 0
+                'percentuale' => 100,
+                'importo'     => $totaleBilancio,
+                'is_totale'   => -1
             ];
+            continue;
         }
 
-        return response()->json(['data' => $righe]);
+        $incluso = $riga['incluso_riparto'];
+
+        if ($incluso) {
+            $percentuale = ($dati['totale_inclusi'] > 0)
+                ? round(($riga['totale'] / $dati['totale_inclusi']) * 100, 2)
+                : 0;
+
+            $importo = ($dati['totale_inclusi'] > 0)
+                ? round(($riga['totale'] / $dati['totale_inclusi']) * $totaleBilancio, 2)
+                : 0;
+        } else {
+            $percentuale = 0;
+            $importo = 0;
+        }
+
+        $righe[] = [
+            'Targa'       => $riga['Targa'],
+            'n_servizi'   => $riga['totale'],
+            'percentuale' => $percentuale,
+            'importo'     => $importo,
+            'is_totale'   => 0
+        ];
     }
+
+    return response()->json(['data' => $righe]);
+}
+
 
 
     public function editTotale(Request $request) {

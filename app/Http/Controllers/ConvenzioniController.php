@@ -26,7 +26,7 @@ class ConvenzioniController extends Controller {
                 ->whereNull('deleted_at')
                 ->orderBy('Associazione')
                 ->get();
-                
+
             if ($request->has('idAssociazione')) {
                 session(['associazione_selezionata' => $request->get('idAssociazione')]);
             }
@@ -39,37 +39,58 @@ class ConvenzioniController extends Controller {
         $convenzioni = Convenzione::getWithAssociazione($selectedAssoc, $anno);
 
         return view('convenzioni.index', compact(
-            'convenzioni', 'anno', 'associazioni', 'selectedAssoc'
+            'convenzioni',
+            'anno',
+            'associazioni',
+            'selectedAssoc'
         ));
     }
 
-    public function create() {
-        $associazioni = DB::table('associazioni')
-            ->select('idAssociazione', 'Associazione')
-            ->whereNull('deleted_at')
-            ->whereNot('idAssociazione', 1)
-            ->orderBy('Associazione')
-            ->get();
+public function create()
+{
+    $anni = DB::table('anni')->orderBy('anno', 'desc')->get();
 
-        $anni = DB::table('anni')
-            ->select('idAnno', 'anno')
-            ->orderBy('anno', 'desc')
-            ->get();
+    $associazioni = DB::table('associazioni')
+        ->select('idAssociazione', 'Associazione')
+        ->whereNull('deleted_at')
+        ->orderBy('Associazione')
+        ->get();
 
-        return view('convenzioni.create', compact('associazioni', 'anni'));
-    }
+    $aziendeSanitarie = DB::table('aziende_sanitarie')
+        ->select('idAziendaSanitaria', 'Nome')
+        ->orderBy('Nome')
+        ->get();
+
+    return view('convenzioni.create', compact('anni', 'associazioni', 'aziendeSanitarie'));
+}
 
     public function store(Request $request) {
-        $data = $request->validate([
-            'idAssociazione'         => 'required|exists:associazioni,idAssociazione',
-            'idAnno'                 => 'required|exists:anni,idAnno',
-            'Convenzione'            => 'required|string|max:100',
+        $validated = $request->validate([
+            'idAssociazione' => 'required|exists:associazioni,idAssociazione',
+            'idAnno' => 'required|exists:anni,idAnno',
+            'Convenzione' => 'required|string|max:255',
             'lettera_identificativa' => 'required|string|max:5',
+            'aziende_sanitarie' => 'nullable|array',
+            'aziende_sanitarie.*' => 'exists:aziende_sanitarie,idAziendaSanitaria',
         ]);
 
-        Convenzione::createConvenzione($data);
+        $idConv = DB::table('convenzioni')->insertGetId([
+            'idAssociazione' => $validated['idAssociazione'],
+            'idAnno' => $validated['idAnno'],
+            'Convenzione' => $validated['Convenzione'],
+            'lettera_identificativa' => $validated['lettera_identificativa'],
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
 
-        return redirect()->route('convenzioni.index')->with('success', 'Convenzione creata.');
+        if (!empty($validated['aziende_sanitarie'])) {
+            $this->syncAziendeSanitarie($idConv, $validated['aziende_sanitarie']);
+        }
+
+        return redirect()->route('convenzioni.index', [
+            'idAssociazione' => $validated['idAssociazione'],
+            'idAnno' => $validated['idAnno'],
+        ])->with('success', 'Convenzione creata con successo.');
     }
 
     public function edit(int $id) {
@@ -88,20 +109,52 @@ class ConvenzioniController extends Controller {
             ->orderBy('anno', 'desc')
             ->get();
 
-        return view('convenzioni.edit', compact('conv', 'associazioni', 'anni'));
+        // 🔽 Qui recuperi tutte le aziende sanitarie disponibili
+        $aziendeSanitarie = DB::table('aziende_sanitarie')
+            ->select('idAziendaSanitaria', 'Nome')
+            ->orderBy('Nome')
+            ->get();
+
+        // 🔽 Qui quelle associate alla convenzione corrente
+        $aziendeSelezionate = DB::table('azienda_sanitaria_convenzione')
+            ->where('idConvenzione', $id)
+            ->pluck('idAziendaSanitaria')
+            ->toArray();
+
+        return view('convenzioni.edit', compact(
+            'conv',
+            'associazioni',
+            'anni',
+            'aziendeSanitarie',
+            'aziendeSelezionate'
+        ));
     }
 
+
     public function update(Request $request, int $id) {
-        $data = $request->validate([
-            'idAssociazione'         => 'required|exists:associazioni,idAssociazione',
-            'idAnno'                 => 'required|exists:anni,idAnno',
-            'Convenzione'            => 'required|string|max:100',
+        $validated = $request->validate([
+            'idAssociazione' => 'required|exists:associazioni,idAssociazione',
+            'idAnno' => 'required|exists:anni,idAnno',
+            'Convenzione' => 'required|string|max:255',
             'lettera_identificativa' => 'required|string|max:5',
+            'aziende_sanitarie' => 'nullable|array',
+            'aziende_sanitarie.*' => 'exists:aziende_sanitarie,idAziendaSanitaria',
         ]);
 
-        Convenzione::updateConvenzione($id, $data);
+        DB::table('convenzioni')->where('idConvenzione', $id)->update([
+            'idAssociazione' => $validated['idAssociazione'],
+            'idAnno' => $validated['idAnno'],
+            'Convenzione' => $validated['Convenzione'],
+            'lettera_identificativa' => $validated['lettera_identificativa'],
+            'updated_at' => now(),
+        ]);
 
-        return redirect()->route('convenzioni.index')->with('success', 'Convenzione aggiornata.');
+        $this->syncAziendeSanitarie($id, $validated['aziende_sanitarie'] ?? []);
+
+        return redirect()->route('convenzioni.index', [
+            'idAssociazione' => $validated['idAssociazione'],
+            'idAnno' => $validated['idAnno'],
+        ])->with('success', 'Convenzione aggiornata.');
     }
 
     public function destroy(int $id) {
@@ -179,5 +232,23 @@ class ConvenzioniController extends Controller {
         }
 
         return response()->json(['message' => 'Ordinamento aggiornato']);
+    }
+
+    private function syncAziendeSanitarie(int $idConvenzione, array $idAziende): void {
+        DB::table('azienda_sanitaria_convenzione')
+            ->where('idConvenzione', $idConvenzione)
+            ->delete();
+
+        if (!empty($idAziende)) {
+            $now = now();
+            $insertData = array_map(fn($idAz) => [
+                'idAziendaSanitaria' => $idAz,
+                'idConvenzione' => $idConvenzione,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ], $idAziende);
+
+            DB::table('azienda_sanitaria_convenzione')->insert($insertData);
+        }
     }
 }

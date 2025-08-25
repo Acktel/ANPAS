@@ -97,8 +97,6 @@ foreach ($configPersone as $key => $value) {
       <table id="dipendentiTable" class="common-css-dataTable table table-hover table-striped-anpas table-bordered dt-responsive nowrap w-100 mb-0 text-center align-middle">
         <thead class="thead-anpas">
           <tr>
-            <th>ID</th>
-            <th>Associazione</th>
             <th>Anno</th>
             <th>Nome</th>
             <th>Cognome</th>
@@ -155,12 +153,7 @@ foreach ($configPersone as $key => $value) {
           return data;
         }
       },
-      columns: [{
-          data: 'idDipendente'
-        },
-        {
-          data: 'Associazione'
-        },
+      columns: [
         {
           data: 'idAnno'
         },

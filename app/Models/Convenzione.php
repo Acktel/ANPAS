@@ -150,21 +150,45 @@ class Convenzione {
         DB::delete("DELETE FROM " . self::TABLE . " WHERE idConvenzione = ?", [$id]);
     }
 
-    public static function getWithAssociazione($idAssociazione, $anno): Collection {
-        $sql = "
-            SELECT c.*, a.Associazione
-            FROM convenzioni AS c
-            JOIN associazioni AS a ON a.idAssociazione = c.idAssociazione
-            WHERE c.idAssociazione = :idAssociazione
-              AND c.idAnno = :idAnno
-            ORDER BY c.ordinamento
-        ";
+public static function getWithAssociazione($idAssociazione, $anno): \Illuminate\Support\Collection {
+    $sql = "
+        SELECT 
+            c.idConvenzione,
+            c.idAssociazione,
+            c.idAnno,
+            c.Convenzione,
+            c.lettera_identificativa,
+            c.ordinamento,
+            c.created_at,
+            c.updated_at,
+            a.Associazione,
+            GROUP_CONCAT(asl.Nome ORDER BY asl.Nome SEPARATOR ', ') AS AziendeSanitarie
+        FROM convenzioni AS c
+        JOIN associazioni AS a ON a.idAssociazione = c.idAssociazione
+        LEFT JOIN azienda_sanitaria_convenzione AS asco ON c.idConvenzione = asco.idConvenzione
+        LEFT JOIN aziende_sanitarie AS asl ON asco.idAziendaSanitaria = asl.idAziendaSanitaria
+        WHERE c.idAssociazione = :idAssociazione
+          AND c.idAnno = :idAnno
+        GROUP BY 
+            c.idConvenzione,
+            c.idAssociazione,
+            c.idAnno,
+            c.Convenzione,
+            c.lettera_identificativa,
+            c.ordinamento,
+            c.created_at,
+            c.updated_at,
+            a.Associazione
+        ORDER BY c.ordinamento, c.idConvenzione
+    ";
 
-        return collect(DB::select($sql, [
-            'idAssociazione' => $idAssociazione,
-            'idAnno' => $anno,
-        ]));
-    }
+    return collect(DB::select($sql, [
+        'idAssociazione' => $idAssociazione,
+        'idAnno' => $anno,
+    ]));
+}
+
+
 
     public static function getByAssociazioneAnno(?int $idAssociazione, int $idAnno): Collection {
         $query = DB::table(self::TABLE)->where('idAnno', $idAnno);

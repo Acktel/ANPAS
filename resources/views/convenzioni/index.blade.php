@@ -7,38 +7,41 @@
   </h1>
 
   @if(session('success'))
-    <div class="alert alert-success">{{ session('success') }}</div>
+  <div class="alert alert-success">{{ session('success') }}</div>
   @endif
 
   <div class="d-flex mb-3">
     {{-- Se ci sono associazioni in $associazioni (solo per SuperAdmin/Admin/Supervisor) --}}
     @if(!empty($associazioni) && $associazioni->isNotEmpty())
-      <form id="assocFilterForm" method="GET" class="me-3">
-        <label for="assocSelect" class="visually-hidden">Associazione</label>
-        <select
-          id="assocSelect"
-          name="idAssociazione"
-          class="form-select"
-          onchange="this.form.submit()"
-        >
-          @foreach($associazioni as $assoc)
-            <option
-              value="{{ $assoc->idAssociazione }}"
-              {{ $assoc->idAssociazione == $selectedAssoc ? 'selected' : '' }}
-            >
-              {{ $assoc->Associazione }}
-            </option>
-          @endforeach
-        </select>
-      </form>
+    <form id="assocFilterForm" method="GET" class="me-3">
+      <label for="assocSelect" class="visually-hidden">Associazione</label>
+      <select
+        id="assocSelect"
+        name="idAssociazione"
+        class="form-select"
+        onchange="this.form.submit()">
+        @foreach($associazioni as $assoc)
+        <option
+          value="{{ $assoc->idAssociazione }}"
+          {{ $assoc->idAssociazione == $selectedAssoc ? 'selected' : '' }}>
+          {{ $assoc->Associazione }}
+        </option>
+        @endforeach
+      </select>
+    </form>
     @endif
 
     <div class="ms-auto">
+      @can('manage-all-associations')
+      @if(!session()->has('impersonate'))
       <a href="{{ route('convenzioni.create') }}" class="btn btn-anpas-green">
         <i class="fas fa-plus me-1"></i> Nuova Convenzione
       </a>
+      @endif
+      @endcan
     </div>
   </div>
+
 
   <div id="noDataMessage" class="alert alert-info d-none">
     Nessuna convenzione presente per l’anno {{ $anno }}.<br>
@@ -58,11 +61,37 @@
             <th>ID</th>
             <th>Anno</th>
             <th>Descrizione</th>
+            <th>Aziende sanitarie</th>
             <th data-orderable="false" class="col-actions text-center">Azioni</th>
           </tr>
         </thead>
         <tbody id="sortable-convenzioni" class="sortable">
           @forelse($convenzioni as $c)
+<<<<<<< HEAD
+          <tr data-id="{{ $c->idConvenzione }}">
+            <td>{{ $c->idConvenzione }}</td>
+            <td>{{ $c->idAnno }}</td>
+            <td>{{ $c->Convenzione }}</td>
+            <td>{{ $c->AziendeSanitarie }}</td>
+            <td>
+           
+              <a href="{{ route('convenzioni.edit', $c->idConvenzione) }}"
+                class="btn btn-sm btn-anpas-edit me-1 btn-icon" title="Modifica">
+                <i class="fas fa-edit"></i>
+              </a>
+              <form action="{{ route('convenzioni.destroy', $c->idConvenzione) }}"
+                method="POST"
+                class="d-inline"
+                onsubmit="return confirm('Eliminare questa convenzione?')">
+                @csrf
+                @method('DELETE')
+                <button class="btn btn-sm btn-anpas-delete btn-icon" title="Elimina">
+                  <i class="fas fa-trash-alt"></i>
+                </button>
+              </form>
+            </td>
+          </tr>
+=======
             <tr data-id="{{ $c->idConvenzione }}">
               <td>{{ $c->idConvenzione }}</td>
               <td>{{ $c->idAnno }}</td>
@@ -84,10 +113,11 @@
                 </form>
               </td>
             </tr>
+>>>>>>> modifiche_tabelle_anpas_luca
           @empty
-            <tr>
-              <td colspan="6" class="text-center py-3">Nessuna convenzione.</td>
-            </tr>
+          <tr>
+            <td colspan="6" class="text-center py-3">Nessuna convenzione.</td>
+          </tr>
           @endforelse
         </tbody>
       </table>
@@ -106,15 +136,17 @@
 
     // Inizializza DataTable solo se ci sono righe sufficienti
     if ($('#convenzioniTable tbody tr').length > 0 &&
-        $('#convenzioniTable tbody tr td').length >= 6) {
+      $('#convenzioniTable tbody tr td').length >= 6) {
       $('#convenzioniTable').DataTable({
         paging: false,
         info: false,
         className: 'col-actions text-center',
-        language: { url: '/js/i18n/Italian.json' },
+        language: {
+          url: '/js/i18n/Italian.json'
+        },
         rowCallback: function(row, data, index) {
           $(row).toggleClass('even odd', false)
-                  .addClass(index%2===0 ? 'even' : 'odd');
+            .addClass(index % 2 === 0 ? 'even' : 'odd');
         },
         stripeClasses: ['table-white', 'table-striped-anpas'],
       });
@@ -129,14 +161,16 @@
         ghostClass: 'table-warning',
         onEnd: function() {
           const ids = Array.from(tbody.querySelectorAll('tr'))
-                           .map(tr => tr.dataset.id);
+            .map(tr => tr.dataset.id);
           fetch('/convenzioni/riordina', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
               'X-CSRF-TOKEN': csrf
             },
-            body: JSON.stringify({ order: ids })
+            body: JSON.stringify({
+              order: ids
+            })
           }).catch(() => alert('Errore nel riordino.'));
         }
       });
@@ -148,7 +182,7 @@
       .then(data => {
         if (data.mostraMessaggio) {
           document.getElementById('noDataMessage')
-                  .classList.remove('d-none');
+            .classList.remove('d-none');
         }
       });
 
@@ -178,7 +212,7 @@
     document.getElementById('btn-duplica-no')
       ?.addEventListener('click', function() {
         document.getElementById('noDataMessage')
-                .classList.add('d-none');
+          .classList.add('d-none');
       });
   });
 </script>

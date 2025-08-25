@@ -45,7 +45,7 @@ $assoCorr = $associazioni->firstWhere('idAssociazione', $conv->idAssociazione);
               @foreach($anni as $annoRec)
               <option value="{{ $annoRec->idAnno }}"
                 {{ old('idAnno', $conv->idAnno) == $annoRec->idAnno ? 'selected' : '' }}>
-                {{ $annoRec->anno }}
+                {{ $annoRec->idAnno }}
               </option>
               @endforeach
             </select>
@@ -81,6 +81,23 @@ $assoCorr = $associazioni->firstWhere('idAssociazione', $conv->idAssociazione);
               required>
           </div>
         </div>
+
+        {{-- Aziende Sanitarie collegate --}}
+        <div class="row">
+          <div class="col-md-2 mb-3">
+            <label for="aziende_sanitarie" class="form-label">Aziende Sanitarie associate</label>
+            <select name="aziende_sanitarie[]" id="aziende_sanitarie" class="form-select" multiple size="6">
+              @foreach($aziendeSanitarie as $az)
+                <option value="{{ $az->idAziendaSanitaria }}"
+                  {{ in_array($az->idAziendaSanitaria, old('aziende_sanitarie', $aziendeSelezionate ?? [])) ? 'selected' : '' }}>
+                  {{ $az->Nome }}
+                </option>
+              @endforeach
+            </select>
+            <small class="form-text text-muted">Puoi selezionare una o più aziende sanitarie</small>
+          </div>
+        </div>
+
 
         <div class="d-flex justify-content-center mt-4">
           <button type="submit" class="btn btn-anpas-green me-2">
