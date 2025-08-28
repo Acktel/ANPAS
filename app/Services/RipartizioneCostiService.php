@@ -180,7 +180,7 @@ class RipartizioneCostiService
             'AMMORTAMENTO ATTREZZATURA SANITARIA'                       => 'AmmortamentoSanitaria',
             'ALTRI COSTI MEZZI'                                         => 'AltriCostiMezzi',
             'MATERIALI SANITARI DI CONSUMO'                             => 'MaterialiSanitariConsumo',
-            'OSSIGENO'                                                 => 'Ossigeno',
+            'OSSIGENO'                                                  => 'Ossigeno',
         ];
 
         $convenzioni = DB::table('convenzioni')
@@ -528,6 +528,10 @@ class RipartizioneCostiService
             'manutenzione apparati radio'         => 'MANUTENZIONE APPARATI RADIO',
             'montaggio/smontaggio radio 118'      => 'MONTAGGIO/SMONTAGGIO RADIO 118',
             'canoni locazione ponte radio'        => 'LOCAZIONE PONTE RADIO',
+            'materiale sanitario di consumo'      => 'MATERIALE SANITARIO DI CONSUMO',
+            'ossigeno'                            => 'OSSIGENO',
+
+
         ];
         foreach ($alias as $cfg => $leg) {
             $cfgN = self::norm($cfg); $legN = self::norm($leg);
