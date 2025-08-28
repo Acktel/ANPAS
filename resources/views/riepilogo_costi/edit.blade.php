@@ -1,62 +1,117 @@
+{{-- resources/views/riepilogo_costi/edit.blade.php --}}
 @extends('layouts.app')
 
 @section('content')
 <div class="container-fluid">
-  <h1 class="container-title mb-4">
-    <i class="fas fa-edit me-1"></i>
-    Modifica Voce {{ $sezione }} − Anno {{ $anno }}
-  </h1>
+  <h1 class="container-title mb-2">Modifica voce (Riepilogo Costi)</h1>
 
-  <div class="card-anpas mb-4">
+  <p class="text-muted mb-4">
+    Anno <strong>{{ $anno }}</strong>
+    — Associazione <strong>{{ $nomeAssociazione ?? ('#'.$idAssociazione) }}</strong>
+    — Convenzione <strong>{{ $nomeConvenzione ?? ($idConvenzione === 'TOT' ? 'TOTALE' : '#'.$idConvenzione) }}</strong>
+  </p>
+
+  @if(session('success')) <div class="alert alert-success">{{ session('success') }}</div> @endif
+  @if(session('error'))   <div class="alert alert-danger">{{ session('error') }}</div> @endif
+
+  @if ($errors->any())
+    <div class="alert alert-danger">
+      <ul class="mb-0">@foreach ($errors->all() as $err)<li>{{ $err }}</li>@endforeach</ul>
+    </div>
+  @endif
+
+  @php
+    $prev  = (float) ($preventivo ?? 0);
+    $cons  = (float) ($consuntivo ?? 0);
+    $scost = $prev != 0 ? round((($cons - $prev) / $prev) * 100, 2) : 0;
+    $isTot = ($idConvenzione === 'TOT');
+  @endphp
+
+  @if($isTot)
+    <div class="alert alert-warning">
+      Per modificare il <strong>preventivo</strong> seleziona una convenzione specifica (non TOTALE).
+      Il modulo è disabilitato.
+    </div>
+  @endif
+
+  <div class="card-anpas">
     <div class="card-body bg-anpas-white">
-      <form action="{{ route('riepilogo.costi.update', $voce->id) }}" method="POST">
+      <form id="editForm"
+            action="{{ route('riepilogo.costi.update', $voceId) }}"
+            method="POST"
+            class="row g-3">
         @csrf
         @method('PUT')
-        <input type="hidden" name="idTipologiaRiepilogo" value="{{ $voce->idTipologiaRiepilogo }}">
 
-        <div class="row">
-          <div class="col-md-6 mb-3">
-            <label for="descrizione" class="form-label">Descrizione</label>
-            <input type="text"
-                   id="descrizione"
-                   name="descrizione"
-                   class="form-control"
-                   value="{{ old('descrizione', $voce->descrizione) }}"
-                   style="text-transform: uppercase;"
-                   required>
-          </div>
-          <div class="col-md-3 mb-3">
-            <label for="preventivo" class="form-label">Preventivo</label>
-            <input type="number"
-                   id="preventivo"
-                   name="preventivo"
-                   step="0.01"
-                   class="form-control"
-                   value="{{ old('preventivo', $voce->preventivo) }}"
-                   required>
-          </div>
-          <div class="col-md-3 mb-3">
-            <label for="consuntivo" class="form-label">Consuntivo</label>
-            <input type="number"
-                   id="consuntivo"
-                   name="consuntivo"
-                   step="0.01"
-                   class="form-control"
-                   value="{{ old('consuntivo', $voce->consuntivo) }}"
-                   required>
-          </div>
+        <input type="hidden" name="idAssociazione" value="{{ $idAssociazione }}">
+        <input type="hidden" name="idConvenzione"  value="{{ $idConvenzione }}">
+
+        <div class="col-12">
+          <label class="form-label">Voce</label>
+          <input type="text" class="form-control" value="{{ $voceDescrizione }}" readonly>
         </div>
 
-        <div class="text-center mt-4">
-          <button type="submit" class="btn btn-anpas-green me-2">
-            <i class="fas fa-check me-1"></i> Aggiorna
+        <div class="col-md-4">
+          <label class="form-label">Preventivo</label>
+          <input type="number"
+                 name="preventivo"
+                 step="1.00"
+                 min="0"
+                 class="form-control @error('preventivo') is-invalid @enderror js-preventivo"
+                 value="{{ old('preventivo', $prev) }}"
+                 {{ $isTot ? 'readonly' : '' }}>
+          @error('preventivo') <div class="invalid-feedback">{{ $message }}</div> @enderror
+        </div>
+
+        <div class="col-md-4">
+          <label class="form-label">Consuntivo</label>
+          <input type="text"
+                 class="form-control js-consuntivo"
+                 value="{{ number_format($cons, 2, ',', '.') }}"
+                 readonly>
+          {{-- opzionale: se vuoi inviarlo comunque al controller, aggiungi un hidden numerico --}}
+          {{-- <input type="hidden" name="consuntivo" value="{{ $cons }}"> --}}
+        </div>
+
+        <div class="col-md-4">
+          <label class="form-label">% Scostamento</label>
+          <input type="text"
+                 class="form-control js-scostamento"
+                 value="{{ number_format($scost, 2, ',', '.') }}%"
+                 readonly>
+        </div>
+
+        <div class="col-12">
+          <button class="btn btn-anpas-green" {{ $isTot ? 'disabled' : '' }}>
+            <i class="fas fa-check me-1"></i> Salva
           </button>
-          <a href="{{ route('riepilogo.costi') }}" class="btn btn-secondary">
-            <i class="fas fa-times me-1"></i>Annulla
-          </a>
+          <a href="{{ route('riepilogo.costi', ['idAssociazione' => $idAssociazione, 'idConvenzione' => $idConvenzione]) }}"
+             class="btn btn-secondary ms-2">Annulla</a>
         </div>
       </form>
     </div>
   </div>
 </div>
 @endsection
+
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+  const $prev = document.querySelector('.js-preventivo');
+  const $cons = document.querySelector('.js-consuntivo');
+  const $scos = document.querySelector('.js-scostamento');
+
+  function parseNum(it){ return Number(String(it).replace(/\./g,'').replace(',', '.')) || 0; }
+
+  function recalc(){
+    if (!$prev || !$cons || !$scos) return;
+    const prev = parseFloat($prev.value || 0);
+    const cons = parseNum($cons.value || 0);
+    const pct  = prev !== 0 ? ((cons - prev) / prev) * 100 : 0;
+    $scos.value = (Math.round(pct * 100) / 100).toFixed(2) + '%';
+  }
+
+  $prev?.addEventListener('input', recalc);
+});
+</script>
+@endpush

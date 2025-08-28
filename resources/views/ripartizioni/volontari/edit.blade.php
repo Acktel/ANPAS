@@ -23,7 +23,7 @@
           <tr>
             <td>{{ $conv->Convenzione }}</td>
             <td>
-              <input type="number" name="ore[{{ $conv->idConvenzione }}]" class="form-control" value="{{ ($valore !== null && $valore != 0) ? $valore : '' }}" step="0.01" min="0" placeholder="0">
+              <input type="number" name="ore[{{ $conv->idConvenzione }}]" class="form-control" value="{{ ($valore !== null && $valore != 0) ? $valore : '' }}" step=1.00" min="0" placeholder="0">
             </td>
           </tr>
         @endforeach

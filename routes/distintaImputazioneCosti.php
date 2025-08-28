@@ -22,4 +22,8 @@ Route::prefix('distinta-imputazione-costi')->name('distinta.imputazione.')->grou
 
     // Eliminazione (se prevista)
     Route::delete('/{id}', [DistintaImputazioneCostiController::class, 'destroy'])->name('destroy');
+
+    // inline salva costo diretto
+    Route::post('/salva-costo-diretto', [DistintaImputazioneCostiController::class, 'salvaCostoDiretto'])
+        ->name('salvaCostoDiretto');
 });

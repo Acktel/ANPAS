@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\ConfigurazioneVeicoliController;
 use App\Http\Controllers\ConfigurazionePersonaleController;
 use App\Http\Controllers\ConfigurazioneLottiController;
+use App\Http\Controllers\ConfigurazioneRiepilogoController;
 
 Route::middleware(['auth'])->prefix('configurazioni')->group(function () {
     // VEICOLI
@@ -28,4 +29,12 @@ Route::middleware(['auth'])->prefix('configurazioni')->group(function () {
     Route::get('aziende-sanitarie', [ConfigurazioneLottiController::class, 'index'])->name('configurazioni.aziende_sanitarie');
     Route::post('aziende-sanitarie', [ConfigurazioneLottiController::class, 'store'])->name('configurazioni.aziende_sanitarie.store');
     Route::delete('aziende-sanitarie/{id}', [ConfigurazioneLottiController::class, 'destroy'])->name('configurazioni.aziende_sanitarie.destroy');
+
+    // RIEPILOGO COSTI
+    Route::get('riepilogo', [ConfigurazioneRiepilogoController::class, 'index'])->name('configurazioni.riepilogo.index');
+    Route::post('riepilogo', [ConfigurazioneRiepilogoController::class, 'store'])->name('configurazioni.riepilogo.store');
+    Route::put('riepilogo/{id}', [ConfigurazioneRiepilogoController::class, 'update'])->name('configurazioni.riepilogo.update');
+    Route::delete('riepilogo/{id}', [ConfigurazioneRiepilogoController::class, 'destroy'])->name('configurazioni.riepilogo.destroy');
+    Route::post('riepilogo/reorder', [ConfigurazioneRiepilogoController::class, 'reorder'])->name('configurazioni.riepilogo.reorder');
+
 });

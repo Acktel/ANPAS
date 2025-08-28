@@ -2,56 +2,49 @@
 
 @section('content')
 <div class="container">
-  <h1 class="container-title mb-4">
-    Modifica Ricavi Convenzioni – {{ $associazione }} – Anno {{ $anno }}
+  <h1 class="mb-4 container-title">
+    Modifica ricavi per convenzione — Anno {{ $anno }}
+    @isset($associazione) <small class="text-muted">({{ $associazione }})</small> @endisset
   </h1>
 
-  <form method="POST" action="{{ route('rapporti-ricavi.update', $idAssociazione) }}">
+  <form method="POST" action="{{ route('rapporti-ricavi.update', ['id' => $idAssociazione]) }}">
     @csrf
     @method('PUT')
 
-    <div class="table-responsive">
-      <table class="table table-bordered text-center align-middle">
-        <thead class="table-light">
+    <table class="table table-bordered">
+      <thead>
+        <tr>
+          <th>Convenzione</th>
+          <th>Rimborso</th>
+        </tr>
+      </thead>
+      <tbody>
+        @foreach ($convenzioni as $conv)
+          @php
+            $valore = $valori[$conv->idConvenzione]->Rimborso ?? null;
+          @endphp
           <tr>
-            <th>Convenzione</th>
-            <th>Rimborso (€)</th>
+            <td>{{ $conv->Convenzione }}</td>
+            <td style="max-width:220px">
+              <input
+                type="number"
+                name="ricavi[{{ $conv->idConvenzione }}]"
+                class="form-control text-end"
+                value="{{ !is_null($valore) && $valore != 0 ? number_format($valore, 2, '.', '') : '' }}"
+                step="0.01" min="0" placeholder="0,00">
+            </td>
           </tr>
-        </thead>
-        <tbody>
-          @foreach($convenzioni as $conv)
-            @php
-              // se esiste un record per questa convenzione, prendo rimborso, altrimenti zero
-              $val = $valori->has($conv->idConvenzione)
-                   ? $valori->get($conv->idConvenzione)->rimborso
-                   : 0;
-            @endphp
-            <tr>
-              <td>{{ $conv->Convenzione }}</td>
-              <td>
-                
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  name="ricavi[{{ $conv->idConvenzione }}]"
-                  class="form-control text-end"
-                  value="{{ old("ricavi.{$conv->idConvenzione}", $val) }}"
-                >
-              </td>
-            </tr>
-          @endforeach
-        </tbody>
-      </table>
-    </div>
+        @endforeach
+      </tbody>
+    </table>
 
-    <div class="mt-4 d-flex justify-content-between">
-      <a href="{{ route('rapporti-ricavi.index') }}" class="btn btn-secondary">
-        <i class="fas fa-arrow-left me-1"></i> Indietro
-      </a>
-      <button type="submit" class="btn btn-success">
-        <i class="fas fa-save me-1"></i> Salva
+    <div class="text-center mt-4">
+      <button type="submit" class="btn btn-anpas-green">
+        <i class="fas fa-check me-1"></i> Salva
       </button>
+      <a href="{{ route('rapporti-ricavi.index') }}" class="btn btn-secondary">
+        <i class="fas fa-times me-1"></i> Annulla
+      </a>
     </div>
   </form>
 </div>

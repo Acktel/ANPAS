@@ -11,19 +11,19 @@
         <div class="row mb-3">
             <div class="col-md-3">
                 <label for="TotManutenzioneRadio">Tot. Manutenzione Radio</label>
-                <input type="number" step="0.01" name="TotManutenzioneRadio" class="form-control" value="{{ $record->ManutenzioneApparatiRadio ?? 0 }}">
+                <input type="number" step=1.00" name="TotManutenzioneRadio" class="form-control" value="{{ $record->ManutenzioneApparatiRadio ?? 0 }}">
             </div>
             <div class="col-md-3">
                 <label for="TotMontaggioRadio">Tot. Montaggio/Smontaggio 118</label>
-                <input type="number" step="0.01" name="TotMontaggioRadio" class="form-control" value="{{ $record->MontaggioSmontaggioRadio118 ?? 0 }}">
+                <input type="number" step=1.00" name="TotMontaggioRadio" class="form-control" value="{{ $record->MontaggioSmontaggioRadio118 ?? 0 }}">
             </div>
             <div class="col-md-3">
                 <label for="TotLocazioneRadio">Tot. Locazione Ponte Radio</label>
-                <input type="number" step="0.01" name="TotLocazioneRadio" class="form-control" value="{{ $record->LocazionePonteRadio ?? 0 }}">
+                <input type="number" step=1.00" name="TotLocazioneRadio" class="form-control" value="{{ $record->LocazionePonteRadio ?? 0 }}">
             </div>
             <div class="col-md-3">
                 <label for="TotAmmortamentoRadio">Tot. Ammortamento Impianti Radio</label>
-                <input type="number" step="0.01" name="TotAmmortamentoRadio" class="form-control" value="{{ $record->AmmortamentoImpiantiRadio ?? 0 }}">
+                <input type="number" step=1.00" name="TotAmmortamentoRadio" class="form-control" value="{{ $record->AmmortamentoImpiantiRadio ?? 0 }}">
             </div>
         </div>
 

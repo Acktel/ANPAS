@@ -25,7 +25,7 @@
               type="number" 
               id="preventivo"
               name="preventivo" 
-              step="0.01" 
+              step=1.00" 
               class="form-control" 
               value="{{ old('preventivo', $dati->preventivo ?? 0) }}"
             >
@@ -36,7 +36,7 @@
               type="number" 
               id="consuntivo"
               name="consuntivo" 
-              step="0.01" 
+              step=1.00" 
               class="form-control" 
               value="{{ old('consuntivo', $dati->consuntivo ?? 0) }}"
             >

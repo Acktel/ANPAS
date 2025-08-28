@@ -23,6 +23,7 @@ class RipartizioneCostiAutomezziSanitari
             ->where('idAssociazione', $idAssociazione)
             ->where('idAnno', $anno)
             ->first();
+            
 
         if (!$costi) {
             // Restituisci tutto a zero

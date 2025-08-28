@@ -44,13 +44,13 @@
         <div class="row mb-3">
           <div class="col-md-6">
             <label class="form-label">Retribuzioni</label>
-            <input type="number" name="Retribuzioni" step="0.01" class="form-control"
+            <input type="number" name="Retribuzioni" step=1.00" class="form-control"
               value="{{ old('Retribuzioni', $record->Retribuzioni) }}">
           </div>
 
           <div class="col-md-6">
             <label class="form-label">Oneri Sociali</label>
-            <input type="number" name="OneriSociali" step="0.01" class="form-control"
+            <input type="number" name="OneriSociali" step=1.00" class="form-control"
               value="{{ old('OneriSociali', $record->OneriSociali) }}">
           </div>
         </div>
@@ -58,13 +58,13 @@
         <div class="row mb-3">
           <div class="col-md-6">
             <label class="form-label">TFR</label>
-            <input type="number" name="TFR" step="0.01" class="form-control"
+            <input type="number" name="TFR" step=1.00" class="form-control"
               value="{{ old('TFR', $record->TFR) }}">
           </div>
 
           <div class="col-md-6">
             <label class="form-label">Consulenze</label>
-            <input type="number" name="Consulenze" step="0.01" class="form-control"
+            <input type="number" name="Consulenze" step=1.00" class="form-control"
               value="{{ old('Consulenze', $record->Consulenze) }}">
           </div>
         </div>
@@ -72,7 +72,7 @@
         <div class="row mb-4">
           <div class="col-md-6">
             <label class="form-label">Totale</label>
-            <input type="number" name="Totale" step="0.01" class="form-control"
+            <input type="number" name="Totale" step=1.00" class="form-control"
               value="{{ old('Totale', $record->Totale) }}">
           </div>
         </div>

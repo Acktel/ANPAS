@@ -1,19 +1,23 @@
+{{-- resources/views/distinta_imputazione_costi/create.blade.php --}}
 @extends('layouts.app')
 
 @php
-  $user = Auth::user();
-  $anno = session('anno_riferimento');
+  $anno = session('anno_riferimento', now()->year);
+  // priorità: old -> querystring -> session
+  $preselectConvenzione = old('idConvenzione')
+      ?? request('idConvenzione')
+      ?? session('convenzione_selezionata');
 @endphp
 
 @section('content')
 <div class="container-fluid">
-  <h1 class="container-title mb-4">Aggiungi Costo Diretto o Bilancio Consuntivo</h1>
+  <h1 class="container-title mb-4">Aggiungi Costo Diretto / Bilancio Consuntivo</h1>
 
   @if ($errors->any())
     <div class="alert alert-danger">
       <ul class="mb-0">
-        @foreach ($errors->all() as $error)
-          <li>{{ $error }}</li>
+        @foreach ($errors->all() as $err)
+          <li>{{ $err }}</li>
         @endforeach
       </ul>
     </div>
@@ -21,7 +25,7 @@
 
   <div class="card-anpas mb-4">
     <div class="card-body bg-anpas-white">
-      <form action="{{ route('distinta.imputazione.store') }}" method="POST">
+      <form action="{{ route('distinta.imputazione.store') }}" method="POST" novalidate>
         @csrf
 
         <input type="hidden" name="idSezione" value="{{ $sezione }}">
@@ -43,42 +47,95 @@
         {{-- Convenzione --}}
         <div class="mb-3">
           <label for="idConvenzione" class="form-label">Convenzione</label>
-          <select name="idConvenzione" id="idConvenzione" class="form-select" required>
+          <select
+            name="idConvenzione"
+            id="idConvenzione"
+            class="form-select @error('idConvenzione') is-invalid @enderror"
+            required
+          >
             <option value="">-- Seleziona --</option>
             @foreach($convenzioni as $conv)
-              <option value="{{ $conv->idConvenzione }}">{{ $conv->Convenzione }}</option>
+              <option
+                value="{{ $conv->idConvenzione }}"
+                {{ (string)$preselectConvenzione === (string)$conv->idConvenzione ? 'selected' : '' }}
+              >
+                {{ $conv->Convenzione }}
+              </option>
             @endforeach
           </select>
+          @error('idConvenzione')
+            <div class="invalid-feedback">{{ $message }}</div>
+          @enderror
         </div>
 
-        {{-- Voce --}}
+        {{-- Voce (da riepilogo_voci_config) --}}
         <div class="mb-3">
-          <label for="voce" class="form-label">Voce</label>
-          <select name="voce" id="voce" class="form-select" required>
+          <label for="idVoceConfig" class="form-label">Voce</label>
+          <select
+            name="idVoceConfig"
+            id="idVoceConfig"
+            class="form-select @error('idVoceConfig') is-invalid @enderror"
+            required
+          >
             <option value="">-- Seleziona --</option>
             @foreach($vociDisponibili as $voce)
-              <option value="{{ $voce }}">{{ $voce }}</option>
+              <option
+                value="{{ $voce->id }}"
+                {{ (string)old('idVoceConfig') === (string)$voce->id ? 'selected' : '' }}
+              >
+                {{ $voce->descrizione }}
+              </option>
             @endforeach
           </select>
+          @error('idVoceConfig')
+            <div class="invalid-feedback">{{ $message }}</div>
+          @enderror
         </div>
 
         {{-- Importi --}}
         <div class="row">
           <div class="col-md-6 mb-3">
             <label for="costo" class="form-label">Importo Costo Diretto (€)</label>
-            <input type="number" name="costo" id="costo" step="0.01" class="form-control">
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              class="form-control @error('costo') is-invalid @enderror"
+              name="costo"
+              id="costo"
+              value="{{ old('costo') }}"
+              placeholder="0,00"
+            >
+            @error('costo')
+              <div class="invalid-feedback">{{ $message }}</div>
+            @enderror
           </div>
 
           <div class="col-md-6 mb-3">
-            <label for="bilancio_consuntivo" class="form-label">
-              Importo da Bilancio Consuntivo (€)
-            </label>
-            <input type="number" step="0.01" class="form-control" name="bilancio_consuntivo" id="bilancio_consuntivo">
+            <label for="bilancio_consuntivo" class="form-label">Importo Bilancio Consuntivo (€)</label>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              class="form-control @error('bilancio_consuntivo') is-invalid @enderror"
+              name="bilancio_consuntivo"
+              id="bilancio_consuntivo"
+              value="{{ old('bilancio_consuntivo') }}"
+              placeholder="0,00"
+            >
+            @error('bilancio_consuntivo')
+              <div class="invalid-feedback">{{ $message }}</div>
+            @enderror
+            <small class="text-muted">
+              Selezionando una <strong>Voce</strong>, questo campo si auto-compila se è disponibile un totale calcolato.
+            </small>
           </div>
         </div>
 
         <div class="text-center">
-          <button type="submit" class="btn btn-anpas-green me-3">Salva</button>
+          <button type="submit" class="btn btn-anpas-green me-3">
+            <i class="fas fa-check me-1"></i> Salva
+          </button>
           <a href="{{ route('distinta.imputazione.index') }}" class="btn btn-secondary">Annulla</a>
         </div>
       </form>
@@ -86,14 +143,14 @@
   </div>
 </div>
 
-{{-- JS: se esiste valore calcolato, lo autopopola ma resta editabile --}}
+{{-- JS: auto-popola bilancio (chiave = idVoceConfig) --}}
 <script>
-  const bilanci = @json($bilancioPerVoce);
-
-  document.getElementById('voce').addEventListener('change', function () {
-    const voce = this.value;
-    const importo = bilanci[voce] ?? 0;
-    document.getElementById('bilancio_consuntivo').value = importo;
+  const bilanci = @json($bilancioPerVoce ?? []);
+  document.getElementById('idVoceConfig')?.addEventListener('change', function () {
+    const id = this.value;
+    if (id && bilanci[id] !== undefined) {
+      document.getElementById('bilancio_consuntivo').value = bilanci[id];
+    }
   });
 </script>
 @endsection

@@ -111,7 +111,7 @@ $assocCorr = 'Anpas Nazionale';
                                 <li><a class="dropdown-item" href="{{ route('ripartizioni.volontari.index') }}">Personale volontario</a></li>
                                 <li><a class="dropdown-item" href="{{ route('ripartizioni.servizio_civile.index') }}">Servizio Civile</a></li>
                                 <li><a class="dropdown-item" href="{{ route('ripartizioni.materiale_sanitario.index') }}">Materiale sanitario</a></li>
-                               <!-- <li><a class="dropdown-item" href="{{ route('rapporti-ricavi.index') }}">Rapporto tra ricavi e convenzioni</a></li>-->
+                               <li><a class="dropdown-item" href="{{ route('rapporti-ricavi.index') }}">Rapporto tra ricavi e convenzioni</a></li>
                             </ul>
                         </li>
                         <li class="dropdown-submenu">
@@ -197,6 +197,7 @@ $assocCorr = 'Anpas Nazionale';
                         <li><a class="dropdown-item" href="{{ route('configurazioni.veicoli') }}">Veicoli</a></li>
                         <li><a class="dropdown-item" href="{{ route('configurazioni.personale') }}">Personale</a></li>
                         <li><a class="dropdown-item"  href="{{ route('configurazioni.aziende_sanitarie') }}">Aziende Sanitarie</a></li>
+                        <li><a class="dropdown-item" href="{{ route('configurazioni.riepilogo.index') }}">Riepilogo Costi</a></li>
                     </ul>
                 </li>
                 <a class="nav-link dropdown-toggle" href="#" id="userMenu" data-bs-toggle="dropdown">

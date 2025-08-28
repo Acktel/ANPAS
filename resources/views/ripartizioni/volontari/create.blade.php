@@ -40,7 +40,7 @@
                 <td>
                   <input
                     type="number"
-                    step="0.01"
+                    step=1.00"
                     min="0"
                     name="ore[{{ $d->idDipendente }}][{{ $conv->idConvenzione }}]"
                     class="form-control text-end"

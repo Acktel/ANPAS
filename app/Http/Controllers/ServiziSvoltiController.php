@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use App\Models\Automezzo;
+use App\Models\Dipendente;
 use App\Models\Convenzione;
 use App\Models\AutomezzoServiziSvolti;
 use Illuminate\Support\Collection;
@@ -24,7 +25,7 @@ class ServiziSvoltiController extends Controller {
             $idAssociazione = $user->IdAssociazione;
         }
 
-        $associazioni = \App\Models\Dipendente::getAssociazioni($user, $isImpersonating);
+        $associazioni = Dipendente::getAssociazioni($user, $isImpersonating);
         $selectedAssoc = $idAssociazione;
         return view('servizi_svolti.index', compact('anno', 'selectedAssoc', 'associazioni'));
     }
@@ -143,7 +144,7 @@ class ServiziSvoltiController extends Controller {
             ->values();
 
         $associazioni = $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])
-            ? \App\Models\Dipendente::getAssociazioni($user, session()->has('impersonate'))
+            ? Dipendente::getAssociazioni($user, session()->has('impersonate'))
             : collect();
 
         return view('servizi_svolti.create', compact(
@@ -212,7 +213,7 @@ class ServiziSvoltiController extends Controller {
         if (!$user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])) {
             $isImpersonating = session()->has('impersonate');
             $idAssociazione = $user->IdAssociazione;
-            $associazioni = \App\Models\Dipendente::getAssociazioni($user, $isImpersonating);
+            $associazioni = Dipendente::getAssociazioni($user, $isImpersonating);
         }else {
             $associazioni = collect(); // lista vuota se non servono
         }

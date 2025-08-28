@@ -53,71 +53,16 @@ class DistintaImputazioneService {
     }
 
     private static function getVociBySezione(int $idSezione, int $anno, int $idAssociazione): array {
-        // Voci statiche per certe sezioni
-        $statiche = match ($idSezione) {
-            2 => [
-                'LEASING/ NOLEGGIO AUTOMEZZI',
-                'ASSICURAZIONE AUTOMEZZI',
-                'MANUTENZIONE ORDINARIA',
-                'MANUTENZIONE STRAORDINARIA',
-                'PULIZIA E DISINFEZIONE AUTOMEZZI',
-                'CARBURANTI',
-                'ADDITIVI',
-                'INTERESSI PASS. F.TO, LEASING, NOL.',
-                'ALTRI COSTI MEZZI',
-            ],
-            3 => [
-                'MANUTENZIONE ATTREZZATURA SANITARIA',
-                'LEASING ATTREZZATURA SANITARIA',
-            ],
-            4 => [
-                'TELECOMUNICAZIONI',
-            ],
-            default => [],
-        };
-
-        // Sezione dinamica?
-        if (!in_array($idSezione, [5, 6, 7, 8, 9, 10, 11])) {
-            return $statiche;
-        }
-
-        // mappa tipologie --> sezione
-        $tipologiaToSezione = [
-            5 => 5,
-            6 => 6,
-            7 => 7,
-            8 => 8,
-            9 => 9,
-            10 => 10,
-            11 => 11,
-        ];
-
-        // Trova tipologie da includere per questa sezione
-        $tipologie = array_keys(array_filter($tipologiaToSezione, fn($s) => $s == $idSezione));
-        if (empty($tipologie)) return $statiche;
-
-        // Trova idRiepilogo corretto per questa associazione e anno
-        $idRiepilogo = DB::table('riepiloghi')
-            ->where('idAnno', $anno)
-            ->where('idAssociazione', $idAssociazione)
-            ->value('idRiepilogo');
-
-        if (!$idRiepilogo) return $statiche;
-
-        // Prendi le descrizioni delle voci da riepilogo_dati
-        $vociDb = DB::table('riepilogo_dati')
-                    ->where('idRiepilogo', $idRiepilogo)
-                    ->whereIn('idTipologiaRiepilogo', $tipologie)
-                    ->pluck('descrizione')
-                    ->map(fn($d) => trim(strtoupper($d)))
-                    ->unique()
-                    ->sort()
-                    ->values()
-                    ->toArray();
-
-        return array_merge($statiche, $vociDb);
+        return DB::table('riepilogo_voci_config')
+            ->where('attivo', 1)
+            ->where('idTipologiaRiepilogo', $idSezione) // 2..11
+            ->orderBy('ordinamento')
+            ->orderBy('id')
+            ->pluck('descrizione')
+            ->map(fn($d) => trim($d))
+            ->values()
+            ->toArray();
     }
-
 
 
     public static function calcolaTotaliPerSezione(array $righe, int $sezioneId): array {
@@ -141,4 +86,6 @@ class DistintaImputazioneService {
             'totale_ripartita' => round($totaleRipartita, 2),
         ];
     }
+
+
 }

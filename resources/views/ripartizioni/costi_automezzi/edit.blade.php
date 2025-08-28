@@ -16,7 +16,7 @@
         ] as $campo)
             <div class="mb-3">
                 <label class="form-label">{{ $campo }}</label>
-                <input type="number" step="0.01" name="{{ $campo }}" value="{{ $record->$campo ?? 0 }}" class="form-control">
+                <input type="number" step=1.00" name="{{ $campo }}" value="{{ $record->$campo ?? 0 }}" class="form-control">
             </div>
         @endforeach
 

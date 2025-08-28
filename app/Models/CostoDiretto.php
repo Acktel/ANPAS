@@ -14,7 +14,8 @@ class CostoDiretto extends Model {
         'idAnno',
         'idConvenzione',
         'idSezione',
-        'voce',
+        'idVoceConfig',          
+        'voce',                  
         'costo',
         'bilancio_consuntivo',
     ];

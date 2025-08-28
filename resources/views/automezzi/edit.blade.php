@@ -121,7 +121,7 @@
                      name="KmRiferimento"
                      id="KmRiferimento"
                      class="form-control"
-                     step="0.01"
+                     step=1.00"
                      value="{{ old('KmRiferimento', $automezzo->KmRiferimento) }}"
                      required
                      inputmode="decimal">
@@ -133,7 +133,7 @@
           <div class="col-md-6">
             <label for="KmTotali" class="form-label">Km Totali</label>
             <input type="number" name="KmTotali" id="KmTotali" class="form-control"
-                   min="0" step="0.01"
+                   min="0" step=1.00"
                    value="{{ old('KmTotali', $automezzo->KmTotali) }}" required>
           </div>
           <div class="col-md-6">

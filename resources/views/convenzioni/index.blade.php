@@ -72,8 +72,7 @@
             <td>{{ $c->idAnno }}</td>
             <td>{{ $c->Convenzione }}</td>
             <td>{{ $c->AziendeSanitarie }}</td>
-            <td>
-           
+            <td>           
               <a href="{{ route('convenzioni.edit', $c->idConvenzione) }}"
                 class="btn btn-sm btn-anpas-edit me-1 btn-icon" title="Modifica">
                 <i class="fas fa-edit"></i>

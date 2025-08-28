@@ -20,11 +20,11 @@
           </div>
           <div class="col-md-3 mb-3">
             <label for="preventivo" class="form-label">Preventivo</label>
-            <input type="number" class="form-control" id="preventivo" name="preventivo" step="0.01" required>
+            <input type="number" class="form-control" id="preventivo" name="preventivo" step=1.00" required>
           </div>
           <div class="col-md-3 mb-3">
             <label for="consuntivo" class="form-label">Consuntivo</label>
-            <input type="number" class="form-control" id="consuntivo" name="consuntivo" step="0.01" required>
+            <input type="number" class="form-control" id="consuntivo" name="consuntivo" step=1.00" required>
           </div>
         </div>
 

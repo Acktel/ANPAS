@@ -155,7 +155,7 @@ $(async function () {
             $lastRow.append(`<td>${cellValue}</td>`);
         });
 
-        $(api.table().body()).append($lastRow);
+     //   $(api.table().body()).append($lastRow);
     }
 }
 

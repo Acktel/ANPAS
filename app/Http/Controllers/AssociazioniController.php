@@ -38,7 +38,7 @@ class AssociazioniController extends Controller {
         $user = Auth::user();
         $isSuper = $user->hasRole('SuperAdmin');
 
-        $result = Associazione::getAll($request, $anno);
+        $result = Associazione::getAll($request);
 
         if (! $isSuper) {
             $rows = $result['data'];
@@ -83,7 +83,7 @@ class AssociazioniController extends Controller {
         ]);
 
         // 2) assegna ruolo
-        $isFirst = Associazione::count() === 1;
+        $isFirst = DB::table('associazioni')->count() === 1;
         $roleName = $isFirst ? 'AdminUser' : 'User';
         $role = Role::where('name', $roleName)->firstOrFail();
 

@@ -588,3 +588,14 @@ input#dt-search-0:active{
   background-color: #ffffff !important;
 }
 
+/* ============================= */
+/* CONFIGURAZIONI RIEPILOGO      */
+/* ============================= */
+.drag-handle {
+  cursor: grab;
+  user-select: none;
+}
+
+tbody tr.dragging {
+  opacity: .6;
+}

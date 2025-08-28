@@ -14,7 +14,6 @@ class RipartizionePersonaleController extends Controller {
 
         // Corretto: leggi prima dalla sessione, poi da query string (fallback)
         $selectedAssoc = session('associazione_selezionata') ?? $request->query('idAssociazione');
-
         $user = Auth::user();
         $isImpersonating = session()->has('impersonate');
         $associazioni = Dipendente::getAssociazioni($user, $isImpersonating);
