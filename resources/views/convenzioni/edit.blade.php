@@ -94,9 +94,36 @@ $assoCorr = $associazioni->firstWhere('idAssociazione', $conv->idAssociazione);
                 </option>
               @endforeach
             </select>
-            <small class="form-text text-muted">Puoi selezionare una o più aziende sanitarie</small>
+            <small class="form-text text-muted">Puoi selezionare una o più aziende sanitarie. (CTRL/CMD per selezione multipla)</small>
+          </div>
+
+          <div class="col-md-4"></div>
+
+        {{-- Materiale sanitario di consumo --}}
+        <div class="col-md-2 mb-3">
+            <label for="Qualifica" class="form-label">Materiale sanitario</label>
+            <select name="materiali[]" id="materiali" class="form-select" multiple size="6">
+              @foreach($materiali as $materiale)
+                  <option value="{{ $materiale->id }}"
+                      @if(!empty($materialiSelezionati) && in_array($materiale->id, $materialiSelezionati)) selected @endif>
+                      {{ $materiale->descrizione }}
+                  </option>
+              @endforeach
+            </select>
+            <div class="form-text">Seleziona uno o più materiali sanitari. (CTRL/CMD per selezione multipla)</div>
           </div>
         </div>
+
+          {{-- RIGA 9: Note --}}
+          <div class="row">
+              <div class="col-md-6">
+                  <label for="note" class="form-label">Note</label>
+                  <textarea name="note" id="note" class="form-control" rows="3">{{ old('note') }}</textarea>
+              </div>
+          </div>
+
+        <div class="row mb-3">
+
 
 
         <div class="d-flex justify-content-center mt-4">
@@ -104,8 +131,9 @@ $assoCorr = $associazioni->firstWhere('idAssociazione', $conv->idAssociazione);
             <i class="fas fa-check me-1"></i> Aggiorna Convenzione
           </button>
           <a href="{{ route('convenzioni.index', [
-                'idAssociazione' => old('idAssociazione', $conv->idAssociazione),
-                'idAnno' => old('idAnno', $conv->idAnno) ]) }}" class="btn btn-secondary">
+                'idAssociazione' => $selectedAssoc,
+                'idAnno' => $selectedAnno
+            ]) }}" class="btn btn-secondary">
             <i class="fas fa-times me-1"></i>Annulla
           </a>
         </div>

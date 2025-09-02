@@ -61,6 +61,7 @@ class AssociazioniController extends Controller {
             'provincia'         => 'required|string|max:100',
             'citta'             => 'required|string|max:100',
             'indirizzo'         => 'required|string|max:255',
+            'note'              => 'nullable|string',
             'adminuser_name'    => 'required|string|max:255',
             'adminuser_email'   => 'required|email|unique:users,email',
         ]);
@@ -75,6 +76,7 @@ class AssociazioniController extends Controller {
             'provincia'    => $validated['provincia'],
             'citta'        => $validated['citta'],
             'indirizzo'    => $validated['indirizzo'],
+            'note'         => $validated['note'] ?? null,
             'active'       => true,
             'created_by'   => $userId,
             'updated_by'   => $userId,

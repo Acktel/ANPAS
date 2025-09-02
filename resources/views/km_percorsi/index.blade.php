@@ -11,18 +11,43 @@
     </div>
 
     @if(auth()->user()->hasAnyRole(['SuperAdmin','Admin','Supervisor']))
-    <div class="d-flex mb-3">
-        <form id="assocFilterForm" action="{{ route('sessione.setAssociazione') }}" method="POST" class="me-3">
+<div class="mb-3">
+    <form method="POST" action="{{ route('sessione.setAssociazione') }}" id="assocFilterForm" class="w-100" style="max-width:400px; position:relative;">
         @csrf
-        <select id="assocSelect" name="idAssociazione" class="form-select" onchange="this.form.submit()">
+        <div class="input-group">
+            <!-- Campo visibile -->
+            <input
+                type="text"
+                id="assocInput"
+                name="assocLabel"
+                class="form-control"
+                autocomplete="off"
+                placeholder="Seleziona associazione"
+                value="{{ optional($associazioni->firstWhere('idAssociazione', $selectedAssoc))->Associazione ?? '' }}"
+            >
+
+            <!-- Bottone integrato -->
+            <button type="button" id="assocFilterToggleBtn" class="btn btn-outline-secondary"
+                    aria-haspopup="listbox" aria-expanded="false" title="Mostra elenco">
+                <i class="fas fa-chevron-down"></i>
+            </button>
+
+            <!-- Campo nascosto con l'id reale -->
+            <input type="hidden" id="assocId" name="idAssociazione" value="{{ $selectedAssoc ?? '' }}">
+        </div>
+
+        <!-- Dropdown custom -->
+        <ul id="assocDropdown" class="list-group position-absolute w-100" style="z-index:2000; display:none; max-height:240px; overflow:auto; top:100%; left:0;
+                   background-color:#fff; opacity:1; -webkit-backdrop-filter:none; backdrop-filter:none;">
             @foreach($associazioni as $assoc)
-            <option value="{{ $assoc->idAssociazione }}" {{ $assoc->idAssociazione == $selectedAssoc ? 'selected' : '' }}>
-                {{ $assoc->Associazione }}
-            </option>
+                <li class="list-group-item assoc-item" data-id="{{ $assoc->idAssociazione }}">
+                    {{ $assoc->Associazione }}
+                </li>
             @endforeach
-        </select>
-        </form>
-    </div>
+        </ul>
+    </form>
+</div>
+
     @endif
     {{-- Tabella --}}
     <div class="table-responsive">
@@ -163,7 +188,13 @@
             order: [],// ordina per is_totale (0: normali, -1: totale)
             responsive: true,
             language: {
-                url: '/js/i18n/Italian.json'
+                url: '/js/i18n/Italian.json',
+                                paginate: {
+            first: '<i class="fas fa-angle-double-left"></i>',
+            last: '<i class="fas fa-angle-double-right"></i>',
+            next: '<i class="fas fa-angle-right"></i>',
+            previous: '<i class="fas fa-angle-left"></i>'
+        },
             },
     rowCallback: (rowEl, rowData, index) => {
       if (rowData.is_totale === -1) {
@@ -208,4 +239,64 @@
         });
     });
 </script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const assocInput = document.getElementById('assocInput');
+    const assocId = document.getElementById('assocId');
+    const assocForm = document.getElementById('assocFilterForm');
+    const toggleBtn = document.getElementById('assocFilterToggleBtn');
+    const dropdown = document.getElementById('assocDropdown');
+    const options = Array.from(dropdown.querySelectorAll('li.assoc-item'));
+
+    // Funzione per filtrare dropdown
+    function filterDropdown() {
+        const val = assocInput.value.toLowerCase();
+        let anyVisible = false;
+        options.forEach(opt => {
+            if (opt.textContent.toLowerCase().includes(val)) {
+                opt.style.display = '';
+                anyVisible = true;
+            } else {
+                opt.style.display = 'none';
+            }
+        });
+        dropdown.style.display = anyVisible ? 'block' : 'none';
+    }
+
+    // Toggle dropdown con bottone
+    toggleBtn.addEventListener('click', function() {
+        const isVisible = dropdown.style.display === 'block';
+        dropdown.style.display = isVisible ? 'none' : 'block';
+        this.setAttribute('aria-expanded', !isVisible);
+        if (!isVisible) assocInput.focus();
+    });
+
+    // Filtra mentre si scrive
+    assocInput.addEventListener('input', filterDropdown);
+
+    // Seleziona un'opzione
+    options.forEach(opt => {
+        opt.addEventListener('click', function() {
+            assocInput.value = this.textContent;
+            assocId.value = this.dataset.id;
+            dropdown.style.display = 'none';
+            toggleBtn.setAttribute('aria-expanded', false);
+            assocForm.submit();
+        });
+    });
+
+    // Chiudi dropdown cliccando fuori
+    document.addEventListener('click', function(e) {
+        if (!assocForm.contains(e.target)) {
+            dropdown.style.display = 'none';
+            toggleBtn.setAttribute('aria-expanded', false);
+        }
+    });
+});
+</script>
+
+
+
+
 @endpush

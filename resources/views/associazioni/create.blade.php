@@ -2,7 +2,7 @@
 
 @section('content')
 <div class="container-fluid">
-  <h1 class="text-anpas-green fw-bolder mb-4">Crea Nuova Associazione</h1>
+  <h1 class="text-anpas-green fw-bolder mb-4 mt-2">Crea Nuova Associazione</h1>
 
   @if ($errors->any())
     <div class="alert alert-danger">
@@ -43,30 +43,40 @@
             <input type="text" class="form-control" id="citta" name="citta"
                    value="{{ old('citta') }}" required>
           </div>          
-          <div class="col-md-12 mb-3">
+          <div class="col-md-6 mb-3">
             <label for="indirizzo" class="form-label">Indirizzo</label>
             <input type="text" class="form-control" id="indirizzo" name="indirizzo"
                   value="{{ old('indirizzo') }}" required>
+          </div>
+
+              <div class="col-md-6 mb-3">
+            <label for="adminuser_name" class="form-label">Nome Admin</label>
+            <input type="text" class="form-control" id="adminuser_name" name="adminuser_name"
+                   value="{{ old('adminuser_name') }}" required>
           </div>
         </div>
 
         
         <div class="row">
-          <div class="col-md-6 mb-3">
-            <label for="adminuser_name" class="form-label">Nome Admin</label>
-            <input type="text" class="form-control" id="adminuser_name" name="adminuser_name"
-                   value="{{ old('adminuser_name') }}" required>
-          </div>
+
           <div class="col-md-6 mb-3">
             <label for="adminuser_email" class="form-label">Email Admin</label>
             <input type="email" class="form-control" id="adminuser_email" name="adminuser_email"
                    value="{{ old('adminuser_email') }}" required>
           </div>
+
+            <div class="col-md-6">
+              <label for="note" class="form-label">Note</label>
+              <textarea name="note" id="note" class="form-control" rows="3">{{ old('note') }}</textarea>
+            </div>
+        </div>
+        
+
         </div>
 
         <div class="text-center mt-4">
-          <button type="submit" class="btn btn-anpas-green me-2">Crea Associazione</button>
-          <a href="{{ route('associazioni.index') }}" class="btn btn-outline-secondary">Annulla</a>
+          <button type="submit" class="btn btn-anpas-green me-2"><i class="fas fa-check me-2"></i>Crea Associazione</button>
+          <a href="{{ route('associazioni.index') }}" class="btn btn-secondary"><i class="fas fa-times me-1"></i>Annulla</a>
         </div>
       </form>
     </div>

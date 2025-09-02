@@ -58,7 +58,8 @@
         </div>
 
         {{-- Convenzioni associate --}}
-        <div class="mb-3">
+        <div class="row">
+        <div class="col-md-6 mb-3">
           <label for="convenzioni" class="form-label">Convenzioni associate</label>
           <select
             name="convenzioni[]"
@@ -77,9 +78,16 @@
           <div class="form-text">Puoi selezionare una o più convenzioni</div>
         </div>
 
+          {{-- RIGA 9: Note --}}
+            <div class="col-md-6">
+                <label for="note" class="form-label">Note</label>
+                <textarea name="note" id="note" class="form-control" rows="6">{{ old('note') }}</textarea>
+            </div>
+        </div>
+
         {{-- Pulsanti --}}
         <div class="text-center">
-          <button type="submit" class="btn btn-anpas-green me-3">Salva Modifiche</button>
+          <button type="submit" class="btn btn-anpas-green me-3"><i class="fas fa-check me-1"></i>Salva Modifiche</button>
           <a href="{{ route('aziende-sanitarie.index') }}" class="btn btn-secondary">Annulla</a>
         </div>
       </div>

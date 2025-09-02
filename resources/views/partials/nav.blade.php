@@ -89,7 +89,7 @@ $assocCorr = 'Anpas Nazionale';
                 <li class="nav-item"><a class="nav-link" href="{{ route('all-users.index') }}">Utenti</a></li>
                 <li class="nav-item"><a class="nav-link" href="{{ route('aziende-sanitarie.index') }}">Aziende Sanitarie</a></li>
                 @endif
-                <li class="nav-item"><a class="nav-link" href="{{ route('convenzioni.index') }}">Convenzioni</a></li>
+                <li class="nav-item"><a class="nav-link" href="{{ route('convenzioni.index') }}" >Convenzioni</a></li>
                 @endcan
                 @can('manage-own-association')
                 <li class="nav-item"><a class="nav-link" href="{{ route('my-users.index') }}">Utenti</a></li>
@@ -196,27 +196,32 @@ $assocCorr = 'Anpas Nazionale';
                     <ul class="dropdown-menu dropdown-menu-end">
                         <li><a class="dropdown-item" href="{{ route('configurazioni.veicoli') }}">Veicoli</a></li>
                         <li><a class="dropdown-item" href="{{ route('configurazioni.personale') }}">Personale</a></li>
-<<<<<<< HEAD
-                        <li><a class="dropdown-item"  href="{{ route('configurazioni.aziende_sanitarie') }}">Aziende Sanitarie</a></li>
-=======
                         {{-- <li><a class="dropdown-item" href="{{ route('configurazioni.convenzioni') }}">Convenzioni</a></li> --}}
                         <li><a class="dropdown-item" href="#">Altro</a></li>
->>>>>>> modifiche_tabelle_anpas_luca
                     </ul>
                 </li>
                 <a class="nav-link dropdown-toggle" href="#" id="userMenu" data-bs-toggle="dropdown">
                     {{ Auth::user()->firstname }}
                 </a>
                 <ul class="dropdown-menu dropdown-menu-end">
-                    <li><a class="dropdown-item" href="{{ route('profile.edit') }}">Profilo</a></li>
-                    <li>
-                        <hr class="dropdown-divider">
-                    </li>
-                    <li>
-                        <form method="POST" action="{{ route('logout') }}">
-                            @csrf
-                            <button type="submit" class="dropdown-item">Logout</button>
-                        </form>
+                        <li>
+                            <button id="profile-toggle" class="dropdown-item" type="button">
+                                Profilo
+                            </button>
+                            <ul id="profile-submenu"
+                                class="list-unstyled d-none bg-light rounded mx-2 my-2 px-3 py-2 overflow-hidden">
+                                @include('profilo.edit')
+                            </ul>
+                        </li>
+                        <li>
+                            <hr class="dropdown-divider">
+                        </li>
+                        <li>
+                            <form method="POST" action="{{ route('logout') }}">
+                                @csrf
+                                <button type="submit" class="dropdown-item">Logout</button>
+                            </form>
+                        </li>
                     </li>
                 </ul>
                 </li>
@@ -227,3 +232,44 @@ $assocCorr = 'Anpas Nazionale';
         </div>
     </div>
 </nav>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+@push('scripts')
+    <script>
+document.addEventListener('DOMContentLoaded', function () {
+    const toggle = document.getElementById('profile-toggle');
+    const submenu = document.getElementById('profile-submenu');
+    const dropdownMenu = toggle.closest('.dropdown-menu');
+    toggle.addEventListener('click', function (event) {
+        event.preventDefault();
+        event.stopPropagation();
+        submenu.classList.toggle('d-none');
+    });
+    // Nascondi submenu quando il dropdown principale si chiude
+    document.addEventListener('click', function (event) {
+        // Se il click NON è dentro il dropdown
+        if (!dropdownMenu.contains(event.target)) {
+            submenu.classList.add('d-none');
+        }
+    });
+});
+    </script>
+    <script>
+        function toggleSubmenu() {
+            const submenu = document.getElementById('profile-submenu');
+            submenu.classList.toggle('d-none');
+        }
+    </script>
+@endpush

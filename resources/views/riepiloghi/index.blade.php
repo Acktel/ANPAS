@@ -126,7 +126,14 @@ document.addEventListener('DOMContentLoaded', function () {
         }
       }
     ],
-    language: { url: '/js/i18n/Italian.json' },
+    language: { url: '/js/i18n/Italian.json',
+                      paginate: {
+            first: '<i class="fas fa-angle-double-left"></i>',
+            last: '<i class="fas fa-angle-double-right"></i>',
+            next: '<i class="fas fa-angle-right"></i>',
+            previous: '<i class="fas fa-angle-left"></i>'
+        },
+     },
     stripeClasses: ['table-striped-anpas', ''], //removed 'table-white before table-striped-anpas'
           rowCallback: function(row, data, index) {
         $(row).toggleClass('even odd', false).addClass(index % 2 === 0 ? 'even' : 'odd');

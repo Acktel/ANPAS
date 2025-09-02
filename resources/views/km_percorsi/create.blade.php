@@ -47,14 +47,19 @@
       </table>
     </div>
 
-    <div class="mt-4 d-flex justify-content-between">
+        <div class="text-center mt-4">
+      <button type="submit" class="btn btn-anpas-green me-2"><i class="fas fa-check me-2"></i>Salva</button>
+      <a href="{{ route('km-percorsi.index') }}" class="btn btn-secondary"><i class="fas fa-times me-1"></i>Annulla</a>
+    </div>
+
+    {{-- <div class="mt-4 d-flex justify-content-between">
       <a href="{{ route('km-percorsi.index') }}" class="btn btn-secondary">
         <i class="fas fa-arrow-left me-1"></i> Indietro
       </a>
       <button type="submit" class="btn btn-success">
-        <i class="fas fa-save me-1"></i> Salva
+        <i class="fas fa-check me-1"></i> Salva
       </button>
-    </div>
+    </div> --}}
   </form>
 </div>
 @endsection

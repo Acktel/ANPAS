@@ -51,21 +51,42 @@ foreach ($configVeicoli as $key => $value) {
   </div>
 
   {{-- Filtro per associazione solo per ruoli elevati --}}
-  @if(auth()->user()->hasAnyRole(['SuperAdmin','Admin','Supervisor']))
-    <div class="d-flex mb-3">
-    <form id="assocFilterForm" method="POST" action="{{ route('automezzi.setAssociazione') }}" class="me-3">
-      @csrf
-        <label for="assocSelect" class="visually-hidden">Associazione</label>
-        <select id="assocSelect" name="idAssociazione" class="form-select" onchange="this.form.submit()">
-          @foreach($associazioni as $assoc)
-            <option value="{{ $assoc->IdAssociazione }}" {{ $assoc->IdAssociazione == $selectedAssoc ? 'selected' : '' }}>
-              {{ $assoc->Associazione }}
-            </option>
-          @endforeach
-        </select>
-      </form>
+@if(auth()->user()->hasAnyRole(['SuperAdmin','Admin','Supervisor']))
+<div class="mb-3" style="max-width:400px">
+  <form id="assocFilterForm" class="w-100">
+    <div class="input-group">
+      <!-- Campo visibile -->
+      <input
+        id="assocSelectInput"
+        class="form-control"
+        autocomplete="off"
+        placeholder="Seleziona associazione"
+        value="{{ optional($associazioni->firstWhere('IdAssociazione', $selectedAssoc))->Associazione ?? '' }}"
+        aria-label="Seleziona associazione"
+      >
+
+      <!-- Bottone dropdown -->
+      <button type="button" id="assocSelectToggleBtn" class="btn btn-outline-secondary">
+        <i class="fas fa-chevron-down"></i>
+      </button>
+
+      <!-- Campo hidden con id reale -->
+      <input type="hidden" id="assocFilterHidden" name="idAssociazione" value="{{ $selectedAssoc ?? '' }}">
     </div>
-  @endif
+
+    <!-- Dropdown -->
+    <ul id="assocSelectDropdown" class="list-group"
+        style="z-index:2000; display:none; max-height:240px; overflow:auto; background:#fff;">
+      @foreach($associazioni as $assoc)
+        <li class="list-group-item assoc-item" data-id="{{ $assoc->IdAssociazione }}">
+          {{ $assoc->Associazione }}
+        </li>
+      @endforeach
+    </ul>
+  </form>
+</div>
+@endif
+
 
   {{-- Success message --}}
   @if(session('success'))
@@ -98,6 +119,7 @@ foreach ($configVeicoli as $key => $value) {
             <th>Codice ID</th>
             <th>Incluso Riparto</th>
             <th>Immatricolazione</th>
+            <th>Anno d'Acquisto</th>
             <th>Modello</th>
             <th>Tipo Veicolo</th>
             <th>Km Rif.</th>
@@ -132,23 +154,60 @@ foreach ($configVeicoli as $key => $value) {
 ></script>
 
 <script>
-  document.addEventListener('DOMContentLoaded', () => {
-    const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
-    const selectedAssoc = document.getElementById('assocSelect')?.value || null;
+document.addEventListener('DOMContentLoaded', function() {
 
-    // Inizializza DataTable con filtro tramite idAssociazione
-    $('#automezziTable').DataTable({
-      processing: true,
-      serverSide: false,
-      ajax: {
-        url: '{{ route("automezzi.datatable") }}',
-        data: function(d) {
-          if (selectedAssoc) {
-            d.idAssociazione = selectedAssoc;
-          }
-        }
-      },
-      columns: [
+  // --- CUSTOM SELECT ---
+  const form = document.getElementById('assocFilterForm');
+  const input = document.getElementById('assocSelectInput');
+  const dropdown = document.getElementById('assocSelectDropdown');
+  const toggleBtn = document.getElementById('assocSelectToggleBtn');
+  const hidden = document.getElementById('assocFilterHidden');
+
+  const items = Array.from(dropdown.querySelectorAll('.assoc-item'))
+                     .map(li => ({id: li.dataset.id, name: li.textContent.trim()}));
+
+  function showDropdown() { dropdown.style.display='block'; toggleBtn.setAttribute('aria-expanded','true'); }
+  function hideDropdown() { dropdown.style.display='none'; toggleBtn.setAttribute('aria-expanded','false'); }
+  function filterDropdown(term) {
+    term = (term||'').toLowerCase();
+    dropdown.querySelectorAll('.assoc-item').forEach(li => {
+      li.style.display = li.textContent.toLowerCase().includes(term) ? '' : 'none';
+    });
+  }
+
+  function setSelection(id, name) {
+    hidden.value = id;
+    input.value = name;
+    hideDropdown();
+    // table.ajax.reload(); // aggiorna tabella senza ricaricare pagina
+
+        // Aggiorna la sessione passando idAssociazione all’index
+    const url = new URL(window.location.href);
+    url.searchParams.set('idAssociazione', id);
+    window.location.href = url; // ricarica la pagina con il filtro selezionato
+  }
+
+  dropdown.querySelectorAll('.assoc-item').forEach(li => {
+    li.style.cursor = 'pointer';
+    li.addEventListener('click', () => setSelection(li.dataset.id, li.textContent.trim()));
+  });
+
+  input.addEventListener('input', () => filterDropdown(input.value));
+  toggleBtn.addEventListener('click', () => dropdown.style.display==='block'?hideDropdown():showDropdown());
+  document.addEventListener('click', e => { if(!form.contains(e.target)) hideDropdown(); });
+
+  // --- DATATABLE ---
+  const table = $('#automezziTable').DataTable({
+    processing: true,
+    serverSide: false,
+    ajax: {
+      url: '{{ route("automezzi.datatable") }}',
+      data: function(d) {
+        const selected = hidden.value || null;
+        if(selected) d.idAssociazione = selected;
+      }
+    },
+    columns: [
         { data: 'idAutomezzo' },
         { data: 'Associazione' },
         { data: 'idAnno' },
@@ -156,6 +215,20 @@ foreach ($configVeicoli as $key => $value) {
         { data: 'CodiceIdentificativo' },
         { data: 'incluso_riparto', render: data => data ? '✔️' : '❌' },
         { data: 'AnnoPrimaImmatricolazione' },
+            { data: 'AnnoAcquisto', // ✅ nuovo campo
+      render: function(data, type, row) {
+        if (!data) return '';
+        let info = row.informazioniAggiuntive ? row.informazioniAggiuntive : '';
+        return `<span title="${info}">${data}</span>`;
+      }
+    },
+//         { data: 'AnnoAcquisto',
+// render: function(data, type, row) {
+//     if (!data) return '';
+//     let info = row.informazioniAggiuntive ? row.informazioniAggiuntive : '';
+//     return `<span data-bs-toggle="tooltip" title="${info}">${data}</span>`;
+// }
+//         },
         { data: 'Modello' },
         { data: 'TipoVeicolo' },
         { data: 'KmRiferimento' },
@@ -178,13 +251,26 @@ foreach ($configVeicoli as $key => $value) {
         { data: 'Azioni', orderable: false, searchable: false, className: 'actions col-actions text-center' }
       ],
       language: {
-        url: '/js/i18n/Italian.json'
+        url: '/js/i18n/Italian.json',
+                paginate: {
+            first: '<i class="fas fa-angle-double-left"></i>',
+            last: '<i class="fas fa-angle-double-right"></i>',
+            next: '<i class="fas fa-angle-right"></i>',
+            previous: '<i class="fas fa-angle-left"></i>'
+        },
       },
       stripeClasses: ['table-striped-anpas',''],
       rowCallback: function(row, data, index) {
         $(row).toggleClass('even odd', false).addClass(index % 2 === 0 ? 'even' : 'odd');
       }
     });
+
+//     $('#automezziTable').on('draw.dt', function () {
+//     var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+//     tooltipTriggerList.map(function (tooltipTriggerEl) {
+//         return new bootstrap.Tooltip(tooltipTriggerEl);
+//     });
+// });
 
     // Mostra/Nascondi messaggio “no data”
     fetch("{{ route('automezzi.checkDuplicazione') }}")
@@ -224,6 +310,7 @@ foreach ($configVeicoli as $key => $value) {
     document.getElementById('btn-duplica-no')?.addEventListener('click', () => {
       document.getElementById('noDataMessage').classList.add('d-none');
     });
-  });
+
+});
 </script>
 @endpush

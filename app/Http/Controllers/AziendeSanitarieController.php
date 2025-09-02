@@ -41,9 +41,16 @@ class AziendeSanitarieController extends Controller {
             ->orderBy('Nome')
             ->get();
 
-        return view('convenzioni.create', compact(
+        //carico le convenzioni
+        $convenzioni = DB::table('convenzioni')
+            ->select('idConvenzione', 'Convenzione')
+            ->orderBy('Convenzione')
+            ->get();
+
+        return view('aziende_sanitarie.create', compact(
             'anni',
             'associazioni',
+                        'convenzioni',
             'aziendeSanitarie'
         ));
     }
@@ -53,6 +60,7 @@ class AziendeSanitarieController extends Controller {
             'Nome' => 'required|string|max:150',
             'Indirizzo' => 'nullable|string|max:255',
             'mail' => 'nullable|email|max:150',
+            'note' => 'nullable|string',
             'convenzioni' => 'nullable|array',
             'convenzioni.*' => 'exists:convenzioni,idConvenzione',
         ]);
@@ -97,6 +105,7 @@ class AziendeSanitarieController extends Controller {
             'Nome' => 'required|string|max:150',
             'Indirizzo' => 'nullable|string|max:255',
             'mail' => 'nullable|email|max:150',
+            'note' => 'nullable|string',
             'convenzioni' => 'nullable|array',
             'convenzioni.*' => 'exists:convenzioni,idConvenzione',
         ]);

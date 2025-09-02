@@ -9,20 +9,48 @@
     </a>
   </div>
 
-  @if(auth()->user()->hasAnyRole(['SuperAdmin','Admin','Supervisor']))
-  <div class="d-flex mb-3">
-    <form id="assocFilterForm" action="{{ route('sessione.setAssociazione') }}" method="POST" class="me-3">
-      @csrf
-      <select id="assocSelect" name="idAssociazione" class="form-select" onchange="this.form.submit()">
-        @foreach($associazioni as $assoc)
-        <option value="{{ $assoc->idAssociazione }}" {{ $assoc->idAssociazione == $selectedAssoc ? 'selected' : '' }}>
+@if(auth()->user()->hasAnyRole(['SuperAdmin','Admin','Supervisor']))
+<div class="d-flex mb-3">
+  <form id="assocFilterForm" action="{{ route('sessione.setAssociazione') }}" method="POST"
+        class="me-3 w-100" style="max-width:400px; position:relative;">
+    @csrf
+
+    <div class="input-group">
+      <!-- Campo visibile -->
+      <input
+        id="assocInput"
+        name="assocLabel"
+        class="form-control"
+        autocomplete="off"
+        placeholder="Seleziona associazione"
+        value="{{ optional($associazioni->firstWhere('idAssociazione', $selectedAssoc))->Associazione ?? '' }}"
+        aria-label="Seleziona associazione"
+      >
+
+      <!-- Bottone per aprire/chiudere -->
+      <button type="button" id="assocToggleBtn" class="btn btn-outline-secondary"
+              aria-haspopup="listbox" aria-expanded="false" title="Mostra elenco">
+        <i class="fas fa-chevron-down"></i>
+      </button>
+
+      <!-- Campo nascosto con l'id reale -->
+      <input type="hidden" id="assocHidden" name="idAssociazione" value="{{ $selectedAssoc ?? '' }}">
+    </div>
+
+    <!-- Dropdown custom -->
+    <ul id="assocDropdown"
+        class="list-group position-absolute w-100 shadow"
+        style="z-index:2000; display:none; max-height:240px; overflow:auto; top:100%; left:0; background:#fff;">
+      @foreach($associazioni as $assoc)
+        <li class="list-group-item assoc-item" data-id="{{ $assoc->idAssociazione }}">
           {{ $assoc->Associazione }}
-        </option>
-        @endforeach
-      </select>
-    </form>
-  </div>
-  @endif
+        </li>
+      @endforeach
+    </ul>
+  </form>
+</div>
+@endif
+
 
   <div class="card-anpas">
     <div class="card-body bg-anpas-white">
@@ -43,7 +71,7 @@
 @push('scripts')
 <script>
   $(async function() {
-    const selectedId = $('#assocSelect').val(); // legge dal <select>
+    const selectedId = $('#assocHidden').val(); // legge dal <select>
     const url = new URL("{{ route('servizi-svolti.datatable') }}", window.location.origin);
     if (selectedId) url.searchParams.append('idAssociazione', selectedId);
     const res = await fetch(url);
@@ -169,7 +197,13 @@
       order: [],
       responsive: true,
       language: {
-        url: '/js/i18n/Italian.json'
+        url: '/js/i18n/Italian.json',
+                        paginate: {
+            first: '<i class="fas fa-angle-double-left"></i>',
+            last: '<i class="fas fa-angle-double-right"></i>',
+            next: '<i class="fas fa-angle-right"></i>',
+            previous: '<i class="fas fa-angle-left"></i>'
+        },
       },
     rowCallback: (rowEl, rowData, index) => {
       if (rowData.is_totale === -1) {
@@ -178,14 +212,6 @@
       $(rowEl).removeClass('even odd').addClass(index % 2 === 0 ? 'even' : 'odd');
     },
       stripeClass: ['table-striped-anpas'],
-
-
-
-
-
-
-
-
 
 
                   drawCallback: function(settings) {
@@ -218,13 +244,54 @@
     }
 },
 
-
-
-
-
-
-
     });
   });
 </script>
+
+
+<script>
+$(function () {
+  const $form = $('#assocFilterForm');
+  const $input = $('#assocInput');
+  const $hidden = $('#assocHidden');
+  const $dropdown = $('#assocDropdown');
+  const $toggle = $('#assocToggleBtn');
+  
+
+  function openDrop()  { $dropdown.show();  $toggle.attr('aria-expanded','true'); }
+  function closeDrop() { $dropdown.hide();  $toggle.attr('aria-expanded','false'); }
+
+  // Apri/chiudi con bottone
+  $toggle.on('click', function () {
+    $dropdown.is(':visible') ? closeDrop() : openDrop();
+    $input.trigger('focus');
+  });
+
+  // Filtro live
+  $input.on('input', function () {
+    const q = $(this).val().toLowerCase();
+    $dropdown.children('li.assoc-item').each(function () {
+      $(this).toggle($(this).text().toLowerCase().includes(q));
+    });
+    openDrop();
+  });
+
+  // Selezione
+  $dropdown.on('click', 'li.assoc-item', function () {
+    const label = $(this).text().trim();
+    const id = $(this).data('id');
+    $input.val(label);
+    $hidden.val(id);
+    closeDrop();
+    $form.trigger('submit');
+  });
+
+  // Chiudi cliccando fuori
+  $(document).on('click', function (e) {
+    if (!$form.is(e.target) && $form.has(e.target).length === 0) closeDrop();
+  });
+});
+</script>
+
+
 @endpush

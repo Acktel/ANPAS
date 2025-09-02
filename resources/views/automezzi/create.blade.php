@@ -165,10 +165,27 @@
             </select>
           </div>
         </div>
+
+        {{-- RIGA 9: Note --}}
+        <div class="row mb-4">
+            <div class="col-12">
+                <label for="note" class="form-label">Note</label>
+                <textarea name="note" id="note" class="form-control" rows="3">{{ old('note') }}</textarea>
+            </div>
+        </div>
+
+        {{-- RIGA 10: Infomrazioni aggiuntive anno d'acquisto --}}
+        <div class="row mb-4">
+            <div class="col-12">
+                <label for="informazioniAggiuntive" class="form-label">Informazioni aggiuntive</label>
+                <textarea name="informazioniAggiuntive" id="informazioniAggiuntive" class="form-control" rows="3">{{ old('informazioniAggiuntive') }}</textarea>
+            </div>
+        </div>
+
           {{-- PULSANTI --}}
           <div class="text-center">
             <button type="submit" class="btn btn-anpas-green me-2">
-              <i class="fas fa-save me-1"></i> Salva
+              <i class="fas fa-check me-1"></i> Salva
             </button>
                <a href="{{ route('automezzi.index', [
               'idAssociazione' => $selectedAssociazione,

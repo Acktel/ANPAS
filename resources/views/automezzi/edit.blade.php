@@ -25,10 +25,12 @@
 
           $user = Auth::user();
           $isImpersonating = session()->has('impersonate');
-          $selectedAssociazione = old('idAssociazione', $automezzo->idAssociazione);
+
+          $selectedAssociazione = session('selectedAssociazione') ?? $automezzo->idAssociazione;
           $assocCorr = Associazione::getById($selectedAssociazione);
 
-          $annoCorr = old('idAnno', $automezzo->idAnno ?? session('anno_riferimento', now()->year));
+          $annoCorr = session('annoCorrente') ?? ($automezzo->idAnno ?? now()->year);
+
         @endphp
 
         {{-- RIGA 1: Associazione | Anno --}}
@@ -173,6 +175,22 @@
               <option value="0" {{ old('incluso_riparto', $automezzo->incluso_riparto) == 0 ? 'selected' : '' }}>No</option>
             </select>
           </div>
+        </div>
+
+        {{-- RIGA 9: Note --}}
+        <div class="row mb-4">
+            <div class="col-12">
+                <label for="note" class="form-label">Note</label>
+                <textarea name="note" id="note" class="form-control" rows="3">{{ old('note') }}</textarea>
+            </div>
+        </div>
+
+        {{-- RIGA 10: Infomrazioni aggiuntive anno d'acquisto --}}
+        <div class="row mb-4">
+            <div class="col-12">
+                <label for="informazioniAggiuntive" class="form-label">Informazioni aggiuntive</label>
+                <textarea name="informazioniAggiuntive" id="informazioniAggiuntive" class="form-control" rows="3">{{ old('informazioniAggiuntive') }}</textarea>
+            </div>
         </div>
 
         {{-- PULSANTI --}}

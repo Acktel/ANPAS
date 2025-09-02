@@ -42,6 +42,8 @@ class Automezzo {
                 'a.incluso_riparto',
                 'a.DataUltimaAutorizzazioneSanitaria',
                 'a.DataUltimoCollaudo',
+                'a.informazioniAggiuntive',
+                'a.note', // ← aggiunto
                 'a.created_at',
             ])
             ->where('a.idAnno', $anno)
@@ -66,6 +68,7 @@ class Automezzo {
             'idTipoCarburante'                   => $data['idTipoCarburante'],
             'DataUltimaAutorizzazioneSanitaria'  => $data['DataUltimaAutorizzazioneSanitaria'],
             'DataUltimoCollaudo'                 => $data['DataUltimoCollaudo'],
+            'note'                               => $data['note'] ?? null, // ← aggiunto
             'created_at'                         => Carbon::now(),
             'updated_at'                         => Carbon::now(),
         ]);
@@ -109,6 +112,8 @@ class Automezzo {
                 'idTipoCarburante'                   => $data['idTipoCarburante'],
                 'DataUltimaAutorizzazioneSanitaria'  => $data['DataUltimaAutorizzazioneSanitaria'],
                 'DataUltimoCollaudo'                 => $data['DataUltimoCollaudo'],
+                'note'                               => $data['note'] ?? null,
+                'informazioniAggiuntive'             => $data['informazioniAggiuntive'] ?? null,
                 'updated_at'                         => Carbon::now(),
             ]);
     }
@@ -146,6 +151,9 @@ class Automezzo {
                 'ft.nome as TipoCarburante',
                 'a.DataUltimaAutorizzazioneSanitaria',
                 'a.DataUltimoCollaudo',
+                'a.note',
+                'a.informazioniAggiuntive'
+                // 'a.informazioniAggiuntive as informazioniAggiuntive',
             ])
             ->where('a.idAssociazione', $idAssociazione)
             ->where('a.idAnno', $anno)
@@ -154,14 +162,6 @@ class Automezzo {
             ->get();
     }
 
-    /**
-     * Recupera dati per DataTables filtrati per anno e associazione.
-     * Il filter $assocId è già determinato dal controller in base ai ruoli.
-     *
-     * @param int $anno
-     * @param int|null $assocId
-     * @return Collection
-     */
     public static function getForDataTable(int $anno, ?int $assocId): Collection
     {
         $query = DB::table('automezzi as a')
@@ -186,6 +186,7 @@ class Automezzo {
             'a.Targa',
             'a.CodiceIdentificativo',
             'a.AnnoPrimaImmatricolazione',
+            'a.AnnoAcquisto',
             'a.Modello',
             'a.incluso_riparto',
             'vt.nome as TipoVeicolo',
@@ -194,6 +195,9 @@ class Automezzo {
             'ft.nome as TipoCarburante',
             'a.DataUltimaAutorizzazioneSanitaria',
             'a.DataUltimoCollaudo',
+            'a.note',
+            'a.informazioniAggiuntive'
+            // 'a.informazioniAggiuntive as informazioniAggiuntive',
         ])
         ->get()
         ->map(function ($row) {
@@ -208,7 +212,7 @@ class Automezzo {
         return DB::table('automezzi')
             ->where('idAnno', operator: $anno)
             ->when($idAssociazione, fn($q) => $q->where('idAssociazione', $idAssociazione))
-            ->select('idAutomezzo', 'Automezzo', 'Targa', 'CodiceIdentificativo')
+            ->select('idAutomezzo', 'Automezzo', 'Targa', 'CodiceIdentificativo', 'note') // ← aggiunto
             ->get();
     }
 
@@ -216,7 +220,7 @@ class Automezzo {
         return DB::table('automezzi')
             ->where('idAnno', $anno)
             ->when($idAssociazione, fn($q) => $q->where('idAssociazione', $idAssociazione))
-            ->select('idAutomezzo', 'Targa', 'CodiceIdentificativo')
+            ->select('idAutomezzo', 'Targa', 'CodiceIdentificativo', 'note') // ← aggiunto
             ->orderBy('Targa')
             ->get();
     }
