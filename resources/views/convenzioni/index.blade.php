@@ -12,24 +12,45 @@
 
   <div class="d-flex mb-3">
     {{-- Se ci sono associazioni in $associazioni (solo per SuperAdmin/Admin/Supervisor) --}}
-    @if(!empty($associazioni) && $associazioni->isNotEmpty())
-    <form id="assocFilterForm" method="GET" class="me-3">
-      <label for="assocSelect" class="visually-hidden">Associazione</label>
-      <select
-        id="assocSelect"
-        name="idAssociazione"
-        class="form-select"
-        onchange="this.form.submit()">
+@if(!empty($associazioni) && $associazioni->isNotEmpty())
+  <div class="mb-3" style="max-width:400px;">
+    <form id="assocFilterForm" method="GET" class="w-100">
+      <div class="input-group">
+        <!-- Campo visibile -->
+        <input
+          id="assocFilterInput"
+          name="assocLabel"
+          class="form-control"
+          autocomplete="off"
+          placeholder="Seleziona associazione"
+          value="{{ optional($associazioni->firstWhere('idAssociazione', $selectedAssoc))->Associazione ?? '' }}"
+          aria-label="Seleziona associazione"
+        >
+
+        <!-- Bottone per aprire/chiudere -->
+        <button type="button" id="assocFilterToggleBtn" class="btn btn-outline-secondary"
+                aria-haspopup="listbox" aria-expanded="false" title="Mostra elenco">
+          <i class="fas fa-chevron-down"></i>
+        </button>
+
+        <!-- Campo nascosto con l'id reale -->
+        <input type="hidden" id="assocFilterHidden" name="idAssociazione" value="{{ $selectedAssoc ?? '' }}">
+      </div>
+
+      <!-- Dropdown custom -->
+      <ul id="assocFilterDropdown" class="list-group"
+          style="z-index:2000; display:none; max-height:240px; overflow:auto; top:100%; left:0;
+                 background-color:#fff; opacity:1; -webkit-backdrop-filter:none; backdrop-filter:none;">
         @foreach($associazioni as $assoc)
-        <option
-          value="{{ $assoc->idAssociazione }}"
-          {{ $assoc->idAssociazione == $selectedAssoc ? 'selected' : '' }}>
-          {{ $assoc->Associazione }}
-        </option>
+          <li class="list-group-item assoc-item" data-id="{{ $assoc->idAssociazione }}">
+            {{ $assoc->Associazione }}
+          </li>
         @endforeach
-      </select>
+      </ul>
     </form>
-    @endif
+  </div>
+@endif
+
 
     <div class="ms-auto">
       @can('manage-all-associations')
@@ -62,33 +83,35 @@
             <th>Anno</th>
             <th>Descrizione</th>
             <th>Aziende sanitarie</th>
+            <th>Materiali di consumo</th>
             <th data-orderable="false" class="col-actions text-center">Azioni</th>
           </tr>
         </thead>
         <tbody id="sortable-convenzioni" class="sortable">
           @forelse($convenzioni as $c)
-          <tr data-id="{{ $c->idConvenzione }}">
-            <td>{{ $c->idConvenzione }}</td>
-            <td>{{ $c->idAnno }}</td>
-            <td>{{ $c->Convenzione }}</td>
-            <td>{{ $c->AziendeSanitarie }}</td>
-            <td>           
-              <a href="{{ route('convenzioni.edit', $c->idConvenzione) }}"
-                class="btn btn-sm btn-anpas-edit me-1 btn-icon" title="Modifica">
-                <i class="fas fa-edit"></i>
-              </a>
-              <form action="{{ route('convenzioni.destroy', $c->idConvenzione) }}"
-                method="POST"
-                class="d-inline"
-                onsubmit="return confirm('Eliminare questa convenzione?')">
-                @csrf
-                @method('DELETE')
-                <button class="btn btn-sm btn-anpas-delete btn-icon" title="Elimina">
-                  <i class="fas fa-trash-alt"></i>
-                </button>
-              </form>
-            </td>
-          </tr>
+            <tr data-id="{{ $c->idConvenzione }}">
+              <td>{{ $c->idConvenzione }}</td>
+              <td>{{ $c->idAnno }}</td>
+              <td>{{ $c->Convenzione }}</td>
+              <td>{{ $c->AziendeSanitarie }}</td>
+              <td>{{ $c->MaterialeSanitario }}</td>
+              <td class="text-center align-middle">
+                <a href="{{ route('convenzioni.edit', $c->idConvenzione) }}"
+                   class="btn btn-sm btn-anpas-edit me-1 btn-icon" title="Modifica">
+                  <i class="fas fa-edit"></i>
+                </a>
+                <form action="{{ route('convenzioni.destroy', $c->idConvenzione) }}"
+                      method="POST"
+                      class="d-inline"
+                      onsubmit="return confirm('Eliminare questa convenzione?')">
+                  @csrf
+                  @method('DELETE')
+                  <button class="btn btn-sm btn-anpas-delete btn-icon" title="Elimina">
+                    <i class="fas fa-trash-alt"></i>
+                  </button>
+                </form>
+              </td>
+            </tr>
           @empty
           <tr>
             <td colspan="6" class="text-center py-3">Nessuna convenzione.</td>
@@ -105,9 +128,11 @@
 <!-- Sortable CDN -->
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 
+
 <script>
   document.addEventListener('DOMContentLoaded', function() {
     const csrf = document.querySelector('meta[name="csrf-token"]').content;
+
 
     // Inizializza DataTable solo se ci sono righe sufficienti
     if ($('#convenzioniTable tbody tr').length > 0 &&
@@ -117,7 +142,13 @@
         info: false,
         className: 'col-actions text-center',
         language: {
-          url: '/js/i18n/Italian.json'
+          url: '/js/i18n/Italian.json',
+                          paginate: {
+            first: '<i class="fas fa-angle-double-left"></i>',
+            last: '<i class="fas fa-angle-double-right"></i>',
+            next: '<i class="fas fa-angle-right"></i>',
+            previous: '<i class="fas fa-angle-left"></i>'
+        },
         },
         rowCallback: function(row, data, index) {
           $(row).toggleClass('even odd', false)
@@ -126,6 +157,7 @@
         stripeClasses: ['table-white', 'table-striped-anpas'],
       });
     }
+
 
     // Sortable drag & drop
     const tbody = document.querySelector('#convenzioniTable tbody.sortable');
@@ -151,6 +183,7 @@
       });
     }
 
+
     // Messaggio duplicazione
     fetch("{{ route('convenzioni.checkDuplicazione') }}")
       .then(r => r.json())
@@ -160,6 +193,7 @@
             .classList.remove('d-none');
         }
       });
+
 
     // Duplica
     document.getElementById('btn-duplica-si')
@@ -183,6 +217,7 @@
         }
       });
 
+
     // Nascondi prompt duplicazione
     document.getElementById('btn-duplica-no')
       ?.addEventListener('click', function() {
@@ -191,4 +226,61 @@
       });
   });
 </script>
+
+<script>
+function setupCustomSelect(formId, inputId, dropdownId, toggleBtnId, hiddenId) {
+  const form = document.getElementById(formId);
+  const input = document.getElementById(inputId);
+  const dropdown = document.getElementById(dropdownId);
+  const toggleBtn = document.getElementById(toggleBtnId);
+  const hidden = document.getElementById(hiddenId);
+
+  if (!form || !input || !dropdown || !hidden) return;
+
+  const items = Array.from(dropdown.querySelectorAll('.assoc-item'))
+    .map(li => ({ id: String(li.dataset.id), name: (li.textContent || '').trim() }));
+
+  function showDropdown() { dropdown.style.display = 'block'; toggleBtn.setAttribute('aria-expanded', 'true'); }
+  function hideDropdown() { dropdown.style.display = 'none'; toggleBtn.setAttribute('aria-expanded', 'false'); }
+
+  function filterDropdown(term) {
+    term = (term || '').toLowerCase();
+    dropdown.querySelectorAll('.assoc-item').forEach(li => {
+      const txt = (li.textContent || '').toLowerCase();
+      li.style.display = txt.includes(term) ? '' : 'none';
+    });
+  }
+
+  function setSelection(id, name) {
+    hidden.value = id ?? '';
+    input.value = name ?? '';
+    form.submit();
+  }
+
+  dropdown.querySelectorAll('.assoc-item').forEach(li => {
+    li.style.cursor = 'pointer';
+    li.addEventListener('click', function () {
+      setSelection(this.dataset.id, this.textContent.trim());
+    });
+  });
+
+  input.addEventListener('input', () => filterDropdown(input.value));
+  toggleBtn.addEventListener('click', () => {
+    dropdown.style.display === 'block' ? hideDropdown() : showDropdown();
+  });
+  document.addEventListener('click', e => {
+    if (!form.contains(e.target)) hideDropdown();
+  });
+}
+
+// Attivazione per la select convenzioni
+setupCustomSelect(
+  "assocFilterForm",
+  "assocFilterInput",
+  "assocFilterDropdown",
+  "assocFilterToggleBtn",
+  "assocFilterHidden"
+);
+</script>
+
 @endpush

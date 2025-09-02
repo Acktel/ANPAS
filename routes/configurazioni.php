@@ -36,5 +36,4 @@ Route::middleware(['auth'])->prefix('configurazioni')->group(function () {
     Route::put('riepilogo/{id}', [ConfigurazioneRiepilogoController::class, 'update'])->name('configurazioni.riepilogo.update');
     Route::delete('riepilogo/{id}', [ConfigurazioneRiepilogoController::class, 'destroy'])->name('configurazioni.riepilogo.destroy');
     Route::post('riepilogo/reorder', [ConfigurazioneRiepilogoController::class, 'reorder'])->name('configurazioni.riepilogo.reorder');
-
 });

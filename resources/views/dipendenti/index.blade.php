@@ -66,18 +66,40 @@ foreach ($configPersone as $key => $value) {
     @endif
   </div>
 @if($user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor']) || $isImpersonating)
-  <form method="POST" action="{{ route('sessione.setAssociazione') }}" class="mb-3 d-flex align-items-center gap-2">
-      @csrf
-      <label for="assocSelect" class="mb-0 fw-bold">Associazione:</label>
-      <select id="assocSelect" name="idAssociazione" class="form-select w-auto" onchange="this.form.submit()">
-          @foreach($associazioni as $assoc)
-              <option value="{{ $assoc->idAssociazione }}"
-                {{ session('associazione_selezionata') == $assoc->idAssociazione ? 'selected' : '' }}>
-                {{ $assoc->Associazione }}
-              </option>
-          @endforeach
-      </select>
-  </form>
+<form method="POST" action="{{ route('sessione.setAssociazione') }}" id="assocForm" class="mb-3 d-flex align-items-center gap-2">
+    @csrf
+    <label for="assocInput" class="mb-0 fw-bold">Associazione:</label>
+
+    <div class="input-group" style="width: 350px; position: relative;">
+        <!-- Campo visibile per ricerca -->
+        <input type="text"
+               id="assocInput"
+               name="assocLabel"
+               class="form-control"
+               placeholder="Seleziona associazione"
+               value="{{ optional($associazioni->firstWhere('idAssociazione', session('associazione_selezionata')))->Associazione ?? '' }}"
+               autocomplete="off">
+
+        <!-- Bottone per mostrare la lista -->
+        <button type="button" class="btn btn-outline-secondary" id="assocDropdownBtn" title="Mostra elenco">
+            <i class="fas fa-chevron-down"></i>
+        </button>
+
+        <!-- Campo nascosto con ID -->
+        <input type="hidden" id="assocHidden" name="idAssociazione" value="{{ session('associazione_selezionata') ?? '' }}">
+
+        <!-- Dropdown -->
+        <ul id="assocDropdown" class="list-group"
+            style="position:absolute; top:100%; left:0; width:100%; z-index:2000; display:none; max-height:240px; overflow:auto; background-color:#fff;">
+            @foreach($associazioni as $assoc)
+                <li class="list-group-item assoc-item" data-id="{{ $assoc->idAssociazione }}">
+                    {{ $assoc->Associazione }}
+                </li>
+            @endforeach
+        </ul>
+    </div>
+</form>
+
 @endif
   @if(session('success'))
   <div class="alert alert-success">{{ session('success') }}</div>
@@ -206,7 +228,13 @@ foreach ($configPersone as $key => $value) {
         }
       ],
       language: {
-        url: '/js/i18n/Italian.json'
+        url: '/js/i18n/Italian.json',
+        paginate: {
+          first:    '<i class="fas fa-angle-double-left"></i>',
+          previous: '<i class="fas fa-angle-left"></i>',
+          next:     '<i class="fas fa-angle-right"></i>',
+          last:     '<i class="fas fa-angle-double-right"></i>'
+        }
       },
       rowCallback: function(row, data, index) {
         if (index % 2 === 0) {
@@ -246,4 +274,70 @@ foreach ($configPersone as $key => $value) {
     });
   });
 </script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const input = document.getElementById('assocInput');
+    const dropdown = document.getElementById('assocDropdown');
+    const hidden = document.getElementById('assocHidden');
+    const form = document.getElementById('assocForm');
+    const btn = document.getElementById('assocDropdownBtn');
+    const items = dropdown.querySelectorAll('.assoc-item');
+
+    // Mostra/nascondi la lista col bottone
+    btn.addEventListener('click', function () {
+        dropdown.style.display = (dropdown.style.display === 'block') ? 'none' : 'block';
+    });
+
+    // Filtra la lista mentre digiti
+    input.addEventListener('input', function () {
+        const filter = input.value.toLowerCase();
+        let visible = false;
+        items.forEach(item => {
+            if (item.textContent.toLowerCase().includes(filter)) {
+                item.style.display = '';
+                visible = true;
+            } else {
+                item.style.display = 'none';
+            }
+        });
+        dropdown.style.display = visible ? 'block' : 'none';
+    });
+
+    // Clic su un elemento
+    items.forEach(item => {
+        item.addEventListener('click', function () {
+            input.value = this.textContent.trim();
+            hidden.value = this.dataset.id;
+            dropdown.style.display = 'none';
+            form.submit(); // invio form
+        });
+    });
+
+    // Chiudi cliccando fuori
+    document.addEventListener('click', function (e) {
+        if (!form.contains(e.target)) {
+            dropdown.style.display = 'none';
+        }
+    });
+});
+</script>
+
 @endpush

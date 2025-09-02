@@ -36,7 +36,11 @@ class ConvenzioniController extends Controller {
             $selectedAssoc = $user->IdAssociazione;
         }
 
+
         $convenzioni = Convenzione::getWithAssociazione($selectedAssoc, $anno);
+
+        // dd($selectedAssoc, $convenzioni, $associazioni, $anno);
+
 
         return view('convenzioni.index', compact(
             'convenzioni',
@@ -61,7 +65,16 @@ public function create()
         ->orderBy('Nome')
         ->get();
 
-    return view('convenzioni.create', compact('anni', 'associazioni', 'aziendeSanitarie'));
+    $materiali = DB::table('materiale_sanitario')
+        ->select('id', 'sigla', 'descrizione')
+        ->orderBy('descrizione')
+        ->get();
+        
+    // Recupera dalla sessione la selezione corrente
+    $selectedAssoc = session('selectedAssoc') ?? ($associazioni->first()->idAssociazione ?? null);
+    $selectedAnno  = session('selectedAnno') ?? ($anni->first()->idAnno ?? null);
+
+    return view('convenzioni.create', compact('anni', 'associazioni', 'aziendeSanitarie', 'materiali', 'selectedAssoc', 'selectedAnno'));
 }
 
     public function store(Request $request) {
@@ -70,8 +83,11 @@ public function create()
             'idAnno' => 'required|exists:anni,idAnno',
             'Convenzione' => 'required|string|max:255',
             'lettera_identificativa' => 'required|string|max:5',
+            'note' => 'nullable|string',
             'aziende_sanitarie' => 'nullable|array',
             'aziende_sanitarie.*' => 'exists:aziende_sanitarie,idAziendaSanitaria',
+            'materiali' => 'nullable|array',
+            'materiali.*' => 'exists:materiale_sanitario,id',
         ]);
 
         $idConv = DB::table('convenzioni')->insertGetId([
@@ -79,9 +95,27 @@ public function create()
             'idAnno' => $validated['idAnno'],
             'Convenzione' => $validated['Convenzione'],
             'lettera_identificativa' => $validated['lettera_identificativa'],
+            'note' => $validated['note'] ?? null,
             'created_at' => now(),
             'updated_at' => now(),
         ]);
+
+
+        $materialiIds = $validated['materiali'] ?? [];
+
+        if (!empty($validated['materiale_sanitario'])) {
+            $idMat = DB::table('materiale_sanitario')->insertGetId([
+                'sigla' => substr($validated['materiale_sanitario'], 0, 10),
+                'descrizione' => $validated['materiale_sanitario'],
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+            $materialiIds[] = $idMat;
+        }
+
+        if (!empty($materialiIds)) {
+            $this->syncMateriali($idConv, $materialiIds);
+        }
 
         if (!empty($validated['aziende_sanitarie'])) {
             $this->syncAziendeSanitarie($idConv, $validated['aziende_sanitarie']);
@@ -120,13 +154,32 @@ public function create()
             ->where('idConvenzione', $id)
             ->pluck('idAziendaSanitaria')
             ->toArray();
+        
+        $materiali = DB::table('materiale_sanitario')
+            ->select('id', 'sigla', 'descrizione')
+            ->orderBy('descrizione')
+            ->get();
+
+        // 🔽 Materiali già selezionati per questa convenzione
+        $materialiSelezionati = DB::table('convenzioni_materiale_sanitario')
+            ->where('idConvenzione', $id)
+            ->pluck('idMaterialeSanitario')
+            ->toArray();
+
+        // Recupera dalla sessione o fallback ai valori correnti della convenzione
+        $selectedAssoc = session('selectedAssoc') ?? $conv->idAssociazione;
+        $selectedAnno  = session('selectedAnno') ?? $conv->idAnno;
 
         return view('convenzioni.edit', compact(
             'conv',
             'associazioni',
             'anni',
             'aziendeSanitarie',
-            'aziendeSelezionate'
+            'aziendeSelezionate',
+            'materiali',
+            'materialiSelezionati',
+            'selectedAssoc',
+            'selectedAnno'
         ));
     }
 
@@ -137,8 +190,11 @@ public function create()
             'idAnno' => 'required|exists:anni,idAnno',
             'Convenzione' => 'required|string|max:255',
             'lettera_identificativa' => 'required|string|max:5',
+            'note' => 'nullable|string',
             'aziende_sanitarie' => 'nullable|array',
             'aziende_sanitarie.*' => 'exists:aziende_sanitarie,idAziendaSanitaria',
+            'materiali' => 'nullable|array',
+            'materiali.*' => 'exists:materiale_sanitario,id',
         ]);
 
         DB::table('convenzioni')->where('idConvenzione', $id)->update([
@@ -146,8 +202,11 @@ public function create()
             'idAnno' => $validated['idAnno'],
             'Convenzione' => $validated['Convenzione'],
             'lettera_identificativa' => $validated['lettera_identificativa'],
+            'note' => $validated['note'] ?? null,
             'updated_at' => now(),
         ]);
+
+        $this->syncMateriali($id, $validated['materiali'] ?? []);
 
         $this->syncAziendeSanitarie($id, $validated['aziende_sanitarie'] ?? []);
 
@@ -156,6 +215,24 @@ public function create()
             'idAnno' => $validated['idAnno'],
         ])->with('success', 'Convenzione aggiornata.');
     }
+
+    private function syncMateriali(int $idConvenzione, array $idMateriali): void {
+    DB::table('convenzioni_materiale_sanitario')
+        ->where('idConvenzione', $idConvenzione)
+        ->delete();
+
+    if (!empty($idMateriali)) {
+        $now = now();
+        $insertData = array_map(fn($idMat) => [
+            'idConvenzione' => $idConvenzione,
+            'idMaterialeSanitario' => $idMat,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ], $idMateriali);
+
+        DB::table('convenzioni_materiale_sanitario')->insert($insertData);
+    }
+}
 
     public function destroy(int $id) {
         abort_if(!Convenzione::getById($id), 404);

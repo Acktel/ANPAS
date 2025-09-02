@@ -13,26 +13,43 @@
     </h1>
   </div>
 
-  {{-- Filtro associazione (mostra solo se c’è elenco associazioni) --}}
-  @if(isset($associazioni) && $associazioni instanceof \Illuminate\Support\Collection && $associazioni->isNotEmpty())
-    <form id="assocForm" method="POST" action="{{ route('sessione.setAssociazione') }}" class="mb-3 d-flex align-items-center gap-2">
-      @csrf
-      <label for="assocSelect" class="mb-0 fw-bold">Associazione:</label>
-      <select id="assocSelect" name="idAssociazione" class="form-select w-auto">
-        @foreach($associazioni as $assoc)
-          @php
-            // alcuni dump hanno "IdAssociazione", altri "idAssociazione": gestiamo entrambi
-            $idA = $assoc->IdAssociazione ?? $assoc->idAssociazione ?? null;
-          @endphp
-          <option value="{{ $idA }}" {{ (int)($selectedAssoc ?? 0) === (int)$idA ? 'selected' : '' }}>
-            {{ $assoc->Associazione }}
-          </option>
-        @endforeach
-      </select>
-    </form>
-  @else
-    {{-- per utenti non elevati: manteniamo l’associazione in un hidden per JS --}}
-    <input type="hidden" id="assocSelect" value="{{ (int)($selectedAssoc ?? $user->IdAssociazione) }}">
+  @if($user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor']) || $isImpersonating)
+<form method="POST" action="{{ route('sessione.setAssociazione') }}" id="assocForm" class="mb-3 d-flex align-items-center">
+    @csrf
+    <label for="assocInput" class="mb-0 fw-bold me-2">Associazione:</label>
+
+    <div class="input-group" style="width: 350px; position: relative;">
+        <!-- Campo visibile -->
+        <input type="text"
+               id="assocInput"
+               name="assocLabel"
+               class="form-control"
+               placeholder="Seleziona associazione"
+               value="{{ optional($associazioni->firstWhere('IdAssociazione', session('associazione_selezionata')))->Associazione ?? '' }}"
+               autocomplete="off"
+               aria-label="Seleziona associazione">
+
+        <!-- Bottone per aprire/chiudere -->
+        <button type="button" class="btn btn-outline-secondary" id="assocDropdownBtn" title="Mostra elenco">
+            <i class="fas fa-chevron-down"></i>
+        </button>
+
+        <!-- Campo nascosto con l'id -->
+        <input type="hidden" id="assocHidden" name="idAssociazione" value="{{ session('associazione_selezionata') ?? '' }}">
+
+        <!-- Dropdown -->
+        <ul id="assocDropdown" class="list-group"
+            style="position: absolute; top:100%; left:0; width:100%; z-index:2000; display:none; max-height:240px; overflow:auto; background-color:#fff;"">
+            @foreach($associazioni as $assoc)
+            <li class="list-group-item assoc-item" data-id="{{ $assoc->IdAssociazione }}">
+                {{ $assoc->Associazione }}
+            </li>
+            @endforeach
+        </ul>
+    </div>
+</form>
+
+
   @endif
 
   @php
@@ -53,29 +70,25 @@
 
   <div class="accordion" id="accordionDistinta">
     @foreach ($sezioni as $id => $titolo)
-      <div class="accordion-item mb-2">
-        <h2 class="accordion-header" id="heading-{{ $id }}">
-          <button class="accordion-button collapsed" type="button"
-                  data-bs-toggle="collapse"
-                  data-bs-target="#collapse-{{ $id }}"
-                  aria-expanded="false"
-                  aria-controls="collapse-{{ $id }}">
-            <div class="row w-100 text-start gx-2">
-              <div class="col-6 fw-bold">{{ $id }} — {{ $titolo }}</div>
-              <div class="col-2" id="summary-bilancio-{{ $id }}">-</div>
-              <div class="col-2" id="summary-diretta-{{ $id }}">-</div>
-              <div class="col-2" id="summary-totale-{{ $id }}">-</div>
-            </div>
-          </button>
-        </h2>
-        <div id="collapse-{{ $id }}" class="accordion-collapse collapse" data-bs-parent="#accordionDistinta">
-          <div class="accordion-body">
-            <div class="mb-2 text-end">
-              <a href="{{ route('distinta.imputazione.create', ['sezione' => $id]) }}"
-                 class="btn btn-sm btn-anpas-green">
-                <i class="fas fa-plus me-1"></i> Aggiungi Costi diretti
-              </a>
-            </div>
+    <div class="accordion-item mb-2">
+      <h2 class="accordion-header" id="heading-{{ $id }}">
+        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+          data-bs-target="#collapse-{{ $id }}" aria-expanded="false" aria-controls="collapse-{{ $id }}">
+          <div class="row w-100 text-start gx-2">
+            <div class="col-6 fw-bold">{{ $titolo }}</div>
+            <div class="col-2" id="summary-bilancio-{{ $id }}">-</div>
+            <div class="col-2" id="summary-diretta-{{ $id }}">-</div>
+            <div class="col-2" id="summary-totale-{{ $id }}">-</div>
+          </div>
+        </button>
+      </h2>
+      <div id="collapse-{{ $id }}" class="accordion-collapse collapse" data-bs-parent="#accordionDistinta">
+        <div class="accordion-body">
+          <div class="mb-2 text-end">
+            <a href="{{ route('distinta.imputazione.create', ['sezione' => $id]) }}" class="btn btn-sm btn-anpas-green p-2">
+              <i class="fas fa-plus me-1"></i> Aggiungi Costi diretti
+            </a>
+          </div>
 
             <div class="table-responsive">
               <table id="table-distinta-{{ $id }}"
@@ -119,8 +132,18 @@
   const eur = v => new Intl.NumberFormat('it-IT', { style:'currency', currency:'EUR' }).format(Number(v||0));
   const num = v => Number(v || 0);
 
-  // contatore richieste per scartare risposte “vecchie”
-  let reqSeq = 0;
+  $.ajax({
+    url: '{{ route("distinta.imputazione.data") }}',
+                    paginate: {
+            first: '<i class="fas fa-angle-double-left"></i>',
+            last: '<i class="fas fa-angle-double-right"></i>',
+            next: '<i class="fas fa-angle-right"></i>',
+            previous: '<i class="fas fa-angle-left"></i>'
+        },
+    method: 'GET',
+    success: function (response) {
+      const convenzioni = response.convenzioni;
+      const righe = response.data;
 
   function destroyIfDataTable(tableEl){
     if (!tableEl) return;
@@ -281,4 +304,62 @@
   loadData();
 })();
 </script>
+
+
+
+
+
+
+
+
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const input = document.getElementById('assocInput');
+    const dropdown = document.getElementById('assocDropdown');
+    const hidden = document.getElementById('assocHidden');
+    const form = document.getElementById('assocForm');
+    const btn = document.getElementById('assocDropdownBtn');
+    const items = dropdown.querySelectorAll('.assoc-item');
+
+    // Mostra/nascondi dropdown al click del bottone
+    btn.addEventListener('click', function () {
+        dropdown.style.display = (dropdown.style.display === 'block') ? 'none' : 'block';
+    });
+
+    // Filtra la lista mentre scrivi
+    input.addEventListener('input', function () {
+        const filter = input.value.toLowerCase();
+        let visible = false;
+        items.forEach(item => {
+            if (item.textContent.toLowerCase().includes(filter)) {
+                item.style.display = '';
+                visible = true;
+            } else {
+                item.style.display = 'none';
+            }
+        });
+        dropdown.style.display = visible ? 'block' : 'none';
+    });
+
+    // Selezione elemento dalla lista
+    items.forEach(item => {
+        item.addEventListener('click', function () {
+            input.value = this.textContent.trim();
+            hidden.value = this.getAttribute('data-id');
+            dropdown.style.display = 'none';
+            form.submit();
+        });
+    });
+
+    // Chiudi la lista cliccando fuori
+    document.addEventListener('click', function (e) {
+        if (!form.contains(e.target)) {
+            dropdown.style.display = 'none';
+        }
+    });
+});
+</script>
+
+
 @endpush

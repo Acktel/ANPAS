@@ -87,6 +87,7 @@ class Associazione {
             'provincia'    => $data['provincia'],
             'citta'        => $data['citta'],
             'indirizzo'    => $data['indirizzo'],
+            'note'         => $data['note'] ?? null,
             'active'       => $data['active'] ?? true,
             'created_by'   => $data['created_by'] ?? null,
             'updated_by'   => $data['updated_by'] ?? null,

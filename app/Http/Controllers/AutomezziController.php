@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use App\Models\Automezzo;
 use App\Models\AutomezzoKmRiferimento;
+use Illuminate\Support\Facades\Log;
 use App\Models\VehicleType;
 use App\Models\FuelType;
 use Illuminate\Http\JsonResponse;
@@ -34,6 +35,11 @@ class AutomezziController extends Controller {
             $selectedAssoc = $user->IdAssociazione;
         }
 
+        if ($request->has('idAssociazione')) {
+    session(['associazione_selezionata' => $request->idAssociazione]);
+}
+$selectedAssoc = session('associazione_selezionata') ?? $user->IdAssociazione;
+
         return view('automezzi.index', compact(
             'anno',
             'associazioni',
@@ -58,47 +64,64 @@ class AutomezziController extends Controller {
             $associazioni = $associazioni->where('idAssociazione', Auth::user()->idAssociazione);
         }
 
-        return view('automezzi.create', compact('associazioni', 'anni', 'vehicleTypes', 'fuelTypes'));
+        // Recupera dalla sessione o fallback al primo elemento
+        $selectedAssociazione = session('selectedAssociazione') ?? ($associazioni->first()->idAssociazione ?? null);
+        $annoCorr = session('annoCorrente') ?? ($anni->first()->idAnno ?? null);
+
+        return view('automezzi.create', compact('associazioni', 'anni', 'vehicleTypes', 'fuelTypes', 'selectedAssociazione', 'annoCorr'));
     }
 
-    public function store(Request $request) {
-        $rules = [
-            'idAssociazione' => 'required|exists:associazioni,idAssociazione',
-            'idAnno' => 'required|integer|min:2000|max:' . (date('Y') + 5),
-            'Automezzo' => 'required|string|max:255',
-            'Targa' => 'required|string|max:50',
-            'CodiceIdentificativo' => 'required|string|max:100',
-            'AnnoPrimaImmatricolazione' => 'required|integer|min:1900|max:' . date('Y'),
-            'AnnoAcquisto' => 'nullable|integer|min:1900|max:' . date('Y'),
-            'Modello' => 'required|string|max:255',
-            'idTipoVeicolo' => 'required|exists:vehicle_types,id',
-            'KmRiferimento' => 'required|numeric|min:0',
-            'KmTotali' => 'required|numeric|min:0',
-            'idTipoCarburante' => 'required|exists:fuel_types,id',
-            'DataUltimaAutorizzazioneSanitaria' => 'nullable|date',
-            'DataUltimoCollaudo' => 'nullable|date',
-            'incluso_riparto' => 'boolean',
-        ];
+public function store(Request $request) {
+    $rules = [
+        'idAssociazione' => 'required|exists:associazioni,idAssociazione',
+        'idAnno' => 'required|integer|min:2000|max:' . (date('Y') + 5),
+        'Automezzo' => 'required|string|max:255',
+        'Targa' => 'required|string|max:50',
+        'CodiceIdentificativo' => 'required|string|max:100',
+        'AnnoPrimaImmatricolazione' => 'required|integer|min:1900|max:' . date('Y'),
+        'AnnoAcquisto' => 'nullable|integer|min:1900|max:' . date('Y'),
+        'Modello' => 'required|string|max:255',
+        'idTipoVeicolo' => 'required|exists:vehicle_types,id',
+        'KmRiferimento' => 'required|numeric|min:0',
+        'KmTotali' => 'required|numeric|min:0',
+        'idTipoCarburante' => 'required|exists:fuel_types,id',
+        'DataUltimaAutorizzazioneSanitaria' => 'nullable|date',
+        'DataUltimoCollaudo' => 'nullable|date',
+        'incluso_riparto' => 'boolean',
+        'note' => 'nullable|string',
+        'informazioniAggiuntive' => 'nullable|string'
+    ];
 
-        $validated = $request->validate($rules);
-        DB::beginTransaction();
+    $validated = $request->validate($rules);
+    DB::beginTransaction();
 
-        try {
-            $newId = Automezzo::createAutomezzo($validated);
+    try {
+        $newId = Automezzo::createAutomezzo($validated);
 
-            AutomezzoKmRiferimento::insertKmRiferimento([
-                'idAutomezzo' => $newId,
-                'idAnno' => $validated['idAnno'],
-                'KmRiferimento' => $validated['KmRiferimento'],
-            ]);
+        AutomezzoKmRiferimento::insertKmRiferimento([
+            'idAutomezzo' => $newId,
+            'idAnno' => $validated['idAnno'],
+            'KmRiferimento' => $validated['KmRiferimento'],
+        ]);
 
-            DB::commit();
-            return redirect()->route('automezzi.index')->with('success', 'Automezzo creato correttamente.');
-        } catch (\Throwable $e) {
-            DB::rollBack();
-            return back()->withInput()->withErrors(['error' => 'Errore interno durante la creazione.']);
+        DB::commit();
+        return redirect()->route('automezzi.index')->with('success', 'Automezzo creato correttamente.');
+    } catch (\Exception $e) {
+        // log completo con stack trace
+        Log::error('Errore durante creazione automezzo', [
+            'exception' => $e,
+            'request' => $request->all()
+        ]);
+
+        // opzionale: rilancia per vedere errore completo sul browser in debug
+        if (config('app.debug')) {
+            throw $e;
         }
+
+        // messaggio custom per l'utente
+        return back()->with('error', 'Errore interno durante la creazione.');
     }
+}
 
     public function show(int $idAutomezzo) {
         $anno = session('anno_riferimento', now()->year);
@@ -124,47 +147,54 @@ class AutomezziController extends Controller {
         $vehicleTypes = DB::table('vehicle_types')->select('id', 'nome')->orderBy('nome')->get();
         $fuelTypes = DB::table('fuel_types')->select('id', 'nome')->orderBy('nome')->get();
 
-        return view('automezzi.edit', compact('automezzo', 'associazioni', 'anni', 'vehicleTypes', 'fuelTypes'));
+        // Recupera dalla sessione o fallback ai valori correnti dell'automezzo
+        $selectedAssociazione = session('selectedAssociazione') ?? $automezzo->idAssociazione;
+        $annoCorr = session('annoCorrente') ?? $automezzo->idAnno;
+
+        return view('automezzi.edit', compact('automezzo', 'associazioni', 'anni', 'vehicleTypes', 'fuelTypes', 'selectedAssociazione', 'annoCorr'));
     }
 
-    public function update(Request $request, int $idAutomezzo) {
-        $rules = [
-            'idAssociazione' => 'required|exists:associazioni,idAssociazione',
-            'idAnno' => 'required|integer|min:2000|max:' . (date('Y') + 5),
-            'Automezzo' => 'required|string|max:255',
-            'Targa' => 'required|string|max:50',
-            'CodiceIdentificativo' => 'required|string|max:100',
-            'AnnoPrimaImmatricolazione' => 'required|integer|min:1900|max:' . date('Y'),
-            'AnnoAcquisto' => 'nullable|integer|min:1900|max:' . date('Y'),
-            'Modello' => 'required|string|max:255',
-            'idTipoVeicolo' => 'required|exists:vehicle_types,id',
-            'KmRiferimento' => 'required|numeric|min:0',
-            'KmTotali' => 'required|numeric|min:0',
-            'idTipoCarburante' => 'required|exists:fuel_types,id',
-            'DataUltimaAutorizzazioneSanitaria' => 'nullable|date',
-            'DataUltimoCollaudo' => 'nullable|date',
-            'incluso_riparto' => 'boolean',
-        ];
+public function update(Request $request, int $idAutomezzo) {
+    $rules = [
+        'idAssociazione' => 'required|exists:associazioni,idAssociazione',
+        'idAnno' => 'required|integer|min:2000|max:' . (date('Y') + 5),
+        'Automezzo' => 'required|string|max:255',
+        'Targa' => 'required|string|max:50',
+        'CodiceIdentificativo' => 'required|string|max:100',
+        'AnnoPrimaImmatricolazione' => 'required|integer|min:1900|max:' . date('Y'),
+        'AnnoAcquisto' => 'nullable|integer|min:1900|max:' . date('Y'),
+        'Modello' => 'required|string|max:255',
+        'idTipoVeicolo' => 'required|exists:vehicle_types,id',
+        'KmRiferimento' => 'required|numeric|min:0',
+        'KmTotali' => 'required|numeric|min:0',
+        'idTipoCarburante' => 'required|exists:fuel_types,id',
+        'DataUltimaAutorizzazioneSanitaria' => 'nullable|date',
+        'DataUltimoCollaudo' => 'nullable|date',
+        'incluso_riparto' => 'boolean',
+        'note' => 'nullable|string',
+        'informazioniAggiuntive' => 'nullable|string'
+    ];
 
-        $validated = $request->validate($rules);
+    $validated = $request->validate($rules);
 
-        DB::beginTransaction();
+    DB::beginTransaction();
 
-        try {
-            Automezzo::updateAutomezzo($idAutomezzo, $validated);
+    try {
+        Automezzo::updateAutomezzo($idAutomezzo, $validated);
 
-            AutomezzoKmRiferimento::updateOrCreate(
-                ['idAutomezzo' => $idAutomezzo, 'idAnno' => $validated['idAnno']],
-                ['KmRiferimento' => $validated['KmRiferimento']]
-            );
+        AutomezzoKmRiferimento::updateOrCreate(
+            ['idAutomezzo' => $idAutomezzo, 'idAnno' => $validated['idAnno']],
+            ['KmRiferimento' => $validated['KmRiferimento']]
+        );
 
-            DB::commit();
-            return redirect()->route('automezzi.index')->with('success', 'Automezzo aggiornato.');
-        } catch (\Throwable $e) {
-            DB::rollBack();
-            return back()->withInput()->withErrors(['error' => 'Errore interno durante l’aggiornamento.']);
-        }
+        DB::commit();
+        return redirect()->route('automezzi.index')->with('success', 'Automezzo aggiornato.');
+    } catch (\Throwable $e) {
+        DB::rollBack();
+        return back()->withInput()->withErrors(['error' => 'Errore interno durante l’aggiornamento.']);
     }
+}
+
 
     public function destroy(int $idAutomezzo) {
         $automezzo = Automezzo::getById($idAutomezzo, session('anno_riferimento', now()->year));
@@ -203,65 +233,71 @@ class AutomezziController extends Controller {
         ]);
     }
 
-    public function duplicaAnnoPrecedente(Request $request): JsonResponse {
-        $anno = session('anno_riferimento', now()->year);
-        $annoPrec = $anno - 1;
-        $user = Auth::user();
+public function duplicaAnnoPrecedente(Request $request): JsonResponse {
+    $anno = session('anno_riferimento', now()->year);
+    $annoPrec = $anno - 1;
+    $user = Auth::user();
 
-        DB::beginTransaction();
+    DB::beginTransaction();
 
-        try {
-            if ($user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])) {
-                $automezzi = Automezzo::getAll($annoPrec);
-            } else {
-                $idAssoc = $user->IdAssociazione;
-                $automezzi = Automezzo::getByAssociazione($idAssoc, $annoPrec);
-            }
-
-            if ($automezzi->isEmpty()) {
-                return response()->json(['message' => 'Nessun automezzo da duplicare'], 404);
-            }
-
-            foreach ($automezzi as $auto) {
-                $newId = DB::table('automezzi')->insertGetId([
-                    'idAssociazione' => $auto->idAssociazione,
-                    'idAnno' => $anno,
-                    'Automezzo' => $auto->Automezzo,
-                    'Targa' => $auto->Targa,
-                    'CodiceIdentificativo' => $auto->CodiceIdentificativo,
-                    'AnnoPrimaImmatricolazione' => $auto->AnnoPrimaImmatricolazione,
-                    'AnnoAcquisto' => $auto->AnnoAcquisto,
-                    'Modello' => $auto->Modello,
-                    'idTipoVeicolo' => $auto->idTipoVeicolo ?? null,
-                    'KmTotali' => $auto->KmTotali,
-                    'idTipoCarburante' => $auto->idTipoCarburante ?? null,
-                    'DataUltimaAutorizzazioneSanitaria' => $auto->DataUltimaAutorizzazioneSanitaria,
-                    'DataUltimoCollaudo' => $auto->DataUltimoCollaudo,
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ]);
-
-                $kmPrec = DB::table('automezzi_km_riferimento')
-                    ->where('idAutomezzo', $auto->idAutomezzo)
-                    ->where('idAnno', $annoPrec)
-                    ->value('KmRiferimento');
-
-                if (!is_null($kmPrec)) {
-                    AutomezzoKmRiferimento::create([
-                        'idAutomezzo' => $newId,
-                        'idAnno' => $anno,
-                        'KmRiferimento' => $kmPrec,
-                    ]);
-                }
-            }
-
-            DB::commit();
-            return response()->json(['message' => 'Automezzi duplicati con successo.']);
-        } catch (\Throwable $e) {
-            DB::rollBack();
-            return response()->json(['message' => 'Errore durante duplicazione'], 500);
+    try {
+        if ($user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])) {
+            $automezzi = Automezzo::getAll($annoPrec);
+        } else {
+            $idAssoc = $user->IdAssociazione;
+            $automezzi = Automezzo::getByAssociazione($idAssoc, $annoPrec);
         }
+
+        if ($automezzi->isEmpty()) {
+            return response()->json(['message' => 'Nessun automezzo da duplicare'], 404);
+        }
+
+        foreach ($automezzi as $auto) {
+            $newId = DB::table('automezzi')->insertGetId([
+                'idAssociazione' => $auto->idAssociazione,
+                'idAnno' => $anno,
+                'Automezzo' => $auto->Automezzo,
+                'Targa' => $auto->Targa,
+                'CodiceIdentificativo' => $auto->CodiceIdentificativo,
+                'AnnoPrimaImmatricolazione' => $auto->AnnoPrimaImmatricolazione,
+                'AnnoAcquisto' => $auto->AnnoAcquisto,
+                'Modello' => $auto->Modello,
+                'idTipoVeicolo' => $auto->idTipoVeicolo ?? null,
+                'KmTotali' => $auto->KmTotali,
+                'idTipoCarburante' => $auto->idTipoCarburante ?? null,
+                'DataUltimaAutorizzazioneSanitaria' => $auto->DataUltimaAutorizzazioneSanitaria,
+                'DataUltimoCollaudo' => $auto->DataUltimoCollaudo,
+                'note' => $auto->note,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            $kmPrec = DB::table('automezzi_km_riferimento')
+                ->where('idAutomezzo', $auto->idAutomezzo)
+                ->where('idAnno', $annoPrec)
+                ->value('KmRiferimento');
+
+            if (!is_null($kmPrec)) {
+                AutomezzoKmRiferimento::create([
+                    'idAutomezzo' => $newId,
+                    'idAnno' => $anno,
+                    'KmRiferimento' => $kmPrec,
+                ]);
+            }
+        }
+
+        DB::commit();
+        return response()->json(['message' => 'Automezzi duplicati con successo.']);
+    } catch (\Throwable $e) {
+
+
+
+
+        DB::rollBack();
+        return response()->json(['message' => 'Errore durante duplicazione'], 500);
     }
+}
+
 
     /**
      * GET /automezzi/datatable

@@ -113,7 +113,7 @@
 
         <div class="text-center mb-2">
           <button type="submit" class="btn btn-anpas-green me-2">
-            <i class="fas fa-save me-1"></i> Salva Riepilogo
+            <i class="fas fa-check me-1"></i> Salva Riepilogo
           </button>
           <a href="{{ route('riepiloghi.index', [
               'idAssociazione' => $selectedAssociazione,
