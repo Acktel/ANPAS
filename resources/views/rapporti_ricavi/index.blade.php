@@ -149,7 +149,14 @@ $(async function () {
     searching: false,
     info: false,
     responsive: true,
-    language: { url: '/js/i18n/Italian.json' },
+    language: { url: '/js/i18n/Italian.json',
+                            paginate: {
+            first: '<i class="fas fa-angle-double-left"></i>',
+            last: '<i class="fas fa-angle-double-right"></i>',
+            next: '<i class="fas fa-angle-right"></i>',
+            previous: '<i class="fas fa-angle-left"></i>'
+        },
+     },
     rowCallback: (rowEl, rowData, index) => {
       if (rowData.is_totale === -1) {
         $(rowEl).addClass('table-warning fw-bold');

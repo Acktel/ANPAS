@@ -38,8 +38,11 @@
       </tbody>
     </table>
 
+<<<<<<< HEAD
     <div class="text-center mt-4">
       <button type="submit" class="btn btn-anpas-green">
+=======
+>>>>>>> refs/remotes/origin/main
     <div class="mt-4 d-flex justify-content-between">
       <a href="{{ route('rapporti-ricavi.index') }}" class="btn btn-secondary">
         <i class="fas fa-arrow-left me-1"></i> Indietro

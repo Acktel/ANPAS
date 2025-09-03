@@ -25,7 +25,11 @@ class DatabaseSeeder extends Seeder
         $this->call(AssociazioniAdminSeeder::class);     
         $this->call(RiepilogoDati2Seeder::class);
         $this->call(MaterialeSanitarioSeeder::class);
+<<<<<<< HEAD
         $this->call(QualificheSeeder::class);
+=======
+      /*  $this->call(QualificheSeeder::class);
+>>>>>>> refs/remotes/origin/main
         $this->call(DipendentiSeeder::class);
         $this->call(DipendenteFittizioSeeder::class);
         $this->call(ContrattiSeeder::class);

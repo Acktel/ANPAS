@@ -36,9 +36,12 @@ Route::middleware(['auth'])->prefix('configurazioni')->group(function () {
     Route::put('riepilogo/{id}', [ConfigurazioneRiepilogoController::class, 'update'])->name('configurazioni.riepilogo.update');
     Route::delete('riepilogo/{id}', [ConfigurazioneRiepilogoController::class, 'destroy'])->name('configurazioni.riepilogo.destroy');
     Route::post('riepilogo/reorder', [ConfigurazioneRiepilogoController::class, 'reorder'])->name('configurazioni.riepilogo.reorder');
+<<<<<<< HEAD
 
     //CONVENZIONI
     // Route::get('personale', [ConfigurazionePersonaleController::class, 'index'])->name('configurazioni.convenzioni');
     // Route::post('qualifiche', [ConfigurazionePersonaleController::class, 'storeQualifica'])->name('configurazioni.convenzioni.store');
     // Route::delete('qualifiche/{id}', [ConfigurazionePersonaleController::class, 'destroyQualifica'])->name('configurazioni.convenzioni.destroy');
+=======
+>>>>>>> refs/remotes/origin/main
 });

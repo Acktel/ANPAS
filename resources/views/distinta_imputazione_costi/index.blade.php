@@ -14,6 +14,7 @@
   </div>
 
   @if($user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor']) || $isImpersonating)
+<<<<<<< HEAD
   <form method="POST" action="{{ route('sessione.setAssociazione') }}" class="mb-3 d-flex align-items-center gap-2">
     @csrf
     <label for="assocSelect" class="mb-0 fw-bold">Associazione:</label>
@@ -25,6 +26,44 @@
       @endforeach
     </select>
   </form>
+=======
+<form method="POST" action="{{ route('sessione.setAssociazione') }}" id="assocForm" class="mb-3 d-flex align-items-center">
+    @csrf
+    <label for="assocInput" class="mb-0 fw-bold me-2">Associazione:</label>
+
+    <div class="input-group" style="width: 350px; position: relative;">
+        <!-- Campo visibile -->
+        <input type="text"
+               id="assocInput"
+               name="assocLabel"
+               class="form-control"
+               placeholder="Seleziona associazione"
+               value="{{ optional($associazioni->firstWhere('IdAssociazione', session('associazione_selezionata')))->Associazione ?? '' }}"
+               autocomplete="off"
+               aria-label="Seleziona associazione">
+
+        <!-- Bottone per aprire/chiudere -->
+        <button type="button" class="btn btn-outline-secondary" id="assocDropdownBtn" title="Mostra elenco">
+            <i class="fas fa-chevron-down"></i>
+        </button>
+
+        <!-- Campo nascosto con l'id -->
+        <input type="hidden" id="assocHidden" name="idAssociazione" value="{{ session('associazione_selezionata') ?? '' }}">
+
+        <!-- Dropdown -->
+        <ul id="assocDropdown" class="list-group"
+            style="position: absolute; top:100%; left:0; width:100%; z-index:2000; display:none; max-height:240px; overflow:auto; background-color:#fff;"">
+            @foreach($associazioni as $assoc)
+            <li class="list-group-item assoc-item" data-id="{{ $assoc->IdAssociazione }}">
+                {{ $assoc->Associazione }}
+            </li>
+            @endforeach
+        </ul>
+    </div>
+</form>
+
+
+>>>>>>> refs/remotes/origin/main
   @endif
 
   @php
@@ -60,7 +99,11 @@
       <div id="collapse-{{ $id }}" class="accordion-collapse collapse" data-bs-parent="#accordionDistinta">
         <div class="accordion-body">
           <div class="mb-2 text-end">
+<<<<<<< HEAD
             <a href="{{ route('distinta.imputazione.create', ['sezione' => $id]) }}" class="btn btn-sm btn-anpas-green">
+=======
+            <a href="{{ route('distinta.imputazione.create', ['sezione' => $id]) }}" class="btn btn-sm btn-anpas-green p-2">
+>>>>>>> refs/remotes/origin/main
               <i class="fas fa-plus me-1"></i> Aggiungi Costi diretti
             </a>
           </div>
@@ -110,6 +153,15 @@ $(function () {
 
   $.ajax({
     url: '{{ route("distinta.imputazione.data") }}',
+<<<<<<< HEAD
+=======
+                    paginate: {
+            first: '<i class="fas fa-angle-double-left"></i>',
+            last: '<i class="fas fa-angle-double-right"></i>',
+            next: '<i class="fas fa-angle-right"></i>',
+            previous: '<i class="fas fa-angle-left"></i>'
+        },
+>>>>>>> refs/remotes/origin/main
     method: 'GET',
     success: function (response) {
       const convenzioni = response.convenzioni;

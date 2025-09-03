@@ -83,19 +83,29 @@ $(async function () {
   const assocToggleBtn = document.getElementById('assocToggleBtn');
   const idAssociazione = document.getElementById('idAssociazione');
 
+<<<<<<< HEAD
   // Sposta la riga totale in fondo
   const totaleRow = data.find(r => r.is_totale === -1);
   data = data.filter(r => r.is_totale !== -1);
   if (totaleRow) data.push(totaleRow);
+<<<<<<< HEAD
+=======
+=======
+>>>>>>> refs/remotes/origin/main
   if (!assocForm || !assocInput || !assocDropdown || !idAssociazione) {
     console.warn('assoc filter: elementi mancanti nel DOM (assocForm/assocInput/assocDropdown/idAssociazione)');
   } else {
     // costruisci lista affidabile di {id, name} dai <li>
     const items = Array.from(assocDropdown.querySelectorAll('.assoc-item'))
       .map(li => ({ id: String(li.dataset.id), name: (li.textContent || '').trim() }));
+<<<<<<< HEAD
+=======
+>>>>>>> 02092025_luca_anpas
+>>>>>>> refs/remotes/origin/main
 
     console.log('assoc: items caricati', items);
 
+<<<<<<< HEAD
   const staticCols = [   
     { key: 'idDipendente', label: '',               hidden: true  },
     { key: 'Associazione', label: 'Associazione',   hidden: false },
@@ -138,6 +148,10 @@ $(async function () {
         <a href="/ripartizioni/personale/${row.idDipendente}/edit" class="btn btn-warning me-1 btn-icon" title="Modifica">
           <i class="fas fa-edit"></i>
         </a>`;
+<<<<<<< HEAD
+=======
+=======
+>>>>>>> refs/remotes/origin/main
     // crea mappa nameLower -> array di id (per gestire duplicati)
     const mapNameToIds = {};
     items.forEach(it => {
@@ -164,6 +178,10 @@ $(async function () {
         showDropdown();
         assocInput.focus();
       }
+<<<<<<< HEAD
+=======
+>>>>>>> 02092025_luca_anpas
+>>>>>>> refs/remotes/origin/main
     }
 
     // filtro: mostra solo gli elementi che contengono il termine
@@ -371,9 +389,12 @@ $(async function () {
             $lastRow.append(`<td>${cellValue}</td>`);
           });
 
+<<<<<<< HEAD
      //   $(api.table().body()).append($lastRow);
     }
 }
+=======
+>>>>>>> refs/remotes/origin/main
           $(api.table().body()).append($lastRow);
         }
       }

@@ -28,7 +28,11 @@ class Dipendente {
                 MIN(d.idAnno) as idAnno,
                 MIN(d.DipendenteNome) as DipendenteNome,
                 MIN(d.DipendenteCognome) as DipendenteCognome,
+<<<<<<< HEAD
                 MIN(lm.nome) as livelliMansione,
+=======
+                MIN(d.livelliMansione) as livelliMansione,
+>>>>>>> refs/remotes/origin/main
                 MIN(d.ContrattoApplicato) as ContrattoApplicato,
                 MIN(a.Associazione) as Associazione,
                 MIN(uc.username) as created_by_name,
