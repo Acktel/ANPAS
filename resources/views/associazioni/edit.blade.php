@@ -2,7 +2,7 @@
 
 @section('content')
 <div class="container-fluid">
-  <h1 class="text-anpas-green fw-bolder mb-4">Modifica Associazione</h1>
+  <h1 class="text-anpas-green fw-bolder mb-4 mt-2">Modifica Associazione</h1>
 
   @if ($errors->any())
     <div class="alert alert-danger">
@@ -44,10 +44,16 @@
             <input type="text" class="form-control" id="citta" name="citta" style="text-transform: uppercase;"
                    value="{{ old('citta', $associazione->citta) }}" required>
           </div>
-            <div class="col-md-12 mb-3">
+            <div class="col-md-6 mb-3">
               <label for="indirizzo" class="form-label">Indirizzo</label>
-              <input type="text" class="form-control" id="indirizzo" name="indirizzo"
-                    value="{{ old('indirizzo', $associazione->indirizzo) }}">
+              <input type="text" class="form-control" id="indirizzo" name="indirizzo" style="text-transform: uppercase;"
+                    value="{{ old('indirizzo', $associazione->indirizzo) }}" required>
+            </div>
+
+          {{-- RIGA 9: Note --}}
+            <div class="col-md-6">
+              <label for="note" class="form-label">Note</label>
+              <textarea name="note" id="note" class="form-control" rows="3">{{ old('note') }}</textarea>
             </div>
         </div>
 
@@ -65,6 +71,8 @@
             </div>
           </div>
         @endisset
+
+
 
         <div class="text-center mt-4">
           <button type="submit" class="btn btn-anpas-green me-2"><i class="fas fa-check me-1"></i>Aggiorna Associazione</button>

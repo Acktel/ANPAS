@@ -59,6 +59,9 @@
       </table>
     </div>
 
+
+
+    
     <div class="mt-4 d-flex justify-content-between">
       <a href="{{ route('servizi-svolti.index') }}" class="btn btn-secondary">
         <i class="fas fa-arrow-left me-1"></i> Indietro

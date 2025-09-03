@@ -45,6 +45,7 @@ class AziendaSanitaria {
             'Nome'       => $data['Nome'],
             'Indirizzo'  => $data['Indirizzo'] ?? null,
             'mail'       => $data['mail'] ?? null,
+            'note'       => $data['note'] ?? null,
             'created_at' => now(),
             'updated_at' => now(),
         ]);
@@ -61,6 +62,7 @@ class AziendaSanitaria {
                 'Nome'       => $data['Nome'],
                 'Indirizzo'  => $data['Indirizzo'] ?? null,
                 'mail'       => $data['mail'] ?? null,
+                'note'       => $data['note'] ?? null,
                 'updated_at' => now(),
             ]);
 

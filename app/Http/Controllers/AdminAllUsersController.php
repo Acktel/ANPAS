@@ -29,9 +29,17 @@ class AdminAllUsersController extends Controller
             ->orderBy('Associazione')
             ->get();
 
+        if ($request->has('idAssociazione')) {
+            // aggiorna la sessione se c’è una nuova selezione
+            session(['selectedAssoc' => $request->get('idAssociazione')]);
+        }
+
+    
+        $selectedAssoc = session('selectedAssoc') ?? ($associazioni->first()->IdAssociazione ?? null);
+
         // Prendi il filtro dalla querystring o fallback alla prima
-        $selectedAssoc = $request->get('idAssociazione')
-            ?? ($associazioni->first()->IdAssociazione ?? null);
+        // $selectedAssoc = $request->get('idAssociazione')
+        //     ?? ($associazioni->first()->IdAssociazione ?? null);
 
         return view('admin.all_users_index', compact('associazioni', 'selectedAssoc'));
     }
@@ -57,12 +65,15 @@ class AdminAllUsersController extends Controller
             ->where('IdAssociazione', '!=', 1)
             ->orderBy('Associazione')
             ->get();
-
+    
         $ruoli = Role::select('name')
             ->orderBy('name')
             ->get();
-
-        return view('admin.all_users_create', compact('associazioni', 'ruoli'));
+    
+        // Recupera dalla sessione il filtro selezionato
+        $selectedAssoc = session('selectedAssoc') ?? ($associazioni->first()->IdAssociazione ?? null);
+    
+        return view('admin.all_users_create', compact('associazioni', 'ruoli', 'selectedAssoc'));
     }
 
     /**
@@ -79,6 +90,7 @@ class AdminAllUsersController extends Controller
             'password'       => 'required|string|min:8|confirmed',
             'IdAssociazione' => 'required|integer|exists:associazioni,IdAssociazione',
             'role'           => 'required|string|exists:roles,name',
+            'note'           => 'nullable|string',
         ]);
 
         DB::beginTransaction();
@@ -91,6 +103,7 @@ class AdminAllUsersController extends Controller
                 'email'          => $validated['email'],
                 'password'       => Hash::make($validated['password']),
                 'IdAssociazione' => $validated['IdAssociazione'],
+                'note'           => $validated['note'] ?? null,
                 'active'         => true,
                 'created_at'     => now(),
                 'updated_at'     => now(),
@@ -127,7 +140,10 @@ class AdminAllUsersController extends Controller
             ->orderBy('name')
             ->get();
 
-        return view('admin.all_users_edit', compact('user', 'associazioni', 'ruoli'));
+        // Recupera dalla sessione il filtro selezionato
+        $selectedAssoc = session('selectedAssoc') ?? ($associazioni->first()->IdAssociazione ?? null);
+
+        return view('admin.all_users_edit', compact('user', 'associazioni', 'ruoli', 'selectedAssoc'));
     }
 
     /**
@@ -143,6 +159,7 @@ class AdminAllUsersController extends Controller
             'email'          => "required|email|unique:users,email,{$id}",
             'IdAssociazione' => 'required|integer|exists:associazioni,IdAssociazione',
             'role'           => 'required|string|exists:roles,name',
+            'note'           => 'nullable|string',
         ]);
 
         DB::beginTransaction();
@@ -154,6 +171,7 @@ class AdminAllUsersController extends Controller
                 'username'       => $validated['username'],
                 'email'          => $validated['email'],
                 'IdAssociazione' => $validated['IdAssociazione'],
+                'note'           => $validated['note'] ?? null,
                 'updated_at'     => now(),
             ]);
 

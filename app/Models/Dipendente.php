@@ -28,6 +28,7 @@ class Dipendente {
                 MIN(d.idAnno) as idAnno,
                 MIN(d.DipendenteNome) as DipendenteNome,
                 MIN(d.DipendenteCognome) as DipendenteCognome,
+                MIN(lm.nome) as livelliMansione,
                 MIN(d.ContrattoApplicato) as ContrattoApplicato,
                 MIN(a.Associazione) as Associazione,
                 MIN(uc.username) as created_by_name,
@@ -109,7 +110,8 @@ class Dipendente {
 
     public static function storeDipendente(array $data) {
         $qualifiche = $data['Qualifica'] ?? [];
-        $livelli = $data['LivelloMansione'] ?? [];
+        // $livelli = $data['LivelloMansione'] ?? [];
+        $livelloMansione = $data['LivelloMansione'] ?? '';
 
         unset($data['Qualifica'], $data['LivelloMansione']);
 
@@ -129,14 +131,19 @@ class Dipendente {
             ]);
         }
 
-        foreach (array_unique($livelli) as $idLivello) {
-            DB::table('dipendenti_livelli_mansione')->insert([
-                'idDipendente'        => $id,
-                'idLivelloMansione'   => $idLivello,
-                'created_at'          => $now,
-                'updated_at'          => $now,
-            ]);
-        }
+            // Salvataggio livello mansione direttamente nella tabella dipendenti
+    DB::table(self::TABLE)->where('idDipendente', $id)->update([
+        'livelliMansione' => $livelloMansione,
+    ]);
+
+        // foreach (array_unique($livelli) as $idLivello) {
+        //     DB::table('dipendenti_livelli_mansione')->insert([
+        //         'idDipendente'        => $id,
+        //         'idLivelloMansione'   => $idLivello,
+        //         'created_at'          => $now,
+        //         'updated_at'          => $now,
+        //     ]);
+        // }
 
         return redirect()->route('dipendenti.index')->with('success', 'Dipendente creato correttamente.');
     }
@@ -239,5 +246,12 @@ class Dipendente {
             ->where('idDipendente', $idDipendente)
             ->select('DipendenteNome', 'DipendenteCognome')
             ->first();
+    }
+
+    public static function eliminaDipendente(int $id){
+
+        return DB::table(self::TABLE)
+                 ->where('idDipendente', $id)
+                 ->delete();
     }
 }

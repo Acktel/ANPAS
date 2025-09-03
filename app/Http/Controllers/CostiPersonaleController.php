@@ -10,7 +10,7 @@ use App\Models\Convenzione;
 use App\Models\RipartizionePersonale;
 
 class CostiPersonaleController extends Controller {
-    public function index() {
+    public function index(Request $request) {
         $anno = session('anno_riferimento', now()->year);
         $selectedAssoc = session('associazione_selezionata') ?? $request->query('idAssociazione');
 

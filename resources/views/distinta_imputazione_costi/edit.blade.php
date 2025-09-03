@@ -48,7 +48,7 @@
 
         <div class="text-center mt-4">
           <button type="submit" class="btn btn-anpas-red me-2">
-            <i class="fas fa-save me-1"></i> Aggiorna
+            <i class="fas fa-check me-1"></i> Aggiorna
           </button>
           <a href="{{ route('riepilogo.costi') }}" class="btn btn-secondary">
             Annulla

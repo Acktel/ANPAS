@@ -9,20 +9,42 @@
         <h1 class="container-title mb-0">Distinta Rilevazione Analitica Costi Radio − Anno {{ $anno }}</h1>
     </div>
 
-    @if(auth()->user()->hasAnyRole(['SuperAdmin','Admin','Supervisor']))
-        <div class="mb-3">
-            <form method="POST" action="{{ route('sessione.setAssociazione') }}">
-                @csrf
-                <select name="idAssociazione" class="form-select w-auto d-inline-block" onchange="this.form.submit()">
-                    @foreach($associazioni as $assoc)                        
-                        <option value="{{ $assoc->idAssociazione }}" {{ $assoc->idAssociazione == $idAssociazione ? 'selected' : '' }}>
-                            {{ $assoc->Associazione }}
-                        </option>
-                    @endforeach
-                </select>
-            </form>
+@if(auth()->user()->hasAnyRole(['SuperAdmin','Admin','Supervisor']))
+<div class="mb-3" style="max-width:400px; position: relative;">
+    <form method="POST" action="{{ route('sessione.setAssociazione') }}" id="assocFilterForm">
+        @csrf
+        <div class="input-group">
+            <!-- Campo visibile -->
+            <input
+                id="assocInput"
+                type="text"
+                class="form-control text-start"
+                placeholder="Seleziona associazione"
+                value="{{ optional($associazioni->firstWhere('idAssociazione', $idAssociazione))->Associazione ?? '' }}"
+                readonly
+            >
+
+            <!-- Bottone per aprire/chiudere -->
+            <button type="button" id="assocDropdownToggle" class="btn btn-outline-secondary" aria-expanded="false" title="Mostra elenco">
+                <i class="fas fa-chevron-down"></i>
+            </button>
+
+            <!-- Hidden input -->
+            <input type="hidden" name="idAssociazione" id="assocHidden" value="{{ $idAssociazione ?? '' }}">
         </div>
-    @endif
+
+        <!-- Dropdown -->
+        <ul id="assocDropdown" class="list-group position-absolute w-100" style="z-index:2000; display:none; max-height:240px; overflow:auto; top:100%; left:0; background-color:#fff;">
+            @foreach($associazioni as $assoc)
+                <li class="list-group-item assoc-item" data-id="{{ $assoc->idAssociazione }}">
+                    {{ $assoc->Associazione }}
+                </li>
+            @endforeach
+        </ul>
+    </form>
+</div>
+@endif
+
 
     @if (session('success'))
     <div class="alert alert-success">{{ session('success') }}</div>
@@ -141,10 +163,62 @@ drawCallback: function(settings) {
     }
 },
             language: {
-                url: '/js/i18n/Italian.json'
+                url: '/js/i18n/Italian.json',
+                                paginate: {
+            first: '<i class="fas fa-angle-double-left"></i>',
+            last: '<i class="fas fa-angle-double-right"></i>',
+            next: '<i class="fas fa-angle-right"></i>',
+            previous: '<i class="fas fa-angle-left"></i>'
+        },
             }
         });
     });
 </script>
+
+
+
+
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const toggleBtn = document.getElementById('assocDropdownToggle');
+    const dropdown = document.getElementById('assocDropdown');
+    const assocInput = document.getElementById('assocInput');
+    const assocHidden = document.getElementById('assocHidden');
+    const form = document.getElementById('assocFilterForm');
+
+    if (!toggleBtn || !dropdown) return;
+
+    // Mostra/nasconde dropdown
+    toggleBtn.addEventListener('click', function (e) {
+        e.preventDefault();
+        dropdown.style.display = (dropdown.style.display === 'block') ? 'none' : 'block';
+    });
+
+    // Click su un elemento
+    document.querySelectorAll('.assoc-item').forEach(item => {
+        item.addEventListener('click', function () {
+            const text = this.textContent.trim();
+            const id = this.dataset.id;
+
+            assocInput.value = text;
+            assocHidden.value = id;
+
+            dropdown.style.display = 'none';
+            assocInput.style.textAlign = 'left';
+
+            form.submit();
+        });
+    });
+
+    // Chiude dropdown se clicchi fuori
+    document.addEventListener('click', function (e) {
+        if (!form.contains(e.target)) {
+            dropdown.style.display = 'none';
+        }
+    });
+});
+</script>
+
 @endpush
 

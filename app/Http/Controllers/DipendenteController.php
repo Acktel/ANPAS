@@ -61,14 +61,14 @@ class DipendenteController extends Controller {
         $anni = DB::table('anni')->orderByDesc('anno')->get();
         $qualifiche = DB::table('qualifiche')->get();
         $contratti = DB::table('contratti_applicati')->get();
-        $livelli = DB::table('livello_mansione')->get();
+        // $livelli = DB::table('livello_mansione')->get(); DA ELIMINARE SE CORRETTAMENTE SUPERFLUA
 
         return view('dipendenti.create', compact(
             'associazioni',
             'anni',
             'qualifiche',
             'contratti',
-            'livelli'
+            // 'livelli' DA ELIMINARE SE CORRETTAMENTE SUPERFLUO
         ));
     }
 
@@ -81,8 +81,9 @@ class DipendenteController extends Controller {
             'DipendenteCognome'  => 'required|string|max:100',
             'Qualifica'          => 'required|array',
             'ContrattoApplicato' => 'required|string|max:100',
-            'LivelloMansione' => 'required|array',
-            'LivelloMansione.*' => 'exists:livello_mansione,id',
+            // 'LivelloMansione' => 'required|array',               DA ELIMINARE SE CORRETTAMENTE SUPERFLUI
+            // 'LivelloMansione.*' => 'exists:livello_mansione,id', DA ELIMINARE SE CORRETTAMENTE SUPERFLUI
+            'LivelloMansione' => 'required|string|max:5',
 
         ]);
 
@@ -305,4 +306,12 @@ class DipendenteController extends Controller {
 
         return response()->json(['livello' => $dati]);
     }
+
+public function destroy($id)
+{
+    Dipendente::eliminaDipendente($id);
+
+    return redirect()->route('dipendenti.index')
+                     ->with('success', 'Dipendente eliminato correttamente.');
+}
 }

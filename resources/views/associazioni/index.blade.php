@@ -79,7 +79,7 @@ document.addEventListener('DOMContentLoaded', function () {
             btns += `
               <form action="/impersonate/${row.supervisor_user_id}" method="POST" style="display:inline">
                 <input name="_token" value="${csrf}" hidden>
-                <button class="btn btn-sm btn-anpas-impersonate btn-icon" title="Impersona utente">
+                <button class="btn btn-sm btn-anpas-green btn-icon" title="Impersona utente">
                   <i class="fas fa-user-secret"></i>
                 </button>
               </form>`;
@@ -90,7 +90,13 @@ document.addEventListener('DOMContentLoaded', function () {
     ],
     stripeClasses: ['table-white', 'table-striped-anpas'],
       language: {
-        url: '/js/i18n/Italian.json'
+        url: '/js/i18n/Italian.json',
+                        paginate: {
+            first: '<i class="fas fa-angle-double-left"></i>',
+            last: '<i class="fas fa-angle-double-right"></i>',
+            next: '<i class="fas fa-angle-right"></i>',
+            previous: '<i class="fas fa-angle-left"></i>'
+        },
       },
     rowCallback: function(row, data, index) {
       if (index % 2 === 0) {

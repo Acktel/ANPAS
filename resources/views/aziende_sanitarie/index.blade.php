@@ -142,7 +142,13 @@
             paging: true,
             info: true,
             language: {
-                url: '/js/i18n/Italian.json'
+                url: '/js/i18n/Italian.json',
+                                paginate: {
+            first: '<i class="fas fa-angle-double-left"></i>',
+            last: '<i class="fas fa-angle-double-right"></i>',
+            next: '<i class="fas fa-angle-right"></i>',
+            previous: '<i class="fas fa-angle-left"></i>'
+        },
             },
             rowCallback: function(row, data, index) {
                 $(row).removeClass('even odd').addClass(index % 2 === 0 ? 'even' : 'odd');

@@ -151,6 +151,22 @@
     const optTot = document.createElement('option');
     optTot.value = 'TOT'; optTot.textContent = 'TOTALE';
     $conv.appendChild(optTot);
+    $table.DataTable({
+            paging: false,
+            searching: false,
+            info: false,
+            ordering: false,
+            language: {
+              url: '/js/i18n/Italian.json',
+                              paginate: {
+            first: '<i class="fas fa-angle-double-left"></i>',
+            last: '<i class="fas fa-angle-double-right"></i>',
+            next: '<i class="fas fa-angle-right"></i>',
+            previous: '<i class="fas fa-angle-left"></i>'
+        },
+            },
+          });
+    }
 
     fetch(`/ajax/convenzioni-by-associazione/${assId}?anno=${anno}`)
       .then(r => r.ok ? r.json() : [])

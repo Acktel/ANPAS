@@ -52,7 +52,7 @@
                        name="password" required autocomplete="current-password"
                        placeholder="Your password">
                 <span class="input-group-text">
-                  <a href="#" class="link-secondary" data-bs-toggle="tooltip" title="Show password">
+                  <a href="#" id="togglePassword" class="link-secondary" data-bs-toggle="tooltip" title="Show password">
                     <!-- icona “occhio” -->
                     <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24"
                          viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"
@@ -84,11 +84,6 @@
             </div>
           </form>
 
-          <!-- REGISTRAZIONE -->
-          <div class="text-center text-secondary mt-3">
-            Don’t have an account yet? <a href="{{ route('register') }}">Sign up</a>
-          </div>
-
         </div>
       </div>
 
@@ -103,3 +98,28 @@
   </div>
 </div>
 @endsection
+
+
+
+
+
+
+
+
+
+
+
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const togglePassword = document.getElementById('togglePassword');
+  const passwordInput = document.getElementById('password');
+
+  togglePassword.addEventListener('click', function(e) {
+    e.preventDefault();
+    const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+    passwordInput.setAttribute('type', type);
+  });
+});
+</script>
+@endpush

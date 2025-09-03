@@ -59,7 +59,7 @@
         <i class="fas fa-arrow-left me-1"></i> Indietro
       </a>
       <button type="submit" class="btn btn-success">
-        <i class="fas fa-save me-1"></i> Salva
+        <i class="fas fa-check me-1"></i> Salva
       </button>
     </div>
   </form>
