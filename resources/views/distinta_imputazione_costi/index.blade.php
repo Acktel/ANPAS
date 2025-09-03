@@ -18,8 +18,8 @@
     @csrf
     <label for="assocSelect" class="mb-0 fw-bold">Associazione:</label>
     <select id="assocSelect" name="idAssociazione" class="form-select w-auto" onchange="this.form.submit()">
-      @foreach($associazioni as $assoc)
-      <option value="{{ $assoc->IdAssociazione }}" {{ session('associazione_selezionata') == $assoc->IdAssociazione ? 'selected' : '' }}>
+      @foreach($associazioni as $assoc)   
+      <option value="{{ $assoc->idAssociazione }}" {{ session('associazione_selezionata') == $assoc->idAssociazione  ? 'selected' : '' }}>
         {{ $assoc->Associazione }}
       </option>
       @endforeach
@@ -106,157 +106,145 @@ window.distintaCosti = {
 };
 
 $(function () {
+  // --- Helpers --------------------------------------------------------------
+  const csrfToken = document.head.querySelector('meta[name="csrf-token"]')?.content || window.distintaCosti.csrf || '';
+  const $assoc   = document.getElementById('assocSelect');
+
+  const eur = v => new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(Number(v || 0));
+  const num = v => {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : 0;
+  };
+
+  const sezioniIds = Object.keys(window.distintaCosti.sezioni || {});
   const intestazioniAggiunte = new Set();
 
-  $.ajax({
-    url: '{{ route("distinta.imputazione.data") }}',
-    method: 'GET',
-    success: function (response) {
-      const convenzioni = response.convenzioni;
-      const righe = response.data;
+  function clearTables() {
+    // Svuota tbody e resetta i summary
+    sezioniIds.forEach(id => {
+      const $tbody = $(`tbody[data-sezione="${id}"]`);
+      $tbody.empty();
+      $(`#summary-bilancio-${id}`).text('€0,00');
+      $(`#summary-diretta-${id}`).text('€0,00');
+      $(`#summary-totale-${id}`).text('€0,00');
+    });
+    $('#tot-bilancio').text('€0,00');
+    $('#tot-diretta').text('€0,00');
+    $('#tot-totale').text('€0,00');
+  }
 
-      const totaliGenerali = { bilancio: 0, diretta: 0, totale: 0 };
-      const totaliPerSezione = {};
+  function buildHeadersIfNeeded(convenzioni) {
+    sezioniIds.forEach(idSezione => {
+      if (intestazioniAggiunte.has(idSezione)) return;
 
-      Object.keys(window.distintaCosti.sezioni).forEach(idSezione => {
-        const headerMain = $(`#header-main-${idSezione}`);
-        const headerSub = $(`#header-sub-${idSezione}`);
+      const $headerMain = $(`#header-main-${idSezione}`);
+      const $headerSub  = $(`#header-sub-${idSezione}`);
 
-        if (!intestazioniAggiunte.has(idSezione)) {
-          convenzioni.forEach(conv => {
-            headerMain.append(`<th colspan="2" class="text-center">${conv}</th>`);
-            headerSub.append(`<th class="text-center">Diretti</th><th class="text-center">Indiretti</th>`);
+      convenzioni.forEach(conv => {
+        $headerMain.append(`<th colspan="2" class="text-center">${conv}</th>`);
+        $headerSub.append('<th class="text-center">Diretti</th><th class="text-center">Indiretti</th>');
+      });
+
+      intestazioniAggiunte.add(idSezione);
+    });
+  }
+
+  function loadData() {
+    // opzionale: passare idAssociazione al backend
+    const idAssociazione = $assoc?.value || '';
+    $.ajax({
+      url: '{{ route("distinta.imputazione.data") }}',
+      method: 'GET',
+      data: idAssociazione ? { idAssociazione } : {},
+      success: function (response) {
+        const convenzioni = Array.isArray(response?.convenzioni) ? response.convenzioni : [];
+        const righe       = Array.isArray(response?.data) ? response.data : [];
+
+        // intestazioni dinamiche (solo una volta per sezione)
+        buildHeadersIfNeeded(convenzioni);
+
+        // totali
+        const totaliGenerali   = { bilancio: 0, diretta: 0, totale: 0 };
+        const totaliPerSezione = {};
+        sezioniIds.forEach(id => totaliPerSezione[id] = { bilancio: 0, diretta: 0, totale: 0 });
+
+        // pulizia corpi tabella prima del refill
+        sezioniIds.forEach(id => $(`tbody[data-sezione="${id}"]`).empty());
+
+        // righe
+        righe.forEach(riga => {
+          const idSezione = String(riga.sezione_id || '');
+          if (!idSezione) return;
+
+          const $tbody = $(`tbody[data-sezione="${idSezione}"]`);
+          if ($tbody.length === 0) return;
+
+          let html = `
+            <tr>
+              <td>${riga.voce ?? ''}</td>
+              <td class="text-end">${eur(riga.bilancio)}</td>
+              <td class="text-end">${eur(riga.diretta)}</td>
+              <td class="text-end">${eur(riga.totale)}</td>
+          `;
+
+          convenzioni.forEach(convName => {
+            const cell = riga?.[convName] || {};
+            html += `<td class="text-end">${eur(num(cell.diretti))}</td>`;
+            html += `<td class="text-end">${eur(num(cell.indiretti))}</td>`;
           });
-          intestazioniAggiunte.add(idSezione);
-        }
 
-        totaliPerSezione[idSezione] = { bilancio: 0, diretta: 0, totale: 0 };
-      });
+          html += `</tr>`;
+          $tbody.append(html);
 
-      righe.forEach(riga => {
-        const idSezione = riga.sezione_id;
-        if (!idSezione) return;
+          // totali sezione
+          totaliPerSezione[idSezione].bilancio += num(riga.bilancio);
+          totaliPerSezione[idSezione].diretta  += num(riga.diretta);
+          totaliPerSezione[idSezione].totale   += num(riga.totale);
 
-        const $tbody = $(`tbody[data-sezione="${idSezione}"]`);
-        if ($tbody.length === 0) return;
+          // totali generali
+          totaliGenerali.bilancio += num(riga.bilancio);
+          totaliGenerali.diretta  += num(riga.diretta);
+          totaliGenerali.totale   += num(riga.totale);
+        });
 
-      let html = `
-        <tr>
-          <td>${riga.voce ?? ''}</td>
-          <td class="text-end">${eur(riga.bilancio)}</td>
-          <td class="text-end">${eur(riga.diretta)}</td>
-          <td class="text-end">${eur(riga.totale)}</td>
-      `;
+        // summary per sezione
+        sezioniIds.forEach(id => {
+          const tot = totaliPerSezione[id] || { bilancio: 0, diretta: 0, totale: 0 };
+          document.getElementById(`summary-bilancio-${id}`).textContent = eur(tot.bilancio);
+          document.getElementById(`summary-diretta-${id}`).textContent  = eur(tot.diretta);
+          document.getElementById(`summary-totale-${id}`).textContent   = eur(tot.totale);
+        });
 
-      convenzioni.forEach(convName => {
-        const cell = riga[convName] || {};
-        html += `<td class="text-end">${eur(num(cell.diretti))}</td>`;
-        html += `<td class="text-end">${eur(num(cell.indiretti))}</td>`;
-      });
-
-      html += `</tr>`;
-      tbody.insertAdjacentHTML('beforeend', html);
-
-      // totali sezione
-      totaliPerSezione[idSezione].bilancio += num(riga.bilancio);
-      totaliPerSezione[idSezione].diretta  += num(riga.diretta);
-      totaliPerSezione[idSezione].totale   += num(riga.totale);
-
-      // totali generali
-      totaliGenerali.bilancio += num(riga.bilancio);
-      totaliGenerali.diretta  += num(riga.diretta);
-      totaliGenerali.totale   += num(riga.totale);
+        // totali generali
+        document.getElementById('tot-bilancio').textContent = eur(totaliGenerali.bilancio);
+        document.getElementById('tot-diretta').textContent  = eur(totaliGenerali.diretta);
+        document.getElementById('tot-totale').textContent   = eur(totaliGenerali.totale);
+      },
+      error: function () {
+        // fallback: pulisci e mostra 0
+        clearTables();
+      }
     });
-
-    // summary per sezione
-    sezioni.forEach(id => {
-      document.getElementById(`summary-bilancio-${id}`).textContent = eur(totaliPerSezione[id].bilancio);
-      document.getElementById(`summary-diretta-${id}`).textContent  = eur(totaliPerSezione[id].diretta);
-      document.getElementById(`summary-totale-${id}`).textContent   = eur(totaliPerSezione[id].totale);
-    });
-
-    // totali generali
-    document.getElementById('tot-bilancio').textContent = eur(totaliGenerali.bilancio);
-    document.getElementById('tot-diretta').textContent  = eur(totaliGenerali.diretta);
-    document.getElementById('tot-totale').textContent   = eur(totaliGenerali.totale);
   }
 
   // cambio associazione → salva in sessione (se rotta presente) e ricarica
-  const assocForm = document.getElementById('assocForm');
-  $assoc?.addEventListener('change', function(){
+  $assoc?.addEventListener('change', function () {
     const idAssociazione = this.value;
     if (!idAssociazione) { clearTables(); return; }
+
     @if (Route::has('sessione.setAssociazione'))
-      fetch("{{ route('sessione.setAssociazione') }}", {
-        method: 'POST',
-        headers: { 'Content-Type':'application/json', 'X-CSRF-TOKEN': csrfToken },
-        body: JSON.stringify({ idAssociazione })
-      }).finally(loadData);
+    fetch("{{ route('sessione.setAssociazione') }}", {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken },
+      body: JSON.stringify({ idAssociazione })
+    }).finally(loadData);
     @else
-      loadData();
+    loadData();
     @endif
   });
 
   // bootstrap
   loadData();
-})();
-</script>
-
-
-
-
-
-
-
-
-
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-    const input = document.getElementById('assocInput');
-    const dropdown = document.getElementById('assocDropdown');
-    const hidden = document.getElementById('assocHidden');
-    const form = document.getElementById('assocForm');
-    const btn = document.getElementById('assocDropdownBtn');
-    const items = dropdown.querySelectorAll('.assoc-item');
-
-    // Mostra/nascondi dropdown al click del bottone
-    btn.addEventListener('click', function () {
-        dropdown.style.display = (dropdown.style.display === 'block') ? 'none' : 'block';
-    });
-
-    // Filtra la lista mentre scrivi
-    input.addEventListener('input', function () {
-        const filter = input.value.toLowerCase();
-        let visible = false;
-        items.forEach(item => {
-            if (item.textContent.toLowerCase().includes(filter)) {
-                item.style.display = '';
-                visible = true;
-            } else {
-                item.style.display = 'none';
-            }
-        });
-        dropdown.style.display = visible ? 'block' : 'none';
-    });
-
-    // Selezione elemento dalla lista
-    items.forEach(item => {
-        item.addEventListener('click', function () {
-            input.value = this.textContent.trim();
-            hidden.value = this.getAttribute('data-id');
-            dropdown.style.display = 'none';
-            form.submit();
-        });
-    });
-
-    // Chiudi la lista cliccando fuori
-    document.addEventListener('click', function (e) {
-        if (!form.contains(e.target)) {
-            dropdown.style.display = 'none';
-        }
-    });
 });
 </script>
-
-
 @endpush

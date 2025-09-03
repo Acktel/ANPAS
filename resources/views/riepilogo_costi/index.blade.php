@@ -131,8 +131,8 @@
   const $conv  = document.getElementById('convSelect');
 
   // utils
-  const eur = v => new Intl.NumberFormat('it-IT', { style:'currency', currency:'EUR' }).format(Number(v||0));
-  const pct = v => `${(Number(v)||0).toFixed(2)}%`;
+  const eur = v => new Intl.NumberFormat('it-IT', { style:'currency', currency:'EUR' }).format(Number(v || 0));
+  const pct = v => `${(Number(v) || 0).toFixed(2)}%`;
 
   // Associazione corrente con fallback dalla sessione lato server
   function currentAssociazione(){
@@ -142,44 +142,37 @@
   }
 
   // carica convenzioni per associazione (con TOTALE in cima)
-  function loadConvenzioniForAss(assId, preselect = 'TOT'){
+  function loadConvenzioniForAss(assId, preselect = 'TOT') {
     if (!$conv) return;
+
+    // reset/select abilitazione
     $conv.innerHTML = '';
-    if (!assId) { $conv.setAttribute('disabled', 'disabled'); return; }
+    if (!assId) {
+      $conv.setAttribute('disabled', 'disabled');
+      return;
+    }
     $conv.removeAttribute('disabled');
 
+    // Aggiungi "TOTALE"
     const optTot = document.createElement('option');
-    optTot.value = 'TOT'; optTot.textContent = 'TOTALE';
+    optTot.value = 'TOT';
+    optTot.textContent = 'TOTALE';
     $conv.appendChild(optTot);
-    $table.DataTable({
-            paging: false,
-            searching: false,
-            info: false,
-            ordering: false,
-            language: {
-              url: '/js/i18n/Italian.json',
-                              paginate: {
-            first: '<i class="fas fa-angle-double-left"></i>',
-            last: '<i class="fas fa-angle-double-right"></i>',
-            next: '<i class="fas fa-angle-right"></i>',
-            previous: '<i class="fas fa-angle-left"></i>'
-        },
-            },
-          });
-    }
 
+    // Carica convenzioni dal server
     fetch(`/ajax/convenzioni-by-associazione/${assId}?anno=${anno}`)
-      .then(r => r.ok ? r.json() : [])
+      .then(r => (r.ok ? r.json() : []))
       .then(items => {
         (items || []).forEach(c => {
           const opt = document.createElement('option');
-          opt.value = c.id; opt.textContent = c.text;
+          opt.value = c.id;
+          opt.textContent = c.text;
           $conv.appendChild(opt);
         });
         $conv.value = preselect ?? 'TOT';
         reloadAllSections();
       })
-      .catch(()=>{ /* ignore */ });
+      .catch(() => { /* ignora */ });
   }
 
   // render di UNA sezione
@@ -234,8 +227,7 @@
             <td class="text-end">${eur(row.preventivo)}</td>
             <td class="text-end">${eur(row.consuntivo)}</td>
             <td class="text-end">${row.scostamento ?? '0%'}</td>
-            <td class="text-center">${actionsHtml}</td>
-          `;
+            <td class="text-center">${actionsHtml}</td>`;
           tbody.appendChild(tr);
         });
 
