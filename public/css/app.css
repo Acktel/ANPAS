@@ -656,20 +656,34 @@ input#dt-search-0:active{
   background-color: #ffffff !important;
 }
 
+<<<<<<< HEAD
+
+=======
+<<<<<<< HEAD
+/* ============================= */
+/* CONFIGURAZIONI RIEPILOGO      */
+/* ============================= */
+.drag-handle {
+  cursor: grab;
+  user-select: none;
+}
+
+tbody tr.dragging {
+  opacity: .6;
+}
+=======
+>>>>>>> refs/remotes/origin/main
 
 
 
 
 
 
+<<<<<<< HEAD
+=======
 
-
-
-
-
-
-
-
+>>>>>>> 02092025_luca_anpas
+>>>>>>> refs/remotes/origin/main
 
 /*!
  * Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com
