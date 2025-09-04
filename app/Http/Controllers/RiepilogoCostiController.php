@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use App\Models\RiepilogoCosti;
 use App\Models\Riepilogo;
+use App\Services\RipartizioneCostiService;
 
 class RiepilogoCostiController extends Controller {
     /**
@@ -26,8 +27,8 @@ class RiepilogoCostiController extends Controller {
                 ->orderBy('Associazione')
                 ->get();
 
-            $selectedAssoc = $request->integer('idAssociazione')
-                ?? session('associazione_selezionata')
+            $selectedAssoc = session('associazione_selezionata')
+                ?? $request->integer('idAssociazione')
                 ?? optional($associazioni->first())->idAssociazione;
         } else {
             $associazioni  = collect(); // non mostriamo la select per utenti non elevati
@@ -197,9 +198,20 @@ class RiepilogoCostiController extends Controller {
 
         $user      = Auth::user();
         $isElevato = $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor']);
-        if (!$isElevato && (int) $riga->idAssociazione !== (int) $user->IdAssociazione) {
+        if (!$isElevato && (int)$riga->idAssociazione !== (int)$user->IdAssociazione) {
             abort(403, 'Accesso negato');
         }
+
+        // 🔹 Consuntivo calcolato dalle ripartizioni (distinta)
+        $mapCons = RipartizioneCostiService::consuntiviPerVoceByConvenzione((int)$riga->idAssociazione, (int)$riga->idAnno);
+
+        // se l’edit è sempre su convenzione specifica (come da tuo flow ensureAndEdit), prendi quel valore:
+        $consCalcolato = (float)($mapCons[(int)$riga->idVoceConfig][(int)$riga->idConvenzione] ?? 0.0);
+
+        // se vuoi gestire anche eventuale “TOT” (non editabile), puoi sommare tutte le convenzioni:
+        // $consCalcolato = $riga->idConvenzione === 'TOT'
+        //     ? array_sum($mapCons[(int)$riga->idVoceConfig] ?? [])
+        //     : (float)($mapCons[(int)$riga->idVoceConfig][(int)$riga->idConvenzione] ?? 0.0);
 
         return view('riepilogo_costi.edit', [
             'id'               => $riga->id,
@@ -210,8 +222,8 @@ class RiepilogoCostiController extends Controller {
             'nomeConvenzione'  => $riga->convenzione_descrizione,
             'voceId'           => (int) $riga->idVoceConfig,
             'voceDescrizione'  => $riga->voce_descrizione,
-            'preventivo'       => (float) $riga->preventivo,
-            'consuntivo'       => (float) $riga->consuntivo,
+            'preventivo'       => (float) $riga->preventivo,     // ← dal DB (editabile)
+            'consuntivo'       => $consCalcolato,                // ← CALCOLATO (sola lettura)
         ]);
     }
 

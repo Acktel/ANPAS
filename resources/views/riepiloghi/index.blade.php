@@ -74,9 +74,10 @@ document.addEventListener('DOMContentLoaded', function () {
   const $assoc = document.getElementById('assocSelect');
   const $conv  = document.getElementById('convSelect');
 
-  const ajaxDataUrl = @json(route('riepiloghi.data'));
-  const ajaxConvTpl = @json(route('riepiloghi.convenzioniByAssociazione', ['idAssociazione' => '__ID__']));
+  const ajaxDataUrl       = @json(route('riepiloghi.data'));
+  const ajaxConvTpl       = @json(route('riepiloghi.convenzioniByAssociazione', ['idAssociazione' => '__ID__']));
   const setConvenzioneUrl = @json(route('sessione.setConvenzione'));
+  const ensureRigaUrl     = @json(route('riepiloghi.ensureAndRedirectToEdit'));
 
   function showOrHideTable() {
     if (isElevato) {
@@ -95,7 +96,7 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   function initTableIfNeeded() {
-    if ($.fn.DataTable.isDataTable('#riepiloghiTable')) return; // evita doppia inizializzazione
+    if ($.fn.DataTable.isDataTable('#riepiloghiTable')) return; // evita doppia init
 
     dataTable = $table.DataTable({
       processing: true,
@@ -103,7 +104,6 @@ document.addEventListener('DOMContentLoaded', function () {
       ajax: {
         url: ajaxDataUrl,
         data: function(d) {
-          d.tipologia      = 1;
           d.idAssociazione = ($assoc?.value || '').trim();
           d.idConvenzione  = ($conv?.value || '').trim();
         },
@@ -114,29 +114,70 @@ document.addEventListener('DOMContentLoaded', function () {
         { data: 'descrizione', render: d => d ? String(d).toUpperCase() : '' },
         { data: 'preventivo', className: 'text-end', render: d => formatNum(d) },
         { data: 'consuntivo', className: 'text-end', render: d => formatNum(d) },
-        { 
-          data: null, orderable: false, searchable: false, className: 'text-center',
+        {
+          data: null,
+          orderable: false,
+          searchable: false,
+          className: 'text-center',
           render: function(row) {
-            return `
-              <a href="/riepiloghi/${row.idRiepilogo}" class="btn btn-anpas-green me-1 btn-icon" title="Dettagli">
-                <i class="fas fa-info-circle"></i>
-              </a>
-              <a href="/riepiloghi/${row.idRiepilogo}/edit" class="btn btn-anpas-edit me-1 btn-icon" title="Modifica">
-                <i class="fas fa-edit"></i>
-              </a>
-              <form action="/riepiloghi/${row.idRiepilogo}" method="POST" style="display:inline-block" onsubmit="return confirm('Confermi cancellazione?')">
-                <input type="hidden" name="_token" value="${csrfToken}">
-                <input type="hidden" name="_method" value="DELETE">
-                <input type="hidden" name="dato_id" value="${row.dato_id}">
-                <button type="submit" class="btn btn-anpas-delete btn-icon" title="Elimina voce">
-                  <i class="fas fa-trash-alt"></i>
-                </button>
-              </form>
-            `;
+            const buttons = [];
+
+
+            const convSel = (document.getElementById('convSelect')?.value || '').trim();
+
+            if (!row.non_editabile) {
+              if (convSel !== 'TOT' && row.valore_id) {
+                // EDIT riga esistente per-convenzione
+                buttons.push(`
+                  <a href="/riepiloghi/riga/${row.valore_id}/edit"
+                     class="btn btn-anpas-edit me-1 btn-icon" title="Modifica">
+                    <i class="fas fa-edit"></i>
+                  </a>
+                `);
+              } else if (convSel !== 'TOT' && !row.valore_id) {
+                // ENSURE + redirect a edit (crea la riga se manca)
+                buttons.push(`
+                  <form action="${ensureRigaUrl}" method="POST" style="display:inline-block">
+                    <input type="hidden" name="_token" value="${csrfToken}">
+                    <input type="hidden" name="idRiepilogo" value="${row.idRiepilogo}">
+                    <input type="hidden" name="voce_id" value="${row.voce_id}">
+                    <input type="hidden" name="idConvenzione" value="${convSel}">
+                    <button type="submit" class="btn btn-anpas-edit btn-icon" title="Aggiungi/Modifica">
+                      <i class="fas fa-plus"></i>
+                    </button>
+                  </form>
+                `);
+              }
+              // In TOTALE non si mostra più alcun edit
+            }
+
+            // DELETE riga solo se esiste la riga (per-convenzione)
+            if (convSel !== 'TOT' && row.valore_id) {
+              buttons.push(`
+                <form action="/riepiloghi/riga/${row.valore_id}" method="POST" style="display:inline-block"
+                      onsubmit="return confirm('Confermi cancellazione della riga?')">
+                  <input type="hidden" name="_token" value="${csrfToken}">
+                  <input type="hidden" name="_method" value="DELETE">
+                  <button type="submit" class="btn btn-anpas-delete btn-icon" title="Elimina riga">
+                    <i class="fas fa-trash-alt"></i>
+                  </button>
+                </form>
+              `);
+            }
+
+            return buttons.join('');
           }
         }
       ],
-      language: { url: '/js/i18n/Italian.json' },
+      language: {
+        url: '/js/i18n/Italian.json',
+        paginate: {
+          first: '<i class="fas fa-angle-double-left"></i>',
+          last: '<i class="fas fa-angle-double-right"></i>',
+          next: '<i class="fas fa-angle-right"></i>',
+          previous: '<i class="fas fa-angle-left"></i>'
+        },
+      },
       paging: true,
       searching: true,
       ordering: true,

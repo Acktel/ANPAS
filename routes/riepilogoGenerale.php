@@ -119,4 +119,9 @@ Route::middleware(['auth'])->group(function () {
     Route::delete('/riepiloghi/{riepilogo}', [RiepilogoController::class, 'destroy'])
         ->whereNumber('riepilogo')
         ->name('riepiloghi.destroy');
+
+    Route::post(
+        '/riepiloghi/ensure-edit',
+        [RiepilogoController::class, 'ensureAndRedirectToEdit']
+    )->name('riepiloghi.ensureAndRedirectToEdit');
 });

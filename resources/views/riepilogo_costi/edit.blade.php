@@ -73,14 +73,6 @@
           {{-- <input type="hidden" name="consuntivo" value="{{ $cons }}"> --}}
         </div>
 
-        <div class="col-md-4">
-          <label class="form-label">% Scostamento</label>
-          <input type="text"
-                 class="form-control js-scostamento"
-                 value="{{ number_format($scost, 2, ',', '.') }}%"
-                 readonly>
-        </div>
-
         <div class="col-12">
           <button class="btn btn-anpas-green" {{ $isTot ? 'disabled' : '' }}>
             <i class="fas fa-check me-1"></i> Salva

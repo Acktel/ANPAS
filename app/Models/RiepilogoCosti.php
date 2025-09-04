@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Services\RipartizioneCostiService;
+
 use Illuminate\Support\Facades\DB;
 
 class RiepilogoCosti {
@@ -14,20 +16,18 @@ class RiepilogoCosti {
      */
     public static function getByTipologia(int $idTipologia, int $anno, ?int $idAssociazione = null, $idConvenzione = null) {
         if (is_null($idAssociazione)) {
-            return collect(); // senza associazione non possiamo determinare il riepilogo
+            return collect();
         }
 
-        // Riepilogo pivot per Associazione+Anno
+        // Riepilogo pivot
         $riepilogo = DB::table('riepiloghi')
             ->where('idAssociazione', $idAssociazione)
             ->where('idAnno', $anno)
             ->first();
 
-        if (!$riepilogo) {
-            return collect();
-        }
+        if (!$riepilogo) return collect();
 
-        // Voci configurate per la tipologia (fisse)
+        // Voci configurate della sezione
         $voci = DB::table('riepilogo_voci_config as vc')
             ->where('vc.idTipologiaRiepilogo', $idTipologia)
             ->where('vc.attivo', 1)
@@ -35,51 +35,60 @@ class RiepilogoCosti {
             ->orderBy('vc.id')
             ->get(['vc.id', 'vc.descrizione']);
 
-        // Valori preventivo/consuntivo
+        // PREVENTIVO: resta preso da riepilogo_dati (per conv o TOT)
         if ($idConvenzione === null || $idConvenzione === 'TOT') {
-            $valori = DB::table('riepilogo_dati as rd')
-                ->select(
-                    'rd.idVoceConfig',
-                    DB::raw('SUM(rd.preventivo) as preventivo'),
-                    DB::raw('SUM(rd.consuntivo) as consuntivo')
-                )
+            $preventivi = DB::table('riepilogo_dati as rd')
+                ->select('rd.idVoceConfig', DB::raw('SUM(rd.preventivo) as preventivo'))
                 ->where('rd.idRiepilogo', $riepilogo->idRiepilogo)
                 ->groupBy('rd.idVoceConfig')
                 ->get()
                 ->keyBy('idVoceConfig');
         } else {
-            $valori = DB::table('riepilogo_dati as rd')
-                ->select('rd.idVoceConfig', 'rd.preventivo', 'rd.consuntivo')
+            $preventivi = DB::table('riepilogo_dati as rd')
+                ->select('rd.idVoceConfig', 'rd.preventivo')
                 ->where('rd.idRiepilogo', $riepilogo->idRiepilogo)
                 ->where('rd.idConvenzione', (int) $idConvenzione)
                 ->get()
                 ->keyBy('idVoceConfig');
         }
 
-        // Compose rows (aggiungo il codice N:NN)
+        // CONSUNTIVO: calcolato dalla distinta (indiretti ripartiti)
+        $mapCons = RipartizioneCostiService::consuntiviPerVoceByConvenzione($idAssociazione, $anno);
+        $convIds = array_keys(RipartizioneCostiService::convenzioni($idAssociazione, $anno));
+        $sumConsVoce = function (int $idVoce) use ($mapCons, $convIds) {
+            $row = $mapCons[$idVoce] ?? [];
+            $sum = 0.0;
+            foreach ($convIds as $c) $sum += (float) ($row[$c] ?? 0.0);
+            return $sum;
+        };
+
+        // Compose righe
         $i = 0;
-        return $voci->map(function ($voce) use (&$i, $valori, $idTipologia) {
+        return $voci->map(function ($voce) use (&$i, $preventivi, $idConvenzione, $mapCons, $sumConsVoce) {
             $i++;
-            $v = $valori[$voce->id] ?? null;
+            $idVoce     = (int) $voce->id;
+            $prev       = (float) ($preventivi[$idVoce]->preventivo ?? 0.0);
 
-            $preventivo = $v ? (float) $v->preventivo : 0.0;
-            $consuntivo = $v ? (float) $v->consuntivo : 0.0;
+            // Consuntivo calcolato
+            if ($idConvenzione === null || $idConvenzione === 'TOT') {
+                $cons = $sumConsVoce($idVoce);
+            } else {
+                $cons = (float) ($mapCons[$idVoce][(int)$idConvenzione] ?? 0.0);
+            }
 
-            $scostamentoNum = $preventivo != 0.0
-                ? round((($consuntivo - $preventivo) / $preventivo) * 100, 2)
-                : 0.0;
+            $scostPerc = $prev != 0.0 ? round((($cons - $prev) / $prev) * 100, 2) : 0.0;
 
             return (object) [
-                'idVoceConfig' => (int) $voce->id,
-                'codice'       => sprintf('%d:%02d', $idTipologia, $i), // es. 2:01
+                'idVoceConfig' => $idVoce,
+                'codice'       => sprintf('%d:%02d', $idConvenzione === 'TOT' || $idConvenzione === null ? (int)request()->route('idTipologia') : (int)request()->route('idTipologia'), $i),
                 'descrizione'  => $voce->descrizione,
-                'preventivo'   => $preventivo,
-                'consuntivo'   => $consuntivo,
-                'scostamento'  => number_format($scostamentoNum, 2) . '%',
-                // niente 'actions' qui: evitiamo route con id mancante
+                'preventivo'   => $prev,
+                'consuntivo'   => $cons,         // ← calcolato dalle ripartizioni
+                'scostamento'  => number_format($scostPerc, 2) . '%',
             ];
         });
     }
+
 
     /** Ritorna/crea il riepilogo pivot */
     public static function getOrCreateRiepilogo(int $idAssociazione, int $anno): int {

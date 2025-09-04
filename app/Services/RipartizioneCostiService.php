@@ -7,7 +7,7 @@ use Illuminate\Support\Collection;
 use App\Models\CostoMaterialeSanitario;
 use App\Models\RipartizioneMaterialeSanitario;
 use App\Models\Automezzo;
-use App\Models\RipartizioneServizioCivile; // ← per ID_SERVIZIO_CIVILE
+use App\Models\RipartizioneServizioCivile;
 
 class RipartizioneCostiService {
     /* ========================= MATERIALE SANITARIO / AUTOMEZZI / RADIO ========================= */
@@ -494,14 +494,14 @@ class RipartizioneCostiService {
         $IDS_ADMIN_RICAVI = [8001, 8002, 8003, 8004, 8005, 8006, 8007];
 
         // 9002...:COSTI QUOTE AMMORTAMENTO: spese postali → % ricavi
-        $IDS_QUOTE_AMMORTAMENTO = [ 9002, 9003, 9006, 9007, 9008, 9009];
+        $IDS_QUOTE_AMMORTAMENTO = [9002, 9003, 9006, 9007, 9008, 9009];
 
         //10001: BENI STRUMENTALI>516:
         $BENI_STRUMENTALI_ID   = 10001;
 
         //11001,11002: ALTRI COSTI
-        $IDS_BENI_STRUMENTALI   = [ 11001, 11002];
-        
+        $IDS_BENI_STRUMENTALI   = [11001, 11002];
+
         // Voci config
         $vociConfig = DB::table('riepilogo_voci_config as vc')
             ->select('vc.id', 'vc.descrizione', 'vc.idTipologiaRiepilogo', 'vc.ordinamento')
@@ -537,7 +537,7 @@ class RipartizioneCostiService {
             'materiale sanitario di consumo'      => 'MATERIALE SANITARIO DI CONSUMO',
             'ossigeno'                            => 'OSSIGENO',
             'automezzi'                           => 'AMMORTAMENTO AUTOMEZZI',
-            'impianti radio'                      => 'AMMORTAMENTO IMPIANTI RADIO',  
+            'impianti radio'                      => 'AMMORTAMENTO IMPIANTI RADIO',
             'attrezzature ambulanze'              => 'AMMORTAMENTO ATTREZZATURA SANITARIA',
 
 
@@ -596,23 +596,19 @@ class RipartizioneCostiService {
                 } elseif (in_array($idV, $IDS_ADMIN_RICAVI, true)) {
                     // 8001..8002: % ricavi
                     $ind = round($baseIndiretti * (float) ($quoteRicavi[$idC] ?? 0.0), 2);
-                     
                 } elseif (in_array($idV, $IDS_QUOTE_AMMORTAMENTO, true)) {
                     // 9002..: % ricavi
                     $ind = round($baseIndiretti * (float) ($quoteRicavi[$idC] ?? 0.0), 2);
-
                 } elseif ($idV === $BENI_STRUMENTALI_ID) {
                     // 6009: % Servizio Civile
                     $ind = round($baseIndiretti * (float) ($quoteRicavi[$idC] ?? 0.0), 2);
-                }
-                elseif ($sez === 5) {
+                } elseif ($sez === 5) {
                     // gestione struttura: % ricavi
                     $ind = round($baseIndiretti * (float) ($quoteRicavi[$idC] ?? 0.0), 2);
-                   
-                } elseif ($idV === $IDS_BENI_STRUMENTALI ) {
+                } elseif ($idV === $IDS_BENI_STRUMENTALI) {
                     // 6009: % Servizio Civile
                     $ind = round($baseIndiretti * (float) ($quoteRicavi[$idC] ?? 0.0), 2);
-                }else {
+                } else {
                     // legacy/per-conv altrimenti pro-rata diretti
                     if (is_array($ripRow)) {
                         $ind = (float) ($ripRow[$nomeC] ?? 0);
@@ -698,5 +694,27 @@ class RipartizioneCostiService {
         $perc = array_fill_keys($convIds, 0.0);
         if ($tot > 0) foreach ($convIds as $id) $perc[$id] = $ore[$id] / $tot;
         return $perc;
+    }
+
+    public static function consuntiviPerVoceByConvenzione(int $idAssociazione, int $anno): array {
+        // [idConv => Nome]
+        $conv = self::convenzioni($idAssociazione, $anno);
+
+        // Usa la distinta già calcolata
+        $dist = self::distintaImputazioneData($idAssociazione, $anno);
+        $righe = $dist['data'] ?? [];
+
+        $out = []; // [idVoceConfig][idConv] => importo_indiretti
+        foreach ($righe as $riga) {
+            $idVoce = (int)($riga['idVoceConfig'] ?? 0);
+            if ($idVoce <= 0) continue;
+
+            foreach ($conv as $idConv => $nomeConv) {
+                // In distinta le colonne per conv sono per nome: $riga[$nomeConv] = ['diretti','indiretti']
+                $ind = (float)($riga[$nomeConv]['indiretti'] ?? 0.0);
+                $out[$idVoce][$idConv] = $ind;
+            }
+        }
+        return $out;
     }
 }
