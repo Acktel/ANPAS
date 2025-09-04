@@ -11,7 +11,8 @@ use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Spatie\Permission\Models\Role;
-use App\Mail\AdminUserInvite;
+// use App\Mail\AdminUserInvite;
+use App\Mail\SupervisorInvite;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
@@ -138,7 +139,7 @@ public function index(Request $request)
             'token' => $token,
             'email' => $user->email,
         ], false));
-        Mail::to($user)->send(new AdminUserInvite($user, $resetUrl));
+        Mail::to($user)->send(new SupervisorInvite($user, $resetUrl));
 
         return redirect()
             ->route('dashboard')
@@ -186,6 +187,7 @@ public function index(Request $request)
             'provincia'    => 'required|string|max:100',
             'citta'        => 'required|string|max:100',
             'indirizzo'    => 'required|string|max:255',
+            'note'         => 'nullable|string',
         ]);
 
         DB::table('associazioni')
@@ -196,6 +198,7 @@ public function index(Request $request)
                 'provincia'    => $data['provincia'],
                 'citta'        => $data['citta'],
                 'indirizzo'    => $data['indirizzo'],
+                'note'         => $data['note'] ?? null,
                 'updated_by'   => auth()->id(),
                 'updated_at'   => now(),
             ]);

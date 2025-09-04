@@ -116,10 +116,10 @@ $assoCorr = $associazioni->firstWhere('idAssociazione', $conv->idAssociazione);
 
           {{-- RIGA 9: Note --}}
           <div class="row">
-              <div class="col-md-6">
-                  <label for="note" class="form-label">Note</label>
-                  <textarea name="note" id="note" class="form-control" rows="3">{{ old('note') }}</textarea>
-              </div>
+          <div class="col-md-6">
+            <label for="note" class="form-label">Note</label>
+              <textarea name="note" id="note" class="form-control" rows="3">{{ old('note', $conv->note) }}</textarea>
+          </div>
           </div>
 
         <div class="row mb-3">

@@ -108,6 +108,13 @@ $assoCorr = $associazioni->firstWhere('idAssociazione', $dipendente->idAssociazi
             </select>
             <div class="form-text">Seleziona uno o più livelli mansione.</div>
           </div>
+
+
+
+          <div class="col-md-6">
+            <label for="note" class="form-label">Note</label>
+              <textarea name="note" id="note" class="form-control" rows="3">{{ old('note', $dipendente->note) }}</textarea>
+          </div>
         </div>
 
         {{-- Pulsanti --}}

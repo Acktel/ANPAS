@@ -103,7 +103,6 @@ document.addEventListener('DOMContentLoaded', function () {
       ajax: {
         url: ajaxDataUrl,
         data: function(d) {
-          d.tipologia      = 1;
           d.idAssociazione = ($assoc?.value || '').trim();
           d.idConvenzione  = ($conv?.value || '').trim();
         },
@@ -117,23 +116,54 @@ document.addEventListener('DOMContentLoaded', function () {
         { 
           data: null, orderable: false, searchable: false, className: 'text-center',
           render: function(row) {
-            return `
-              <a href="/riepiloghi/${row.idRiepilogo}" class="btn btn-anpas-green me-1 btn-icon" title="Dettagli">
-                <i class="fas fa-info-circle"></i>
-              </a>
-              <a href="/riepiloghi/${row.idRiepilogo}/edit" class="btn btn-anpas-edit me-1 btn-icon" title="Modifica">
-                <i class="fas fa-edit"></i>
-              </a>
-              <form action="/riepiloghi/${row.idRiepilogo}" method="POST" style="display:inline-block" onsubmit="return confirm('Confermi cancellazione?')">
-                <input type="hidden" name="_token" value="${csrfToken}">
-                <input type="hidden" name="_method" value="DELETE">
-                <input type="hidden" name="dato_id" value="${row.dato_id}">
-                <button type="submit" class="btn btn-anpas-delete btn-icon" title="Elimina voce">
-                  <i class="fas fa-trash-alt"></i>
-                </button>
-              </form>
-            `;
-          }
+  const buttons = [];
+
+  // Dettagli riepilogo (ok se lo vuoi tenere)
+  buttons.push(`
+    <a href="/riepiloghi/${row.idRiepilogo}" class="btn btn-anpas-green me-1 btn-icon" title="Dettagli">
+      <i class="fas fa-info-circle"></i>
+    </a>
+  `);
+
+  const convSel = (document.getElementById('convSelect')?.value || '').trim();
+
+  if (!row.non_editabile) {
+    if (convSel === 'TOT' && row.tot_editabile) {
+      // EDIT TOTALE per voce consentita
+      buttons.push(`
+        <a href="/riepiloghi/${row.idRiepilogo}/voce/${row.voce_id}/tot/edit"
+           class="btn btn-anpas-edit me-1 btn-icon" title="Modifica TOTALE">
+          <i class="fas fa-edit"></i>
+        </a>
+      `);
+    } else if (convSel !== 'TOT' && row.valore_id) {
+      // EDIT RIGA per-convenzione
+      buttons.push(`
+        <a href="/riepiloghi/riga/${row.valore_id}/edit"
+           class="btn btn-anpas-edit me-1 btn-icon" title="Modifica">
+          <i class="fas fa-edit"></i>
+        </a>
+      `);
+    }
+  }
+
+  // DELETE riga solo se esiste la riga (per-convenzione)
+  if (convSel !== 'TOT' && row.valore_id) {
+    buttons.push(`
+      <form action="/riepiloghi/riga/${row.valore_id}" method="POST" style="display:inline-block"
+            onsubmit="return confirm('Confermi cancellazione della riga?')">
+        <input type="hidden" name="_token" value="${csrfToken}">
+        <input type="hidden" name="_method" value="DELETE">
+        <button type="submit" class="btn btn-anpas-delete btn-icon" title="Elimina riga">
+          <i class="fas fa-trash-alt"></i>
+        </button>
+      </form>
+    `);
+  }
+
+  return buttons.join('');
+}
+
         }
       ],
       language: { url: '/js/i18n/Italian.json' },
@@ -208,6 +238,105 @@ document.addEventListener('DOMContentLoaded', function () {
   } else {
     loadConvenzioniForAss(($assoc?.value || '').trim());
   }
+  // Inizializza DataTable
+  $('#riepiloghiTable').DataTable({
+    processing: true,
+    serverSide: false,
+    ajax: {
+      url: "{{ route('riepiloghi.data') }}",
+      data: function(d) {
+        d.idAssociazione = '{{ session('associazione_selezionata') }}';
+      },
+      dataSrc: 'data'
+    },
+    columns: [
+      { data: 'anno' },
+      { data: 'descrizione',
+        render: function(data, type, row) {
+          return data ? data.toUpperCase() : '';
+        } 
+      },
+      {
+        data: 'preventivo',
+        className: 'text-end',
+        render: $.fn.dataTable.render.number('.', ',', 2, '')
+      },
+      {
+        data: 'consuntivo',
+        className: 'text-end',
+        render: $.fn.dataTable.render.number('.', ',', 2, '')
+      },
+      {
+        data: null,             // prendiamo l'intera riga
+        orderable: false,
+        searchable: false,
+        className: 'text-center',
+        render: function(row) {
+  const buttons = [];
+
+  // Dettagli riepilogo (ok se lo vuoi tenere)
+  buttons.push(`
+    <a href="/riepiloghi/${row.idRiepilogo}" class="btn btn-anpas-green me-1 btn-icon" title="Dettagli">
+      <i class="fas fa-info-circle"></i>
+    </a>
+  `);
+
+  const convSel = (document.getElementById('convSelect')?.value || '').trim();
+
+  if (!row.non_editabile) {
+    if (convSel === 'TOT' && row.tot_editabile) {
+      // EDIT TOTALE per voce consentita
+      buttons.push(`
+        <a href="/riepiloghi/${row.idRiepilogo}/voce/${row.voce_id}/tot/edit"
+           class="btn btn-anpas-edit me-1 btn-icon" title="Modifica TOTALE">
+          <i class="fas fa-edit"></i>
+        </a>
+      `);
+    } else if (convSel !== 'TOT' && row.valore_id) {
+      // EDIT RIGA per-convenzione
+      buttons.push(`
+        <a href="/riepiloghi/riga/${row.valore_id}/edit"
+           class="btn btn-anpas-edit me-1 btn-icon" title="Modifica">
+          <i class="fas fa-edit"></i>
+        </a>
+      `);
+    }
+  }
+
+  // DELETE riga solo se esiste la riga (per-convenzione)
+  if (convSel !== 'TOT' && row.valore_id) {
+    buttons.push(`
+      <form action="/riepiloghi/riga/${row.valore_id}" method="POST" style="display:inline-block"
+            onsubmit="return confirm('Confermi cancellazione della riga?')">
+        <input type="hidden" name="_token" value="${csrfToken}">
+        <input type="hidden" name="_method" value="DELETE">
+        <button type="submit" class="btn btn-anpas-delete btn-icon" title="Elimina riga">
+          <i class="fas fa-trash-alt"></i>
+        </button>
+      </form>
+    `);
+  }
+
+  return buttons.join('');
+}
+      }
+    ],
+    language: { url: '/js/i18n/Italian.json',
+                      paginate: {
+            first: '<i class="fas fa-angle-double-left"></i>',
+            last: '<i class="fas fa-angle-double-right"></i>',
+            next: '<i class="fas fa-angle-right"></i>',
+            previous: '<i class="fas fa-angle-left"></i>'
+        },
+     },
+    stripeClasses: ['table-striped-anpas', ''], //removed 'table-white before table-striped-anpas'
+          rowCallback: function(row, data, index) {
+        $(row).toggleClass('even odd', false).addClass(index % 2 === 0 ? 'even' : 'odd');
+      },
+    paging: true,
+    searching: true,
+    ordering: true,
+  });
 });
 </script>
 @endpush
