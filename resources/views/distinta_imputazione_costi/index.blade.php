@@ -25,7 +25,7 @@
                name="assocLabel"
                class="form-control"
                placeholder="Seleziona associazione"
-               value="{{ optional($associazioni->firstWhere('IdAssociazione', session('associazione_selezionata')))->Associazione ?? '' }}"
+               value="{{ optional($associazioni->firstWhere('idAssociazione', session('associazione_selezionata')))->Associazione ?? '' }}"
                autocomplete="off"
                aria-label="Seleziona associazione">
 
@@ -41,7 +41,7 @@
         <ul id="assocDropdown" class="list-group"
             style="position: absolute; top:100%; left:0; width:100%; z-index:2000; display:none; max-height:240px; overflow:auto; background-color:#fff;"">
             @foreach($associazioni as $assoc)
-            <li class="list-group-item assoc-item" data-id="{{ $assoc->IdAssociazione }}">
+            <li class="list-group-item assoc-item" data-id="{{ $assoc->idAssociazione }}">
                 {{ $assoc->Associazione }}
             </li>
             @endforeach

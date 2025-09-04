@@ -8,55 +8,7 @@
     </h1>
   </div>
 
-@if(auth()->user()->hasAnyRole(['SuperAdmin','Admin','Supervisor']))
-  <div class="d-flex mb-3">
-    <form id="assocFilterForm" action="{{ route('sessione.setAssociazione') }}" method="POST" class="me-3">
-      @csrf
 
-      <div class="position-relative" style="max-width:420px;">
-        <div class="input-group">
-          {{-- campo visibile con datalist --}}
-          <input
-            id="assocInput"
-            name="assocLabel"
-            class="form-control"
-            {{-- list="assocList" --}}
-            autocomplete="off"
-            placeholder="Cerca o seleziona associazione"
-            value="{{ optional($associazioni->firstWhere('idAssociazione', $selectedAssoc))->Associazione ?? '' }}"
-            aria-label="Cerca o seleziona associazione"
-          >
-
-          {{-- bottone per <th>Anno d'acquisto</th>aprire/chiudere la tendina custom --}}
-          <button type="button" id="assocToggleBtn" class="btn btn-outline-secondary" aria-haspopup="listbox" aria-expanded="false" title="Mostra elenco">
-            <i class="fas fa-chevron-down"></i>
-          </button>
-
-          {{-- campo nascosto che contiene l'id reale (invia come prima) --}}
-          <input type="hidden" id="idAssociazione" name="idAssociazione" value="{{ $selectedAssoc ?? '' }}">
-        </div>
-
-        {{-- datalist nativo (per suggerimenti durante la digitazione) --}}
-        <datalist id="assocList">
-          @foreach($associazioni as $assoc)
-            <option data-id="{{ $assoc->idAssociazione }}" value="{{ $assoc->Associazione }}"></option>
-          @endforeach
-        </datalist>
-
-        {{-- tendina custom (usata per la selezione a tendina completa e per il filtraggio) --}}
-        <ul id="assocDropdown" class="list-group position-absolute w-100 shadow-sm"
-                style="z-index:2000; display:none; max-height:240px; overflow:auto; top:100%; left:0;
-           background-color:#fff; opacity:1; -webkit-backdrop-filter:none; backdrop-filter:none;">
-          @foreach($associazioni as $assoc)
-            <li class="list-group-item list-group-item-action assoc-item" data-id="{{ $assoc->idAssociazione }}" role="option">
-              {{ $assoc->Associazione }}
-            </li>
-          @endforeach
-        </ul>
-      </div>
-    </form>
-  </div>
-@endif
 
   <div class="card-anpas">
     <div class="card-body bg-anpas-white">
@@ -83,66 +35,15 @@ $(async function () {
   const assocToggleBtn = document.getElementById('assocToggleBtn');
   const idAssociazione = document.getElementById('idAssociazione');
 
-<<<<<<< HEAD
-  // Sposta la riga totale in fondo
-  const totaleRow = data.find(r => r.is_totale === -1);
-  data = data.filter(r => r.is_totale !== -1);
-  if (totaleRow) data.push(totaleRow);
-=======
   if (!assocForm || !assocInput || !assocDropdown || !idAssociazione) {
     console.warn('assoc filter: elementi mancanti nel DOM (assocForm/assocInput/assocDropdown/idAssociazione)');
   } else {
     // costruisci lista affidabile di {id, name} dai <li>
     const items = Array.from(assocDropdown.querySelectorAll('.assoc-item'))
       .map(li => ({ id: String(li.dataset.id), name: (li.textContent || '').trim() }));
->>>>>>> 02092025_luca_anpas
 
     console.log('assoc: items caricati', items);
 
-<<<<<<< HEAD
-  const staticCols = [   
-    { key: 'idDipendente', label: '',               hidden: true  },
-    { key: 'Associazione', label: 'Associazione',   hidden: false },
-    { key: 'FullName',     label: 'Dipendente',     hidden: false },
-    { key: 'OreTotali',    label: 'Ore Totali',     hidden: false },
-    { key: 'is_totale',    label: '',               hidden: true  },
-  ];
-
-
-  const convenzioni = Object.keys(labels).sort((a,b) => parseInt(a.slice(1)) - parseInt(b.slice(1)));
-
-  let hMain = '', hSub = '', cols = [];
-
-  staticCols.forEach(col => {
-    hMain += `<th rowspan="2"${col.hidden ? ' style="display:none"' : ''}>${col.label}</th>`;
-    cols.push({ data: col.key, visible: !col.hidden });
-  });
-
-
-  convenzioni.forEach(key => {
-    hMain += `<th colspan="2">${labels[key]}</th>`;
-    hSub   += `<th>Ore Servizio</th><th>%</th>`;
-    cols.push({ data: `${key}_ore`, defaultContent: 0 });
-    cols.push({ data: `${key}_percent`, defaultContent: 0 });
-  });
-
-
-  hMain += `<th rowspan="2">Azioni</th>`;
-  cols.push({
-    data: null,
-    orderable: false,
-    searchable: false,
-    className: 'col-azioni',
-    render: row => {
-      if (row.is_totale === -1) return '';
-      return `
-        <a href="/ripartizioni/personale/${row.idDipendente}" class="btn btn-anpas-green me-1 btn-icon" title="Visualizza">
-          <i class="fas fa-eye"></i>
-        </a>
-        <a href="/ripartizioni/personale/${row.idDipendente}/edit" class="btn btn-warning me-1 btn-icon" title="Modifica">
-          <i class="fas fa-edit"></i>
-        </a>`;
-=======
     // crea mappa nameLower -> array di id (per gestire duplicati)
     const mapNameToIds = {};
     items.forEach(it => {
@@ -169,7 +70,6 @@ $(async function () {
         showDropdown();
         assocInput.focus();
       }
->>>>>>> 02092025_luca_anpas
     }
 
     // filtro: mostra solo gli elementi che contengono il termine

@@ -141,6 +141,7 @@ class RiepilogoCosti {
             $query->where('rd.idConvenzione', (int)$idConvenzione);
         }
 
+
         return $query->get();
     }
 }
