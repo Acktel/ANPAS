@@ -490,9 +490,18 @@ class RipartizioneCostiService {
         $percServCivile = self::percentualiServizioCivileByConvenzione($idAssociazione, $anno, $convIds);
         $VOCE_SCIV_ID   = 6009;
 
-        // 8001: spese postali → % ricavi
+        // 8001...8007:COSTI AMINISTRATIVI: spese postali → % ricavi
         $IDS_ADMIN_RICAVI = [8001, 8002, 8003, 8004, 8005, 8006, 8007];
 
+        // 9002...:COSTI QUOTE AMMORTAMENTO: spese postali → % ricavi
+        $IDS_QUOTE_AMMORTAMENTO = [ 9002, 9003, 9006, 9007, 9008, 9009];
+
+        //10001: BENI STRUMENTALI>516:
+        $BENI_STRUMENTALI_ID   = 10001;
+
+        //11001,11002: ALTRI COSTI
+        $IDS_BENI_STRUMENTALI   = [ 11001, 11002];
+        
         // Voci config
         $vociConfig = DB::table('riepilogo_voci_config as vc')
             ->select('vc.id', 'vc.descrizione', 'vc.idTipologiaRiepilogo', 'vc.ordinamento')
@@ -527,6 +536,9 @@ class RipartizioneCostiService {
             'canoni locazione ponte radio'        => 'LOCAZIONE PONTE RADIO',
             'materiale sanitario di consumo'      => 'MATERIALE SANITARIO DI CONSUMO',
             'ossigeno'                            => 'OSSIGENO',
+            'automezzi'                           => 'AMMORTAMENTO AUTOMEZZI',
+            'impianti radio'                      => 'AMMORTAMENTO IMPIANTI RADIO',  
+            'attrezzature ambulanze'              => 'AMMORTAMENTO ATTREZZATURA SANITARIA',
 
 
         ];
@@ -584,10 +596,23 @@ class RipartizioneCostiService {
                 } elseif (in_array($idV, $IDS_ADMIN_RICAVI, true)) {
                     // 8001..8002: % ricavi
                     $ind = round($baseIndiretti * (float) ($quoteRicavi[$idC] ?? 0.0), 2);
-                } elseif ($sez === 5) {
+                     
+                } elseif (in_array($idV, $IDS_QUOTE_AMMORTAMENTO, true)) {
+                    // 9002..: % ricavi
+                    $ind = round($baseIndiretti * (float) ($quoteRicavi[$idC] ?? 0.0), 2);
+
+                } elseif ($idV === $BENI_STRUMENTALI_ID) {
+                    // 6009: % Servizio Civile
+                    $ind = round($baseIndiretti * (float) ($quoteRicavi[$idC] ?? 0.0), 2);
+                }
+                elseif ($sez === 5) {
                     // gestione struttura: % ricavi
                     $ind = round($baseIndiretti * (float) ($quoteRicavi[$idC] ?? 0.0), 2);
-                } else {
+                   
+                } elseif ($idV === $IDS_BENI_STRUMENTALI ) {
+                    // 6009: % Servizio Civile
+                    $ind = round($baseIndiretti * (float) ($quoteRicavi[$idC] ?? 0.0), 2);
+                }else {
                     // legacy/per-conv altrimenti pro-rata diretti
                     if (is_array($ripRow)) {
                         $ind = (float) ($ripRow[$nomeC] ?? 0);
