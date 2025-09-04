@@ -11,26 +11,30 @@ class HomeController extends Controller {
         $this->middleware('auth');
     }
 
-    public function index(Request $request) {
-        $anno = session('anno_riferimento', now()->year);
-        $user = Auth::user();
-        $isImpersonating = session()->has('impersonate');
+public function index(Request $request) {
+    $anno = session('anno_riferimento', now()->year);
+    $user = Auth::user();
+    $isImpersonating = session()->has('impersonate');
 
-        $associazioni = \App\Models\Dipendente::getAssociazioni($user, $isImpersonating);
-        $selectedAssoc = $request->query('idAssociazione') ?? session('idAssociazione');
+    $associazioni = \App\Models\Dipendente::getAssociazioni($user, $isImpersonating);
 
-        // Se è un Admin e ha selezionato un'associazione, salvala in sessione
-        if ($user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])) {
-            if ($selectedAssoc) {
-                session(['idAssociazione' => $selectedAssoc]);
-            }
-        } else {
-            $selectedAssoc = $user->IdAssociazione;
+    // prendi dal GET se presente, altrimenti session
+    $selectedAssoc = $request->query('idAssociazione', session('idAssociazione', null));
+
+    // Se è un Admin e ha selezionato un'associazione, salvala in sessione
+    if ($user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])) {
+        // salviamo solo se il parametro è presente nella request (anche se è "0")
+        if ($request->has('idAssociazione')) {
             session(['idAssociazione' => $selectedAssoc]);
         }
-
-        $dati = \App\Models\RiepilogoCosti::getTotaliPerTipologia($anno, $selectedAssoc);
-
-        return view('dashboard', compact('dati', 'anno', 'associazioni', 'selectedAssoc'));
+    } else {
+        $selectedAssoc = $user->IdAssociazione;
+        session(['idAssociazione' => $selectedAssoc]);
     }
+
+    $dati = \App\Models\RiepilogoCosti::getTotaliPerTipologia($anno, $selectedAssoc);
+
+    return view('dashboard', compact('dati', 'anno', 'associazioni', 'selectedAssoc'));
+}
+
 }

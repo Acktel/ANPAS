@@ -102,18 +102,18 @@
             </div>
         </div>
 
-        @if(auth()->user()->hasAnyRole(['SuperAdmin','Admin','Supervisor']))
+       @if(auth()->user()->hasAnyRole(['SuperAdmin','Admin','Supervisor']))
     <div class="mb-3">
       <form method="GET" action="{{ route('dashboard') }}" id="assocSelectForm" class="w-100" style="max-width:400px">
         <div class="input-group">
           <!-- Campo visibile -->
           <input
-            id="assocSelectInput"
+            id="assocSelect"
             name="assocLabel"
             class="form-control"
             autocomplete="off"
             placeholder="Seleziona associazione"
-            value="{{ optional($associazioni->firstWhere('IdAssociazione', $selectedAssoc))->Associazione ?? '' }}"
+            value="{{ optional($associazioni->firstWhere('idAssociazione', $selectedAssoc))->Associazione ?? '' }}"
             aria-label="Seleziona associazione"
           >
 
@@ -137,7 +137,7 @@
             </ul>
       </form>
     </div>
-        @endif
+  @endif
 
         {{-- Grafici divisi in blocchi --}}
         <div id="charts-container" class="row row-deck row-cards mt-4">
@@ -299,10 +299,10 @@
 
   if (!form || !input || !dropdown || !hidden) return;
 
+  // costruisco array di items
   const items = Array.from(dropdown.querySelectorAll('.assoc-item'))
-    .map(li => ({ id: String(li.dataset.id), name: (li.textContent || '').trim() }));
+    .map(li => ({ id: String(li.dataset.id), name: (li.textContent || '').trim(), node: li }));
 
-  // filtro e selezione (come nel tuo codice originale)
   function showDropdown() { dropdown.style.display = 'block'; toggleBtn.setAttribute('aria-expanded', 'true'); }
   function hideDropdown() { dropdown.style.display = 'none'; toggleBtn.setAttribute('aria-expanded', 'false'); }
 
@@ -317,10 +317,25 @@
   function setSelection(id, name, submit = true) {
     hidden.value = id ?? '';
     input.value = name ?? '';
+
+    // salva in localStorage per fallback client-side
+    try {
+      localStorage.setItem('selectedAssocId', id ?? '');
+      localStorage.setItem('selectedAssocLabel', name ?? '');
+    } catch (e) {}
+
+    // aggiorna l'url (querystring) prima della submit così il back button è coerente
+    try {
+      const url = new URL(window.location);
+      if (id) url.searchParams.set('idAssociazione', id);
+      else url.searchParams.delete('idAssociazione');
+      history.replaceState(null, '', url);
+    } catch (e) {}
+
     if (submit) form.submit();
   }
 
-  // Eventi
+  // click sugli item
   dropdown.querySelectorAll('.assoc-item').forEach(li => {
     li.style.cursor = 'pointer';
     li.addEventListener('click', function () {
@@ -328,23 +343,58 @@
     });
   });
 
-  input.addEventListener('input', () => filterDropdown(input.value));
-  toggleBtn.addEventListener('click', () => {
+  input.addEventListener('input', () => {
+    filterDropdown(input.value);
+  });
+
+  toggleBtn.addEventListener('click', (ev) => {
+    ev.stopPropagation();
     dropdown.style.display === 'block' ? hideDropdown() : showDropdown();
   });
+
   document.addEventListener('click', e => {
     if (!form.contains(e.target)) hideDropdown();
   });
+
+  // --- restore al caricamento:
+  // 1) se server ha impostato hidden.value, cerco l'item corrispondente e imposto la label
+  // 2) altrimenti uso localStorage come fallback
+  (function restoreSelection() {
+    try {
+      const hid = (hidden.value || '').toString();
+      if (hid) {
+        // cerco l'item con lo stesso data-id
+        const found = items.find(it => it.id === hid);
+        if (found) {
+          input.value = found.name;
+          return;
+        }
+        // se non trovo, magari il markup è cambiato: provo a usare localStorage
+      }
+
+      // fallback localStorage
+      const storedId = localStorage.getItem('selectedAssocId');
+      const storedLabel = localStorage.getItem('selectedAssocLabel');
+      if (!hidden.value && storedId) {
+        hidden.value = storedId;
+        input.value = storedLabel || input.value;
+      } else if (hidden.value && !input.value) {
+        // se hidden è presente ma input vuoto e non ho trovato l'item, uso localStorage label
+        if (storedLabel) input.value = storedLabel;
+      }
+    } catch (e) { /* ignore */ }
+  })();
 }
 
-// Attivazione per la select che mi hai passato
+
 setupCustomSelect(
   "assocSelectForm",
-  "assocSelectInput",
+  "assocSelect",
   "assocSelectDropdown",
   "assocSelectToggleBtn",
   "assocSelectHidden"
 );
+
     </script>
 @endpush
 

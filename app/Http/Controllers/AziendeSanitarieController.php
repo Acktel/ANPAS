@@ -13,12 +13,44 @@ class AziendeSanitarieController extends Controller {
         $this->middleware('auth');
     }
 
-    public function index(Request $request) {
-        $anno = session('anno_riferimento', now()->year);
-        $aziende = AziendaSanitaria::getAllWithConvenzioni();
+public function index(Request $request)
+{
+    $user = Auth::user();
+    $anno = session('anno_riferimento', now()->year);
 
-        return view('aziende_sanitarie.index', compact('aziende', 'anno'));
+    // lista associazioni solo per ruoli elevati
+    $associazioni = collect();
+    $selectedAssoc = null;
+
+    if ($user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])) {
+        $associazioni = DB::table('associazioni')
+            ->select('IdAssociazione', 'Associazione')
+            ->whereNull('deleted_at')
+            ->where('IdAssociazione', '!=', 1)
+            ->orderBy('Associazione')
+            ->get();
+
+        if ($request->has('idAssociazione')) {
+            session(['associazione_selezionata' => $request->idAssociazione]);
+        }
+
+        $selectedAssoc = session('associazione_selezionata')
+            ?? ($associazioni->first()->IdAssociazione ?? null);
+    } else {
+        $selectedAssoc = $user->IdAssociazione;
     }
+
+    // carico anche le aziende sanitarie (quelle con convenzioni)
+    $aziende = AziendaSanitaria::getAllWithConvenzioni();
+
+    return view('aziende_sanitarie.index', compact(
+        'anno',
+        'associazioni',
+        'selectedAssoc',
+        'aziende'      // <-- aggiunto!
+    ));
+}
+
 
     public function getData(): JsonResponse {
         $data = AziendaSanitaria::getAllWithConvenzioni();

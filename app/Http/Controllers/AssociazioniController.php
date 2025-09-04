@@ -21,16 +21,37 @@ class AssociazioniController extends Controller {
     }
 
     /** GET /associazioni */
-    public function index() {
-        $user = Auth::user();
-        $anno = session('anno_riferimento', now()->year);
+public function index(Request $request)
+{
+    $user = Auth::user();
+    $anno = session('anno_riferimento', now()->year);
 
-        Log::info("Entrato in AssociazioniController@index");
+    $associazioni = collect();
+    $selectedAssoc = null;
 
-        $associazioni = collect(Associazione::getAll(request()));
+    if ($user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])) {
+        $associazioni = DB::table('associazioni')
+            ->select('IdAssociazione', 'Associazione')
+            ->whereNull('deleted_at')
+            ->orderBy('Associazione')
+            ->get();
 
-        return view('associazioni.index', compact('associazioni', 'anno'));
+        // preimposto la select se passato via GET, altrimenti prima associazione
+        $selectedAssoc = $request->get('idAssociazione') 
+            ?? ($associazioni->first()->IdAssociazione ?? null);
+    } else {
+        // utenti normali vedono solo la loro associazione
+        $selectedAssoc = $user->IdAssociazione;
     }
+
+    // salvataggio in sessione (opzionale, per mantenere la selezione)
+    if ($request->has('idAssociazione')) {
+        session(['associazione_selezionata' => $request->idAssociazione]);
+    }
+    $selectedAssoc = session('associazione_selezionata') ?? $selectedAssoc;
+
+    return view('associazioni.index', compact('anno', 'associazioni', 'selectedAssoc'));
+}
 
     /** GET /associazioni/data */
     public function getData(Request $request) {
@@ -39,6 +60,13 @@ class AssociazioniController extends Controller {
         $isSuper = $user->hasRole('SuperAdmin');
 
         $result = Associazione::getAll($request);
+
+        $idAssoc = $request->input('idAssociazione');
+        if ($idAssoc) {
+            $rows = collect($result['data'])->where('IdAssociazione', $idAssoc);
+            $result['data'] = $rows->values();
+            $result['recordsFiltered'] = $rows->count();
+        }
 
         if (! $isSuper) {
             $rows = $result['data'];

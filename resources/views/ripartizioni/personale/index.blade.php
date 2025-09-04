@@ -8,55 +8,7 @@
     </h1>
   </div>
 
-@if(auth()->user()->hasAnyRole(['SuperAdmin','Admin','Supervisor']))
-  <div class="d-flex mb-3">
-    <form id="assocFilterForm" action="{{ route('sessione.setAssociazione') }}" method="POST" class="me-3">
-      @csrf
 
-      <div class="position-relative" style="max-width:420px;">
-        <div class="input-group">
-          {{-- campo visibile con datalist --}}
-          <input
-            id="assocInput"
-            name="assocLabel"
-            class="form-control"
-            {{-- list="assocList" --}}
-            autocomplete="off"
-            placeholder="Cerca o seleziona associazione"
-            value="{{ optional($associazioni->firstWhere('idAssociazione', $selectedAssoc))->Associazione ?? '' }}"
-            aria-label="Cerca o seleziona associazione"
-          >
-
-          {{-- bottone per <th>Anno d'acquisto</th>aprire/chiudere la tendina custom --}}
-          <button type="button" id="assocToggleBtn" class="btn btn-outline-secondary" aria-haspopup="listbox" aria-expanded="false" title="Mostra elenco">
-            <i class="fas fa-chevron-down"></i>
-          </button>
-
-          {{-- campo nascosto che contiene l'id reale (invia come prima) --}}
-          <input type="hidden" id="idAssociazione" name="idAssociazione" value="{{ $selectedAssoc ?? '' }}">
-        </div>
-
-        {{-- datalist nativo (per suggerimenti durante la digitazione) --}}
-        <datalist id="assocList">
-          @foreach($associazioni as $assoc)
-            <option data-id="{{ $assoc->idAssociazione }}" value="{{ $assoc->Associazione }}"></option>
-          @endforeach
-        </datalist>
-
-        {{-- tendina custom (usata per la selezione a tendina completa e per il filtraggio) --}}
-        <ul id="assocDropdown" class="list-group position-absolute w-100 shadow-sm"
-                style="z-index:2000; display:none; max-height:240px; overflow:auto; top:100%; left:0;
-           background-color:#fff; opacity:1; -webkit-backdrop-filter:none; backdrop-filter:none;">
-          @foreach($associazioni as $assoc)
-            <li class="list-group-item list-group-item-action assoc-item" data-id="{{ $assoc->idAssociazione }}" role="option">
-              {{ $assoc->Associazione }}
-            </li>
-          @endforeach
-        </ul>
-      </div>
-    </form>
-  </div>
-@endif
 
   <div class="card-anpas">
     <div class="card-body bg-anpas-white">

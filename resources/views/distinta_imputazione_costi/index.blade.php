@@ -16,15 +16,40 @@
   @if($user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor']) || $isImpersonating)
   <form method="POST" action="{{ route('sessione.setAssociazione') }}" class="mb-3 d-flex align-items-center gap-2">
     @csrf
-    <label for="assocSelect" class="mb-0 fw-bold">Associazione:</label>
-    <select id="assocSelect" name="idAssociazione" class="form-select w-auto" onchange="this.form.submit()">
-      @foreach($associazioni as $assoc)   
-      <option value="{{ $assoc->idAssociazione }}" {{ session('associazione_selezionata') == $assoc->idAssociazione  ? 'selected' : '' }}>
-        {{ $assoc->Associazione }}
-      </option>
-      @endforeach
-    </select>
-  </form>
+    <label for="assocInput" class="mb-0 fw-bold me-2">Associazione:</label>
+
+    <div class="input-group" style="width: 350px; position: relative;">
+        <!-- Campo visibile -->
+        <input type="text"
+               id="assocInput"
+               name="assocLabel"
+               class="form-control"
+               placeholder="Seleziona associazione"
+               value="{{ optional($associazioni->firstWhere('idAssociazione', session('associazione_selezionata')))->Associazione ?? '' }}"
+               autocomplete="off"
+               aria-label="Seleziona associazione">
+
+        <!-- Bottone per aprire/chiudere -->
+        <button type="button" class="btn btn-outline-secondary" id="assocDropdownBtn" title="Mostra elenco">
+            <i class="fas fa-chevron-down"></i>
+        </button>
+
+        <!-- Campo nascosto con l'id -->
+        <input type="hidden" id="assocHidden" name="idAssociazione" value="{{ session('associazione_selezionata') ?? '' }}">
+
+        <!-- Dropdown -->
+        <ul id="assocDropdown" class="list-group"
+            style="position: absolute; top:100%; left:0; width:100%; z-index:2000; display:none; max-height:240px; overflow:auto; background-color:#fff;"">
+            @foreach($associazioni as $assoc)
+            <li class="list-group-item assoc-item" data-id="{{ $assoc->idAssociazione }}">
+                {{ $assoc->Associazione }}
+            </li>
+            @endforeach
+        </ul>
+    </div>
+</form>
+
+
   @endif
 
   @php
