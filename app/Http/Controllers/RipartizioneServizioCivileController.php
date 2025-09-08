@@ -14,6 +14,7 @@ class RipartizioneServizioCivileController extends Controller
     public function index()
     {
         $anno = session('anno_riferimento', now()->year);
+        
         return view('ripartizioni.servizio_civile.index', compact('anno'));
     }
 

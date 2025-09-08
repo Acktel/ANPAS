@@ -162,7 +162,7 @@ $(async function () {
         $(rowEl).addClass('table-warning fw-bold');
       }
       $(rowEl).removeClass('even odd').addClass(index % 2 === 0 ? 'even' : 'odd');
-    }
+    },
     language: { url: '/js/i18n/Italian.json',
                       paginate: {
             first: '<i class="fas fa-angle-double-left"></i>',

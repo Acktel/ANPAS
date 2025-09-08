@@ -6,65 +6,189 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
-use App\Jobs\GeneraDocumentoJob;
+use App\Jobs\GeneraRiepilogoCostiPdfJob;
+use App\Jobs\GeneraRegistroAutomezziPdfJob;
+use App\Jobs\GeneraDistintaKmPercorsiPdfJob;
+use App\Jobs\GeneraServiziSvoltiPdfJob;
 use App\Models\DocumentoGenerato;
+use Barryvdh\DomPDF\Facade\Pdf;
+use App\Models\RiepilogoCosti;
+
+
 
 class DocumentiController extends Controller {
 
-    protected function getAssociazioni() {
-        return DB::table('associazioni')
-            ->select('idAssociazione', 'Associazione')
-            ->orderBy('Associazione')
-            ->get();
-    }
+    // === helper selezione associazione (come altrove) ===
+    private function selectedAssocForUser(Request $request): array {
+        $user = Auth::user();
+        $associazioni = collect();
+        $selectedAssoc = null;
 
-    protected function getAnni() {
-        $anni = [];
-        for ($y = 2000; $y <= date('Y') + 5; $y++) {
-            $anni[] = (object)['idAnno' => $y, 'anno' => $y];
+        if ($user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])) {
+            $associazioni = DB::table('associazioni')
+                ->select('IdAssociazione', 'Associazione')
+                ->whereNull('deleted_at')
+                ->where('IdAssociazione', '!=', 1)
+                ->orderBy('Associazione')
+                ->get();
+
+            $selectedAssoc = $request->get('idAssociazione')
+                ?? session('associazione_selezionata')
+                ?? ($associazioni->first()->IdAssociazione ?? null);
+        } else {
+            $selectedAssoc = $user->IdAssociazione;
         }
-        return collect($anni);
+
+        if ($request->has('idAssociazione')) {
+            session(['associazione_selezionata' => $request->idAssociazione]);
+        }
+        $selectedAssoc = session('associazione_selezionata') ?? $selectedAssoc;
+
+        return [$associazioni, $selectedAssoc];
     }
 
-    public function registroForm() {
-        $associazioni = $this->getAssociazioni();
-        $anni = $this->getAnni();
+    public function registroForm(Request $request) {
+        [$associazioni, $selectedAssoc] = $this->selectedAssocForUser($request);
+        $anni = session('anno_riferimento', now()->year);
 
+        // elenco ultimi documenti (entrambi i tipi PDF)
         $documenti = DocumentoGenerato::where('idUtente', Auth::id())
-            ->where('tipo_documento', 'registro')
-            ->orderByDesc('created_at')
-            ->limit(10)
+            ->whereIn('tipo_documento', ['riepilogo_costi_pdf', 'registro_automezzi_pdf','km_percentuali_pdf','servizi_svolti_pdf'])
+            ->orderByDesc('generato_il')
+            ->orderByDesc('id')
+            ->limit(20)
             ->get();
 
-        return view('documenti.registro', compact('associazioni', 'anni', 'documenti'));
+        return view('documenti.registro', compact('associazioni', 'anni', 'documenti', 'selectedAssoc'));
     }
 
-    public function registroGenerate(Request $request) {
+    // === avvio job RIEPILOGO COSTI (JSON) ===
+    public function riepilogoCostiPdf(Request $request) {
+        $data = $request->validate([
+            'idAssociazione' => 'required|exists:associazioni,idAssociazione',
+            'idAnno'         => 'required|integer|min:2000|max:' . (date('Y') + 5),
+        ]);
+
+        $doc = DocumentoGenerato::create([
+            'idUtente'       => Auth::id(),
+            'idAssociazione' => (int)$data['idAssociazione'],
+            'idAnno'         => (int)$data['idAnno'],
+            'tipo_documento' => 'riepilogo_costi_pdf',
+        ]);
+
+        GeneraRiepilogoCostiPdfJob::dispatch($doc->id, (int)$data['idAssociazione'], (int)$data['idAnno'], Auth::id());
+
+        return response()->json(['id' => $doc->id]);
+    }
+
+    // === avvio job REGISTRO AUTOMEZZI (JSON) ===
+    public function registroAutomezziPdf(Request $request) {
+        $data = $request->validate([
+            'idAssociazione' => 'required|exists:associazioni,idAssociazione',
+            'idAnno'         => 'required|integer|min:2000|max:' . (date('Y') + 5),
+        ]);
+
+        $doc = DocumentoGenerato::create([
+            'idUtente'       => Auth::id(),
+            'idAssociazione' => (int)$data['idAssociazione'],
+            'idAnno'         => (int)$data['idAnno'],
+            'tipo_documento' => 'registro_automezzi_pdf',
+        ]);
+
+        GeneraRegistroAutomezziPdfJob::dispatch($doc->id, (int)$data['idAssociazione'], (int)$data['idAnno'], Auth::id());
+
+        return response()->json(['id' => $doc->id]);
+    }
+
+    public function distintaKmPercorsiPdf(Request $request) {
         $request->validate([
             'idAssociazione' => 'required|exists:associazioni,idAssociazione',
-            'idAnno' => 'required|integer|min:2000|max:' . (date('Y') + 5),
+            'idAnno'         => 'required|integer|min:2000|max:' . (date('Y') + 5),
         ]);
-         
-        $idAssociazione = $request->input('idAssociazione');
-        $idAnno = $request->input('idAnno');
-        $utenteId = Auth::id();
 
-        GeneraDocumentoJob::dispatch($idAssociazione, $idAnno, $utenteId);
+        $doc = DocumentoGenerato::create([
+            'idUtente'       => auth()->id(),
+            'idAssociazione' => (int)$request->idAssociazione,
+            'idAnno'         => (int)$request->idAnno,
+            'tipo_documento' => 'distinta_km_percorsi_pdf',
+            'stato'          => 'queued', // se la colonna esiste, altrimenti rimuovi
+        ]);
 
-        return back()->with('success', 'Il documento è stato messo in coda. Potrai scaricarlo non appena sarà pronto.');
+        GeneraDistintaKmPercorsiPdfJob::dispatch(
+            $doc->id,
+            (int)$request->idAssociazione,
+            (int)$request->idAnno,
+            auth()->id()
+        );
+
+        return back()->with('success', 'Richiesta in coda: il PDF della “Distinta km percorsi” sarà disponibile appena pronto.');
     }
 
-    public function download($id)
-    {
-        $documento = DocumentoGenerato::where('id', $id)->first();
+    public function kmPercentualiPdf(Request $request) {
+        $request->validate([
+            'idAssociazione' => 'required|exists:associazioni,idAssociazione',
+            'idAnno'         => 'required|integer|min:2000|max:' . (date('Y') + 5),
+        ]);
 
-        if (!$documento || !$documento->generato_il || !Storage::disk('public')->exists($documento->percorso_file)) {
-            return redirect()->back()->with('error', 'Il file non è disponibile per il download.');
-        }
+        $doc = DocumentoGenerato::create([
+            'idUtente'       => Auth::id(),
+            'idAssociazione' => (int) $request->idAssociazione,
+            'idAnno'         => (int) $request->idAnno,
+            'tipo_documento' => 'km_percentuali_pdf',
+            'stato'          => 'queued',
+        ]);
 
-        $filePath = storage_path("app/public/{$documento->percorso_file}");
-        $filename = basename($documento->percorso_file);
+        GeneraDistintaKmPercorsiPdfJob::dispatch(
+            $doc->id,
+            (int)$request->idAssociazione,
+            (int)$request->idAnno,
+            Auth::id()
+        )->onQueue('pdf');
 
-        return response()->download($filePath, $filename);
+        return response()->json(['id' => $doc->id]);
+    }
+
+    public function serviziSvoltiPdf(Request $request) {
+        $data = $request->validate([
+            'idAssociazione' => 'required|exists:associazioni,idAssociazione',
+            'idAnno'         => 'required|integer|min:2000|max:' . (date('Y') + 5),
+        ]);
+
+        $doc = DocumentoGenerato::create([
+            'idUtente'       => auth()->id(),
+            'idAssociazione' => (int)$data['idAssociazione'],
+            'idAnno'         => (int)$data['idAnno'],
+            'tipo_documento' => 'servizi_svolti_pdf',
+        ]);
+
+        GeneraServiziSvoltiPdfJob::dispatch(
+            $doc->id,
+            (int)$data['idAssociazione'],
+            (int)$data['idAnno'],
+            auth()->id()
+        )->onQueue('pdf');
+
+        return response()->json(['id' => $doc->id]);
+    }
+
+    // === polling stato (JSON) ===
+    public function status($id) {
+        $doc = DocumentoGenerato::findOrFail($id);
+        $ready = $doc->generato_il && $doc->percorso_file && Storage::disk('public')->exists($doc->percorso_file);
+
+        return response()->json([
+            'id'           => $doc->id,
+            'tipo'         => $doc->tipo_documento,
+            'status'       => $ready ? 'ready' : 'queued',
+            'generato_il'  => $doc->generato_il,
+            'download_url' => $ready ? route('documenti.download', $doc->id) : null,
+            'filename'     => $ready ? $doc->nome_file : null,
+        ]);
+    }
+
+    public function download($id) {
+        $documento = DocumentoGenerato::findOrFail($id);
+        abort_unless($documento->generato_il && Storage::disk('public')->exists($documento->percorso_file), 404);
+        return response()->download(storage_path("app/public/{$documento->percorso_file}"), basename($documento->percorso_file));
     }
 }

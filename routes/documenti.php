@@ -23,4 +23,29 @@ Route::middleware(['auth'])->group(function () {
           ->name('documenti.criteri.generate');
 
      Route::get('/documenti/registro/download/{id}', [DocumentiController::class, 'download'])->name('documenti.download');
+
+     // avvia generazione PDF riepilogo costi (POST esistente)
+     Route::post('/documenti/riepilogo-costi/pdf', [DocumentiController::class, 'riepilogoCostiPdf'])
+          ->name('documenti.riepilogo_costi.pdf');
+
+     Route::post('/documenti/registro-automezzi/pdf', [DocumentiController::class, 'registroAutomezziPdf'])
+          ->name('documenti.registro_automezzi.pdf');
+
+     Route::post(
+          '/documenti/distinta-km-percorsi/pdf',
+          [DocumentiController::class, 'distintaKmPercorsiPdf']
+     )->name('documenti.distinta_km_percorsi.pdf');
+
+     Route::post(
+          '/documenti/km-percentuali/pdf', [DocumentiController::class, 'kmPercentualiPdf']
+     )->name('documenti.km_percentuali.pdf');
+
+     Route::post('/documenti/servizi-svolti/pdf', [DocumentiController::class, 'serviziSvoltiPdf'])
+     ->name('documenti.servizi_svolti.pdf');
+
+
+
+     // stato documento per polling
+     Route::get('/documenti/status/{id}', [DocumentiController::class, 'status'])
+          ->name('documenti.status');
 });
