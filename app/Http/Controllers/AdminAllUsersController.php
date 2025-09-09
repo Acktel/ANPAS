@@ -35,7 +35,7 @@ class AdminAllUsersController extends Controller
         }
 
     
-        $selectedAssoc = session('selectedAssoc') ?? ($associazioni->first()->IdAssociazione ?? null);
+        $selectedAssoc =session('associazione_selezionata') ?? ($associazioni->first()->IdAssociazione ?? null);
 
         // Prendi il filtro dalla querystring o fallback alla prima
         // $selectedAssoc = $request->get('idAssociazione')
@@ -71,7 +71,7 @@ class AdminAllUsersController extends Controller
             ->get();
     
         // Recupera dalla sessione il filtro selezionato
-        $selectedAssoc = session('selectedAssoc') ?? ($associazioni->first()->IdAssociazione ?? null);
+        $selectedAssoc =session('associazione_selezionata') ?? ($associazioni->first()->IdAssociazione ?? null);
     
         return view('admin.all_users_create', compact('associazioni', 'ruoli', 'selectedAssoc'));
     }
@@ -141,7 +141,7 @@ class AdminAllUsersController extends Controller
             ->get();
 
         // Recupera dalla sessione il filtro selezionato
-        $selectedAssoc = session('selectedAssoc') ?? ($associazioni->first()->IdAssociazione ?? null);
+        $selectedAssoc =session('associazione_selezionata') ?? ($associazioni->first()->IdAssociazione ?? null);
 
         return view('admin.all_users_edit', compact('user', 'associazioni', 'ruoli', 'selectedAssoc'));
     }

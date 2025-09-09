@@ -2,6 +2,7 @@
 @php
 $user = Auth::user();
 $isImpersonating = session()->has('impersonate');
+
 @endphp
 @section('content')
 <div class="container-fluid">
@@ -30,7 +31,7 @@ $isImpersonating = session()->has('impersonate');
             <label for="idAssociazione" class="form-label">Associazione</label>
             <select name="idAssociazione" id="idAssociazione" class="form-select" required>
               @foreach($associazioni as $assoc)
-              <option value="{{ $assoc->idAssociazione }}"
+              <option value="{{ $selectedAssoc ?? $assoc->idAssociazione  }}"
                 {{ old('idAssociazione') == $assoc->idAssociazione ? 'selected' : '' }}>
                 {{ $assoc->Associazione }}
               </option>

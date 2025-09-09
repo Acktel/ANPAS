@@ -54,14 +54,13 @@ class DistintaImputazioneCostiController extends Controller {
         } else {
             $selectedAssoc = (int) $user->IdAssociazione;
         }
-
-        if (!$selectedAssoc) {
+        if (empty($selectedAssoc)) {
             return response()->json(['data' => [], 'convenzioni' => []]);
         }
 
         // ⬇️ tutto il calcolo è nel Service
         $payload = RipartizioneCostiService::distintaImputazioneData($selectedAssoc, $anno);
-
+       
         return response()->json($payload);
     }
 
