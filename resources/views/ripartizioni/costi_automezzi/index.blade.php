@@ -2,7 +2,13 @@
 
 @section('content')
 <div class="container-fluid">
-    @if(auth()->user()->hasAnyRole(['SuperAdmin','Admin','Supervisor']))
+
+
+    <h1 class="container-title mb-4">
+        Distinta Rilevazione Analitica Costi Automezzi e Attrezzatura Sanitaria − Anno {{ $anno }}
+    </h1>
+
+        @if(auth()->user()->hasAnyRole(['SuperAdmin','Admin','Supervisor']))
 <div class="d-flex mb-3 position-relative" style="max-width:400px">
     <form id="assocFilterForm" action="{{ route('sessione.setAssociazione') }}" method="POST" class="w-100">
         @csrf
@@ -31,10 +37,6 @@
     </form>
 </div>
     @endif
-
-    <h1 class="container-title mb-4">
-        Distinta Rilevazione Analitica Costi Automezzi e Attrezzatura Sanitaria − Anno {{ $anno }}
-    </h1>
 
     @if(session('success'))
     <div class="alert alert-success">{{ session('success') }}</div>

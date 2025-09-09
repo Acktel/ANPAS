@@ -8,6 +8,44 @@
     </h1>
   </div>
 
+  {{-- Select associazione (visibile solo a ruoli amministrativi) --}}
+  @if(auth()->user()->hasAnyRole(['SuperAdmin','Admin','Supervisor']))
+    <div class="mb-3">
+      <form method="GET" id="assocSelectForm" class="w-100" style="max-width:400px">
+        <div class="input-group">
+          <!-- Campo visibile -->
+          <input
+            id="assocSelect"
+            name="assocLabel"
+            class="form-control"
+            autocomplete="off"
+            placeholder="Seleziona associazione"
+            value="{{ optional($associazioni->firstWhere('idAssociazione', $selectedAssoc))->Associazione ?? '' }}"
+            aria-label="Seleziona associazione"
+          >
+
+          <!-- Bottone per aprire/chiudere -->
+          <button type="button" id="assocSelectToggleBtn" class="btn btn-outline-secondary" aria-haspopup="listbox" aria-expanded="false" title="Mostra elenco">
+            <i class="fas fa-chevron-down"></i>
+          </button>
+
+          <!-- Campo nascosto con l'id reale -->
+          <input type="hidden" id="assocSelectHidden" name="idAssociazione" value="{{ $selectedAssoc ?? '' }}">
+        </div>
+
+        <!-- Dropdown custom -->
+        <ul id="assocSelectDropdown" class="list-group" style="z-index:2000; display:none; max-height:240px; overflow:auto; top:100%; left:0;
+               background-color:#fff; opacity:1; -webkit-backdrop-filter:none; backdrop-filter:none;">
+          @foreach($associazioni as $assoc)
+            <li class="list-group-item assoc-item" data-id="{{ $assoc->idAssociazione }}">
+              {{ $assoc->Associazione }}
+            </li>
+          @endforeach
+        </ul>
+      </form>
+    </div>
+  @endif
+
   <div class="card-anpas">
     <div class="card-body bg-anpas-white">
       <div class="table-responsive">
@@ -26,17 +64,37 @@
 
 @push('scripts')
 <script>
-$(async function(){
-  const res = await fetch("{{ route('ripartizioni.servizio_civile.data') }}");
-  let { data, labels } = await res.json();
-  if (!data.length) return;
-
-    // Sposta la riga totale in fondo
-  const totaleRow = data.find(r => r.is_totale === -1);
-  data = data.filter(r => r.is_totale !== -1);
-  if (totaleRow) data.push(totaleRow);
-
+/**
+ * Carica i dati della tabella (con supporto filtro per idAssociazione via hidden input)
+ */
+async function loadTableDataServizioCivile() {
   const table = $('#table-servizio-civile');
+  const selectedAssoc = (document.getElementById('assocSelectHidden')?.value || '').trim();
+
+    // distruggi tabella precedente se esiste
+  if ($.fn.DataTable.isDataTable(table)) table.DataTable().clear().destroy();
+
+  // fetch dati filtrati (aggiunge query param idAssociazione se presente)
+  let payload;
+  try {
+    const url = "{{ route('ripartizioni.servizio_civile.data') }}" + (selectedAssoc ? `?idAssociazione=${encodeURIComponent(selectedAssoc)}` : '');
+    const res = await fetch(url);
+    payload = await res.json();
+  } catch (err) {
+    console.error('Errore fetch ripartizioni.servizio_civile.data:', err);
+    return;
+  }
+
+  let data = payload?.data || [];
+  let labels = payload?.labels || {};
+  if (!data.length) table.DataTable().clear().destroy();;
+
+  // Sposta la riga totale in fondo, se presente (convenzione is_totale === -1)
+  const totaleRowIndex = data.findIndex(r => r.is_totale === -1);
+  if (totaleRowIndex !== -1) {
+    const [totaleRow] = data.splice(totaleRowIndex, 1);
+    data.push(totaleRow);
+  }
 
   const staticCols = [
     { key:'Associazione', label:'Associazione' },
@@ -44,7 +102,7 @@ $(async function(){
     { key:'OreTotali',    label:'Ore Totali Servizio Civile' }
   ];
 
-  const convenzioni = Object.keys(labels).sort((a,b)=>parseInt(a.slice(1))-parseInt(b.slice(1)));
+  const convenzioni = Object.keys(labels).sort((a,b)=>parseInt(a.slice(1)) - parseInt(b.slice(1)));
 
   let hMain = '', hSub = '', cols = [];
 
@@ -73,12 +131,11 @@ $(async function(){
   });
 
   $('#header-main').html(hMain);
-    $('#header-main th').each(function() {
-      if ($(this).attr('colspan')) {
-       $(this).addClass('border-bottom-special');
-      }
-    });
+  // aggiunge classe alle th con colspan per gestire bordo inferiore speciale
+  $('#header-main th[colspan]').addClass('border-bottom-special');
   $('#header-sub').html(hSub);
+
+
 
   table.DataTable({
     data,
@@ -89,27 +146,76 @@ $(async function(){
     responsive: true,
     language: {
       url: '/js/i18n/Italian.json',
-                      paginate: {
-            first: '<i class="fas fa-angle-double-left"></i>',
-            last: '<i class="fas fa-angle-double-right"></i>',
-            next: '<i class="fas fa-angle-right"></i>',
-            previous: '<i class="fas fa-angle-left"></i>'
-        },
-    },
-    rowCallback: function(row, data, index) {
-      if (index % 2 === 0) {
-        $(row).removeClass('even odd').addClass('even');
-      } else {
-        $(row).removeClass('even odd').addClass('odd');
+      paginate: {
+        first: '<i class="fas fa-angle-double-left"></i>',
+        last: '<i class="fas fa-angle-double-right"></i>',
+        next: '<i class="fas fa-angle-right"></i>',
+        previous: '<i class="fas fa-angle-left"></i>'
       }
-              //In grassetto la riga con"Totale Volontari"
+    },
+    stripeClasses: ['table-white','table-striped-anpas'],
+    rowCallback: function(row, data, index) {
+      $(row).removeClass('even odd').addClass(index % 2 === 0 ? 'even' : 'odd');
+
+      // in grassetto la riga totale (testo previsto: "Totale servizio civile")
       if (data.FullName === 'Totale servizio civile') {
         $(row).addClass('fw-bold');
-        //Oppure solo la cella "Descrizione": $(row).find('td:eq(1)').css('font-weight', 'bold');
       }
-    },
-    stripeClasses: ['table-white', 'table-striped-anpas']
+    }
   });
+}
+
+/**
+ * Setup custom select per associazioni (riutilizza gli stessi id usati nel template volontari)
+ */
+function setupCustomSelect(formId, inputId, dropdownId, toggleBtnId, hiddenId) {
+  const form = document.getElementById(formId);
+  const input = document.getElementById(inputId);
+  const dropdown = document.getElementById(dropdownId);
+  const toggleBtn = document.getElementById(toggleBtnId);
+  const hidden = document.getElementById(hiddenId);
+  if (!form || !input || !dropdown || !hidden) return;
+
+  function showDropdown() { dropdown.style.display = 'block'; toggleBtn.setAttribute('aria-expanded','true'); }
+  function hideDropdown() { dropdown.style.display = 'none'; toggleBtn.setAttribute('aria-expanded','false'); }
+
+  function filterDropdown(term) {
+    term = (term || '').toLowerCase();
+    dropdown.querySelectorAll('.assoc-item').forEach(li => {
+      li.style.display = (li.textContent || '').toLowerCase().includes(term) ? '' : 'none';
+    });
+  }
+
+  function setSelection(id, name) {
+    hidden.value = id ?? '';
+    input.value = name ?? '';
+    loadTableDataServizioCivile(); // ricarica tabella filtrata
+    hideDropdown();
+  }
+
+  dropdown.querySelectorAll('.assoc-item').forEach(li => {
+    li.style.cursor = 'pointer';
+    li.addEventListener('click', () => setSelection(li.dataset.id, li.textContent.trim()));
+  });
+
+  input.addEventListener('input', () => filterDropdown(input.value));
+  toggleBtn.addEventListener('click', () => dropdown.style.display==='block'?hideDropdown():showDropdown());
+  document.addEventListener('click', e => { if (!form.contains(e.target)) hideDropdown(); });
+}
+
+// inizializzazione al ready
+$(document).ready(function() {
+  // attiva select (se presente nel DOM)
+  setupCustomSelect(
+    "assocSelectForm",
+    "assocSelect",
+    "assocSelectDropdown",
+    "assocSelectToggleBtn",
+    "assocSelectHidden"
+  );
+
+  // carica dati tabella
+  loadTableDataServizioCivile();
 });
 </script>
 @endpush

@@ -14,23 +14,23 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // $this->call(createAssociazioni::class);
-        // $this->call(SuperAdminSeeder::class);
-        // $this->call(CreateRole ::class);
-        // $this->call(AnniSeeder::class);
-        // $this->call(ConvenzioniSeeder::class);
-        // $this->call(AutomezziSeeder::class);
-        // $this->call(TipologiaRiepilogoSeeder::class);
+        $this->call(createAssociazioni::class);
+        $this->call(SuperAdminSeeder::class);
+        $this->call(CreateRole ::class);
+        $this->call(AnniSeeder::class);
+        $this->call(ConvenzioniSeeder::class);
+        $this->call(AutomezziSeeder::class);
+        $this->call(TipologiaRiepilogoSeeder::class);
         // $this->call(RiepilogoDatiSeeder::class);
-        // $this->call(AssociazioniAdminSeeder::class);     
+        $this->call(AssociazioniAdminSeeder::class);     
         // $this->call(RiepilogoDati2Seeder::class);
-        // $this->call(MaterialeSanitarioSeeder::class);
-        // $this->call(QualificheSeeder::class);
-        // $this->call(DipendentiSeeder::class);
-        // $this->call(DipendenteFittizioSeeder::class);
-        // $this->call(ContrattiSeeder::class);
-        // $this->call(AdminSeeder::class);
-        // $this->call([ RiepilogoVociConfigSeeder::class]);
+        $this->call(MaterialeSanitarioSeeder::class);
+        $this->call(QualificheSeeder::class);
+        $this->call(DipendentiSeeder::class);
+        $this->call(DipendenteFittizioSeeder::class);
+        $this->call(ContrattiSeeder::class);
+        $this->call(AdminSeeder::class);
+        $this->call([ RiepilogoVociConfigSeeder::class]);
     }
 
     //PER PRODUZIONE

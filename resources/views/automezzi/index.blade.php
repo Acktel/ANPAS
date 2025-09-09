@@ -53,7 +53,8 @@ foreach ($configVeicoli as $key => $value) {
   {{-- Filtro per associazione solo per ruoli elevati --}}
 @if(auth()->user()->hasAnyRole(['SuperAdmin','Admin','Supervisor']))
 <div class="mb-3" style="max-width:400px">
-  <form id="assocFilterForm" class="w-100">
+  <form id="assocFilterForm" class="w-100" method="GET">
+    <div class="position-relative">
     <div class="input-group">
       <!-- Campo visibile -->
       <input
@@ -75,14 +76,15 @@ foreach ($configVeicoli as $key => $value) {
     </div>
 
     <!-- Dropdown -->
-    <ul id="assocSelectDropdown" class="list-group"
-        style="z-index:2000; display:none; max-height:240px; overflow:auto; background:#fff;">
+    <ul id="assocSelectDropdown" class="list-group position-absolute w-100"
+        style="z-index:2000; display:none; max-height:240px; overflow:auto; background:#fff; top:100%; left:0;">
       @foreach($associazioni as $assoc)
         <li class="list-group-item assoc-item" data-id="{{ $assoc->IdAssociazione }}">
           {{ $assoc->Associazione }}
         </li>
       @endforeach
     </ul>
+    </div>
   </form>
 </div>
 @endif
@@ -313,4 +315,34 @@ document.addEventListener('DOMContentLoaded', function() {
 
 });
 </script>
+
+  <script>
+    (function () {
+      // cerca prima un elemento con id, altrimenti prende il primo .alert.alert-success
+      const flash = document.getElementById('flash-message') || document.querySelector('.alert.alert-success');
+      if (!flash) return;
+
+      // aspetta 3500ms (3.5s) poi fa fade + collapse e rimuove l'elemento
+      setTimeout(() => {
+        // animazione: opacità + altezza
+        flash.style.transition = 'opacity 0.5s ease, max-height 0.5s ease, padding 0.4s ease, margin 0.4s ease';
+        flash.style.opacity = '0';
+        // per lo "slide up" imposta max-height e padding a 0
+        flash.style.maxHeight = flash.scrollHeight + 'px'; // inizializza
+        // forza repaint per sicurezza
+        // eslint-disable-next-line no-unused-expressions
+        flash.offsetHeight;
+        flash.style.maxHeight = '0';
+        flash.style.paddingTop = '0';
+        flash.style.paddingBottom = '0';
+        flash.style.marginTop = '0';
+        flash.style.marginBottom = '0';
+
+        // rimuovi dal DOM dopo che l'animazione è finita
+        setTimeout(() => {
+          if (flash.parentNode) flash.parentNode.removeChild(flash);
+        }, 600); // lascia un po' di tempo alla transizione
+      }, 3500);
+    })();
+  </script>
 @endpush

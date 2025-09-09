@@ -16,6 +16,36 @@
         </div>
     </div>
 
+    @if(auth()->user()->hasAnyRole(['SuperAdmin','Admin','Supervisor']))
+<div class="d-flex mb-3 position-relative" style="max-width:400px">
+    <form id="assocFilterForm" action="{{ route('sessione.setAssociazione') }}" method="POST" class="w-100">
+        @csrf
+        <div class="input-group">
+            <!-- Campo visibile -->
+            <input type="text" id="assocInput" class="form-control text-start" placeholder="Seleziona associazione"
+                   value="{{ optional($associazioni->firstWhere('idAssociazione', $selectedAssoc))->Associazione ?? '' }}" readonly>
+
+            <!-- Bottone -->
+            <button type="button" id="assocDropdownToggle" class="btn btn-outline-secondary" aria-expanded="false" title="Mostra elenco">
+                <i class="fas fa-chevron-down"></i>
+            </button>
+
+            <!-- Hidden input -->
+            <input type="hidden" name="idAssociazione" id="assocHidden" value="{{ $selectedAssoc ?? '' }}">
+        </div>
+
+        <!-- Dropdown -->
+        <ul id="assocDropdown" class="list-group position-absolute w-100" style="z-index:2000; display:none; max-height:240px; overflow:auto; top:100%; left:0; background-color:#fff;">
+            @foreach($associazioni as $assoc)
+                <li class="list-group-item assoc-item" data-id="{{ $assoc->idAssociazione }}">
+                    {{ $assoc->Associazione }}
+                </li>
+            @endforeach
+        </ul>
+    </form>
+</div>
+@endif
+
     {{-- 🧾 Titolo + bottone --}}
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h1 id="titolo-pagina" class="container-title">

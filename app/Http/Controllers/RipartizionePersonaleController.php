@@ -9,22 +9,39 @@ use App\Models\RipartizionePersonale;
 use App\Models\Dipendente;
 
 class RipartizionePersonaleController extends Controller {
-    public function index(Request $request) {
-        $anno = session('anno_riferimento', now()->year);
+public function index(Request $request) {
+    $anno = session('anno_riferimento', now()->year);
 
-        // Corretto: leggi prima dalla sessione, poi da query string (fallback)
-        $selectedAssoc = session('associazione_selezionata') ?? $request->query('idAssociazione');
-        $user = Auth::user();
-        $isImpersonating = session()->has('impersonate');
-        $associazioni = Dipendente::getAssociazioni($user, $isImpersonating);
+    // chiave dedicata a questa pagina
+    $sessionKey = 'associazione_selezionata_ripartizioni_personale';
 
-        return view('ripartizioni.personale.index', compact('anno', 'selectedAssoc', 'associazioni'));
+    // Se arrivo con un parametro, lo salvo
+    if ($request->has('idAssociazione')) {
+        session([$sessionKey => $request->query('idAssociazione')]);
     }
+
+    // Leggo dalla sessione, con fallback al parametro in query (se non ho ancora salvato)
+    $selectedAssoc = session($sessionKey, $request->query('idAssociazione'));
+
+    $user = Auth::user();
+    $isImpersonating = session()->has('impersonate');
+    $associazioni = Dipendente::getAssociazioni($user, $isImpersonating);
+
+    return view('ripartizioni.personale.index', compact('anno', 'selectedAssoc', 'associazioni'));
+}
     
     public function getData(Request $request) {
         $user = Auth::user();
         $anno = session('anno_riferimento', now()->year);
-        $selectedAssoc = $request->query('idAssociazione');
+        $sessionKey = 'associazione_selezionata_ripartizioni_personale';
+        // $selectedAssoc = $request->query('idAssociazione');
+
+        // Se arriva un parametro, salvo in sessione
+        if ($request->has('idAssociazione')) {
+            session([$sessionKey => $request->query('idAssociazione')]);
+        }
+
+        $selectedAssoc = session($sessionKey, $request->query('idAssociazione'));
 
         $assocId = $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])
             ? ($selectedAssoc ?: null)

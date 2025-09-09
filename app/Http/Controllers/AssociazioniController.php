@@ -30,6 +30,8 @@ public function index(Request $request)
     $associazioni = collect();
     $selectedAssoc = null;
 
+    // dd($request); 
+
     if ($user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])) {
         $associazioni = DB::table('associazioni')
             ->select('IdAssociazione', 'Associazione')

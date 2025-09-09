@@ -15,7 +15,7 @@ class RipartizioneServizioCivile
      * solo per i dipendenti che hanno idQualifica = 15 (volontari),
      * utilizzando la tabella pivot dipendenti_qualifiche.
      */
-    public static function getAggregato(int $anno, $user)
+    public static function getAggregato(int $anno, $user, ?int $idAssociazione = null)
     {
         $query = DB::table(self::TABLE . ' as ds')
             ->join('convenzioni as c', 'ds.idConvenzione', '=', 'c.idConvenzione')
@@ -24,10 +24,13 @@ class RipartizioneServizioCivile
             ->where('c.idAnno', $anno)
             ->groupBy('ds.idConvenzione');
 
-        if (! $user->hasAnyRole(['SuperAdmin','Admin','Supervisor'])) {
+        // Filtro per ruolo sempre attivo
+        if (! $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])) {
             $query->where('c.idAssociazione', $user->IdAssociazione);
+        } elseif ($idAssociazione) {
+            // Solo gli utenti con ruoli elevati possono usare $idAssociazione
+            $query->where('c.idAssociazione', $idAssociazione);
         }
-
         return $query->get();
     }
 
@@ -41,10 +44,14 @@ class RipartizioneServizioCivile
         $idDipendente = self::ID_SERVIZIO_CIVILE;
         DB::table(self::TABLE)
             ->updateOrInsert(
-                ['idDipendente'   => $idDipendente,   // null
-                 'idConvenzione'  => $idConvenzione],
-                ['OreServizio'    => $ore,
-                 'updated_at'     => now()]
+                [
+                    'idDipendente'   => $idDipendente,   // null
+                    'idConvenzione'  => $idConvenzione
+                ],
+                [
+                    'OreServizio'    => $ore,
+                    'updated_at'     => now()
+                ]
             );
     }
 }
