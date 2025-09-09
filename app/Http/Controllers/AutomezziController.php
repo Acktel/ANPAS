@@ -36,9 +36,9 @@ class AutomezziController extends Controller {
         }
 
         if ($request->has('idAssociazione')) {
-    session(['associazione_selezionata' => $request->idAssociazione]);
-}
-$selectedAssoc = session('associazione_selezionata') ?? $user->IdAssociazione;
+            session(['associazione_selezionata' => $request->idAssociazione]);
+        }
+        $selectedAssoc = session('associazione_selezionata') ?? $user->IdAssociazione;
 
         return view('automezzi.index', compact(
             'anno',

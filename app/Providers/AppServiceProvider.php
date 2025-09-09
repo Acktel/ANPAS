@@ -6,21 +6,21 @@ use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\Facades\URL;
-class AppServiceProvider extends ServiceProvider
-{
+use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Cache\RateLimiting\Limit;
+
+class AppServiceProvider extends ServiceProvider {
     /**
      * Register any application services.
      */
-    public function register(): void
-    {
+    public function register(): void {
         //
     }
 
     /**
      * Bootstrap any application services.
      */
-    public function boot(): void
-    {
+    public function boot(): void {
         if ($this->app->environment('production')) {
             URL::forceScheme('https');
         }
@@ -31,5 +31,10 @@ class AppServiceProvider extends ServiceProvider
 
         // Condividi con tutte le viste
         View::share('anno_riferimento', Session::get('anno_riferimento'));
+
+        RateLimiter::for('pdf-riepilogo', function () {
+            // esempio: max 4 generazioni/minuto a livello globale
+            return [Limit::perMinute(5)];
+        });
     }
 }

@@ -1,109 +1,304 @@
+{{-- resources/views/documenti/registro.blade.php --}}
 @extends('layouts.app')
 
 @section('content')
 <div class="container-fluid">
-  <h1>Crea file Registro</h1>
+  <h1 class="mb-3">Esporta documenti (anno {{ session('anno_riferimento', now()->year) }})</h1>
 
-  {{-- Messaggi --}}
-  @if(session('success'))
-    <div class="alert alert-success">{{ session('success') }}</div>
-  @endif
-  @if(session('error'))
-    <div class="alert alert-danger">{{ session('error') }}</div>
-  @endif
+  @php
+  $user = auth()->user();
+  $isElev = $user->hasAnyRole(['SuperAdmin','Admin','Supervisor']);
+  // preferisci ciò che hai già salvato in sessione
+  $selAssoc = session('associazione_selezionata')
+  ?? ($selectedAssoc ?? ($isElev ? null : $user->IdAssociazione));
 
-  {{-- FORM --}}
-  <form action="{{ route('documenti.registro.generate') }}" method="POST">
-    @csrf
-    <div class="row">
-      <div class="col-md-4 mb-3">
-        @php
-          $assocCorr = \App\Models\Associazione::getById(Auth::user()->IdAssociazione);
-        @endphp
+  // rotta opzionale per salvare la selezione lato server (se esiste)
+  $routeSetAssoc = \Illuminate\Support\Facades\Route::has('sessione.setAssociazione')
+  ? route('sessione.setAssociazione')
+  : null;
+  @endphp
 
-        @if(session()->has('impersonate') || Auth::user()->role_id == 4)
-          <label class="form-label">Associazione</label>
-          <input type="text" class="form-control" value="{{ $assocCorr->Associazione }}" readonly>
-          <input type="hidden" name="idAssociazione" value="{{ $assocCorr->IdAssociazione }}">
-        @else
-          <label for="idAssociazione" class="form-label">Associazione</label>
-          <select name="idAssociazione" id="idAssociazione" class="form-select" required>
-            <option value="">-- Seleziona Associazione --</option>
-            @foreach($associazioni as $asso)
-              <option value="{{ $asso->idAssociazione }}" {{ old('idAssociazione') == $asso->idAssociazione ? 'selected' : '' }}>
-                {{ $asso->Associazione }}
-              </option>
-            @endforeach
-          </select>
-        @endif
+  <div class="row g-3">
+    <div class="col-md-5">
+      <div class="card">
+        <div class="card-body">
+          <h5 class="card-title mb-3">Parametri</h5>
 
-        @error('idAssociazione')
-          <div class="text-danger">{{ $message }}</div>
-        @enderror
+          <form id="paramsForm">
+            @csrf
+            <div class="mb-3">
+              <label class="form-label">Associazione</label>
+              @if($isElev)
+              <select id="idAssociazione" class="form-select" required>
+                <option value="">— Seleziona —</option>
+                @foreach($associazioni as $asso)
+                <option value="{{ $asso->IdAssociazione }}" @selected($selAssoc==$asso->IdAssociazione)>
+                  {{ $asso->Associazione }}
+                </option>
+                @endforeach
+              </select>
+              @else
+              <input type="text" class="form-control"
+                value="{{ optional($associazioni->firstWhere('IdAssociazione',$selAssoc))->Associazione ?? '' }}"
+                readonly>
+              <input type="hidden" id="idAssociazione" value="{{ $selAssoc }}">
+              @endif
+            </div>
+
+            <div class="mb-3">
+              <label for="idAnno" class="form-label">Anno</label>
+              <input type="number" id="idAnno" class="form-control"
+                min="2000" max="{{ date('Y') + 5 }}"
+                value="{{ session('anno_riferimento', now()->year) }}" required>
+            </div>
+
+            <div class="d-grid gap-2">
+              {{-- Ogni bottone chiama un endpoint che mette in coda un job e ritorna { id } --}}
+              <button type="button" class="btn btn-anpas-green"
+                data-endpoint="{{ route('documenti.documento_unico.pdf') }}"
+                data-type="DOCUMENTO UNICO (PDF)">
+                <i class="fas fa-layer-group me-1"></i> Documento unico (tutte le tabelle)
+              </button>
+
+              <button type="button" class="btn btn-anpas-green"
+                data-endpoint="{{ route('documenti.riepilogo_costi.pdf') }}"
+                data-type="RIEPILOGO COSTI (PDF)">
+                <i class="fas fa-file-pdf me-1"></i> Riepilogo Costi (PDF)
+              </button>
+
+              <button type="button" class="btn btn-anpas-green"
+                data-endpoint="{{ route('documenti.registro_automezzi.pdf') }}"
+                data-type="REGISTRO AUTOMEZZI (PDF)">
+                <i class="fas fa-truck me-1"></i> Registro Automezzi (PDF)
+              </button>
+
+              <button type="button" class="btn btn-anpas-green"
+                data-endpoint="{{ route('documenti.km_percentuali.pdf') }}"
+                data-type="DISTINTA KM / PERCENTUALI (PDF)"
+                data-key="kmperc">
+                <i class="fas fa-percent me-1"></i> Distinta KM / %
+              </button>
+
+              <button type="button" class="btn btn-anpas-green"
+                data-endpoint="{{ route('documenti.servizi_svolti.pdf') }}"
+                data-type="DISTINTA SERVIZI / % (PDF)">
+                <i class="fas fa-people-arrows me-1"></i> Distinta Servizi / %
+              </button>
+
+              <button type="button" class="btn btn-anpas-green"
+                data-endpoint="{{ route('documenti.rapporti_ricavi.pdf') }}"
+                data-type="RAPPORTI RICAVI / % (PDF)">
+                <i class="fas fa-euro-sign me-1"></i> Rapporti ricavi / %
+              </button>
+
+              <button type="button" class="btn btn-anpas-green"
+                data-endpoint="{{ route('documenti.rip_volontari_scn.pdf') }}"
+                data-type="VOLONTARI + SERVIZIO CIVILE (PDF)">
+                <i class="fas fa-hands-helping me-1"></i> Volontari + Servizio Civile (PDF)
+              </button>
+
+              <button type="button" class="btn btn-anpas-green"
+                data-endpoint="{{ route('documenti.ripartizione_personale.pdf') }}"
+                data-type="RIPARTIZIONE PERSONALE (PDF)">
+                <i class="fas fa-user-clock me-1"></i> Ripartizione personale (PDF)
+              </button>
+
+              <button type="button" class="btn btn-anpas-green"
+                data-endpoint="{{ route('documenti.servizi_svolti_ossigeno.pdf') }}"
+                data-type="SERVIZI SVOLTI OSSIGENO/MATERIALE (PDF)">
+                <i class="fas fa-notes-medical me-1"></i> Servizi Svolti – Ossigeno/Materiale
+              </button>
+
+            </div>
+          </form>
+
+          <small class="text-muted d-block mt-2">
+            I documenti vengono generati in coda; appena pronti comparirà il link di download qui sotto.
+          </small>
+        </div>
       </div>
     </div>
 
-    <div class="row">
-      <div class="col-md-4 mb-3">
-        <label for="idAnno" class="form-label">Anno</label>
-        <input type="number" name="idAnno" id="idAnno" class="form-control"
-               min="2000" max="{{ date('Y') + 5 }}" step="1"
-               value="{{ old('idAnno', now()->year) }}"
-               placeholder="Inserisci l'anno, es. 2024" required>
-        @error('idAnno')
-          <div class="text-danger">{{ $message }}</div>
-        @enderror
+    <div class="col-md-7">
+      <div class="card">
+        <div class="card-body">
+          <h5 class="card-title mb-3">Archivio documenti</h5>
+
+          <table class="table table-bordered table-striped align-middle" id="docsTable">
+            <thead>
+              <tr>
+                <th style="width:10%">ID</th>
+                <th style="width:25%">Tipo</th>
+                <th style="width:15%">Anno</th>
+                <th style="width:25%">Generato il</th>
+                <th style="width:25%">Azione</th>
+              </tr>
+            </thead>
+            <tbody>
+              @foreach($documenti as $doc)
+              <tr id="docrow-{{ $doc->id }}">
+                <td>{{ $doc->id }}</td>
+                <td>{{ strtoupper(str_replace('_',' ',$doc->tipo_documento)) }}</td>
+                <td>{{ $doc->idAnno }}</td>
+                <td>{{ $doc->generato_il ? \Carbon\Carbon::parse($doc->generato_il)->format('d/m/Y H:i') : '—' }}</td>
+                <td>
+                  @if($doc->generato_il && Storage::disk('public')->exists($doc->percorso_file))
+                  <a href="{{ route('documenti.download', $doc->id) }}" class="btn btn-sm btn-primary">Scarica</a>
+                  @else
+                  <span class="badge bg-warning text-dark">In coda</span>
+                  @endif
+                </td>
+              </tr>
+              @endforeach
+            </tbody>
+          </table>
+
+        </div>
       </div>
     </div>
-
-    <button type="submit" class="btn btn-success">Crea file Excel</button>
-  </form>
-
-  {{-- ELENCO DOCUMENTI GENERATI --}}
-  <hr>
-  <h5 class="mt-4">Documenti generati di recente</h5>
-
-  @if($documenti->count())
-    <table class="table table-bordered table-striped mt-2">
-      <thead>
-        <tr>
-          <th>Anno</th>
-          <th>Tipo</th>
-          <th>Generato il</th>
-          <th>Stato</th>
-          <th>Azioni</th>
-        </tr>
-      </thead>
-      <tbody>
-        @foreach($documenti as $doc)
-          <tr>
-            <td>{{ $doc->idAnno }}</td>
-            <td>{{ strtoupper($doc->tipo_documento) }}</td>
-            <td>
-              {{ $doc->generato_il ? \Carbon\Carbon::parse($doc->generato_il)->format('d/m/Y H:i') : '—' }}
-            </td>
-            <td>
-              @if($doc->generato_il)
-                <span class="badge bg-success">Pronto</span>
-              @else
-                <span class="badge bg-warning text-dark">In attesa</span>
-              @endif
-            </td>
-            <td>
-              @if($doc->generato_il && Storage::disk('public')->exists($doc->percorso_file))
-                <a href="{{ route('documenti.download', $doc->id) }}" class="btn btn-sm btn-primary">
-                  Scarica
-                </a>
-              @else
-                <em>Non disponibile</em>
-              @endif
-            </td>
-          </tr>
-        @endforeach
-      </tbody>
-    </table>
-  @else
-    <p class="text-muted">Nessun documento ancora generato.</p>
-  @endif
+  </div>
 </div>
 @endsection
+
+@push('scripts')
+<script>
+  (() => {
+    const csrf = document.querySelector('meta[name="csrf-token"]').content;
+    const params = document.getElementById('paramsForm');
+    const idAssEl = document.getElementById('idAssociazione');
+    const idAnnoEl = document.getElementById('idAnno');
+    const docsBody = document.querySelector('#docsTable tbody');
+    const setAssocRoute = @json($routeSetAssoc); // può essere null
+
+    // Persistenza selezione: sessione se la rotta esiste, altrimenti localStorage
+    async function persistSelection() {
+      const idAss = (idAssEl?.value || '').trim();
+      if (!idAss) return;
+
+      if (setAssocRoute) {
+        try {
+          await fetch(setAssocRoute, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-CSRF-TOKEN': csrf
+            },
+            body: JSON.stringify({
+              idAssociazione: idAss
+            })
+          });
+        } catch (_) {}
+      } else {
+        try {
+          localStorage.setItem('doc_export_assoc', idAss);
+        } catch (_) {}
+      }
+    }
+
+    // ripristino da localStorage se non abbiamo sessione e siamo admin
+    document.addEventListener('DOMContentLoaded', () => {
+      if (idAssEl && !idAssEl.value) {
+        try {
+          const saved = localStorage.getItem('doc_export_assoc');
+          if (saved) idAssEl.value = saved;
+        } catch (_) {}
+      }
+    });
+
+    idAssEl?.addEventListener('change', persistSelection);
+
+    // click per ciascun bottone (ognuno ha data-endpoint e data-type)
+    params.querySelectorAll('button[data-endpoint]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const idAssociazione = (idAssEl?.value || '').trim();
+        const idAnno = (idAnnoEl?.value || '').trim();
+        if (!idAssociazione || !idAnno) {
+          alert('Seleziona Associazione e Anno');
+          return;
+        }
+
+        // salvo selezione
+        await persistSelection();
+
+        // avvio job
+        let res;
+        try {
+          res = await fetch(btn.dataset.endpoint, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-CSRF-TOKEN': csrf,
+              'Accept': 'application/json'
+            },
+            body: JSON.stringify({
+              idAssociazione,
+              idAnno
+            })
+          });
+        } catch (_) {
+          alert('Errore di rete nell’avvio del job');
+          return;
+        }
+        if (!res.ok) {
+          alert('Errore avvio job');
+          return;
+        }
+
+        const {
+          id
+        } = await res.json(); // il controller deve restituire { id: <documento_id> }
+        const typeLabel = btn.dataset.type || 'Documento';
+
+        // aggiungo riga "in coda"
+        const tr = document.createElement('tr');
+        tr.id = 'docrow-' + id;
+        tr.innerHTML = `
+        <td>${id}</td>
+        <td>${typeLabel}</td>
+        <td>${idAnno}</td>
+        <td>—</td>
+        <td><span class="badge bg-warning text-dark">In coda</span></td>
+      `;
+        docsBody.prepend(tr);
+
+        // polling stato
+        pollStatus(id);
+      });
+    });
+
+    async function pollStatus(id) {
+      const row = document.getElementById('docrow-' + id);
+      if (!row) return;
+      const tdWhen = row.children[3];
+      const tdAct = row.children[4];
+
+      const timer = setInterval(async () => {
+        try {
+          const r = await fetch("{{ route('documenti.status','__ID__') }}".replace('__ID__', id), {
+            headers: {
+              'Accept': 'application/json'
+            }
+          });
+          if (!r.ok) return;
+          const j = await r.json(); // {status:'queued|processing|ready|error', generato_il, download_url, message?}
+
+          if (j.status === 'ready' && j.download_url) {
+            clearInterval(timer);
+            tdWhen.textContent = new Date(j.generato_il).toLocaleString();
+            tdAct.innerHTML = `<a href="${j.download_url}" class="btn btn-sm btn-primary">Scarica</a>`;
+          } else if (j.status === 'error') {
+            clearInterval(timer);
+            tdWhen.textContent = '—';
+            tdAct.innerHTML = `<span class="badge bg-danger">Errore</span>`;
+          } else {
+            // queued/processing -> opzionale mostra spinner
+            tdAct.innerHTML = `<span class="badge bg-warning text-dark">${j.status || 'In coda'}</span>`;
+          }
+        } catch (_) {
+          /* ignora, ritenta */
+        }
+      }, 2500);
+    }
+  })();
+</script>
+@endpush
