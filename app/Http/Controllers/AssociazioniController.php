@@ -13,7 +13,6 @@ use Illuminate\Support\Facades\Mail;
 use Spatie\Permission\Models\Role;
 // use App\Mail\AdminUserInvite;
 use App\Mail\SupervisorInvite;
-use App\Mail\SupervisorInvite;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
