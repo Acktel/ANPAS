@@ -30,7 +30,7 @@ class DatabaseSeeder extends Seeder
         $this->call(DipendenteFittizioSeeder::class);
         $this->call(ContrattiSeeder::class);
         $this->call(AdminSeeder::class);
-        $this->call([ RiepilogoVociConfigSeeder::class]);
+        $this->call( RiepilogoVociConfigSeeder::class);
     }
 
     //PER PRODUZIONE
