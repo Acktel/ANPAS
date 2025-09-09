@@ -6,10 +6,17 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+
 use App\Jobs\GeneraRiepilogoCostiPdfJob;
 use App\Jobs\GeneraRegistroAutomezziPdfJob;
 use App\Jobs\GeneraDistintaKmPercorsiPdfJob;
 use App\Jobs\GeneraServiziSvoltiPdfJob;
+use App\Jobs\GeneraRapportiRicaviPdfJob;
+use App\Jobs\GeneraDocumentoUnicoPdfJob;
+use App\Jobs\GeneraRipartizionePersonalePdfJob;
+use App\Jobs\GeneraRipVolontariScnPdfJob;
+use App\Jobs\GeneraServiziSvoltiOssigenoPdfJob;
+
 use App\Models\DocumentoGenerato;
 use Barryvdh\DomPDF\Facade\Pdf;
 use App\Models\RiepilogoCosti;
@@ -53,7 +60,7 @@ class DocumentiController extends Controller {
 
         // elenco ultimi documenti (entrambi i tipi PDF)
         $documenti = DocumentoGenerato::where('idUtente', Auth::id())
-            ->whereIn('tipo_documento', ['riepilogo_costi_pdf', 'registro_automezzi_pdf','km_percentuali_pdf','servizi_svolti_pdf'])
+            ->whereIn('tipo_documento', ['riepilogo_costi_pdf', 'registro_automezzi_pdf', 'km_percentuali_pdf', 'servizi_svolti_pdf', 'rapporti_ricavi_pdf'])
             ->orderByDesc('generato_il')
             ->orderByDesc('id')
             ->limit(20)
@@ -162,6 +169,126 @@ class DocumentiController extends Controller {
         ]);
 
         GeneraServiziSvoltiPdfJob::dispatch(
+            $doc->id,
+            (int)$data['idAssociazione'],
+            (int)$data['idAnno'],
+            auth()->id()
+        )->onQueue('pdf');
+
+        return response()->json(['id' => $doc->id]);
+    }
+
+    public function rapportiRicaviPdf(Request $request) {
+        $data = $request->validate([
+            'idAssociazione' => 'required|exists:associazioni,idAssociazione',
+            'idAnno'         => 'required|integer|min:2000|max:' . (date('Y') + 5),
+        ]);
+
+        $doc = DocumentoGenerato::create([
+            'idUtente'       => auth()->id(),
+            'idAssociazione' => (int)$data['idAssociazione'],
+            'idAnno'         => (int)$data['idAnno'],
+            'tipo_documento' => 'rapporti_ricavi_pdf',
+            'stato'          => 'queued',
+        ]);
+
+        GeneraRapportiRicaviPdfJob::dispatch(
+            $doc->id,
+            (int)$data['idAssociazione'],
+            (int)$data['idAnno'],
+            auth()->id()
+        )->onQueue('pdf');
+
+        return response()->json(['id' => $doc->id]);
+    }
+
+    public function ripartizionePersonalePdf(Request $request) {
+        $data = $request->validate([
+            'idAssociazione' => 'required|exists:associazioni,idAssociazione',
+            'idAnno'         => 'required|integer|min:2000|max:' . (date('Y') + 5),
+        ]);
+
+        $doc = DocumentoGenerato::create([
+            'idUtente'       => auth()->id(),
+            'idAssociazione' => (int)$data['idAssociazione'],
+            'idAnno'         => (int)$data['idAnno'],
+            'tipo_documento' => 'ripartizione_personale_pdf',
+            'stato'          => 'queued',
+        ]);
+
+        GeneraRipartizionePersonalePdfJob::dispatch(
+            $doc->id,
+            (int)$data['idAssociazione'],
+            (int)$data['idAnno'],
+            auth()->id()
+        )->onQueue('pdf');
+
+        return response()->json(['id' => $doc->id]);
+    }
+
+    public function ripVolontariScnPdf(Request $request) {
+        $data = $request->validate([
+            'idAssociazione' => 'required|exists:associazioni,idAssociazione',
+            'idAnno'         => 'required|integer|min:2000|max:' . (date('Y') + 5),
+        ]);
+
+        $doc = DocumentoGenerato::create([
+            'idUtente'       => auth()->id(),
+            'idAssociazione' => (int)$data['idAssociazione'],
+            'idAnno'         => (int)$data['idAnno'],
+            'tipo_documento' => 'rip_volontari_scn_pdf',
+            'stato'          => 'queued',
+        ]);
+
+        GeneraRipVolontariScnPdfJob::dispatch(
+            $doc->id,
+            (int)$data['idAssociazione'],
+            (int)$data['idAnno'],
+            auth()->id()
+        )->onQueue('pdf');
+
+        return response()->json(['id' => $doc->id]);
+    }
+
+    public function serviziSvoltiOssigenoPdf(Request $request) {
+        $data = $request->validate([
+            'idAssociazione' => 'required|exists:associazioni,idAssociazione',
+            'idAnno'         => 'required|integer|min:2000|max:' . (date('Y') + 5),
+        ]);
+
+        $doc = DocumentoGenerato::create([
+            'idUtente'       => auth()->id(),
+            'idAssociazione' => (int)$data['idAssociazione'],
+            'idAnno'         => (int)$data['idAnno'],
+            'tipo_documento' => 'servizi_svolti_ossigeno_pdf',
+            'stato'          => 'queued',
+        ]);
+
+        GeneraServiziSvoltiOssigenoPdfJob::dispatch(
+            $doc->id,
+            (int)$data['idAssociazione'],
+            (int)$data['idAnno'],
+            auth()->id()
+        )->onQueue('pdf');
+
+        return response()->json(['id' => $doc->id]);
+    }
+
+    public function documentoUnicoPdf(Request $request) {
+        $data = $request->validate([
+            'idAssociazione' => 'required|exists:associazioni,idAssociazione',
+            'idAnno'         => 'required|integer|min:2000|max:' . (date('Y') + 5),
+        ]);
+
+        $doc = DocumentoGenerato::create([
+            'idUtente'       => auth()->id(),
+            'idAssociazione' => (int)$data['idAssociazione'],
+            'idAnno'         => (int)$data['idAnno'],
+            'tipo_documento' => 'documento_unico_pdf',
+            'stato'          => 'queued',
+        ]);
+
+        GeneraDocumentoUnicoPdfJob::dispatch(
             $doc->id,
             (int)$data['idAssociazione'],
             (int)$data['idAnno'],

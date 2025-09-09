@@ -37,13 +37,38 @@ Route::middleware(['auth'])->group(function () {
      )->name('documenti.distinta_km_percorsi.pdf');
 
      Route::post(
-          '/documenti/km-percentuali/pdf', [DocumentiController::class, 'kmPercentualiPdf']
+          '/documenti/km-percentuali/pdf',
+          [DocumentiController::class, 'kmPercentualiPdf']
      )->name('documenti.km_percentuali.pdf');
 
      Route::post('/documenti/servizi-svolti/pdf', [DocumentiController::class, 'serviziSvoltiPdf'])
-     ->name('documenti.servizi_svolti.pdf');
+          ->name('documenti.servizi_svolti.pdf');
 
 
+     Route::post('/documenti/rapporti-ricavi/pdf', [DocumentiController::class, 'rapportiRicaviPdf'])
+          ->name('documenti.rapporti_ricavi.pdf');
+
+     Route::post(
+          '/documenti/ripartizione-personale/pdf',
+          [DocumentiController::class, 'ripartizionePersonalePdf']
+     )->name('documenti.ripartizione_personale.pdf');
+
+     Route::post(
+          '/documenti/ripartizione-volontari-scn/pdf',
+          [DocumentiController::class, 'ripVolontariScnPdf']
+     )->name('documenti.rip_volontari_scn.pdf');
+
+     Route::post(
+          '/documenti/servizi-svolti-ossigeno/pdf',
+          [DocumentiController::class, 'serviziSvoltiOssigenoPdf']
+     )->name('documenti.servizi_svolti_ossigeno.pdf');
+
+
+     Route::post(
+          '/documenti/documento-unico/pdf',
+          [DocumentiController::class, 'documentoUnicoPdf']
+     )
+          ->name('documenti.documento_unico.pdf');
 
      // stato documento per polling
      Route::get('/documenti/status/{id}', [DocumentiController::class, 'status'])

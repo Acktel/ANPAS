@@ -55,6 +55,12 @@
             <div class="d-grid gap-2">
               {{-- Ogni bottone chiama un endpoint che mette in coda un job e ritorna { id } --}}
               <button type="button" class="btn btn-anpas-green"
+                data-endpoint="{{ route('documenti.documento_unico.pdf') }}"
+                data-type="DOCUMENTO UNICO (PDF)">
+                <i class="fas fa-layer-group me-1"></i> Documento unico (tutte le tabelle)
+              </button>
+
+              <button type="button" class="btn btn-anpas-green"
                 data-endpoint="{{ route('documenti.riepilogo_costi.pdf') }}"
                 data-type="RIEPILOGO COSTI (PDF)">
                 <i class="fas fa-file-pdf me-1"></i> Riepilogo Costi (PDF)
@@ -72,12 +78,35 @@
                 data-key="kmperc">
                 <i class="fas fa-percent me-1"></i> Distinta KM / %
               </button>
-              <div id="status-kmperc" class="mt-2 small"></div>
-              
+
               <button type="button" class="btn btn-anpas-green"
                 data-endpoint="{{ route('documenti.servizi_svolti.pdf') }}"
                 data-type="DISTINTA SERVIZI / % (PDF)">
                 <i class="fas fa-people-arrows me-1"></i> Distinta Servizi / %
+              </button>
+
+              <button type="button" class="btn btn-anpas-green"
+                data-endpoint="{{ route('documenti.rapporti_ricavi.pdf') }}"
+                data-type="RAPPORTI RICAVI / % (PDF)">
+                <i class="fas fa-euro-sign me-1"></i> Rapporti ricavi / %
+              </button>
+
+              <button type="button" class="btn btn-anpas-green"
+                data-endpoint="{{ route('documenti.rip_volontari_scn.pdf') }}"
+                data-type="VOLONTARI + SERVIZIO CIVILE (PDF)">
+                <i class="fas fa-hands-helping me-1"></i> Volontari + Servizio Civile (PDF)
+              </button>
+
+              <button type="button" class="btn btn-anpas-green"
+                data-endpoint="{{ route('documenti.ripartizione_personale.pdf') }}"
+                data-type="RIPARTIZIONE PERSONALE (PDF)">
+                <i class="fas fa-user-clock me-1"></i> Ripartizione personale (PDF)
+              </button>
+
+              <button type="button" class="btn btn-anpas-green"
+                data-endpoint="{{ route('documenti.servizi_svolti_ossigeno.pdf') }}"
+                data-type="SERVIZI SVOLTI OSSIGENO/MATERIALE (PDF)">
+                <i class="fas fa-notes-medical me-1"></i> Servizi Svolti – Ossigeno/Materiale
               </button>
 
             </div>
@@ -266,7 +295,8 @@
             tdAct.innerHTML = `<span class="badge bg-warning text-dark">${j.status || 'In coda'}</span>`;
           }
         } catch (_) {
-          /* ignora, ritenta */ }
+          /* ignora, ritenta */
+        }
       }, 2500);
     }
   })();
