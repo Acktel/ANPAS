@@ -50,11 +50,10 @@
                     value="{{ old('indirizzo', $associazione->indirizzo) }}" required>
             </div>
 
-          {{-- RIGA 9: Note --}}
-            <div class="col-md-6">
-              <label for="note" class="form-label">Note</label>
-              <textarea name="note" id="note" class="form-control" rows="3">{{ old('note') }}</textarea>
-            </div>
+          <div class="col-md-6">
+            <label for="note" class="form-label">Note</label>
+              <textarea name="note" id="note" class="form-control" rows="3">{{ old('note', $associazione->note) }}</textarea>
+          </div>
         </div>
 
         @isset($adminUser)

@@ -91,10 +91,10 @@
           <input type="password" class="form-control" name="password_confirmation">
         </div>
 
-        <div class="form-label col-md-6">
-          <label for="note">Note</label>
-          <textarea name="note" id="note" class="form-control">{{ old('note') }}</textarea>
-        </div>
+          <div class="col-md-6">
+            <label for="note" class="form-label">Note</label>
+              <textarea name="note" id="note" class="form-control" rows="3">{{ old('note', $user->note) }}</textarea>
+          </div>
 
         <div class="col-12 mt-3 text-center">
           <button type="submit" class="btn btn-anpas-green"><i class="fas fa-check me-1"></i>Salva Modifiche</button>

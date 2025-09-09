@@ -601,3 +601,8 @@ tbody tr.dragging {
 }
 
 
+
+
+.margin-top-footer-paginate {
+  margin-top: 1rem !important;
+}

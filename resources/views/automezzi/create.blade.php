@@ -126,7 +126,7 @@
         </div>
 
         {{-- RIGA 6: Km Totali | Tipo Carburante --}}
-        <div class="row mb-3">
+        <div class="row mb-4">
           <div class="col-md-6">
             <label for="KmTotali" class="form-label">Km Totali</label>
             <input type="number" name="KmTotali" id="KmTotali" class="form-control" min="0" step=1.00" value="{{ old('KmTotali') }}" required>
@@ -142,6 +142,8 @@
               @endforeach
             </select>
           </div>
+        </div>
+
 
 
           {{-- RIGA 7: Date Sanitaria | Date Revisione --}}

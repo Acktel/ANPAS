@@ -125,6 +125,11 @@ $annoCorr = session('anno_riferimento', now()->year);
               Inserisci il livello mansione del dipendente.
             </div>
           </div>
+
+          <div class="col-md-6">
+            <label for="note" class="form-label">Note</label>
+              <textarea name="note" id="note" class="form-control" rows="3">{{ old('note') }}</textarea>
+          </div>
         </div>
           {{-- <div class="row mb-4">
             <div class="col-md-6 mb-3">

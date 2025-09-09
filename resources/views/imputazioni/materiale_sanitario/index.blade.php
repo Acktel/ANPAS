@@ -77,9 +77,11 @@
   </div>
 </div>
 @endsection
+
 @push('scripts')
 <script>
 $(function () {
+  
     let totaleRow = null; // definito qui fuori, visibile ovunque nel DataTable
 
     let storedTotaleRow = null;
@@ -88,17 +90,14 @@ $(function () {
     $('#materialeSanitarioTable').DataTable({
         ajax: {
             url: '{{ route("imputazioni.materiale_sanitario.getData") }}',
-                            paginate: {
-            first: '<i class="fas fa-angle-double-left"></i>',
-            last: '<i class="fas fa-angle-double-right"></i>',
-            next: '<i class="fas fa-angle-right"></i>',
-            previous: '<i class="fas fa-angle-left"></i>'
-        },
+
 dataSrc: function(res) {
+  console.log('AJAX response:', res);
     let data = res.data || [];
 
     // Estrai e salva la riga 'TOTALE'
     storedTotaleRow = data.find(r => r.is_totale === -1);
+    console.log('storedTotaleRow:', storedTotaleRow); 
     data = data.filter(r => r.is_totale !== -1); // rimuovi la riga totale dai dati normali
 
     return data;
@@ -136,6 +135,8 @@ dataSrc: function(res) {
                 $(row).addClass('table-warning fw-bold');
             }
             $(row).removeClass('even odd').addClass(index % 2 === 0 ? 'even' : 'odd');
+    
+            
         },
 drawCallback: function(settings) {
     const api = this.api();
@@ -143,6 +144,8 @@ drawCallback: function(settings) {
 
     // Rimuove eventuali duplicati
     $(pageRows).filter('.totale-row').remove();
+
+    $('.dt-paging').addClass('margin-top-footer-paginate');
 
     // Inserisce la riga TOTALE salvata solo se esiste
     if (storedTotaleRow) {
@@ -166,12 +169,22 @@ drawCallback: function(settings) {
 
         $(api.table().body()).append($lastRow);
     }
+
+    
 },
 
         language: {
-            url: '/js/i18n/Italian.json'
+            url: '/js/i18n/Italian.json',
+                        paginate: {
+        first: '<i class="fas fa-angle-double-left"></i>',
+        last: '<i class="fas fa-angle-double-right"></i>',
+        next: '<i class="fas fa-angle-right"></i>',
+        previous: '<i class="fas fa-angle-left"></i>'
+      }
         }
     });
+
+
 });
 </script>
 

@@ -9,17 +9,40 @@
     </h1>
   </div>
 
-  @if(auth()->user()->hasAnyRole(['SuperAdmin','Admin','Supervisor']))
-    <div class="d-flex mb-3">
-      <form id="assocFilterForm" action="{{ route('sessione.setAssociazione') }}" method="POST" class="me-3">
-        @csrf
-        <select id="assocSelect" name="idAssociazione" class="form-select" onchange="this.form.submit()">
-          @foreach(($associazioni ?? collect()) as $assoc)
-            <option value="{{ $assoc->idAssociazione }}" {{ (int)($selectedAssoc ?? 0) === (int)$assoc->idAssociazione ? 'selected' : '' }}>
-              {{ $assoc->Associazione }}
-            </option>
-          @endforeach
-        </select>
+      @if(auth()->user()->hasAnyRole(['SuperAdmin','Admin','Supervisor']))
+    <div class="mb-3">
+      {{-- action="{{ route('aziende_sanitarie.index') }}" --}}
+      <form method="GET" id="assocSelectForm" class="w-100" style="max-width:400px">
+        <div class="input-group">
+          <!-- Campo visibile -->
+          <input
+            id="assocSelect"
+            name="assocLabel"
+            class="form-control"
+            autocomplete="off"
+            placeholder="Seleziona associazione"
+            value="{{ optional($associazioni->firstWhere('idAssociazione', $selectedAssoc))->Associazione ?? '' }}"
+            aria-label="Seleziona associazione"
+          >
+
+          <!-- Bottone per aprire/chiudere -->
+          <button type="button" id="assocSelectToggleBtn" class="btn btn-outline-secondary" aria-haspopup="listbox" aria-expanded="false" title="Mostra elenco">
+            <i class="fas fa-chevron-down"></i>
+          </button>
+
+          <!-- Campo nascosto con l'id reale -->
+          <input type="hidden" id="assocSelectHidden" name="idAssociazione" value="{{ $selectedAssoc ?? '' }}">
+        </div>
+
+        <!-- Dropdown custom -->
+            <ul id="assocSelectDropdown" class="list-group" style="z-index:2000; display:none; max-height:240px; overflow:auto; top:100%; left:0;
+                   background-color:#fff; opacity:1; -webkit-backdrop-filter:none; backdrop-filter:none;">
+              @foreach($associazioni as $assoc)
+                <li class="list-group-item assoc-item" data-id="{{ $assoc->idAssociazione }}">
+                  {{ $assoc->Associazione }}
+                </li>
+              @endforeach
+            </ul>
       </form>
     </div>
   @endif
@@ -43,11 +66,15 @@
 @push('scripts')
 <script>
 $(async function () {
+  const table = $('#table-ricavi');
   const eur  = v => new Intl.NumberFormat('it-IT', { style:'currency', currency:'EUR' }).format(Number(v||0));
   const perc = v => (Number(v||0)).toLocaleString('it-IT', { minimumFractionDigits:2, maximumFractionDigits:2 }) + '%';
 
-  const selectedAssoc = document.getElementById('assocSelect')?.value || null;
+  const selectedAssoc = document.getElementById('assocSelectHidden')?.value || null;
   const baseEdit = "{{ url('/rapporti-ricavi') }}";
+
+      // distruggi tabella precedente se esiste
+  if ($.fn.DataTable.isDataTable(table)) table.DataTable().clear().destroy();
 
   // carico dati (se la rotta accetta idAssociazione lo passo, altrimenti viene ignorato)
   const url = new URL("{{ route('rapporti-ricavi.datatable') }}", window.location.origin);
@@ -141,7 +168,7 @@ $(async function () {
   }
 
   // DataTable
-  $('#table-ricavi').DataTable({
+  table.DataTable({
     data,
     columns: cols,
     order: [],
@@ -149,29 +176,72 @@ $(async function () {
     searching: false,
     info: false,
     responsive: true,
-    language: { url: '/js/i18n/Italian.json',
-                            paginate: {
-            first: '<i class="fas fa-angle-double-left"></i>',
-            last: '<i class="fas fa-angle-double-right"></i>',
-            next: '<i class="fas fa-angle-right"></i>',
-            previous: '<i class="fas fa-angle-left"></i>'
-        },
-     },
+    language: { url: '/js/i18n/Italian.json' },
     rowCallback: (rowEl, rowData, index) => {
       if (rowData.is_totale === -1) {
         $(rowEl).addClass('table-warning fw-bold');
       }
       $(rowEl).removeClass('even odd').addClass(index % 2 === 0 ? 'even' : 'odd');
     }
-    language: { url: '/js/i18n/Italian.json',
-                      paginate: {
-            first: '<i class="fas fa-angle-double-left"></i>',
-            last: '<i class="fas fa-angle-double-right"></i>',
-            next: '<i class="fas fa-angle-right"></i>',
-            previous: '<i class="fas fa-angle-left"></i>'
-        },
-     }
   });
 });
 </script>
+
+    <script>
+        function setupCustomSelect(formId, inputId, dropdownId, toggleBtnId, hiddenId) {
+  const form = document.getElementById(formId);
+  const input = document.getElementById(inputId);
+  const dropdown = document.getElementById(dropdownId);
+  const toggleBtn = document.getElementById(toggleBtnId);
+  const hidden = document.getElementById(hiddenId);
+
+  if (!form || !input || !dropdown || !hidden) return;
+
+  const items = Array.from(dropdown.querySelectorAll('.assoc-item'))
+    .map(li => ({ id: String(li.dataset.id), name: (li.textContent || '').trim() }));
+
+  // filtro e selezione (come nel tuo codice originale)
+  function showDropdown() { dropdown.style.display = 'block'; toggleBtn.setAttribute('aria-expanded', 'true'); }
+  function hideDropdown() { dropdown.style.display = 'none'; toggleBtn.setAttribute('aria-expanded', 'false'); }
+
+  function filterDropdown(term) {
+    term = (term || '').toLowerCase();
+    dropdown.querySelectorAll('.assoc-item').forEach(li => {
+      const txt = (li.textContent || '').toLowerCase();
+      li.style.display = txt.includes(term) ? '' : 'none';
+    });
+  }
+
+  function setSelection(id, name, submit = true) {
+    hidden.value = id ?? '';
+    input.value = name ?? '';
+    if (submit) form.submit();
+  }
+
+  // Eventi
+  dropdown.querySelectorAll('.assoc-item').forEach(li => {
+    li.style.cursor = 'pointer';
+    li.addEventListener('click', function () {
+      setSelection(this.dataset.id, this.textContent.trim());
+    });
+  });
+
+  input.addEventListener('input', () => filterDropdown(input.value));
+  toggleBtn.addEventListener('click', () => {
+    dropdown.style.display === 'block' ? hideDropdown() : showDropdown();
+  });
+  document.addEventListener('click', e => {
+    if (!form.contains(e.target)) hideDropdown();
+  });
+}
+
+// Attivazione per la select che mi hai passato
+setupCustomSelect(
+  "assocSelectForm",
+  "assocSelect",
+  "assocSelectDropdown",
+  "assocSelectToggleBtn",
+  "assocSelectHidden"
+);
+    </script>
 @endpush

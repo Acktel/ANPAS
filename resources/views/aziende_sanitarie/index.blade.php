@@ -12,7 +12,8 @@
 
       @if(auth()->user()->hasAnyRole(['SuperAdmin','Admin','Supervisor']))
     <div class="mb-3">
-      <form method="GET" action="{{ route('all-users.index') }}" id="assocSelectForm" class="w-100" style="max-width:400px">
+      {{-- action="{{ route('aziende_sanitarie.index') }}" --}}
+      <form method="GET" id="assocSelectForm" class="w-100" style="max-width:400px">
         <div class="input-group">
           <!-- Campo visibile -->
           <input
@@ -262,4 +263,33 @@ setupCustomSelect(
 );
     </script>
 
+      <script>
+    (function () {
+      // cerca prima un elemento con id, altrimenti prende il primo .alert.alert-success
+      const flash = document.getElementById('flash-message') || document.querySelector('.alert.alert-success');
+      if (!flash) return;
+
+      // aspetta 3500ms (3.5s) poi fa fade + collapse e rimuove l'elemento
+      setTimeout(() => {
+        // animazione: opacità + altezza
+        flash.style.transition = 'opacity 0.5s ease, max-height 0.5s ease, padding 0.4s ease, margin 0.4s ease';
+        flash.style.opacity = '0';
+        // per lo "slide up" imposta max-height e padding a 0
+        flash.style.maxHeight = flash.scrollHeight + 'px'; // inizializza
+        // forza repaint per sicurezza
+        // eslint-disable-next-line no-unused-expressions
+        flash.offsetHeight;
+        flash.style.maxHeight = '0';
+        flash.style.paddingTop = '0';
+        flash.style.paddingBottom = '0';
+        flash.style.marginTop = '0';
+        flash.style.marginBottom = '0';
+
+        // rimuovi dal DOM dopo che l'animazione è finita
+        setTimeout(() => {
+          if (flash.parentNode) flash.parentNode.removeChild(flash);
+        }, 600); // lascia un po' di tempo alla transizione
+      }, 3500);
+    })();
+  </script>
 @endpush

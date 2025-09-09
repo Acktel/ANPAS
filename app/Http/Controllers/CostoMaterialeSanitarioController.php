@@ -88,10 +88,19 @@ public function index(Request $request) {
 
     foreach ($dati['righe'] as $riga) {
         if (isset($riga['is_totale']) && $riga['is_totale']) {
+
+        $nServiziTotale = isset($riga['totale']) ? (int) $riga['totale'] : 0;
+
+            // calcola percentuale in modo coerente con le altre righe
+            $percentualeTotale = ($dati['totale_inclusi'] > 0)
+                ? round(($nServiziTotale / $dati['totale_inclusi']) * 100, 2)
+                : 0;
+
+
             $righe[] = [
                 'Targa'       => 'TOTALE',
                 'n_servizi'   => $riga['totale'],
-                'percentuale' => 100,
+                'percentuale' => $percentualeTotale,
                 'importo'     => $totaleBilancio,
                 'is_totale'   => -1
             ];

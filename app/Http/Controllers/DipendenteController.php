@@ -83,7 +83,8 @@ class DipendenteController extends Controller {
             'ContrattoApplicato' => 'required|string|max:100',
             // 'LivelloMansione' => 'required|array',               DA ELIMINARE SE CORRETTAMENTE SUPERFLUI
             // 'LivelloMansione.*' => 'exists:livello_mansione,id', DA ELIMINARE SE CORRETTAMENTE SUPERFLUI
-            'LivelloMansione' => 'required|string|max:5',
+            'note'               => 'nullable|string|max:1000',
+            'LivelloMansione'    => 'required|string|max:5',
 
         ]);
 
@@ -122,6 +123,7 @@ class DipendenteController extends Controller {
             'DipendenteCognome'  => 'required|string|max:100',
             'Qualifica'          => 'required|array',
             'ContrattoApplicato' => 'required|string|max:100',
+            'note'               => 'nullable|string|max:1000',
             'LivelloMansione' => 'required|array',
             'LivelloMansione.*' => 'exists:livello_mansione,id',
         ]);

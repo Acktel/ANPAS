@@ -11,46 +11,41 @@
     <h1 class="container-title">
       Distinta Imputazione Costi — Anno {{ session('anno_riferimento', now()->year) }}
     </h1>
-  </div>
 
-  @if($user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor']) || $isImpersonating)
-  <form method="POST" action="{{ route('sessione.setAssociazione') }}" class="mb-3 d-flex align-items-center gap-2">
-    @csrf
-    <label for="assocInput" class="mb-0 fw-bold me-2">Associazione:</label>
-
-    <div class="input-group" style="width: 350px; position: relative;">
-        <!-- Campo visibile -->
-        <input type="text"
-               id="assocInput"
-               name="assocLabel"
-               class="form-control"
-               placeholder="Seleziona associazione"
-               value="{{ optional($associazioni->firstWhere('idAssociazione', session('associazione_selezionata')))->Associazione ?? '' }}"
-               autocomplete="off"
-               aria-label="Seleziona associazione">
-
-        <!-- Bottone per aprire/chiudere -->
-        <button type="button" class="btn btn-outline-secondary" id="assocDropdownBtn" title="Mostra elenco">
-            <i class="fas fa-chevron-down"></i>
+    {{-- Select associazione (visibile solo a ruoli amministrativi) --}}
+    @if(auth()->user()->hasAnyRole(['SuperAdmin','Admin','Supervisor']))
+<div style="max-width:380px; width:100%;">
+  <form id="assocSelectForm" class="w-100" method="GET">
+    <div class="position-relative"> {{-- contenitore relativo --}}
+      <div class="input-group">
+        <input
+          id="assocSelect"
+          name="assocLabel"
+          class="form-control"
+          autocomplete="off"
+          placeholder="Seleziona associazione"
+          value="{{ optional($associazioni->firstWhere('idAssociazione', $selectedAssoc))->Associazione ?? '' }}"
+          aria-label="Seleziona associazione"
+        />
+        <button type="button" id="assocSelectToggleBtn" class="btn btn-outline-secondary" aria-haspopup="listbox" aria-expanded="false" title="Mostra elenco">
+          <i class="fas fa-chevron-down"></i>
         </button>
+        <input type="hidden" id="assocSelectHidden" name="idAssociazione" value="{{ $selectedAssoc ?? '' }}">
+      </div>
 
-        <!-- Campo nascosto con l'id -->
-        <input type="hidden" id="assocHidden" name="idAssociazione" value="{{ session('associazione_selezionata') ?? '' }}">
-
-        <!-- Dropdown -->
-        <ul id="assocDropdown" class="list-group"
-            style="position: absolute; top:100%; left:0; width:100%; z-index:2000; display:none; max-height:240px; overflow:auto; background-color:#fff;"">
-            @foreach($associazioni as $assoc)
-            <li class="list-group-item assoc-item" data-id="{{ $assoc->idAssociazione }}">
-                {{ $assoc->Associazione }}
-            </li>
-            @endforeach
-        </ul>
+      {{-- dropdown assoluto rispetto al contenitore --}}
+      <ul id="assocSelectDropdown"
+          class="list-group position-absolute w-100"
+          style="z-index:2000; display:none; max-height:240px; overflow:auto; background:#fff; top:100%; left:0;">
+        @foreach($associazioni as $assoc)
+          <li class="list-group-item assoc-item" data-id="{{ $assoc->idAssociazione }}">{{ $assoc->Associazione }}</li>
+        @endforeach
+      </ul>
     </div>
-</form>
-
-
-  @endif
+  </form>
+</div>
+    @endif
+  </div>
 
   @php
     // Tipologie (sezioni) fisse
@@ -90,24 +85,25 @@
             </a>
           </div>
 
-            <div class="table-responsive">
-              <table id="table-distinta-{{ $id }}"
-                     class="common-css-dataTable table table-hover table-striped-anpas table-bordered w-100 mb-0">
-                <thead class="thead-anpas">
-                  <tr id="header-main-{{ $id }}">
-                    <th rowspan="2">Voce</th>
-                    <th rowspan="2" class="text-end">Importo Totale da Bilancio Consuntivo</th>
-                    <th rowspan="2" class="text-end">Costi di Diretta Imputazione</th>
-                    <th rowspan="2" class="text-end">Totale Costi Ripartiti</th>
-                  </tr>
-                  <tr id="header-sub-{{ $id }}"></tr>
-                </thead>
-                <tbody class="sortable" data-sezione="{{ $id }}"></tbody>
-              </table>
-            </div>
+          <div class="table-responsive">
+            <table id="table-distinta-{{ $id }}"
+                   class="common-css-dataTable table table-hover table-striped-anpas table-bordered w-100 mb-0">
+              <thead class="thead-anpas">
+                <tr id="header-main-{{ $id }}">
+                  <th rowspan="2">Voce</th>
+                  <th rowspan="2" class="text-end">Importo Totale da Bilancio Consuntivo</th>
+                  <th rowspan="2" class="text-end">Costi di Diretta Imputazione</th>
+                  <th rowspan="2" class="text-end">Totale Costi Ripartiti</th>
+                </tr>
+                <tr id="header-sub-{{ $id }}"></tr>
+              </thead>
+              <tbody class="sortable" data-sezione="{{ $id }}"></tbody>
+            </table>
           </div>
+
         </div>
       </div>
+    </div>
     @endforeach
 
     <div class="accordion-item mt-4">
@@ -123,6 +119,7 @@
   </div>
 </div>
 @endsection
+
 @push('scripts')
 <script>
 window.distintaCosti = {
@@ -130,10 +127,13 @@ window.distintaCosti = {
   csrf: '{{ csrf_token() }}'
 };
 
-$(function () {
-  // --- Helpers --------------------------------------------------------------
+document.addEventListener('DOMContentLoaded', () => {
+  // --- Config / helper ----------------------------------------------------
   const csrfToken = document.head.querySelector('meta[name="csrf-token"]')?.content || window.distintaCosti.csrf || '';
-  const $assoc   = document.getElementById('assocSelect');
+  const $assocInput = document.getElementById('assocSelect');
+  const $assocHidden = document.getElementById('assocSelectHidden');
+  const sezioniIds = Object.keys(window.distintaCosti.sezioni || {});
+  const intestazioniAggiunte = new Set();
 
   const eur = v => new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(Number(v || 0));
   const num = v => {
@@ -141,134 +141,220 @@ $(function () {
     return Number.isFinite(n) ? n : 0;
   };
 
-  const sezioniIds = Object.keys(window.distintaCosti.sezioni || {});
-  const intestazioniAggiunte = new Set();
-
+  // --- Helpers DOM -------------------------------------------------------
   function clearTables() {
-    // Svuota tbody e resetta i summary
     sezioniIds.forEach(id => {
-      const $tbody = $(`tbody[data-sezione="${id}"]`);
-      $tbody.empty();
-      $(`#summary-bilancio-${id}`).text('€0,00');
-      $(`#summary-diretta-${id}`).text('€0,00');
-      $(`#summary-totale-${id}`).text('€0,00');
+      const $tbody = document.querySelector(`tbody[data-sezione="${id}"]`);
+      if ($tbody) $tbody.innerHTML = '';
+      const elBil = document.getElementById(`summary-bilancio-${id}`);
+      const elDir = document.getElementById(`summary-diretta-${id}`);
+      const elTot = document.getElementById(`summary-totale-${id}`);
+      if (elBil) elBil.textContent = '€0,00';
+      if (elDir) elDir.textContent = '€0,00';
+      if (elTot) elTot.textContent = '€0,00';
     });
-    $('#tot-bilancio').text('€0,00');
-    $('#tot-diretta').text('€0,00');
-    $('#tot-totale').text('€0,00');
+
+    document.getElementById('tot-bilancio').textContent = '€0,00';
+    document.getElementById('tot-diretta').textContent = '€0,00';
+    document.getElementById('tot-totale').textContent = '€0,00';
   }
 
   function buildHeadersIfNeeded(convenzioni) {
+    if (!Array.isArray(convenzioni)) return;
     sezioniIds.forEach(idSezione => {
       if (intestazioniAggiunte.has(idSezione)) return;
-
-      const $headerMain = $(`#header-main-${idSezione}`);
-      const $headerSub  = $(`#header-sub-${idSezione}`);
+      const $headerMain = document.getElementById(`header-main-${idSezione}`);
+      const $headerSub  = document.getElementById(`header-sub-${idSezione}`);
+      if (!$headerMain || !$headerSub) return;
 
       convenzioni.forEach(conv => {
-        $headerMain.append(`<th colspan="2" class="text-center">${conv}</th>`);
-        $headerSub.append('<th class="text-center">Diretti</th><th class="text-center">Indiretti</th>');
+        const th = document.createElement('th');
+        th.setAttribute('colspan', '2');
+        th.className = 'text-center';
+        th.textContent = conv;
+        $headerMain.appendChild(th);
+
+        const thDir = document.createElement('th');
+        thDir.className = 'text-center';
+        thDir.textContent = 'Diretti';
+        $headerSub.appendChild(thDir);
+
+        const thInd = document.createElement('th');
+        thInd.className = 'text-center';
+        thInd.textContent = 'Indiretti';
+        $headerSub.appendChild(thInd);
       });
 
       intestazioniAggiunte.add(idSezione);
     });
   }
 
-  function loadData() {
-    // opzionale: passare idAssociazione al backend
-    const idAssociazione = $assoc?.value || '';
-    $.ajax({
-      url: '{{ route("distinta.imputazione.data") }}',
-      method: 'GET',
-      data: idAssociazione ? { idAssociazione } : {},
-      success: function (response) {
-        const convenzioni = Array.isArray(response?.convenzioni) ? response.convenzioni : [];
-        const righe       = Array.isArray(response?.data) ? response.data : [];
+  // --- Main loadData (fetch / rebuild) -----------------------------------
+  async function loadData() {
+    const idAssociazione = $assocHidden?.value || '';
+    const params = idAssociazione ? `?idAssociazione=${encodeURIComponent(idAssociazione)}` : '';
+    let response;
 
-        // intestazioni dinamiche (solo una volta per sezione)
-        buildHeadersIfNeeded(convenzioni);
+    try {
+      response = await fetch('{{ route("distinta.imputazione.data") }}' + params, {
+        method: 'GET',
+        headers: { 'Accept': 'application/json' }
+      });
+      if (!response.ok) throw new Error('Network response not ok');
+    } catch (e) {
+      console.error('Errore fetch distinta.imputazione.data', e);
+      clearTables();
+      return;
+    }
 
-        // totali
-        const totaliGenerali   = { bilancio: 0, diretta: 0, totale: 0 };
-        const totaliPerSezione = {};
-        sezioniIds.forEach(id => totaliPerSezione[id] = { bilancio: 0, diretta: 0, totale: 0 });
+    let payload;
+    try {
+      payload = await response.json();
+    } catch (e) {
+      console.error('Errore parsing JSON', e);
+      clearTables();
+      return;
+    }
 
-        // pulizia corpi tabella prima del refill
-        sezioniIds.forEach(id => $(`tbody[data-sezione="${id}"]`).empty());
+    const convenzioni = Array.isArray(payload?.convenzioni) ? payload.convenzioni : [];
+    const righe = Array.isArray(payload?.data) ? payload.data : [];
 
-        // righe
-        righe.forEach(riga => {
-          const idSezione = String(riga.sezione_id || '');
-          if (!idSezione) return;
+    // costruiamo le intestazioni se necessario (solo una volta)
+    buildHeadersIfNeeded(convenzioni);
 
-          const $tbody = $(`tbody[data-sezione="${idSezione}"]`);
-          if ($tbody.length === 0) return;
+    // totali
+    const totaliGenerali = { bilancio: 0, diretta: 0, totale: 0 };
+    const totaliPerSezione = {};
+    sezioniIds.forEach(id => totaliPerSezione[id] = { bilancio: 0, diretta: 0, totale: 0 });
 
-          let html = `
-            <tr>
-              <td>${riga.voce ?? ''}</td>
-              <td class="text-end">${eur(riga.bilancio)}</td>
-              <td class="text-end">${eur(riga.diretta)}</td>
-              <td class="text-end">${eur(riga.totale)}</td>
-          `;
-
-          convenzioni.forEach(convName => {
-            const cell = riga?.[convName] || {};
-            html += `<td class="text-end">${eur(num(cell.diretti))}</td>`;
-            html += `<td class="text-end">${eur(num(cell.indiretti))}</td>`;
-          });
-
-          html += `</tr>`;
-          $tbody.append(html);
-
-          // totali sezione
-          totaliPerSezione[idSezione].bilancio += num(riga.bilancio);
-          totaliPerSezione[idSezione].diretta  += num(riga.diretta);
-          totaliPerSezione[idSezione].totale   += num(riga.totale);
-
-          // totali generali
-          totaliGenerali.bilancio += num(riga.bilancio);
-          totaliGenerali.diretta  += num(riga.diretta);
-          totaliGenerali.totale   += num(riga.totale);
-        });
-
-        // summary per sezione
-        sezioniIds.forEach(id => {
-          const tot = totaliPerSezione[id] || { bilancio: 0, diretta: 0, totale: 0 };
-          document.getElementById(`summary-bilancio-${id}`).textContent = eur(tot.bilancio);
-          document.getElementById(`summary-diretta-${id}`).textContent  = eur(tot.diretta);
-          document.getElementById(`summary-totale-${id}`).textContent   = eur(tot.totale);
-        });
-
-        // totali generali
-        document.getElementById('tot-bilancio').textContent = eur(totaliGenerali.bilancio);
-        document.getElementById('tot-diretta').textContent  = eur(totaliGenerali.diretta);
-        document.getElementById('tot-totale').textContent   = eur(totaliGenerali.totale);
-      },
-      error: function () {
-        // fallback: pulisci e mostra 0
-        clearTables();
-      }
+    // svuota corpi tabelle
+    sezioniIds.forEach(id => {
+      const $tbody = document.querySelector(`tbody[data-sezione="${id}"]`);
+      if ($tbody) $tbody.innerHTML = '';
     });
+
+    // popola righe
+    righe.forEach(riga => {
+      const idSezione = String(riga.sezione_id ?? '');
+      if (!idSezione) return;
+      const $tbody = document.querySelector(`tbody[data-sezione="${idSezione}"]`);
+      if (!$tbody) return;
+
+      // costruzione riga
+      const tr = document.createElement('tr');
+
+      const tdVoce = document.createElement('td');
+      tdVoce.innerHTML = riga.voce ?? '';
+      tr.appendChild(tdVoce);
+
+      const tdBil = document.createElement('td');
+      tdBil.className = 'text-end';
+      tdBil.textContent = eur(riga.bilancio);
+      tr.appendChild(tdBil);
+
+      const tdDir = document.createElement('td');
+      tdDir.className = 'text-end';
+      tdDir.textContent = eur(riga.diretta);
+      tr.appendChild(tdDir);
+
+      const tdTot = document.createElement('td');
+      tdTot.className = 'text-end';
+      tdTot.textContent = eur(riga.totale);
+      tr.appendChild(tdTot);
+
+      // colonne per convenzioni (ordine identico a convenzioni array)
+      convenzioni.forEach(convName => {
+        const cellObj = riga?.[convName] || {};
+        const tdD = document.createElement('td');
+        tdD.className = 'text-end';
+        tdD.textContent = eur(num(cellObj.diretti));
+        tr.appendChild(tdD);
+
+        const tdI = document.createElement('td');
+        tdI.className = 'text-end';
+        tdI.textContent = eur(num(cellObj.indiretti));
+        tr.appendChild(tdI);
+      });
+
+      $tbody.appendChild(tr);
+
+      // accumula totali per sezione
+      totaliPerSezione[idSezione].bilancio += num(riga.bilancio);
+      totaliPerSezione[idSezione].diretta  += num(riga.diretta);
+      totaliPerSezione[idSezione].totale   += num(riga.totale);
+
+      // accumula totali generali
+      totaliGenerali.bilancio += num(riga.bilancio);
+      totaliGenerali.diretta  += num(riga.diretta);
+      totaliGenerali.totale   += num(riga.totale);
+    });
+
+    // riempi summary per sezione
+    sezioniIds.forEach(id => {
+      const tot = totaliPerSezione[id] || { bilancio: 0, diretta: 0, totale: 0 };
+      const elBil = document.getElementById(`summary-bilancio-${id}`);
+      const elDir = document.getElementById(`summary-diretta-${id}`);
+      const elTot = document.getElementById(`summary-totale-${id}`);
+      if (elBil) elBil.textContent = eur(tot.bilancio);
+      if (elDir) elDir.textContent = eur(tot.diretta);
+      if (elTot) elTot.textContent = eur(tot.totale);
+    });
+
+    // totali generali
+    document.getElementById('tot-bilancio').textContent = eur(totaliGenerali.bilancio);
+    document.getElementById('tot-diretta').textContent = eur(totaliGenerali.diretta);
+    document.getElementById('tot-totale').textContent = eur(totaliGenerali.totale);
+  } // end loadData
+
+  // --- Setup custom select (riuso funzione usata negli altri template) ----
+  function setupCustomSelect(formId, inputId, dropdownId, toggleBtnId, hiddenId) {
+    const form = document.getElementById(formId);
+    const input = document.getElementById(inputId);
+    const dropdown = document.getElementById(dropdownId);
+    const toggleBtn = document.getElementById(toggleBtnId);
+    const hidden = document.getElementById(hiddenId);
+    if (!form || !input || !dropdown || !hidden) return;
+
+    function showDropdown() { dropdown.style.display = 'block'; toggleBtn.setAttribute('aria-expanded','true'); }
+    function hideDropdown() { dropdown.style.display = 'none'; toggleBtn.setAttribute('aria-expanded','false'); }
+
+    function filterDropdown(term) {
+      term = (term || '').toLowerCase();
+      dropdown.querySelectorAll('.assoc-item').forEach(li => {
+        li.style.display = (li.textContent || '').toLowerCase().includes(term) ? '' : 'none';
+      });
+    }
+
+    function setSelection(id, name) {
+      hidden.value = id ?? '';
+      input.value = name ?? '';
+      // se esiste una route di sessione, la aggiorniamo in background e poi ricarichiamo
+      @if (Route::has('sessione.setAssociazione'))
+      fetch("{{ route('sessione.setAssociazione') }}", {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken },
+        body: JSON.stringify({ idAssociazione: id })
+      }).finally(() => loadData());
+      @else
+      loadData();
+      @endif
+      hideDropdown();
+    }
+
+    dropdown.querySelectorAll('.assoc-item').forEach(li => {
+      li.style.cursor = 'pointer';
+      li.addEventListener('click', () => setSelection(li.dataset.id, li.textContent.trim()));
+    });
+
+    input.addEventListener('input', () => filterDropdown(input.value));
+    toggleBtn.addEventListener('click', () => dropdown.style.display==='block' ? hideDropdown() : showDropdown());
+    document.addEventListener('click', e => { if (!form.contains(e.target)) hideDropdown(); });
   }
 
-  // cambio associazione → salva in sessione (se rotta presente) e ricarica
-  $assoc?.addEventListener('change', function () {
-    const idAssociazione = this.value;
-    if (!idAssociazione) { clearTables(); return; }
+  // --- Inizializzazione: installa select (se presente) e carica i dati ---
+  setupCustomSelect('assocSelectForm', 'assocSelect', 'assocSelectDropdown', 'assocSelectToggleBtn', 'assocSelectHidden');
 
-    @if (Route::has('sessione.setAssociazione'))
-    fetch("{{ route('sessione.setAssociazione') }}", {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken },
-      body: JSON.stringify({ idAssociazione })
-    }).finally(loadData);
-    @else
-    loadData();
-    @endif
-  });
-
-  // bootstrap
+  // carica dati iniziali
   loadData();
 });
 </script>

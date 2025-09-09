@@ -183,7 +183,6 @@ dataSrc: function(res) {
         });
     });
 </script>
-@endpush
 
 
 

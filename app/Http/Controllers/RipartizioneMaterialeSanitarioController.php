@@ -7,26 +7,38 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Http\JsonResponse;
 use App\Models\RipartizioneMaterialeSanitario;
 use App\Models\Automezzo;
+use Illuminate\Support\Facades\DB;
+
 
 class RipartizioneMaterialeSanitarioController extends Controller
 {
-    public function index()
-    {
-        $anno = session('anno_riferimento', now()->year);
-        $automezzi = Automezzo::getFiltratiByUtente($anno); // logica centralizzata
-        $idAssociazioni = $automezzi->pluck('idAssociazione')->unique();
+public function index()
+{
+    $anno = session('anno_riferimento', now()->year);
+    $automezzi = Automezzo::getFiltratiByUtente($anno);
+    $idAssociazioni = $automezzi->pluck('idAssociazione')->unique();
 
-        $idAssociazione = $idAssociazioni->count() === 1 ? $idAssociazioni->first() : null;
+    $idAssociazione = $idAssociazioni->count() === 1 ? $idAssociazioni->first() : null;
 
-        $dati = RipartizioneMaterialeSanitario::getRipartizione($idAssociazione, $anno);
+    $dati = RipartizioneMaterialeSanitario::getRipartizione($idAssociazione, $anno);
 
-        return view('ripartizioni.materiale_sanitario.index', [
-            'anno' => $anno,
-            'convenzioni' => $dati['convenzioni'],
-            'righe' => $dati['righe'],
-            'totale_inclusi' => $dati['totale_inclusi'],
-        ]);
-    }
+    // aggiungo associazioni e selectedAssoc
+    $associazioni = DB::table('associazioni')
+        ->select('idAssociazione', 'Associazione')
+        ->orderBy('Associazione')
+        ->get();
+
+    $selectedAssoc = $idAssociazione ?? Auth::user()->IdAssociazione ?? null;
+
+    return view('ripartizioni.materiale_sanitario.index', [
+        'anno' => $anno,
+        'convenzioni' => $dati['convenzioni'],
+        'righe' => $dati['righe'],
+        'totale_inclusi' => $dati['totale_inclusi'],
+        'associazioni' => $associazioni,
+        'selectedAssoc' => $selectedAssoc,
+    ]);
+}
 
     public function getData(Request $request): JsonResponse
     {

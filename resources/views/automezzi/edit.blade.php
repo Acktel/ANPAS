@@ -179,17 +179,15 @@
 
         {{-- RIGA 9: Note --}}
         <div class="row mb-4">
-            <div class="col-12">
-                <label for="note" class="form-label">Note</label>
-                <textarea name="note" id="note" class="form-control" rows="3">{{ old('note') }}</textarea>
-            </div>
-        </div>
+          <div class="col-md-6">
+            <label for="note" class="form-label">Note</label>
+              <textarea name="note" id="note" class="form-control" rows="3">{{ old('note', $automezzo->note) }}</textarea>
+          </div>
 
         {{-- RIGA 10: Infomrazioni aggiuntive anno d'acquisto --}}
-        <div class="row mb-4">
-            <div class="col-12">
+            <div class="col-md-6">
                 <label for="informazioniAggiuntive" class="form-label">Informazioni aggiuntive</label>
-                <textarea name="informazioniAggiuntive" id="informazioniAggiuntive" class="form-control" rows="3">{{ old('informazioniAggiuntive') }}</textarea>
+                <textarea name="informazioniAggiuntive" id="informazioniAggiuntive" class="form-control" rows="3">{{ old('informazioniAggiuntive', $automezzo->informazioniAggiuntive) }}</textarea>
             </div>
         </div>
 
