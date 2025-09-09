@@ -28,6 +28,7 @@ class Dipendente {
                 MIN(d.idAnno) as idAnno,
                 MIN(d.DipendenteNome) as DipendenteNome,
                 MIN(d.DipendenteCognome) as DipendenteCognome,
+                MIN(d.note) as note,
                 MIN(lm.nome) as livelliMansione,
                 MIN(d.ContrattoApplicato) as ContrattoApplicato,
                 MIN(a.Associazione) as Associazione,
@@ -46,9 +47,18 @@ class Dipendente {
     }
 
     public static function getByAssociazione(?int $idAssociazione, int $anno): Collection {
-        return self::baseQueryWithUsers($anno)
-            ->when($idAssociazione, fn($q) => $q->where('d.idAssociazione', $idAssociazione))
-            ->get();
+       
+        $sql = "SELECT * FROM " . self::TABLE . " as d
+                LEFT JOIN dipendenti_qualifiche dq ON dq.idDipendente = d.idDipendente
+                LEFT JOIN qualifiche q ON q.id = dq.idQualifica
+                LEFT JOIN dipendenti_livelli_mansione dm ON dm.idDipendente = d.idDipendente
+                LEFT JOIN livello_mansione lm ON lm.id = dm.idLivelloMansione
+                WHERE idAssociazione = :idAssociazione AND idAnno = :anno";
+        
+        $params = ['idAssociazione' => $idAssociazione, 'anno' => $anno];
+
+        return collect(DB::select($sql, $params));
+       
     }
 
     public static function getOne(int $idDipendente): ?object {

@@ -143,7 +143,7 @@ async function loadTableData() {
 
   // distruggi tabella esistente se presente
   if ($.fn.DataTable.isDataTable(table)) {
-    try { table.DataTable().clear().destroy(); } catch(e){ /* ignore */ }
+    table.DataTable().clear().destroy(); 
   }
 
   // inizializzo DataTable — la footerCallback userà il mapping by-name

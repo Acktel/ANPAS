@@ -158,6 +158,7 @@ foreach ($configVeicoli as $key => $value) {
 <script>
 document.addEventListener('DOMContentLoaded', function() {
 
+  const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
   // --- CUSTOM SELECT ---
   const form = document.getElementById('assocFilterForm');
   const input = document.getElementById('assocSelectInput');

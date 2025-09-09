@@ -13,7 +13,7 @@ public function index(Request $request) {
     $anno = session('anno_riferimento', now()->year);
 
     // chiave dedicata a questa pagina
-    $sessionKey = 'associazione_selezionata_ripartizioni_personale';
+    $sessionKey = 'associazione_selezionata';
 
     // Se arrivo con un parametro, lo salvo
     if ($request->has('idAssociazione')) {
@@ -33,7 +33,7 @@ public function index(Request $request) {
     public function getData(Request $request) {
         $user = Auth::user();
         $anno = session('anno_riferimento', now()->year);
-        $sessionKey = 'associazione_selezionata_ripartizioni_personale';
+        $sessionKey = 'associazione_selezionata';
         // $selectedAssoc = $request->query('idAssociazione');
 
         // Se arriva un parametro, salvo in sessione

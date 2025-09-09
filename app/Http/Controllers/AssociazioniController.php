@@ -64,13 +64,6 @@ public function index(Request $request)
 
         $result = Associazione::getAll($request);
 
-        $idAssoc = $request->input('idAssociazione');
-        if ($idAssoc) {
-            $rows = collect($result['data'])->where('IdAssociazione', $idAssoc);
-            $result['data'] = $rows->values();
-            $result['recordsFiltered'] = $rows->count();
-        }
-
         if (! $isSuper) {
             $rows = $result['data'];
             $filtered = $rows->filter(function ($row) {

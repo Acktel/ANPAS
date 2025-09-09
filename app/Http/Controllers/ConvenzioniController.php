@@ -24,7 +24,7 @@ class ConvenzioniController extends Controller
         $selectedAssoc = null;
 
         // chiave unica per questa pagina (puoi anche usare il nome route con route()->getName())
-        $sessionKey = 'associazione_selezionata_convenzioni';
+        $sessionKey = 'associazione_selezionata';
 
         if ($user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])) {
             $associazioni = DB::table('associazioni')
@@ -44,7 +44,10 @@ class ConvenzioniController extends Controller
         } else {
             $selectedAssoc = $user->IdAssociazione;
         }
-
+        if ($request->has('idAssociazione')) {
+            session(['associazione_selezionata' => $selectedAssoc]);
+        }
+        
         $convenzioni = Convenzione::getWithAssociazione($selectedAssoc, $anno);
 
         return view('convenzioni.index', compact(
@@ -259,13 +262,12 @@ class ConvenzioniController extends Controller
         $user = Auth::user();
 
         if ($user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])) {
-            $correnteVuoto = DB::table('convenzioni')->where('idAnno', $anno)->doesntExist();
-            $precedentePieno = DB::table('convenzioni')->where('idAnno', $annoPrec)->exists();
+            $idAssoc = session('associazione_selezionata');
         } else {
             $idAssoc = $user->IdAssociazione;
-            $correnteVuoto = Convenzione::getByAssociazioneAnno($idAssoc, $anno)->isEmpty();
-            $precedentePieno = Convenzione::getByAssociazioneAnno($idAssoc, $annoPrec)->isNotEmpty();
         }
+        $correnteVuoto = Convenzione::getByAssociazioneAnno($idAssoc, $anno)->isEmpty();
+        $precedentePieno = Convenzione::getByAssociazioneAnno($idAssoc, $annoPrec)->isNotEmpty();
 
         return response()->json([
             'mostraMessaggio' => $correnteVuoto && $precedentePieno,
@@ -282,21 +284,26 @@ class ConvenzioniController extends Controller
 
         try {
             if ($user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])) {
-                $convenzioni = DB::table('convenzioni')->where('idAnno', $annoPrec)->get();
+                $idAssoc = session('associazione_selezionata');
             } else {
                 $idAssoc = $user->IdAssociazione;
-                $convenzioni = Convenzione::getByAssociazioneAnno($idAssoc, $annoPrec);
             }
-
+            
+            $convenzioni = Convenzione::getByAssociazioneAnno($idAssoc, $annoPrec);
+            
+           
             if ($convenzioni->isEmpty()) {
                 return response()->json(['message' => 'Nessuna convenzione da duplicare'], 404);
             }
 
             foreach ($convenzioni as $c) {
+                
                 Convenzione::createConvenzione([
-                    'idAssociazione' => $c->idAssociazione,
+                    'idAssociazione' => $idAssoc,
                     'idAnno' => $anno,
                     'Convenzione' => $c->Convenzione,
+                    'note'      => $c->note,
+                    "ordinamento"=> $c->ordinamento,
                     'lettera_identificativa' => $c->lettera_identificativa,
                 ]);
             }

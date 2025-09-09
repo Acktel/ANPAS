@@ -189,8 +189,11 @@
       .then(r => r.json())
       .then(data => {
         if (data.mostraMessaggio) {
+          console.log('Mostra messaggio duplicazione');
           document.getElementById('noDataMessage')
             .classList.remove('d-none');
+        }else {
+          console.log('Nessun messaggio duplicazione',data);
         }
       });
 

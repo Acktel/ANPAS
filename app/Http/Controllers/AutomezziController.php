@@ -239,22 +239,32 @@ public function duplicaAnnoPrecedente(Request $request): JsonResponse {
     $user = Auth::user();
 
     DB::beginTransaction();
-
+    $associazioni = collect();
     try {
         if ($user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])) {
-            $automezzi = Automezzo::getAll($annoPrec);
+            $associazioni = DB::table('associazioni')
+                ->select('IdAssociazione', 'Associazione')
+                ->whereNull('deleted_at')
+                ->where('IdAssociazione', '!=', 1)
+                ->orderBy('Associazione')
+                ->get();
+            $selectedAssoc = session('associazione_selezionata') ?? $request->get('idAssociazione')
+                ?? ($associazioni->first()->IdAssociazione ?? null);
         } else {
-            $idAssoc = $user->IdAssociazione;
-            $automezzi = Automezzo::getByAssociazione($idAssoc, $annoPrec);
+            $selectedAssoc = $user->IdAssociazione;
         }
+        
+        $automezzi = Automezzo::getByAssociazione($selectedAssoc, $annoPrec);
 
+      
         if ($automezzi->isEmpty()) {
             return response()->json(['message' => 'Nessun automezzo da duplicare'], 404);
         }
 
         foreach ($automezzi as $auto) {
+           
             $newId = DB::table('automezzi')->insertGetId([
-                'idAssociazione' => $auto->idAssociazione,
+                'idAssociazione' => $selectedAssoc,
                 'idAnno' => $anno,
                 'Automezzo' => $auto->Automezzo,
                 'Targa' => $auto->Targa,
@@ -262,9 +272,9 @@ public function duplicaAnnoPrecedente(Request $request): JsonResponse {
                 'AnnoPrimaImmatricolazione' => $auto->AnnoPrimaImmatricolazione,
                 'AnnoAcquisto' => $auto->AnnoAcquisto,
                 'Modello' => $auto->Modello,
-                'idTipoVeicolo' => $auto->idTipoVeicolo ?? null,
+                'idTipoVeicolo' => $auto->idTipoVeicolo ?? 1,
                 'KmTotali' => $auto->KmTotali,
-                'idTipoCarburante' => $auto->idTipoCarburante ?? null,
+                'idTipoCarburante' => $auto->idTipoCarburante ?? 1,
                 'DataUltimaAutorizzazioneSanitaria' => $auto->DataUltimaAutorizzazioneSanitaria,
                 'DataUltimoCollaudo' => $auto->DataUltimoCollaudo,
                 'note' => $auto->note,
@@ -289,11 +299,10 @@ public function duplicaAnnoPrecedente(Request $request): JsonResponse {
         DB::commit();
         return response()->json(['message' => 'Automezzi duplicati con successo.']);
     } catch (\Throwable $e) {
-
-
-
-
         DB::rollBack();
+        Log::error('Errore durante duplicazione automezzi', [
+            'exception' => $e]);
+
         return response()->json(['message' => 'Errore durante duplicazione'], 500);
     }
 }

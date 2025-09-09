@@ -103,7 +103,7 @@ class Convenzione {
             ->max('ordinamento');
 
         $ordinamento = is_null($maxOrd) ? 0 : $maxOrd + 1;
-
+        
         DB::insert("INSERT INTO " . self::TABLE . "
             (idAssociazione, idAnno, Convenzione, lettera_identificativa, ordinamento, created_at, updated_at)
             VALUES
@@ -242,12 +242,12 @@ public static function getMaterialeSanitario(int $idConvenzione): \Illuminate\Su
 
 
     public static function getByAssociazioneAnno(?int $idAssociazione, int $idAnno): Collection {
-        $query = DB::table(self::TABLE)->where('idAnno', $idAnno);
-
+        $query = DB::table(self::TABLE)->where( 'idAnno', $idAnno);
+       
         if (!is_null($idAssociazione)) {
             $query->where('idAssociazione', $idAssociazione);
         }
-
+        
         return $query->orderBy('Convenzione')->get();
     }
 }

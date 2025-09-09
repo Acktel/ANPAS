@@ -13,27 +13,6 @@
 @if(auth()->user()->hasAnyRole(['SuperAdmin','Admin','Supervisor']))
     <div class="mb-3">
       <form method="GET" action="{{ route('associazioni.index') }}" id="assocSelectForm" class="w-100" style="max-width:400px">
-        <div class="position-relative">
-        <div class="input-group">
-          <!-- Campo visibile -->
-          <input
-            id="assocSelect"
-            name="assocLabel"
-            class="form-control"
-            autocomplete="off"
-            placeholder="Seleziona associazione"
-            value="{{ optional($associazioni->firstWhere('IdAssociazione', $selectedAssoc))->Associazione ?? '' }}"
-            aria-label="Seleziona associazione"
-          >
-
-          <!-- Bottone per aprire/chiudere -->
-          <button type="button" id="assocSelectToggleBtn" class="btn btn-outline-secondary" aria-haspopup="listbox" aria-expanded="false" title="Mostra elenco">
-            <i class="fas fa-chevron-down"></i>
-          </button>
-
-          <!-- Campo nascosto con l'id reale -->
-          <input type="hidden" id="assocSelectHidden" name="idAssociazione" value="{{ $selectedAssoc ?? '' }}">
-        </div>
 
         <!-- Dropdown custom -->
             <ul id="assocSelectDropdown" class="list-group position-absolute w-100" style="z-index:2000; display:none; max-height:200px; overflow:auto; top:100%; left:0;
