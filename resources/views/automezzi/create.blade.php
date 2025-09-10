@@ -127,10 +127,10 @@
 
         {{-- RIGA 6: Km Totali | Tipo Carburante --}}
         <div class="row mb-4">
-          <div class="col-md-6">
+          {{-- <div class="col-md-6">
             <label for="KmTotali" class="form-label">Km Totali</label>
             <input type="number" name="KmTotali" id="KmTotali" class="form-control" min="0" step=1.00" value="{{ old('KmTotali') }}" required>
-          </div>
+          </div> --}}
           <div class="col-md-6">
             <label for="idTipoCarburante" class="form-label">Tipo Carburante</label>
             <select name="idTipoCarburante" id="idTipoCarburante" class="form-select" required>
@@ -170,15 +170,13 @@
 
         {{-- RIGA 9: Note --}}
         <div class="row mb-4">
-            <div class="col-12">
+            <div class="col-md-6">
                 <label for="note" class="form-label">Note</label>
                 <textarea name="note" id="note" class="form-control" rows="3">{{ old('note') }}</textarea>
             </div>
-        </div>
 
         {{-- RIGA 10: Infomrazioni aggiuntive anno d'acquisto --}}
-        <div class="row mb-4">
-            <div class="col-12">
+            <div class="col-md-6">
                 <label for="informazioniAggiuntive" class="form-label">Informazioni aggiuntive</label>
                 <textarea name="informazioniAggiuntive" id="informazioniAggiuntive" class="form-control" rows="3">{{ old('informazioniAggiuntive') }}</textarea>
             </div>

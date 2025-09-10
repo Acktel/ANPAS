@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use App\Models\Automezzo;
+use App\Models\AutomezzoKm;
 use App\Models\AutomezzoKmRiferimento;
 use Illuminate\Support\Facades\Log;
 use App\Models\VehicleType;
@@ -83,7 +84,7 @@ public function store(Request $request) {
         'Modello' => 'required|string|max:255',
         'idTipoVeicolo' => 'required|exists:vehicle_types,id',
         'KmRiferimento' => 'required|numeric|min:0',
-        'KmTotali' => 'required|numeric|min:0',
+        'KmTotali' => 'nullable|numeric|min:0',
         'idTipoCarburante' => 'required|exists:fuel_types,id',
         'DataUltimaAutorizzazioneSanitaria' => 'nullable|date',
         'DataUltimoCollaudo' => 'nullable|date',
@@ -166,7 +167,7 @@ public function update(Request $request, int $idAutomezzo) {
         'Modello' => 'required|string|max:255',
         'idTipoVeicolo' => 'required|exists:vehicle_types,id',
         'KmRiferimento' => 'required|numeric|min:0',
-        'KmTotali' => 'required|numeric|min:0',
+        'KmTotali' => 'nullable|numeric|min:0',
         'idTipoCarburante' => 'required|exists:fuel_types,id',
         'DataUltimaAutorizzazioneSanitaria' => 'nullable|date',
         'DataUltimoCollaudo' => 'nullable|date',

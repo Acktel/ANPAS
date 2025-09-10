@@ -9,6 +9,7 @@ use App\Models\Dipendente;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class KmPercorsiController extends Controller {
     /**
@@ -183,13 +184,21 @@ class KmPercorsiController extends Controller {
 
         $idAutomezzo = $request->input('idAutomezzo');
         $kmArray = $request->input('km');
+        $anno = session('anno_riferimento', now()->year);
         $now = now();
 
+
+        DB::transaction(function() use ($idAutomezzo, $kmArray, $anno) {
+        // Inserisci/aggiorna i record in automezzi_km (mantieni la tua logica AutomezzoKm::upsert)
         foreach ($kmArray as $idConvenzione => $km) {
             if (is_numeric($km) && $km > 0) {
                 AutomezzoKm::upsert((int)$idAutomezzo, (int)$idConvenzione, (float)$km);
             }
         }
+
+        // **Qui aggiorniamo il campo KmTotali in automezzi** a partire dalla somma reale in automezzi_km
+        Automezzo::refreshKmTotaliFor((int)$idAutomezzo, $anno);
+        });
 
         return redirect()
             ->route('km-percorsi.index')
@@ -214,7 +223,9 @@ class KmPercorsiController extends Controller {
         $now = now();
         $anno = session('anno_riferimento', now()->year);
 
-        // Rimuove i record esistenti per quell'automezzo e anno
+
+        DB::transaction(function() use ($idAutomezzo, $kmArray, $anno) {
+        // Se il tuo flusso prevede prima la cancellazione totale e reinserimento:
         AutomezzoKm::deleteByAutomezzo($idAutomezzo, $anno);
 
         // Reinserisce quelli aggiornati
@@ -224,25 +235,13 @@ class KmPercorsiController extends Controller {
             }
         }
 
+        // **Aggiorna il totale nell'automezzo** (somma KMPercorsi e salva)
+        Automezzo::refreshKmTotaliFor((int)$idAutomezzo, $anno);
+    });
+
         return redirect()
             ->route('km-percorsi.index')
             ->with('success', 'KM percorsi aggiornati con successo.');
     }
 
-
-
-
-
-
-
-
-
-    //     public function destroy(int $id) {
-    //     abort_if(!Convenzione::getById($id), 404);
-
-    //     Convenzione::deleteConvenzione($id);
-
-    //     return redirect()->route('km_percorsi.index')->with('success', 'Distinta eliminata.');
-        
-    // }
 }

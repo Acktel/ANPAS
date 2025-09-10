@@ -12,6 +12,7 @@
     <div class="mb-3">
       {{-- action="{{ route('aziende_sanitarie.index') }}" --}}
       <form method="GET" id="assocSelectForm" class="w-100" style="max-width:400px">
+        <div class="position-relative">
         <div class="input-group">
           <!-- Campo visibile -->
           <input
@@ -34,7 +35,7 @@
         </div>
 
         <!-- Dropdown custom -->
-            <ul id="assocSelectDropdown" class="list-group" style="z-index:2000; display:none; max-height:240px; overflow:auto; top:100%; left:0;
+            <ul id="assocSelectDropdown" class="list-group position-absolute w-100" style="z-index:2000; display:none; max-height:240px; overflow:auto; top:100%; left:0;
                    background-color:#fff; opacity:1; -webkit-backdrop-filter:none; backdrop-filter:none;">
               @foreach($associazioni as $assoc)
                 <li class="list-group-item assoc-item" data-id="{{ $assoc->idAssociazione }}">
@@ -42,6 +43,7 @@
                 </li>
               @endforeach
             </ul>
+          </div>
       </form>
     </div>
   @endif
