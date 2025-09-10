@@ -172,13 +172,14 @@ $assocCorr = 'Anpas Nazionale';
                 </li>
 
                 {{-- Dropdown Documenti --}}
-                <!--
+                
                 <li class="nav-item dropdown">
                     <a class="nav-link dropdown-toggle" href="#" id="documentiDropdown" data-bs-toggle="dropdown">Documenti</a>
                     <ul class="dropdown-menu">
-                        <li><a class="dropdown-item" href="{{ route('documenti.registro') }}">Esportazioni</a></li>                      
+                        <li><a class="dropdown-item" href="{{ route('documenti.registro') }}">Esportazioni</a></li>
+                      
                     </ul>
-                </li>-->
+                </li>
                 @endauth
 
             </ul>
