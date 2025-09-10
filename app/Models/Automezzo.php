@@ -7,8 +7,10 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use App\Models\User;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Schema;
 
-class Automezzo {
+class Automezzo
+{
     protected const TABLE = 'automezzi';
 
     public static function getAll(?int $anno = null): Collection
@@ -52,7 +54,8 @@ class Automezzo {
             ->get();
     }
 
-    public static function createAutomezzo(array $data): int {
+    public static function createAutomezzo(array $data): int
+    {
         return DB::table('automezzi')->insertGetId([
             'idAssociazione'                     => $data['idAssociazione'],
             'idAnno'                             => $data['idAnno'],
@@ -64,7 +67,7 @@ class Automezzo {
             'Modello'                            => $data['Modello'],
             'idTipoVeicolo'                      => $data['idTipoVeicolo'],
             'incluso_riparto'                    => $data['incluso_riparto'] ?? 0,
-            'KmTotali'                           => $data['KmTotali'],
+            'KmTotali'                           => $data['KmTotali'] ?? null,
             'idTipoCarburante'                   => $data['idTipoCarburante'],
             'DataUltimaAutorizzazioneSanitaria'  => $data['DataUltimaAutorizzazioneSanitaria'],
             'DataUltimoCollaudo'                 => $data['DataUltimoCollaudo'],
@@ -74,7 +77,8 @@ class Automezzo {
         ]);
     }
 
-    public static function getById(int $idAutomezzo, ?int $anno = null) {
+    public static function getById(int $idAutomezzo, ?int $anno = null)
+    {
         $anno = $anno ?? session('anno_riferimento', now()->year);
 
         return DB::table('automezzi as a')
@@ -94,7 +98,8 @@ class Automezzo {
             ->first();
     }
 
-    public static function updateAutomezzo(int $idAutomezzo, array $data): void {
+    public static function updateAutomezzo(int $idAutomezzo, array $data): void
+    {
         DB::table('automezzi')
             ->where('idAutomezzo', $idAutomezzo)
             ->update([
@@ -108,7 +113,7 @@ class Automezzo {
                 'Modello'                            => $data['Modello'],
                 'idTipoVeicolo'                      => $data['idTipoVeicolo'],
                 'incluso_riparto'                    => $data['incluso_riparto'],
-                'KmTotali'                           => $data['KmTotali'],
+                'KmTotali'                           => $data['KmTotali'] ?? null,
                 'idTipoCarburante'                   => $data['idTipoCarburante'],
                 'DataUltimaAutorizzazioneSanitaria'  => $data['DataUltimaAutorizzazioneSanitaria'],
                 'DataUltimoCollaudo'                 => $data['DataUltimoCollaudo'],
@@ -118,12 +123,14 @@ class Automezzo {
             ]);
     }
 
-    public static function deleteAutomezzo(int $idAutomezzo): void {
+    public static function deleteAutomezzo(int $idAutomezzo): void
+    {
         AutomezzoKmRiferimento::deleteByAutomezzo($idAutomezzo);
         DB::table('automezzi')->where('idAutomezzo', $idAutomezzo)->delete();
     }
 
-    public static function getByAssociazione(?int $idAssociazione, ?int $anno = null): Collection {
+    public static function getByAssociazione(?int $idAssociazione, ?int $anno = null): Collection
+    {
         $anno = $anno ?? session('anno_riferimento', now()->year);
 
         return DB::table(self::TABLE . ' as a')
@@ -208,7 +215,8 @@ class Automezzo {
         return $rows;
     }
 
-    public static function getLightForAnno(int $anno, ?int $idAssociazione = null): Collection {
+    public static function getLightForAnno(int $anno, ?int $idAssociazione = null): Collection
+    {
         return DB::table('automezzi')
             ->where('idAnno', operator: $anno)
             ->when($idAssociazione, fn($q) => $q->where('idAssociazione', $idAssociazione))
@@ -216,7 +224,8 @@ class Automezzo {
             ->get();
     }
 
-    public static function getForRipartizione(int $anno, ?int $idAssociazione = null): Collection {
+    public static function getForRipartizione(int $anno, ?int $idAssociazione = null): Collection
+    {
         return DB::table('automezzi')
             ->where('idAnno', $anno)
             ->when($idAssociazione, fn($q) => $q->where('idAssociazione', $idAssociazione))
@@ -225,7 +234,8 @@ class Automezzo {
             ->get();
     }
 
-    public static function getFiltratiByUtente($anno): Collection {
+    public static function getFiltratiByUtente($anno): Collection
+    {
         $user = Auth::user();
         if ($user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])) {
             return self::getAll($anno);
@@ -235,4 +245,27 @@ class Automezzo {
         abort_if(!$idAssoc, 403, "Associazione non trovata per l'utente.");
         return self::getByAssociazione($idAssoc, $anno);
     }
+
+public static function refreshKmTotaliFor(int $idAutomezzo, ?int $anno = null): void
+{
+    // usa l'anno di sessione se non passato
+    $anno = $anno ?? session('anno_riferimento', now()->year);
+
+    // costruisci query su automezzi_km
+    $q = DB::table('automezzi_km')->where('idAutomezzo', $idAutomezzo);
+
+    // se la tabella ha 'idAnno' filtra per anno (safe-check)
+    if (Schema::hasColumn('automezzi_km', 'idAnno')) {
+        $q->where('idAnno', $anno);
+    }
+
+    // somma KMPercorsi
+    $sum = (float) $q->sum('KMPercorsi');
+
+    // persisti nel record automezzi
+    DB::table('automezzi')
+        ->where('idAutomezzo', $idAutomezzo)
+        ->update(['KmTotali' => $sum, 'updated_at' => now()]);
+}
+
 }

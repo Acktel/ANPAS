@@ -13,8 +13,9 @@
   <div class="d-flex mb-3">
     {{-- Se ci sono associazioni in $associazioni (solo per SuperAdmin/Admin/Supervisor) --}}
 @if(!empty($associazioni) && $associazioni->isNotEmpty())
-  <div class="mb-3" style="max-width:400px;">
+  <div class="mb-3">
     <form id="assocFilterForm" method="GET" class="w-100">
+      <div class="position-relative">
       <div class="input-group">
         <!-- Campo visibile -->
         <input
@@ -38,7 +39,7 @@
       </div>
 
       <!-- Dropdown custom -->
-      <ul id="assocFilterDropdown" class="list-group"
+      <ul id="assocFilterDropdown" class="list-group position-absolute w-100"
           style="z-index:2000; display:none; max-height:240px; overflow:auto; top:100%; left:0;
                  background-color:#fff; opacity:1; -webkit-backdrop-filter:none; backdrop-filter:none;">
         @foreach($associazioni as $assoc)
@@ -47,6 +48,7 @@
           </li>
         @endforeach
       </ul>
+      </div>
     </form>
   </div>
 @endif

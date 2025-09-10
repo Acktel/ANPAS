@@ -28,6 +28,7 @@ class Dipendente {
                 MIN(d.idAnno) as idAnno,
                 MIN(d.DipendenteNome) as DipendenteNome,
                 MIN(d.DipendenteCognome) as DipendenteCognome,
+                MIN(d.note) as note,
                 MIN(lm.nome) as livelliMansione,
                 MIN(d.ContrattoApplicato) as ContrattoApplicato,
                 MIN(a.Associazione) as Associazione,
