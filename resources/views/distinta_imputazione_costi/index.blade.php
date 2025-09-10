@@ -56,7 +56,7 @@ $user = Auth::user();
 
   @php
   $sezioni = [
-    2 => 'Automezzi e Attrezzature Sanitarie',
+    2 => 'Automezzi',
     3 => 'Attrezzatura Sanitaria',
     4 => 'Telecomunicazioni',
     5 => 'Costi gestione struttura',
