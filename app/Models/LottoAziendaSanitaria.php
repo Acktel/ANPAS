@@ -3,22 +3,28 @@
 namespace App\Models;
 
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Collection;
 
 class LottoAziendaSanitaria
 {
     protected static string $table = 'aziende_sanitarie_lotti';
 
-    public static function getAllWithAziende(): \Illuminate\Support\Collection
+    public static function allWithAziende(?int $idAziendaSanitaria = null): Collection
     {
-        return DB::table(self::$table . ' as l')
+        $q = DB::table(self::$table.' as l')
             ->join('aziende_sanitarie as a', 'l.idAziendaSanitaria', '=', 'a.idAziendaSanitaria')
-            ->select('l.id', 'l.nomeLotto', 'a.Nome as nomeAzienda')
+            ->select('l.id', 'l.nomeLotto', 'l.idAziendaSanitaria', 'a.Nome as nomeAzienda')
             ->orderBy('a.Nome')
-            ->orderBy('l.nomeLotto')
-            ->get();
+            ->orderBy('l.nomeLotto');
+
+        if ($idAziendaSanitaria) {
+            $q->where('l.idAziendaSanitaria', $idAziendaSanitaria);
+        }
+
+        return $q->get();
     }
 
-    public static function createLotto(array $data): int
+    public static function create(array $data): int
     {
         return DB::table(self::$table)->insertGetId([
             'idAziendaSanitaria' => $data['idAziendaSanitaria'],
@@ -28,10 +34,8 @@ class LottoAziendaSanitaria
         ]);
     }
 
-    public static function deleteLotto(int $id): void
+    public static function deleteById(int $id): int
     {
-        DB::table(self::$table)
-            ->where('id', $id)
-            ->delete();
+        return DB::table(self::$table)->where('id', $id)->delete();
     }
 }
