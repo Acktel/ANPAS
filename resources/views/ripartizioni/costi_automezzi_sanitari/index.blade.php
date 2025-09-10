@@ -12,7 +12,7 @@
             <select id="selectAssociazione" class="form-control">
                 <option value="">-- Seleziona Associazione --</option>
                 @foreach ($associazioni as $assoc)
-                <option value="{{ $assoc->id }}">{{ $assoc->nome }}</option>
+                <option value="{{ $assoc->idAssociazione }}">{{ $assoc->Associazione }}</option>
                 @endforeach
             </select>
         </div>

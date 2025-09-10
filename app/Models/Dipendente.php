@@ -48,7 +48,17 @@ class Dipendente {
 
     public static function getByAssociazione(?int $idAssociazione, int $anno): Collection {
        
-        $sql = "SELECT * FROM " . self::TABLE . " as d
+        $sql = "SELECT 
+                d.idDipendente,
+                d.idAssociazione,
+                d.idAnno,
+                d.DipendenteNome,
+                d.DipendenteCognome,
+                d.note,
+                d.ContrattoApplicato,
+                q.nome as Qualifica,
+                lm.nome as LivelloMansione
+                FROM " . self::TABLE . " as d
                 LEFT JOIN dipendenti_qualifiche dq ON dq.idDipendente = d.idDipendente
                 LEFT JOIN qualifiche q ON q.id = dq.idQualifica
                 LEFT JOIN dipendenti_livelli_mansione dm ON dm.idDipendente = d.idDipendente

@@ -16,9 +16,20 @@ class RipartizioneCostiAutomezziSanitariController extends Controller {
         $user = Auth::user();
         $isElevato = $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor']);
 
-        $associazioni = $isElevato
-            ? DB::table('associazioni')->select('IdAssociazione as id', 'Associazione as nome')->orderBy('Associazione')->get()
-            : [];
+        if ($isElevato) {
+            $associazioni = DB::table('associazioni')
+                ->select('idAssociazione' , 'Associazione')
+                ->whereNull('deleted_at')
+                ->where('idAssociazione', '!=', 1)
+                ->orderBy('Associazione')
+                ->get();
+
+            $selectedAssoc = session('associazione_selezionata')
+                ?? optional($associazioni->first())->idAssociazione;
+        } else {
+            $associazioni  = collect(); // non mostriamo la select per utenti non elevati
+            $selectedAssoc = (int) $user->IdAssociazione;
+        }
 
         $automezzi = Automezzo::getFiltratiByUtente($anno);
 

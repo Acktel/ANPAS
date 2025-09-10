@@ -8,7 +8,7 @@
                 <th>Retribuzioni</th>
                 <th>Oneri Sociali</th>
                 <th>TFR</th>
-                <th>Consulenze</th>
+                <th>CONSULENZE PER PERSONALE DIPENDENTE E SORVEGLIANZA SANITARIA D.Lgs 626/94</th>
                 <th>Totale</th>
                 <th class="col-actions">Azioni</th> {{-- Se usi pulsanti --}}
             </tr>

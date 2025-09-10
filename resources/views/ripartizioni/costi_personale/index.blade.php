@@ -2,7 +2,14 @@
 
 @section('content')
 <div class="container-fluid">
+    {{-- 🧾 Titolo + bottone --}}
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 id="titolo-pagina" class="container-title">
+            Distinta Rilevazione Analitica Costi Personale (Autisti e Barellieri) − Anno {{ $anno }}
+        </h1>
+    </div>
 
+    
     {{-- 🔘 Menu qualifiche --}}
     <div class="mb-4">
         <div class="btn-group" role="group" aria-label="Qualifiche">
@@ -10,7 +17,7 @@
                 <button type="button"
                         class="btn btn-outline-primary btn-qualifica {{ $qualifica === 'Autisti e Barellieri' ? 'active btn-anpas-green-active' : '' }}"
                         data-qualifica="{{ $qualifica }}">
-                    {{ $qualifica }}
+                    {{ strtoupper($qualifica) }}
                 </button>
             @endforeach
         </div>
@@ -45,16 +52,6 @@
     </form>
 </div>
 @endif
-
-    {{-- 🧾 Titolo + bottone --}}
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1 id="titolo-pagina" class="container-title">
-            Distinta Rilevazione Analitica Costi Personale (Autisti e Barellieri) − Anno {{ $anno }}
-        </h1>
-        <a href="{{ route('ripartizioni.personale.costi.create') }}" class="btn btn-anpas-green">
-            <i class="fas fa-plus me-1"></i> Nuovo inserimento
-        </a>
-    </div>
 
     {{-- 📊 Contenitore tabelle --}}
     <div id="contenitore-tabella">

@@ -50,9 +50,10 @@ class CostiPersonaleController extends Controller {
             }
             return str_contains($q, $qualificaInput);
         });
-
         $costi = CostiPersonale::getAllByAnno($anno)->keyBy('idDipendente');
+        
         $ripartizioni = RipartizionePersonale::getAll($anno, $user)->groupBy('idDipendente');
+       
         $convenzioni = Convenzione::getByAssociazioneAnno($idAssociazione, $anno)
             ->sortBy('idConvenzione')
             ->values();
@@ -75,7 +76,7 @@ class CostiPersonaleController extends Controller {
             $tfr = (float)($c->TFR ?? 0);
             $consulenze = (float)($c->Consulenze ?? 0);
             $totale = $retribuzioni + $oneriSociali + $tfr + $consulenze;
-
+            
             $r = [
                 'idDipendente' => $id,
                 'Dipendente'   => trim("{$d->DipendenteCognome} {$d->DipendenteNome}"),
