@@ -83,6 +83,7 @@ class DocumentiController extends Controller {
             'distinta_imputazione_costi_pdf',
             'riepiloghi_dati_e_costi_pdf',
             'bundle_all_pdf',
+            'bundle_all',
         ];
 
         $documenti = DocumentoGenerato::query()
