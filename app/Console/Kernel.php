@@ -10,9 +10,8 @@ class Kernel extends ConsoleKernel
     protected function schedule(Schedule $schedule): void
     {
         // Esegui il worker ogni minuto
-        $schedule->command('queue:work --stop-when-empty')
-                 ->everyMinute()
-                 ->withoutOverlapping();
+        $schedule->command('queue:work database --queue=pdf --sleep=3 --tries=1 --timeout=120')
+             ->withoutOverlapping();
     }
 
     protected function commands(): void
