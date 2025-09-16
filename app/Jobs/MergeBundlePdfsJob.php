@@ -71,6 +71,7 @@ class MergeBundlePdfsJob implements ShouldQueue
                 'stato'      => 'error',
                 'updated_at' => now(),
             ]);
+            
             Log::warning("MergeBundlePdfsJob: nessun PDF valido trovato per bundle {$this->bundleId}");
             return;
         }

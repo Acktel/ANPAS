@@ -41,7 +41,13 @@ class GeneraServiziSvoltiPdfJob implements ShouldQueue
     {
         /** @var DocumentoGenerato $doc */
         $doc = DocumentoGenerato::findOrFail($this->documentoId);
-
+        Log::debug('SERVIZI SVOLTI: start', [
+            'documentoId'    => $this->documentoId,
+            'idAssociazione' => $this->idAssociazione,
+            'anno'           => $this->anno,
+            'doc'            => $doc
+        ]);
+        
         // intestazione
         $associazione = DB::table('associazioni')
             ->where('idAssociazione', $this->idAssociazione)
@@ -155,6 +161,7 @@ class GeneraServiziSvoltiPdfJob implements ShouldQueue
         $filename = "servizi_svolti_{$this->idAssociazione}_{$this->anno}_" . now()->timestamp . ".pdf";
         $path     = "documenti/{$filename}";
         Storage::disk('public')->put($path, $pdf->output());
+            Log::debug('SERVIZI SVOLTI: salvataggio PDF'. $path );
 
         $doc->update([
             'nome_file'     => $filename,
