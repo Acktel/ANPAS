@@ -53,6 +53,13 @@
             </div>
 
             <div class="d-grid gap-2">
+              {{-- Crea la coda di jobs per generare un solo pdf con tutti i job in un singolo file  --}}
+              <button type="button" class="btn btn-anpas-green"
+                data-endpoint="{{ route('documenti.bundle_all.pdf') }}"
+                data-type="BUNDLE TUTTI I PDF (PDF)">
+                <i class="fas fa-book me-1"></i> Crea PDF (tutti i report)
+              </button>
+
               {{-- Ogni bottone chiama un endpoint che mette in coda un job e ritorna { id } --}}
               <button type="button" class="btn btn-anpas-green"
                 data-endpoint="{{ route('documenti.documento_unico.pdf') }}"
@@ -109,6 +116,48 @@
                 <i class="fas fa-notes-medical me-1"></i> Servizi Svolti – Ossigeno/Materiale
               </button>
 
+              <button type="button" class="btn btn-anpas-green"
+                data-endpoint="{{ route('documenti.costi_personale.pdf') }}"
+                data-type="COSTI PERSONALE (PDF)">
+                <i class="fas fa-user-tie me-1"></i> Costi personale (PDF)
+              </button>
+
+              <button type="button" class="btn btn-anpas-green"
+                data-endpoint="{{ route('documenti.costi_radio.pdf') }}"
+                data-type="DISTINTA COSTI RADIO (PDF)">
+                <i class="fas fa-broadcast-tower me-1"></i> Costi radio (PDF)
+              </button>
+
+              <button type="button" class="btn btn-anpas-green"
+                data-endpoint="{{ route('documenti.imputazioni_materiale_ossigeno.pdf') }}"
+                data-type="IMPUTAZIONI MATERIALE + OSSIGENO (PDF)">
+                <i class="fas fa-first-aid me-1"></i> Materiale sanitario + Ossigeno (PDF)
+              </button>
+
+              <button type="button" class="btn btn-anpas-green"
+                data-endpoint="{{ route('documenti.costi_automezzi_sanitari.pdf') }}"
+                data-type="DISTINTA COSTI AUTOMEZZI/ATTREZZATURE (PDF)">
+                <i class="fas fa-tools me-1"></i> Costi automezzi / attrezzatura sanitaria
+              </button>
+
+              <button type="button" class="btn btn-anpas-green"
+                data-endpoint="{{ route('documenti.ripartizione_costi_automezzi_riepilogo.pdf') }}"
+                data-type="RIP. COSTI AUTOMEZZI – TOTALE + PER TARGA (PDF)">
+                <i class="fas fa-table me-1"></i> Ripartizione: totale + per targa
+              </button>
+
+              <button type="button" class="btn btn-anpas-green"
+                data-endpoint="{{ route('documenti.distinta_imputazione_costi.pdf') }}"
+                data-type="DISTINTA IMPUTAZIONE COSTI (PDF)">
+                <i class="fas fa-file-excel me-1"></i> Distinta imputazione costi (PDF)
+              </button>
+
+              <button type="button" class="btn btn-anpas-green"
+                data-endpoint="{{ route('documenti.riepiloghi_dati_costi.pdf') }}"
+                data-type="RIEPILOGO DATI + COSTI (PDF)">
+                <i class="fas fa-table me-1"></i> Riepilogo dati + costi (TOT + per convenzione)
+              </button>
+
             </div>
           </form>
 
@@ -124,7 +173,7 @@
         <div class="card-body">
           <h5 class="card-title mb-3">Archivio documenti</h5>
 
-          <table class="table table-bordered table-striped align-middle" id="docsTable">
+          <table class="table table-bordered table-striped align-middle w-100" id="docsTable">
             <thead>
               <tr>
                 <th style="width:10%">ID</th>
@@ -167,8 +216,26 @@
     const params = document.getElementById('paramsForm');
     const idAssEl = document.getElementById('idAssociazione');
     const idAnnoEl = document.getElementById('idAnno');
-    const docsBody = document.querySelector('#docsTable tbody');
     const setAssocRoute = @json($routeSetAssoc); // può essere null
+
+    /* =========================
+       DataTable Archivio Documenti
+       (usa gli asset globali già presenti nel progetto)
+    ========================= */
+    const dt = $('#docsTable').DataTable({
+      pageLength: 25,
+      lengthMenu: [5, 10, 25, 50, 100],
+      order: [
+        [3, 'desc']
+      ], // ordina per "Generato il"
+      columnDefs: [{
+        targets: 4,
+        orderable: false
+      }],
+      language: {
+        url: '/js/i18n/Italian.json'
+      }
+    });
 
     // Persistenza selezione: sessione se la rotta esiste, altrimenti localStorage
     async function persistSelection() {
@@ -249,17 +316,17 @@
         } = await res.json(); // il controller deve restituire { id: <documento_id> }
         const typeLabel = btn.dataset.type || 'Documento';
 
-        // aggiungo riga "in coda"
-        const tr = document.createElement('tr');
-        tr.id = 'docrow-' + id;
-        tr.innerHTML = `
-        <td>${id}</td>
-        <td>${typeLabel}</td>
-        <td>${idAnno}</td>
-        <td>—</td>
-        <td><span class="badge bg-warning text-dark">In coda</span></td>
-      `;
-        docsBody.prepend(tr);
+        // aggiungi riga “in coda” tramite DataTable
+        const rowNode = dt.row.add([
+          id,
+          typeLabel,
+          idAnno,
+          '—',
+          `<span class="badge bg-warning text-dark">In coda</span>`
+        ]).draw(false).node();
+
+        // assegna un id DOM alla riga per il polling
+        rowNode.id = 'docrow-' + id;
 
         // polling stato
         pollStatus(id);
@@ -267,11 +334,6 @@
     });
 
     async function pollStatus(id) {
-      const row = document.getElementById('docrow-' + id);
-      if (!row) return;
-      const tdWhen = row.children[3];
-      const tdAct = row.children[4];
-
       const timer = setInterval(async () => {
         try {
           const r = await fetch("{{ route('documenti.status','__ID__') }}".replace('__ID__', id), {
@@ -280,19 +342,26 @@
             }
           });
           if (!r.ok) return;
-          const j = await r.json(); // {status:'queued|processing|ready|error', generato_il, download_url, message?}
+          const j = await r.json(); // {status:'queued|processing|ready|error', generato_il, download_url}
+
+          const row = dt.row('#docrow-' + id);
+          if (!row.node()) return;
+
+          const data = row.data(); // [ID, Tipo, Anno, Generato il, Azione]
 
           if (j.status === 'ready' && j.download_url) {
             clearInterval(timer);
-            tdWhen.textContent = new Date(j.generato_il).toLocaleString();
-            tdAct.innerHTML = `<a href="${j.download_url}" class="btn btn-sm btn-primary">Scarica</a>`;
+            data[3] = new Date(j.generato_il).toLocaleString();
+            data[4] = `<a href="${j.download_url}" class="btn btn-sm btn-primary">Scarica</a>`;
+            row.data(data).draw(false);
           } else if (j.status === 'error') {
             clearInterval(timer);
-            tdWhen.textContent = '—';
-            tdAct.innerHTML = `<span class="badge bg-danger">Errore</span>`;
+            data[3] = '—';
+            data[4] = `<span class="badge bg-danger">Errore</span>`;
+            row.data(data).draw(false);
           } else {
-            // queued/processing -> opzionale mostra spinner
-            tdAct.innerHTML = `<span class="badge bg-warning text-dark">${j.status || 'In coda'}</span>`;
+            data[4] = `<span class="badge bg-warning text-dark">${j.status || 'In coda'}</span>`;
+            row.data(data).draw(false);
           }
         } catch (_) {
           /* ignora, ritenta */

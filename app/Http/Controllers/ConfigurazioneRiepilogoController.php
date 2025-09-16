@@ -13,10 +13,10 @@ class ConfigurazioneRiepilogoController extends Controller
     public function index()
     {
         $this->authorizeRoles();
-
-        $tipologie       = RiepilogoVoceConfig::listTipologie();       // elenco sezioni
-        $vociByTipologia = RiepilogoVoceConfig::allByTipologia();      // voci raggruppate
-
+ 
+        $tipologie       = RiepilogoVoceConfig::listTipologie(); 
+        $vociByTipologia = RiepilogoVoceConfig::allByTipologia();    
+        
         return view('configurazioni.riepilogo', compact('tipologie','vociByTipologia'));
     }
 

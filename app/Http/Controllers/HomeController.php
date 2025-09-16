@@ -32,7 +32,7 @@ public function index(Request $request) {
         session(['idAssociazione' => $selectedAssoc]);
     }
 
-    $dati = \App\Models\RiepilogoCosti::getTotaliPerTipologia($anno, $selectedAssoc);
+    $dati = RiepilogoCosti::getTotaliPerTipologia($anno, $selectedAssoc);
 
     return view('dashboard', compact('dati', 'anno', 'associazioni', 'selectedAssoc'));
 }

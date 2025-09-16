@@ -115,7 +115,6 @@ class RiepilogoCostiController extends Controller {
             'idVoceConfig'   => 'required|integer|exists:riepilogo_voci_config,id',
             'preventivo'     => 'required|numeric|min:0',
         ]);
-
         $idAssociazione = $isElevato ? (int) $data['idAssociazione'] : (int) $user->IdAssociazione;
 
         // blocco su TOT
@@ -194,6 +193,7 @@ class RiepilogoCostiController extends Controller {
      */
     public function edit(int $id) {
         $riga = Riepilogo::getRigaDettaglio($id);
+
         if (!$riga) abort(404, 'Voce non trovata');
 
         $user      = Auth::user();

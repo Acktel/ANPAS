@@ -206,6 +206,7 @@ class RiepilogoController extends Controller
     public function editRiga(int $id)
     {
         $riga = Riepilogo::getRigaDettaglio($id);
+        dd($riga);
         if (!$riga) abort(404, 'Voce non trovata');
 
         $user      = Auth::user();

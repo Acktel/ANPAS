@@ -1,4 +1,4 @@
-{{-- Volontari + Servizio Civile Nazionale – PDF --}}
+{{-- Volontari + Servizio Civile Nazionale – PDF (compatto) --}}
 @php
   $num0 = fn($v) => number_format((float)$v, 0, ',', '.');
   $pct2 = fn($v) => number_format((float)$v, 2, ',', '.') . '%';
@@ -9,23 +9,34 @@
   <meta charset="utf-8">
   <title>Volontari & SCN – {{ $anno }} – {{ $associazione->Associazione ?? '' }}</title>
   <style>
-    @page { size: A4 landscape; margin: 12mm; }
-    body { font-family: DejaVu Sans, Arial, Helvetica, sans-serif; font-size: 11px; color:#111; }
-    h1,h2 { margin:0 0 6px 0; }
-    .small { color:#444; margin-bottom:8px; }
-    table { width:100%; border-collapse:collapse; table-layout: fixed; margin-bottom:18px; }
-    th, td { border:1px solid #ccc; padding:5px 6px; vertical-align: middle; }
-    th { background:#f8fafc; text-align:center; }
+    @page { size: A4 landscape; margin: 8mm; } /* margini più stretti */
+    * { box-sizing: border-box; }
+    html, body { margin:0; padding:0; }
+    body { font-family: DejaVu Sans, Arial, Helvetica, sans-serif; font-size: 9px; color:#111; } /* font più piccolo */
+
+    h1,h2 { margin:0 0 4px 0; font-size: 11px; }
+    .small { color:#444; margin:0 0 6px 0; font-size: 8.2px; }
+    .band { height:6px; margin:6px 0 4px; background:#ff36d8; } /* più sottile */
+
+    table { width:100%; border-collapse:collapse; table-layout: fixed; margin:0 0 10px 0; }
+    thead { display: table-header-group; }  /* ripete head a ogni pagina */
+    tr { page-break-inside: avoid; }
+
+    th, td { border:1px solid #cfc; border-color:#ccc; padding: 2px 3px; vertical-align: middle; line-height: 1.15; }
+    th { background:#f8fafc; text-align:center; font-weight:700; font-size: 8.2px; }
+    td { font-size: 8.2px; }
+
     .text-end { text-align:right; }
     .row-total { background:#fff7c6; font-weight:600; }
-    thead { display: table-header-group; }
-    tr { page-break-inside: avoid; }
-    .col-label { width: 26%; }
-    .col-tot   { width: 10%; }
-    .col-ore   { width: 8%; }
-    .col-pct   { width: 6.5%; }
-    .section { border-top: 6px solid #00c0d1; padding-top:8px; margin-top:10px; }
-    .band { background:#ff36d8; height:8px; margin:8px 0 6px; }
+
+    /* colonne più strette per far entrare tutto */
+    .col-label { width: 24%; }
+    .col-tot   { width: 9%; }
+    .col-ore   { width: 7%; }
+    .col-pct   { width: 6%; }
+
+    /* compatta le sezioni */
+    .section { border-top: 4px solid #00c0d1; padding-top:6px; margin-top:8px; }
   </style>
 </head>
 <body>
@@ -36,6 +47,7 @@
       Associazione: <strong>{{ $associazione->Associazione ?? '' }}</strong> — Esercizio finanziario: <strong>{{ $anno }}</strong>
     </div>
     <div class="band"></div>
+
     <table>
       <thead>
         <tr>
@@ -47,7 +59,7 @@
         </tr>
         <tr>
           @foreach($convenzioni as $c)
-            <th class="col-ore">ORE DI SERVIZIO</th>
+            <th class="col-ore">ORE</th>
             <th class="col-pct">%</th>
           @endforeach
         </tr>
@@ -73,6 +85,7 @@
       Associazione: <strong>{{ $associazione->Associazione ?? '' }}</strong> — Esercizio finanziario: <strong>{{ $anno }}</strong>
     </div>
     <div class="band"></div>
+
     <table>
       <thead>
         <tr>
@@ -84,7 +97,7 @@
         </tr>
         <tr>
           @foreach($convenzioni as $c)
-            <th class="col-ore">ORE DI SERVIZIO</th>
+            <th class="col-ore">ORE</th>
             <th class="col-pct">%</th>
           @endforeach
         </tr>

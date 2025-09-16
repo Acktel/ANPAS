@@ -136,7 +136,6 @@ class CostiRadioController extends Controller {
                 'AmmortamentoImpiantiRadio' => $data['TotAmmortamentoRadio']
             ]
         );
-
         return redirect()->route('ripartizioni.costi_radio.index')->with('success', 'Totali aggiornati correttamente.');
     }
 }

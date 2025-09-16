@@ -517,6 +517,7 @@ class Riepilogo extends Model {
 
     /** Dettaglio riga (con join) per schermata di edit riga */
     public static function getRigaDettaglio(int $id): ?object {
+
         return DB::table('riepilogo_dati as d')
             ->join('riepiloghi as r', 'r.idRiepilogo', '=', 'd.idRiepilogo')
             ->leftJoin('riepilogo_voci_config as vc', 'vc.id', '=', 'd.idVoceConfig')
@@ -610,7 +611,6 @@ class Riepilogo extends Model {
      * Crea la riga se manca (preventivo/consuntivo 0) e ritorna SEMPRE l'id.
      */
     public static function ensureRiga(int $idRiepilogo, int $idVoceConfig, int $idConvenzione): int {
-        self::upsertValore($idRiepilogo, $idVoceConfig, $idConvenzione, 0.0, 0.0);
 
         $id = self::getRigaIdByKeys($idRiepilogo, $idVoceConfig, $idConvenzione);
         if (!$id) {

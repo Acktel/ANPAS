@@ -14,10 +14,11 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Throwable;
 use App\Models\DocumentoGenerato;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Bus\Batchable;
 
 class GeneraServiziSvoltiOssigenoPdfJob implements ShouldQueue
 {
-    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels, Batchable;
 
     public function __construct(
         public int $documentoId,
