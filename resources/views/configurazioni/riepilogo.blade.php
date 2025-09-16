@@ -17,45 +17,6 @@
     </div>
     @endif
 
-    {{-- Aggiungi voce --}}
- <!--   <div class="card-anpas mb-4">
-        <div class="card-header bg-anpas-primary">
-            <b>Aggiungi voce</b> (valida per tutte le associazioni)
-        </div>
-        <div class="card-body bg-anpas-white">
-            <form method="POST" action="{{ route('configurazioni.riepilogo.store') }}" class="row g-3 align-items-end">
-                @csrf
-                <div class="col-md-3">
-                    <label class="form-label">Tipologia</label>
-                    <select name="idTipologiaRiepilogo" class="form-select" required>
-                        @foreach($tipologie as $t)
-                            @continue($t->id == 12) {{-- nascondi Totale generale --}}
-                            <option value="{{ $t->id }}">{{ $t->descrizione }}</option>
-                        @endforeach
-                    </select>
-                </div>
-                <div class="col-md-6">
-                    <label class="form-label">Descrizione</label>
-                    <input type="text" name="descrizione" class="form-control" required placeholder="Es. Energia elettrica">
-                </div>
-                <div class="col-md-2">
-                    <label class="form-label">Ordinamento</label>
-                    <input type="number" name="ordinamento" class="form-control" value="0" min="0">
-                </div>
-                <div class="col-md-1">
-                    <input type="hidden" name="attivo" value="0">
-                    <div class="form-check">
-                        <input class="form-check-input" type="checkbox" name="attivo" value="1" id="chkAttivo" checked>
-                        <label class="form-check-label" for="chkAttivo">Attivo</label>
-                    </div>
-                </div>
-                <div class="col-12 d-flex justify-content-end">
-                    <button class="btn btn-anpas-green"><i class="fas fa-plus me-1"></i> Aggiungi</button>
-                </div>
-            </form>
-        </div>
-    </div>
--->
     {{-- Sezioni per tipologia --}}
     @foreach($tipologie as $t)
         @continue($t->id == 12) {{-- nascondi Totale generale --}}
@@ -85,7 +46,7 @@
                                 <form action="{{ route('configurazioni.riepilogo.update', $voce->id) }}" method="POST" class="d-flex gap-2 align-items-center">
                                     @csrf @method('PUT')
                                     <input type="hidden" name="idTipologiaRiepilogo" value="{{ $t->id }}">
-                                    <input type="text" name="descrizione" class="form-control form-control-sm" value="{{ $voce->descrizione }}" required>
+                                    <input type="text" name="descrizione" class="form-control form-control-sm" value="{{ $voce->descrizione }}" required readonly>
                             </td>
                             <td>
                                 <input type="number" name="ordinamento" class="form-control form-control-sm" value="{{ $voce->ordinamento }}" min="0">
@@ -94,7 +55,7 @@
                                 <input type="hidden" name="attivo" value="0">
                                 <input type="checkbox" name="attivo" value="1" {{ $voce->attivo ? 'checked' : '' }}>
                             </td>
-                            <td class="text-nowrap">
+                            <td class="text-nowrap text-center">
                                 <button class="btn btn-sm btn-anpas-green me-1" title="Salva"><i class="fas fa-save"></i></button>
                                 </form>
                                <!-- <form action="{{ route('configurazioni.riepilogo.destroy', $voce->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Confermi eliminazione?')">

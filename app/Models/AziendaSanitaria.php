@@ -7,32 +7,49 @@ use Illuminate\Support\Facades\DB;
 class AziendaSanitaria {
     protected static string $table = 'aziende_sanitarie';
 
-    public static function getAllWithConvenzioni(): \Illuminate\Support\Collection {
-        return DB::table('aziende_sanitarie as a')
-            ->leftJoin('azienda_sanitaria_convenzione as ac', 'a.idAziendaSanitaria', '=', 'ac.idAziendaSanitaria')
-            ->leftJoin('convenzioni as c', 'ac.idConvenzione', '=', 'c.idConvenzione')
-            ->leftJoin('aziende_sanitarie_lotti as l', 'a.idAziendaSanitaria', '=', 'l.idAziendaSanitaria')
-            ->select(
-                'a.idAziendaSanitaria',
-                'a.Nome',
-                'a.Indirizzo',
-                'a.mail',
-                DB::raw('GROUP_CONCAT(DISTINCT c.Convenzione ORDER BY c.Convenzione SEPARATOR ", ") as Convenzioni'),
-                DB::raw('GROUP_CONCAT(DISTINCT l.nomeLotto ORDER BY l.nomeLotto SEPARATOR ", ") as Lotti')
-            )
-            ->groupBy(
-                'a.idAziendaSanitaria',
-                'a.Nome',
-                'a.Indirizzo',
-                'a.mail'
-            )
-            ->get()
-            ->map(function ($a) {
-                $a->Convenzioni = explode(', ', $a->Convenzioni ?? '');
-                $a->Lotti = explode(', ', $a->Lotti ?? '');
-                return $a;
-            });
+public static function getAllWithConvenzioni($idConvenzione = null): \Illuminate\Support\Collection
+{
+    $query = DB::table('aziende_sanitarie as a')
+        ->leftJoin('azienda_sanitaria_convenzione as ac', 'a.idAziendaSanitaria', '=', 'ac.idAziendaSanitaria')
+        ->leftJoin('convenzioni as c', 'ac.idConvenzione', '=', 'c.idConvenzione')
+        ->leftJoin('aziende_sanitarie_lotti as l', 'a.idAziendaSanitaria', '=', 'l.idAziendaSanitaria')
+        ->select(
+            'a.idAziendaSanitaria',
+            'a.Nome',
+            'a.Indirizzo',
+            'a.mail',
+            DB::raw('GROUP_CONCAT(DISTINCT c.Convenzione ORDER BY c.Convenzione SEPARATOR ", ") as Convenzioni'),
+            DB::raw('GROUP_CONCAT(DISTINCT l.nomeLotto ORDER BY l.nomeLotto SEPARATOR ", ") as Lotti')
+        )
+        ->groupBy(
+            'a.idAziendaSanitaria',
+            'a.Nome',
+            'a.Indirizzo',
+            'a.mail'
+        );
+
+    // Se passato un filtro, includi solo le aziende che hanno quella/e convenzione/i
+    if (!empty($idConvenzione)) {
+        // normalizza in array (accetta singolo id o array)
+        $ids = is_array($idConvenzione) ? $idConvenzione : [$idConvenzione];
+
+        $query->whereExists(function ($q) use ($ids) {
+            $q->select(DB::raw(1))
+              ->from('azienda_sanitaria_convenzione as ac2')
+              ->whereColumn('ac2.idAziendaSanitaria', 'a.idAziendaSanitaria')
+              ->whereIn('ac2.idConvenzione', $ids);
+        });
     }
+
+    return $query->get()
+        ->map(function ($a) {
+            // se la stringa è vuota o null, ritorna array vuoto
+            $a->Convenzioni = strlen(trim((string)($a->Convenzioni ?? ''))) ? explode(', ', $a->Convenzioni) : [];
+            $a->Lotti = strlen(trim((string)($a->Lotti ?? ''))) ? explode(', ', $a->Lotti) : [];
+            return $a;
+        });
+}
+
 
     public static function getById(int $id): ?\stdClass {
         return DB::table(self::$table)

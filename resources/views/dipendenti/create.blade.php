@@ -120,7 +120,7 @@ $annoCorr = session('anno_riferimento', now()->year);
           <div class="row mb-4">
           <div class="col-md-6 mb-3">
             <label for="LivelloMansione" class="form-label">Livello Mansione</label>
-            <input type="text" name="LivelloMansione" id="LivelloMansione" class="form-control" />
+            <input type="text" name="LivelloMansione" id="LivelloMansione" class="form-control" required/>
             <div class="form-text">
               Inserisci il livello mansione del dipendente.
             </div>
@@ -131,22 +131,6 @@ $annoCorr = session('anno_riferimento', now()->year);
               <textarea name="note" id="note" class="form-control" rows="3">{{ old('note') }}</textarea>
           </div>
         </div>
-          {{-- <div class="row mb-4">
-            <div class="col-md-6 mb-3">
-              <label for="LivelloMansione" class="form-label">Livello Mansione</label>
-              <select name="LivelloMansione[]" id="LivelloMansione" class="form-select" multiple>
-                @foreach($livelli as $lvl)
-                <option value="{{ $lvl->id }}"
-                  {{ collect(old('LivelloMansione'))->contains($lvl->id) ? 'selected' : '' }}>
-                  {{ $lvl->nome }}
-                </option>
-                @endforeach
-              </select>
-              <div class="form-text">
-                Seleziona uno o più livelli mansione da assegnare al dipendente.
-              </div>
-            </div>
-          </div> --}}
 
           {{-- Pulsanti --}}
           <div class="text-center">

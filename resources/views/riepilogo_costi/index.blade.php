@@ -192,9 +192,7 @@
     return fetch(`${url}?${params}`)
       .then(r => r.json())
       .then(({data}) => {
-              console.log("data: ",data);
-       console.log("params: ",params);
-         console.log("url: ",url);
+
         const tbody = document.querySelector(`#table-sezione-${idTipologia} tbody`);
         if (!tbody) return { prev: 0, cons: 0 };
 

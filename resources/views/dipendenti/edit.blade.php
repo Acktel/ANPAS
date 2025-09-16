@@ -98,15 +98,11 @@ $assoCorr = $associazioni->firstWhere('idAssociazione', $dipendente->idAssociazi
         <div class="row mb-4">
           <div class="col-md-6 mb-3">
             <label for="LivelloMansione" class="form-label">Livello Mansione</label>
-            <select name="LivelloMansione[]" id="LivelloMansione" class="form-select" multiple>
-              @foreach ($livelli as $liv)
-                <option value="{{ $liv->id }}"
-                  {{ in_array($liv->id, $livelliSelezionati) ? 'selected' : '' }}>
-                  {{ $liv->nome }}
-                </option>
-              @endforeach
-            </select>
-            <div class="form-text">Seleziona uno o più livelli mansione.</div>
+            <input type="text" name="LivelloMansione" id="LivelloMansione" class="form-control"
+                   value="{{ old('LivelloMansione', $dipendente->LivelloMansione ?? '') }}" required />
+            <div class="form-text">
+              Inserisci il livello mansione del dipendente.
+            </div>
           </div>
 
 

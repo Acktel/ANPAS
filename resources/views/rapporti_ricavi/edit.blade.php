@@ -39,15 +39,11 @@
     </table>
 
     <div class="text-center mt-4">
-      <button type="submit" class="btn btn-anpas-green">
-    <div class="mt-4 d-flex justify-content-between">
-      <a href="{{ route('rapporti-ricavi.index') }}" class="btn btn-secondary">
-        <i class="fas fa-arrow-left me-1"></i> Indietro
-      </a>
-      <button type="submit" class="btn btn-success">
+    <div class="mt-4 d-flex justify-content-center">
+      <button type="submit" class="btn btn-success me-1">
         <i class="fas fa-check me-1"></i> Salva
       </button>
-      <a href="{{ route('rapporti-ricavi.index') }}" class="btn btn-secondary">
+      <a href="{{ route('rapporti-ricavi.index') }}" class="btn btn-secondary ms-1">
         <i class="fas fa-times me-1"></i> Annulla
       </a>
     </div>

@@ -53,9 +53,11 @@
     $preventivi = [];
     $consuntivi = [];
     $scostamenti = [];
+    $nomiTipologie = [];
 
     foreach ($dati as $row) {
         $tipologie[] = $row->tipologia;
+        $nomiTipologie[] = $row->descrizione;
         $preventivi[] = $row->preventivo;
         $consuntivi[] = $row->consuntivo;
 
@@ -144,21 +146,6 @@
         {{-- Grafici divisi in blocchi --}}
         <div id="charts-container" class="row row-deck row-cards mt-4">
 
-        {{-- @if(auth()->user()->hasAnyRole(['SuperAdmin','Admin','Supervisor']))
-        <div class="d-flex mb-3">
-            <form method="GET" action="{{ route('dashboard') }}">
-            <select id="assocSelect" name="idAssociazione" class="form-select" onchange="this.form.submit()">
-                @foreach($associazioni as $assoc)
-                <option value="{{ $assoc->idAssociazione }}" {{ $assoc->idAssociazione == $selectedAssoc ? 'selected' : '' }}>
-                    {{ $assoc->Associazione }}
-                </option>
-                @endforeach
-            </select>
-            </form>
-        </div>
-        @endif --}}
-
-
             @php
                 $chunkSize = 2;
                 $total = count($tipologie);
@@ -184,7 +171,7 @@
 @push('scripts')
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            const labelsAll = {!! json_encode($tipologie) !!};
+            const labelsAll = {!! json_encode($nomiTipologie) !!};
             const preventiviAll = {!! json_encode($preventivi) !!};
             const consuntiviAll = {!! json_encode($consuntivi) !!};
             const scostamentiAll = {!! json_encode($scostamenti) !!};
@@ -198,6 +185,7 @@
                 const scostamento = scostamentiAll[i];
 
                 const titleText = label;
+                console.log('labelsAll =', labelsAll);
                 const descText = `Grafico con scostamento di ${label} `;
 
                 new Chart(ctx, {
@@ -227,7 +215,8 @@
                         maintainAspectRatio: false,
                         plugins: {
                             title: {
-                                display: false
+                                display: false,
+                                text: 'Riepilogo per tipologia'
                             }
                         },
                         scales: {
