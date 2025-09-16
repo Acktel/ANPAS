@@ -57,13 +57,17 @@ class Dipendente {
                 d.note,
                 d.ContrattoApplicato,
                 q.nome as Qualifica,
-                lm.nome as LivelloMansione
+                d.LivelloMansione
+                -- lm.nome as LivelloMansione
                 FROM " . self::TABLE . " as d
                 LEFT JOIN dipendenti_qualifiche dq ON dq.idDipendente = d.idDipendente
                 LEFT JOIN qualifiche q ON q.id = dq.idQualifica
-                LEFT JOIN dipendenti_livelli_mansione dm ON dm.idDipendente = d.idDipendente
-                LEFT JOIN livello_mansione lm ON lm.id = dm.idLivelloMansione
                 WHERE idAssociazione = :idAssociazione AND idAnno = :anno";
+                //queste due join sotto le prime due non commentate
+                // LEFT JOIN dipendenti_livelli_mansione dm ON dm.idDipendente = d.idDipendente
+                // LEFT JOIN livello_mansione lm ON lm.id = dm.idLivelloMansione
+                // GROUP BY d.idDipendente, d.idAssociazione, d.idAnno, d.DipendenteNome, d.DipendenteCognome, d.note, d.ContrattoApplicato, d.LivelloMansione";
+
         
         $params = ['idAssociazione' => $idAssociazione, 'anno' => $anno];
 
@@ -131,16 +135,15 @@ class Dipendente {
 
 public static function storeDipendente(array $data) {
     $qualifiche = $data['Qualifica'] ?? [];
-    $livelliInput = (array) ($data['LivelloMansione'] ?? []); // array anche se singolo valore
-    unset($data['Qualifica'], $data['LivelloMansione']);
+
+    unset($data['Qualifica']); // lasciamo LivelloMansione tra i campi da salvare
 
     $userId = auth()->id();
     $now = now();
-    $note = $data['note'] ?? null;
     $data['created_at'] = $data['updated_at'] = $now;
     $data['created_by'] = $data['updated_by'] = $userId;
 
-    // Inserimento dipendente
+    // Inserimento dipendente (con LivelloMansione salvato direttamente nella tabella)
     $id = DB::table(self::TABLE)->insertGetId($data);
 
     // Associazione qualifiche
@@ -153,75 +156,35 @@ public static function storeDipendente(array $data) {
         ]);
     }
 
-    // Associazione livelli mansione
-    foreach ($livelliInput as $livelloNome) {
-        // Controlla se esiste già il livello
-        $livelloId = DB::table('livello_mansione')->where('nome', $livelloNome)->value('id');
-
-        // Se non esiste, lo creiamo
-        if (!$livelloId) {
-            $livelloId = DB::table('livello_mansione')->insertGetId([
-                'nome'       => $livelloNome,
-                'created_at' => $now,
-                'updated_at' => $now,
-            ]);
-        }
-
-        // Inserimento nella pivot
-        DB::table('dipendenti_livelli_mansione')->insert([
-            'idDipendente'      => $id,
-            'idLivelloMansione' => $livelloId,
-            'created_at'        => $now,
-            'updated_at'        => $now,
-        ]);
-    }
-
-    // Salvataggio note
-    if ($note) {
-        DB::table(self::TABLE)->where('idDipendente', $id)->update([
-            'note' => $note,
-        ]);
-    }
-
     return redirect()->route('dipendenti.index')->with('success', 'Dipendente creato correttamente.');
 }
 
-    public static function updateDipendente(int $id, array $data) {
-        $qualifiche = $data['Qualifica'] ?? [];
-        $livelli = $data['LivelloMansione'] ?? [];
+public static function updateDipendente(int $id, array $data) {
+    $qualifiche = $data['Qualifica'] ?? [];
 
-        unset($data['Qualifica'], $data['LivelloMansione']);
-        $data['updated_at'] = now();
-        $data['updated_by'] = auth()->id();
+    unset($data['Qualifica']); // lasciamo LivelloMansione tra i campi da aggiornare
 
-        DB::table(self::TABLE)
+    $data['updated_at'] = now();
+    $data['updated_by'] = auth()->id();
+
+    // Aggiornamento del dipendente (LivelloMansione aggiornato direttamente nella tabella)
+    DB::table(self::TABLE)
         ->where('idDipendente', $id)
-        ->update(array_merge($data, [
-            'note' => $data['note'] ?? null,
-        ]));
+        ->update($data);
 
-        DB::table('dipendenti_qualifiche')->where('idDipendente', $id)->delete();
-        foreach ($qualifiche as $idQualifica) {
-            DB::table('dipendenti_qualifiche')->insert([
-                'idDipendente' => $id,
-                'idQualifica' => $idQualifica,
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
-        }
-
-        DB::table('dipendenti_livelli_mansione')->where('idDipendente', $id)->delete();
-        foreach ($livelli as $idLivello) {
-            DB::table('dipendenti_livelli_mansione')->insert([
-                'idDipendente' => $id,
-                'idLivelloMansione' => $idLivello,
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
-        }
-
-        return redirect()->route('dipendenti.index')->with('success', 'Dipendente aggiornato correttamente.');
+    // Aggiorna qualifiche
+    DB::table('dipendenti_qualifiche')->where('idDipendente', $id)->delete();
+    foreach ($qualifiche as $idQualifica) {
+        DB::table('dipendenti_qualifiche')->insert([
+            'idDipendente' => $id,
+            'idQualifica'  => $idQualifica,
+            'created_at'   => now(),
+            'updated_at'   => now(),
+        ]);
     }
+
+    return redirect()->route('dipendenti.index')->with('success', 'Dipendente aggiornato correttamente.');
+}
 
     public static function getQualifiche(): Collection {
         return DB::table('qualifiche')->select('id', 'nome')->orderBy('nome')->get();

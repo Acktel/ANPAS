@@ -13,49 +13,44 @@ class AziendeSanitarieController extends Controller {
         $this->middleware('auth');
     }
 
-public function index(Request $request)
-{
-    $user = Auth::user();
-    $anno = session('anno_riferimento', now()->year);
+    public function index(Request $request)
+    {
+        $user = Auth::user();
+        $anno = session('anno_riferimento', now()->year);
 
-    // lista associazioni solo per ruoli elevati
-    $associazioni = collect();
-    $selectedAssoc = null;
-
-    if ($user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])) {
-        $associazioni = DB::table('associazioni')
-            ->select('IdAssociazione', 'Associazione')
-            ->whereNull('deleted_at')
-            ->where('IdAssociazione', '!=', 1)
-            ->orderBy('Associazione')
+        // lista convenzioni (usata per la select)
+        $convenzioni = DB::table('convenzioni')
+            ->select('idConvenzione', 'Convenzione')
+            ->orderBy('Convenzione')
             ->get();
 
-        if ($request->has('idAssociazione')) {
-            session(['associazione_selezionata' => $request->idAssociazione]);
+        // valore selezionato (request -> session -> null)
+        if ($request->has('idConvenzione')) {
+            session(['convenzione_selezionata' => $request->idConvenzione]);
         }
+        $selectedConvenzione = session('convenzione_selezionata') ?? null;
 
-        $selectedAssoc = session('associazione_selezionata')
-            ?? ($associazioni->first()->IdAssociazione ?? null);
-    } else {
-        $selectedAssoc = $user->IdAssociazione;
+        // carico le aziende sanitarie (il filtro verrà applicato da getData / model)
+        $aziende = AziendaSanitaria::getAllWithConvenzioni(); //carico tutto per la view iniziale
+
+        return view('aziende_sanitarie.index', compact(
+            'anno',
+            'convenzioni',
+            'selectedConvenzione',
+            'aziende'
+        ));
     }
 
-    // carico anche le aziende sanitarie (quelle con convenzioni)
-    $aziende = AziendaSanitaria::getAllWithConvenzioni();
 
-    return view('aziende_sanitarie.index', compact(
-        'anno',
-        'associazioni',
-        'selectedAssoc',
-        'aziende'      // <-- aggiunto!
-    ));
-}
+    public function getData(Request $request): JsonResponse {
+        // legge filtro da request (inviato dalla DataTable via ajax)
+        $idConvenzione = $request->input('idConvenzione') ?? session('convenzione_selezionata');
 
+        $data = AziendaSanitaria::getAllWithConvenzioni($idConvenzione);
 
-    public function getData(): JsonResponse {
-        $data = AziendaSanitaria::getAllWithConvenzioni();
         return response()->json(['data' => $data]);
     }
+
 
     public function create() {
         $user = Auth::user();

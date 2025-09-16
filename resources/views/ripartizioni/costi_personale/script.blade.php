@@ -220,12 +220,12 @@ rowCallback: function(rowElement, rowData, displayIndex) {
                             searchable: false,
                             className: 'col-actions text-center',
                             render: row => row.is_totale || !row.idDipendente ? '-' : `
-                            <a href="/ripartizioni/personale/costi/${row.idDipendente}" class="btn btn-sm btn-info me-1 btn-icon btn-icon" title="Visualizza"><i class="fas fa-eye"></i></a>
-                            <a href="/ripartizioni/personale/costi/${row.idDipendente}/edit" class="btn btn-sm btn-anpas-edit me-1 btn-icon btn-icon" title="Modifica"><i class="fas fa-edit"></i></a>
+                            <a href="/ripartizioni/personale/costi/${row.idDipendente}" class="btn btn-anpas-green me-1 btn-icon" title="Visualizza"><i class="fas fa-eye"></i></a>
+                            <a href="/ripartizioni/personale/costi/${row.idDipendente}/edit" class="btn btn-anpas-edit me-1 btn-icon" title="Modifica"><i class="fas fa-edit"></i></a>
                             <form method="POST" action="/ripartizioni/personale/costi/${row.idDipendente}" class="d-inline-block" onsubmit="return confirm('Confermi eliminazione?')">
                                 <input type="hidden" name="_token" value="{{ csrf_token() }}">
                                 <input type="hidden" name="_method" value="DELETE">
-                                <button type="submit" class="btn btn-sm btn-anpas-delete btn-icon" title="Elimina"><i class="fas fa-trash-alt"></i></button>
+                                <button type="submit" class="btn btn-anpas-delete btn-icon" title="Elimina"><i class="fas fa-trash-alt"></i></button>
                             </form>`
                         }
                     ],

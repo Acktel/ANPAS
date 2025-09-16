@@ -25,8 +25,6 @@ class RiepilogoCosti {
             ->where('idAnno', $anno)
             ->first();
 
-        if (!$riepilogo) return collect();
-
         // Voci configurate della sezione
         $voci = DB::table('riepilogo_voci_config as vc')
             ->where('vc.idTipologiaRiepilogo', $idTipologia)
@@ -34,6 +32,35 @@ class RiepilogoCosti {
             ->orderBy('vc.ordinamento')
             ->orderBy('vc.id')
             ->get(['vc.id', 'vc.descrizione']);
+
+            if (!$riepilogo){
+                $preventivi =0;    
+                $mapCons =0;    
+                $sumConsVoce =0;
+                $i =0;
+                return $voci->map(function ($voce) use (&$i, $preventivi, $idConvenzione, $mapCons, $sumConsVoce) {
+                    $i++;
+                    $idVoce     = (int) $voce->id;
+                    $prev       =  0.0;
+
+
+                    // Consuntivo calcolato
+                    $cons = (float) 0.0;
+
+
+                    $scostPerc = $prev != 0.0 ? round((($cons - $prev) / $prev) * 100, 2) : 0.0;
+
+
+                    return (object) [
+                        'idVoceConfig' => $idVoce,
+                        'codice'       => sprintf('%d:%02d', $idConvenzione === 'TOT' || $idConvenzione === null ? (int)request()->route('idTipologia') : (int)request()->route('idTipologia'), $i),
+                        'descrizione'  => $voce->descrizione,
+                        'preventivo'   => $prev,
+                        'consuntivo'   => $cons,         // ← calcolato dalle ripartizioni
+                        'scostamento'  => number_format($scostPerc, 2) . '%',
+                    ];
+                });
+        }
 
         // PREVENTIVO: resta preso da riepilogo_dati (per conv o TOT)
         if ($idConvenzione === null || $idConvenzione === 'TOT') {
@@ -142,8 +169,8 @@ class RiepilogoCosti {
             ->join('riepilogo_voci_config as vc', 'rd.idVoceConfig', '=', 'vc.id')
             ->where('rd.idRiepilogo', $riepilogo->idRiepilogo)
             ->whereNotNull('vc.idTipologiaRiepilogo')
-            ->selectRaw('vc.idTipologiaRiepilogo as tipologia, SUM(rd.preventivo) as preventivo, SUM(rd.consuntivo) as consuntivo')
-            ->groupBy('vc.idTipologiaRiepilogo')
+            ->selectRaw('vc.idTipologiaRiepilogo as tipologia, SUM(rd.preventivo) as preventivo, SUM(rd.consuntivo) as consuntivo, vc.descrizione as descrizione')
+            ->groupBy('vc.idTipologiaRiepilogo', 'vc.descrizione')
             ->orderBy('vc.idTipologiaRiepilogo');
 
         if ($idConvenzione !== null && $idConvenzione !== 'TOT') {

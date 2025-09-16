@@ -610,7 +610,6 @@ class Riepilogo extends Model {
      * Crea la riga se manca (preventivo/consuntivo 0) e ritorna SEMPRE l'id.
      */
     public static function ensureRiga(int $idRiepilogo, int $idVoceConfig, int $idConvenzione): int {
-        self::upsertValore($idRiepilogo, $idVoceConfig, $idConvenzione, 0.0, 0.0);
 
         $id = self::getRigaIdByKeys($idRiepilogo, $idVoceConfig, $idConvenzione);
         if (!$id) {

@@ -277,21 +277,6 @@ foreach ($configPersone as $key => $value) {
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     const input = document.getElementById('assocInput');

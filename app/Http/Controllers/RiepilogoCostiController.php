@@ -54,6 +54,9 @@ class RiepilogoCostiController extends Controller {
             }
         }
 
+        // dd($associazioni, $convenzioni, $selectedAssoc, $selectedConv);
+
+
         return view('riepilogo_costi.index', compact(
             'anno',
             'isElevato',
@@ -90,6 +93,8 @@ class RiepilogoCostiController extends Controller {
             $idAssociazione,
             $idConvenzione
         );
+
+        // dd($rows);
 
         return response()->json(['data' => $rows]);
     }

@@ -84,10 +84,8 @@ class DipendenteController extends Controller
             'DipendenteCognome' => 'required|string|max:100',
             'Qualifica' => 'required|array',
             'ContrattoApplicato' => 'required|string|max:100',
-            // 'LivelloMansione' => 'required|array',               DA ELIMINARE SE CORRETTAMENTE SUPERFLUI
-            // 'LivelloMansione.*' => 'exists:livello_mansione,id', DA ELIMINARE SE CORRETTAMENTE SUPERFLUI
             'note' => 'nullable|string|max:1000',
-            'LivelloMansione' => 'required|string|max:5',
+            'LivelloMansione' => 'required|string',
 
         ]);
 
@@ -98,6 +96,18 @@ class DipendenteController extends Controller
     {
         $dipendente = Dipendente::getOne($idDipendente);
         abort_if(!$dipendente, 404);
+
+        // prendo tutti i livelli disponibili
+        $livelli = Dipendente::getLivelliMansione();
+
+        $livelliAttuali = Dipendente::getLivelliMansioneByDipendente($idDipendente);
+        // $livelloMansione = $livelliAttuali[0] ?? ''; // prendi il primo se esiste
+        
+        // ricavo i NOMI dei livelli attuali (filtrando dalla collection dei livelli)
+        $livelliNomiAttuali = $livelli
+            ->whereIn('id', $livelliAttuali)
+            ->pluck('nome')
+            ->toArray();
 
         $user = Auth::user();
         $isImpersonating = session()->has('impersonate');
@@ -115,7 +125,9 @@ class DipendenteController extends Controller
             'qualifiche',
             'qualificheAttuali',
             'contratti',
-            'livelli'
+            'livelli',
+            'livelliAttuali',
+            'livelliNomiAttuali'
         ));
     }
 
@@ -129,8 +141,7 @@ class DipendenteController extends Controller
             'Qualifica' => 'required|array',
             'ContrattoApplicato' => 'required|string|max:100',
             'note' => 'nullable|string|max:1000',
-            'LivelloMansione' => 'required|array',
-            'LivelloMansione.*' => 'exists:livello_mansione,id',
+            'LivelloMansione' => 'required|string',
         ]);
 
         return Dipendente::updateDipendente($idDipendente, $validated);

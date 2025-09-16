@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Dipendente;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use App\Models\RiepilogoCosti;
@@ -16,7 +17,7 @@ public function index(Request $request) {
     $user = Auth::user();
     $isImpersonating = session()->has('impersonate');
 
-    $associazioni = \App\Models\Dipendente::getAssociazioni($user, $isImpersonating);
+    $associazioni = Dipendente::getAssociazioni($user, $isImpersonating);
 
     // prendi dal GET se presente, altrimenti session
     $selectedAssoc = $request->query('idAssociazione', session('idAssociazione', null));
@@ -32,7 +33,7 @@ public function index(Request $request) {
         session(['idAssociazione' => $selectedAssoc]);
     }
 
-    $dati = \App\Models\RiepilogoCosti::getTotaliPerTipologia($anno, $selectedAssoc);
+    $dati = RiepilogoCosti::getTotaliPerTipologia($anno, $selectedAssoc);
 
     return view('dashboard', compact('dati', 'anno', 'associazioni', 'selectedAssoc'));
 }
