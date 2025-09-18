@@ -94,7 +94,7 @@ async function loadTableData() {
   const staticCols = [
     { key:'Associazione', label:'Associazione' },
     { key:'FullName',     label:'Descrizione' },
-    { key:'OreTotali',    label:'Ore Totali di Servizio Volontario' }
+    { key:'OreTotali',    label:'Unità Totali di Servizio Volontario' }
   ];
 
   const convenzioni = Object.keys(labels).sort((a,b)=>parseInt(a.slice(1))-parseInt(b.slice(1)));

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Collection;
 
 class AziendaSanitaria {
     protected static string $table = 'aziende_sanitarie';
@@ -88,6 +89,7 @@ public static function getAllWithConvenzioni($idConvenzione = null): \Illuminate
 
     public static function deleteSanitaria(int $id): void {
         DB::table('azienda_sanitaria_convenzione')->where('idAziendaSanitaria', $id)->delete();
+        DB::table('aziende_sanitarie_lotti')->where('idAziendaSanitaria', $id)->delete(); // <— aggiungi
         DB::table(self::$table)->where('idAziendaSanitaria', $id)->delete();
     }
 
