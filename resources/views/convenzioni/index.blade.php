@@ -53,7 +53,7 @@
   </div>
 @endif
 
-
+<!--
     <div class="ms-auto">
       @can('manage-all-associations')
       @if(!session()->has('impersonate'))
@@ -62,7 +62,7 @@
       </a>
       @endif
       @endcan
-    </div>
+    </div>-->
   </div>
 
 
