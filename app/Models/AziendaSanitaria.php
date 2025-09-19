@@ -17,6 +17,8 @@ public static function getAllWithConvenzioni($idConvenzione = null): \Illuminate
             'a.idAziendaSanitaria',
             'a.Nome',
             'a.Indirizzo',
+            'a.provincia',
+            'a.citta',
             'a.mail',
             DB::raw('GROUP_CONCAT(DISTINCT c.Convenzione ORDER BY c.Convenzione SEPARATOR ", ") as Convenzioni'),
             DB::raw('GROUP_CONCAT(DISTINCT l.nomeLotto ORDER BY l.nomeLotto SEPARATOR ", ") as Lotti')
@@ -25,6 +27,8 @@ public static function getAllWithConvenzioni($idConvenzione = null): \Illuminate
             'a.idAziendaSanitaria',
             'a.Nome',
             'a.Indirizzo',
+            'a.provincia',
+            'a.citta',
             'a.mail'
         );
 
@@ -61,6 +65,8 @@ public static function getAllWithConvenzioni($idConvenzione = null): \Illuminate
         $id = DB::table(self::$table)->insertGetId([
             'Nome'       => $data['Nome'],
             'Indirizzo'  => $data['Indirizzo'] ?? null,
+            'provincia'  => $data['provincia'],
+            'citta'      => $data['citta'],
             'mail'       => $data['mail'] ?? null,
             'note'       => $data['note'] ?? null,
             'created_at' => now(),
@@ -78,6 +84,8 @@ public static function getAllWithConvenzioni($idConvenzione = null): \Illuminate
             ->update([
                 'Nome'       => $data['Nome'],
                 'Indirizzo'  => $data['Indirizzo'] ?? null,
+                'provincia'  => $data['provincia'],
+                'citta'      => $data['citta'],
                 'mail'       => $data['mail'] ?? null,
                 'note'       => $data['note'] ?? null,
                 'updated_at' => now(),

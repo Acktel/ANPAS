@@ -7,14 +7,14 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\JsonResponse;
 use App\Models\AziendaSanitaria;
+use App\Models\Cities;
 
 class AziendeSanitarieController extends Controller {
     public function __construct() {
         $this->middleware('auth');
     }
 
-    public function index(Request $request)
-    {
+    public function index(Request $request){
         $user = Auth::user();
         $anno = session('anno_riferimento', now()->year);
 
@@ -74,11 +74,14 @@ class AziendeSanitarieController extends Controller {
             ->orderBy('Convenzione')
             ->get();
 
+            $cities = Cities::getAll(); //Estrazione città
+
         return view('aziende_sanitarie.create', compact(
             'anni',
             'associazioni',
                         'convenzioni',
-            'aziendeSanitarie'
+            'aziendeSanitarie',
+            'cities'
         ));
     }
 
@@ -86,6 +89,8 @@ class AziendeSanitarieController extends Controller {
         $validated = $request->validate([
             'Nome' => 'required|string|max:150',
             'Indirizzo' => 'nullable|string|max:255',
+            'provincia'         => 'required|string|exists:ter_cities,sigla_provincia',
+            'citta'             => 'required|string|max:100',
             'mail' => 'nullable|email|max:150',
             'note' => 'nullable|string',
             'convenzioni' => 'nullable|array',
@@ -120,10 +125,13 @@ class AziendeSanitarieController extends Controller {
             ->pluck('idConvenzione')
             ->toArray();
 
+            $cities = Cities::getAll();
+
         return view('aziende_sanitarie.edit', compact(
             'azienda',
             'convenzioni',
-            'convenzioniSelezionate'
+            'convenzioniSelezionate',
+            'cities'
         ));
     }
 
@@ -131,6 +139,8 @@ class AziendeSanitarieController extends Controller {
         $validated = $request->validate([
             'Nome' => 'required|string|max:150',
             'Indirizzo' => 'nullable|string|max:255',
+            'provincia'         => 'required|string|exists:ter_cities,sigla_provincia',
+            'citta'             => 'required|string|max:100',
             'mail' => 'nullable|email|max:150',
             'note' => 'nullable|string',
             'convenzioni' => 'nullable|array',

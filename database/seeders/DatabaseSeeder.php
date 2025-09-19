@@ -5,7 +5,9 @@ namespace Database\Seeders;
 use App\Models\User;
 // use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\File;
 use App\Models\Associazione;
+use Illuminate\Support\Facades\DB;
 
 class DatabaseSeeder extends Seeder
 {
@@ -14,6 +16,17 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
+        //Seed SQL provincie, comuni, nazioni ecc...
+        DB::statement(File::get(database_path('seeders/sql/nazioni.sql')));
+        DB::statement(File::get(database_path('seeders/sql/regioni.sql')));
+        DB::statement(File::get(database_path('seeders/sql/province.sql')));
+        DB::statement(File::get(database_path('seeders/sql/comuni.sql')));
+        DB::statement(File::get(database_path('seeders/sql/comuni_validita.sql')));
+        DB::statement(File::get(database_path('seeders/sql/cap.sql')));
+        DB::statement(File::get(database_path('seeders/sql/comuni_nazioni_cf.sql')));
+        DB::statement(File::get(database_path('seeders/sql/comuni_cap.sql')));
+
+
         $this->call(createAssociazioni::class);
         $this->call(SuperAdminSeeder::class);
         $this->call(CreateRole ::class);

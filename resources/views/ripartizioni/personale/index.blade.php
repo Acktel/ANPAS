@@ -109,7 +109,8 @@ async function loadTableData() {
   staticCols.forEach(col => {
     hMain += `<th rowspan="2"${col.hidden ? ' style="display:none"' : ''}>${col.label}</th>`;
     // assegno anche "name" identico alla chiave per il mapping sicuro
-    cols.push({ data: col.key, name: col.key, visible: !col.hidden, defaultContent: '' });
+    cols.push({ data: col.key, name: col.key, visible: !col.hidden, defaultContent: '', className: 'text-center' });
+
   });
 
   convenzioni.forEach(k => {
