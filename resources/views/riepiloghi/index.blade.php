@@ -60,13 +60,12 @@
   </table>
 </div>
 @endsection
-
 @push('scripts')
 <script>
 document.addEventListener('DOMContentLoaded', function () {
   const csrfToken = document.head.querySelector('meta[name="csrf-token"]')?.content || '';
   const isElevato = @json($user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor']));
-  const anno = @json($anno ?? session('anno_riferimento', now()->year));
+  const anno      = @json($anno ?? session('anno_riferimento', now()->year));
 
   const $table = $('#riepiloghiTable');
   let dataTable = null;
@@ -78,6 +77,11 @@ document.addEventListener('DOMContentLoaded', function () {
   const ajaxConvTpl       = @json(route('riepiloghi.convenzioniByAssociazione', ['idAssociazione' => '__ID__']));
   const setConvenzioneUrl = @json(route('sessione.setConvenzione'));
   const ensureRigaUrl     = @json(route('riepiloghi.ensureAndRedirectToEdit'));
+
+  // Route-safe (niente /hardcoded)
+  const ROUTE_EDIT_RIGA    = @json(route('riepiloghi.riga.edit', ['id' => '__ID__']));
+  const ROUTE_DESTROY_RIGA = @json(route('riepiloghi.riga.destroy', ['id' => '__ID__']));
+  const ROUTE_EDIT_TOT     = @json(route('riepiloghi.voce.tot.edit', ['riepilogo' => '__R__', 'voce' => '__V__']));
 
   function formatNum(val) {
     if (val === null || val === undefined) return '';
@@ -91,14 +95,12 @@ document.addEventListener('DOMContentLoaded', function () {
                            : !!($conv?.value || '').trim();
     $table.toggle(show);
     if (show && dataTable) {
-      // quando la tabella passa da hidden a visible
       dataTable.columns.adjust().draw(false);
     }
   }
 
   function initTableIfNeeded() {
     if ($.fn.DataTable.isDataTable('#riepiloghiTable')) {
-      // se per qualsiasi motivo manca il riferimento, recuperalo
       if (!dataTable) dataTable = $('#riepiloghiTable').DataTable();
       return;
     }
@@ -127,28 +129,45 @@ document.addEventListener('DOMContentLoaded', function () {
           render: function(row) {
             const buttons = [];
             const convSel = (document.getElementById('convSelect')?.value || '').trim();
+            const nonEdit = !!row.non_editabile;
 
-            if (!row.non_editabile) {
+            if (!nonEdit) {
               if (convSel === 'TOT' && row.tot_editabile) {
+                const href = ROUTE_EDIT_TOT.replace('__R__', row.idRiepilogo).replace('__V__', row.voce_id);
                 buttons.push(`
-                  <a href="/riepiloghi/${row.idRiepilogo}/voce/${row.voce_id}/tot/edit"
-                     class="btn btn-anpas-edit me-1 btn-icon" title="Modifica TOTALE">
+                  <a href="${href}" class="btn btn-anpas-edit me-1 btn-icon" title="Modifica TOTALE">
                     <i class="fas fa-edit"></i>
                   </a>
                 `);
-              } else if (convSel !== 'TOT' && row.valore_id) {
-                buttons.push(`
-                  <a href="/riepiloghi/riga/${row.valore_id}/edit"
-                     class="btn btn-anpas-edit me-1 btn-icon" title="Modifica">
-                    <i class="fas fa-edit"></i>
-                  </a>
-                `);
+              } else if (convSel !== 'TOT') {
+                if (row.valore_id) {
+                  const href = ROUTE_EDIT_RIGA.replace('__ID__', row.valore_id);
+                  buttons.push(`
+                    <a href="${href}" class="btn btn-anpas-edit me-1 btn-icon" title="Modifica">
+                      <i class="fas fa-edit"></i>
+                    </a>
+                  `);
+                } else {
+                  // Riga mancante: crea e vai in edit
+                  buttons.push(`
+                    <form action="${ensureRigaUrl}" method="POST" style="display:inline-block">
+                      <input type="hidden" name="_token" value="${csrfToken}">
+                      <input type="hidden" name="idRiepilogo" value="${row.idRiepilogo}">
+                      <input type="hidden" name="idVoceConfig" value="${row.voce_id}">
+                      <input type="hidden" name="idConvenzione" value="${convSel}">
+                      <button type="submit" class="btn btn-anpas-edit btn-icon" title="Crea e modifica">
+                        <i class="fas fa-edit"></i>
+                      </button>
+                    </form>
+                  `);
+                }
               }
             }
 
             if (convSel !== 'TOT' && row.valore_id) {
+              const action = ROUTE_DESTROY_RIGA.replace('__ID__', row.valore_id);
               buttons.push(`
-                <form action="/riepiloghi/riga/${row.valore_id}" method="POST" style="display:inline-block"
+                <form action="${action}" method="POST" style="display:inline-block"
                       onsubmit="return confirm('Confermi cancellazione della riga?')">
                   <input type="hidden" name="_token" value="${csrfToken}">
                   <input type="hidden" name="_method" value="DELETE">
@@ -249,5 +268,4 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 });
 </script>
-
 @endpush

@@ -424,6 +424,7 @@ class Riepilogo extends Model {
                     'valore_id'     => null,
                     'voce_id'       => $voceId,
                     'tot_editabile' => $isT,
+                     'non_editabile' => false,
                 ];
             }
 
@@ -459,7 +460,7 @@ class Riepilogo extends Model {
             }
             if ($voceId === self::VOCE_ID_ORE_SERVIZI_CIVILE) {//n. volontari servizio civile naz.le in servizio per la convenzione
                 //SOMMA UNITA'
-                $unitaTotali = self::sumUnitaServizioPerConvenzione((int)$riepilogo->idAssociazione, (int)$idConvenzione, (int)$riepilogo->idAnno);              
+                $unitaTotali = self::unitaServizioPerConvenzione((int)$riepilogo->idAssociazione, (int)$idConvenzione, (int)$riepilogo->idAnno);              
                 $rows[] = [
                     'anno'          => $anno,
                     'descrizione'   => $voce->descrizione,
@@ -562,6 +563,7 @@ class Riepilogo extends Model {
                 'valore_id'     => $v->valore_id ?? null,
                 'voce_id'       => $voceId,
                 'tot_editabile' => self::isVoceIdEditabileSuTot($voceId),
+                'non_editabile' => false,
             ];
         }
 
@@ -744,7 +746,7 @@ class Riepilogo extends Model {
             ->value('preventivo') ?? 0.0;           
     }
 
-    private static function sumUnitaServizioPerConvenzione($idAssociazione, $idConvenzione, $idAnno){
+    private static function unitaServizioPerConvenzione($idAssociazione, $idConvenzione, $idAnno){
         return (float) DB::table('dipendenti_servizi as ds')
             ->join('convenzioni as c', 'c.idConvenzione', '=', 'ds.idConvenzione')
             ->where('c.idAssociazione', $idAssociazione)
