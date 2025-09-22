@@ -166,17 +166,20 @@ document.addEventListener('DOMContentLoaded', function() {
   const toggleBtn = document.getElementById('assocSelectToggleBtn');
   const hidden = document.getElementById('assocFilterHidden');
 
-  const items = Array.from(dropdown.querySelectorAll('.assoc-item'))
-                     .map(li => ({id: li.dataset.id, name: li.textContent.trim()}));
+  // Controlla che gli elementi esistano prima di proseguire
+  if (form && input && dropdown && toggleBtn && hidden) {
 
-  function showDropdown() { dropdown.style.display='block'; toggleBtn.setAttribute('aria-expanded','true'); }
-  function hideDropdown() { dropdown.style.display='none'; toggleBtn.setAttribute('aria-expanded','false'); }
-  function filterDropdown(term) {
-    term = (term||'').toLowerCase();
-    dropdown.querySelectorAll('.assoc-item').forEach(li => {
-      li.style.display = li.textContent.toLowerCase().includes(term) ? '' : 'none';
-    });
-  }
+    const items = Array.from(dropdown.querySelectorAll('.assoc-item'))
+                       .map(li => ({id: li.dataset.id, name: li.textContent.trim()}));
+
+    function showDropdown() { dropdown.style.display='block'; toggleBtn.setAttribute('aria-expanded','true'); }
+    function hideDropdown() { dropdown.style.display='none'; toggleBtn.setAttribute('aria-expanded','false'); }
+    function filterDropdown(term) {
+      term = (term||'').toLowerCase();
+      dropdown.querySelectorAll('.assoc-item').forEach(li => {
+        li.style.display = li.textContent.toLowerCase().includes(term) ? '' : 'none';
+      });
+    }
 
   function setSelection(id, name) {
     hidden.value = id;
@@ -198,6 +201,7 @@ document.addEventListener('DOMContentLoaded', function() {
   input.addEventListener('input', () => filterDropdown(input.value));
   toggleBtn.addEventListener('click', () => dropdown.style.display==='block'?hideDropdown():showDropdown());
   document.addEventListener('click', e => { if(!form.contains(e.target)) hideDropdown(); });
+   }
 
   // --- DATATABLE ---
   const table = $('#automezziTable').DataTable({
@@ -206,8 +210,10 @@ document.addEventListener('DOMContentLoaded', function() {
     ajax: {
       url: '{{ route("automezzi.datatable") }}',
       data: function(d) {
-        const selected = hidden.value || null;
+        const selected = hidden ? hidden.value : null;
         if(selected) d.idAssociazione = selected;
+
+        console.log('DataTable ajax payload:', d);
       }
     },
     columns: [

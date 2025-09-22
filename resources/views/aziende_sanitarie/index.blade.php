@@ -67,6 +67,8 @@
                             <th>ID</th>
                             <th>Nome</th>
                             <th>Indirizzo</th>
+                            <th>Provincia</th>
+                            <th>Città</th>
                             <th>Email</th>
                             <th>Convenzioni</th>
                             <th>Lotti</th>
@@ -79,6 +81,8 @@
                                 <td>{{ $a->idAziendaSanitaria }}</td>
                                 <td>{{ $a->Nome }}</td>
                                 <td>{{ $a->Indirizzo }}</td>
+                                <td>{{ $a->provincia }}</td>
+                                <td>{{ $a->citta }}</td>
                                 <td>{{ $a->mail }}</td>
                                 <td>
                                     @if (!empty($a->Convenzioni))
@@ -105,7 +109,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="6" class="text-center py-3">Nessuna azienda sanitaria trovata.</td>
+                                <td colspan="9" class="text-center py-3">Nessuna azienda sanitaria trovata.</td>
                             </tr>
                         @endforelse
                     </tbody>
@@ -117,84 +121,76 @@
 
 @push('scripts')
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            // inizializza DataTable con invio del filtro idConvenzione
-            var table = $('#aziendeSanitarieTable').DataTable({
-                ajax: {
-                    url: '{{ route('aziende-sanitarie.data') }}',
-                    data: function(d) {
-                        d.idConvenzione = $('#convSelectHidden').val() || '';
+    document.addEventListener('DOMContentLoaded', function() {
+        var table = $('#aziendeSanitarieTable').DataTable({
+            ajax: {
+                url: '{{ route('aziende-sanitarie.data') }}',
+                data: function(d) {
+                    d.idConvenzione = $('#convSelectHidden').val() || '';
+                }
+            },
+            columns: [
+                { data: 'idAziendaSanitaria' },
+                { data: 'Nome' },
+                { data: 'Indirizzo' },
+                { data: 'provincia' },
+                { data: 'citta' },
+                { data: 'mail' },
+                { 
+                    data: 'Convenzioni',
+                    render: function(data) {
+                        if (Array.isArray(data)) {
+                            return data.length ? data.join(', ') : '<span class="text-muted">—</span>';
+                        }
+                        return '<span class="text-muted">—</span>';
                     }
                 },
-                columns: [{
-                        data: 'idAziendaSanitaria'
-                    },
-                    {
-                        data: 'Nome'
-                    },
-                    {
-                        data: 'Indirizzo'
-                    },
-                    {
-                        data: 'mail'
-                    },
-                    {
-                        data: 'Convenzioni',
-                        render: function(data) {
-                            if (Array.isArray(data)) {
-                                return data.length ? data.join(', ') :
-                                    '<span class="text-muted">—</span>';
-                            }
-                            return '<span class="text-muted">—</span>';
+                { 
+                    data: 'Lotti',
+                    render: function(data) {
+                        if (Array.isArray(data)) {
+                            return data.length ? data.join(', ') : '<span class="text-muted">—</span>';
                         }
-                    },
-                    {
-                        data: 'Lotti',
-                        render: function(data) {
-                            if (Array.isArray(data)) {
-                                return data.length ? data.join(', ') :
-                                    '<span class="text-muted">—</span>';
-                            }
-                            return '<span class="text-muted">—</span>';
-                        }
-                    },
-                    {
-                        data: 'idAziendaSanitaria',
-                        orderable: false,
-                        searchable: false,
-                        className: 'text-center',
-                        render: function(data, type, row) {
-                            return `
-                      <a href="/aziende-sanitarie/${data}/edit" class="btn btn-sm btn-anpas-edit me-1 btn-icon" title="Modifica">
-                        <i class="fas fa-edit"></i>
-                      </a>
-                      <form action="/aziende-sanitarie/${data}" method="POST" class="d-inline" onsubmit="return confirm('Eliminare questa azienda sanitaria?')">
-                        @csrf
-                        @method('DELETE')
-                        <button class="btn btn-sm btn-anpas-delete btn-icon" title="Elimina">
-                          <i class="fas fa-trash-alt"></i>
-                        </button>
-                      </form>
-                    `;
-                        }
+                        return '<span class="text-muted">—</span>';
                     }
-                ],
-                paging: true,
-                info: true,
-                language: {
-                    url: '/js/i18n/Italian.json',
-                    paginate: {
-                        first: '<i class="fas fa-angle-double-left"></i>',
-                        last: '<i class="fas fa-angle-double-right"></i>',
-                        next: '<i class="fas fa-angle-right"></i>',
-                        previous: '<i class="fas fa-angle-left"></i>'
-                    },
                 },
-                rowCallback: function(row, data, index) {
-                    $(row).removeClass('even odd').addClass(index % 2 === 0 ? 'even' : 'odd');
+                { 
+                    data: 'idAziendaSanitaria',
+                    orderable: false,
+                    searchable: false,
+                    className: 'text-center',
+                    render: function(data, type, row) {
+                        return `
+                            <a href="/aziende-sanitarie/${data}/edit" class="btn btn-sm btn-anpas-edit me-1 btn-icon" title="Modifica">
+                                <i class="fas fa-edit"></i>
+                            </a>
+                            <form action="/aziende-sanitarie/${data}" method="POST" class="d-inline" onsubmit="return confirm('Eliminare questa azienda sanitaria?')">
+                                @csrf
+                                @method('DELETE')
+                                <button class="btn btn-sm btn-anpas-delete btn-icon" title="Elimina">
+                                    <i class="fas fa-trash-alt"></i>
+                                </button>
+                            </form>
+                        `;
+                    }
+                }
+            ],
+            paging: true,
+            info: true,
+            language: {
+                url: '/js/i18n/Italian.json',
+                paginate: {
+                    first: '<i class="fas fa-angle-double-left"></i>',
+                    last: '<i class="fas fa-angle-double-right"></i>',
+                    next: '<i class="fas fa-angle-right"></i>',
+                    previous: '<i class="fas fa-angle-left"></i>'
                 },
-                stripeClasses: ['table-white', 'table-striped-anpas'],
-            });
+            },
+            rowCallback: function(row, data, index) {
+                $(row).removeClass('even odd').addClass(index % 2 === 0 ? 'even' : 'odd');
+            },
+            stripeClasses: ['table-white', 'table-striped-anpas'],
+        });
 
             // === Dropdown / select custom per convenzioni ===
             const convInput = document.getElementById('convSelect');

@@ -11,8 +11,8 @@ use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Spatie\Permission\Models\Role;
-// use App\Mail\AdminUserInvite;
 use App\Mail\SupervisorInvite;
+use App\Models\Cities;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
@@ -82,7 +82,7 @@ public function index(Request $request)
         $validated = $request->validate([
             'Associazione'      => 'required|string|max:255',
             'email'             => 'required|email|unique:associazioni,email',
-            'provincia'         => 'required|string|max:100',
+            'provincia'         => 'required|string|exists:ter_cities,sigla_provincia',
             'citta'             => 'required|string|max:100',
             'indirizzo'         => 'required|string|max:255',
             'note'              => 'nullable|string',
@@ -160,26 +160,28 @@ public function index(Request $request)
     }
 
     public function create() {
-        return view('associazioni.create');
+    $cities = Cities::getAll(); //Estrazione città
+    return view('associazioni.create', compact('cities'));
     }
 
     public function edit($id) {
-        $associazione = Associazione::findById($id);
+    $associazione = Associazione::findById($id);
 
-        if (! $associazione) {
-            abort(404, 'Associazione non trovata');
-        }
+    if (! $associazione) {
+        abort(404, 'Associazione non trovata');
+    }
 
-        $adminUser = Associazione::getAdminUserFor($id);
+    $adminUser = Associazione::getAdminUserFor($id);
+    $cities = Cities::getAll();
 
-        return view('associazioni.edit', compact('associazione', 'adminUser'));
+    return view('associazioni.edit', compact('associazione', 'adminUser', 'cities'));
     }
 
     public function update(Request $request, $id) {
         $data = $request->validate([
             'Associazione' => 'required|string|max:255',
             'email'        => 'required|email',
-            'provincia'    => 'required|string|max:100',
+            'provincia'    => 'required|string|exists:ter_cities,sigla_provincia',
             'citta'        => 'required|string|max:100',
             'indirizzo'    => 'required|string|max:255',
             'note'         => 'nullable|string',

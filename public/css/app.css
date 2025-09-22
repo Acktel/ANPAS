@@ -674,6 +674,23 @@ tbody tr.dragging {
 .margin-top-footer-paginate {
   margin-top: 1rem !important;
 }
+
+
+
+#citta_list {
+    max-height: 200px;
+    overflow-y: scroll;
+    scrollbar-width: none; /* Firefox */
+}
+
+#citta_list::-webkit-scrollbar {
+    display: none; /* Chrome, Edge, Safari */
+}
+
+#citta_list li {
+    cursor: pointer;
+    background-color: #ffffff; /* stesso hover di bootstrap */
+}
 /*!
  * Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com
  * License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License)

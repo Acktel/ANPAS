@@ -21,6 +21,7 @@ class AutomezziController extends Controller {
     public function index(Request $request) {
         $user = Auth::user();
         $anno = session('anno_riferimento', now()->year);
+        $isImpersonating = session()->has('impersonate');
 
         $associazioni = collect();
         if ($user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])) {
@@ -44,7 +45,8 @@ class AutomezziController extends Controller {
         return view('automezzi.index', compact(
             'anno',
             'associazioni',
-            'selectedAssoc'
+            'selectedAssoc',
+            'isImpersonating'
         ));
     }
 
