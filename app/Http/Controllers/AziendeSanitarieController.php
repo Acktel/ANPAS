@@ -107,7 +107,7 @@ class AziendeSanitarieController extends Controller {
             'conv_assoc' => 'array',
             'conv_assoc.*' => 'array',
             'conv_assoc.*.*' => 'integer|exists:associazioni,idAssociazione',
-
+            
             // opzionale: convenzioni esistenti da agganciare
             'convenzioni'   => 'array',
             'convenzioni.*' => 'integer|exists:convenzioni,idConvenzione',
