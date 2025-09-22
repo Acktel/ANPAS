@@ -4,7 +4,7 @@
 <div class="container-fluid">
 
   <div class="d-flex justify-content-between align-items-center mb-3">
-    <h1 class="text-anpas-green fw-bolder">Utenti</h1>
+    <h1 class="text-anpas-green fw-bold mt-3">Utenti</h1>
     @can('manage-own-association')
       <a href="{{ route('my-users.create') }}" class="btn btn-anpas-green">
         + Aggiungi nuovo utente
@@ -69,7 +69,7 @@
             @can('manage-own-association')
               html += `
                 <a href="/my-users/${row.id}/edit"
-                   class="btn btn-sm btn-anpas-edit me-1">
+                   class="btn btn-sm btn-anpas-edit me-1 btn-icon">
                   <i class="fas fa-edit"></i>
                 </a>
                 <form action="/my-users/${row.id}" method="POST"
@@ -77,7 +77,7 @@
                   @csrf
                   @method('DELETE')
                   <button type="submit"
-                          class="btn btn-sm btn-anpas-delete me-1">
+                          class="btn btn-sm btn-anpas-delete btn-icon me-1">
                     <i class="fas fa-trash-alt"></i>
                   </button>
                 </form>`;

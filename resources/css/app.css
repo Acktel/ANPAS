@@ -606,3 +606,20 @@ tbody tr.dragging {
 .margin-top-footer-paginate {
   margin-top: 1rem !important;
 }
+
+
+
+#citta_list {
+    max-height: 200px;
+    overflow-y: scroll;
+    scrollbar-width: none; /* Firefox */
+}
+
+#citta_list::-webkit-scrollbar {
+    display: none; /* Chrome, Edge, Safari */
+}
+
+#citta_list li {
+    cursor: pointer;
+    background-color: #ffffff; /* stesso hover di bootstrap */
+}
