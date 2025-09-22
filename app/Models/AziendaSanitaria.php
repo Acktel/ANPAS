@@ -2,124 +2,175 @@
 
 namespace App\Models;
 
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 class AziendaSanitaria {
     protected static string $table = 'aziende_sanitarie';
 
-public static function getAllWithConvenzioni($idConvenzione = null): \Illuminate\Support\Collection
-{
-    $query = DB::table('aziende_sanitarie as a')
-        ->leftJoin('azienda_sanitaria_convenzione as ac', 'a.idAziendaSanitaria', '=', 'ac.idAziendaSanitaria')
-        ->leftJoin('convenzioni as c', 'ac.idConvenzione', '=', 'c.idConvenzione')
-        ->leftJoin('aziende_sanitarie_lotti as l', 'a.idAziendaSanitaria', '=', 'l.idAziendaSanitaria')
-        ->select(
-            'a.idAziendaSanitaria',
-            'a.Nome',
-            'a.Indirizzo',
-            'a.mail',
-            DB::raw('GROUP_CONCAT(DISTINCT c.Convenzione ORDER BY c.Convenzione SEPARATOR ", ") as Convenzioni'),
-            DB::raw('GROUP_CONCAT(DISTINCT l.nomeLotto ORDER BY l.nomeLotto SEPARATOR ", ") as Lotti')
-        )
-        ->groupBy(
-            'a.idAziendaSanitaria',
-            'a.Nome',
-            'a.Indirizzo',
-            'a.mail'
-        );
+    /**
+     * Lista aziende + convenzioni + lotti (con filtro opzionale su idConvenzione)
+     * SQL grezzo (MySQL: usa GROUP_CONCAT).
+     */
+    public static function getAllWithConvenzioni($idConvenzione = null): Collection {
+        $anno = (int) session('anno_riferimento', now()->year);
 
-    // Se passato un filtro, includi solo le aziende che hanno quella/e convenzione/i
-    if (!empty($idConvenzione)) {
-        // normalizza in array (accetta singolo id o array)
-        $ids = is_array($idConvenzione) ? $idConvenzione : [$idConvenzione];
+        $sql = "
+        SELECT
+            a.idAziendaSanitaria,
+            a.Nome,
+            a.Indirizzo,
+            a.mail,
+            GROUP_CONCAT(DISTINCT c.Convenzione ORDER BY c.Convenzione SEPARATOR ', ') AS Convenzioni,
+            GROUP_CONCAT(DISTINCT l.nomeLotto   ORDER BY l.nomeLotto   SEPARATOR ', ') AS Lotti
+        FROM aziende_sanitarie a
+        LEFT JOIN azienda_sanitaria_convenzione ac
+            ON a.idAziendaSanitaria = ac.idAziendaSanitaria
+        LEFT JOIN convenzioni c
+            ON ac.idConvenzione = c.idConvenzione
+           AND c.idAnno = ?                  -- filtro per anno in JOIN per preservare il LEFT JOIN
+        LEFT JOIN aziende_sanitarie_lotti l
+            ON a.idAziendaSanitaria = l.idAziendaSanitaria
+        WHERE 1 = 1
+    ";
 
-        $query->whereExists(function ($q) use ($ids) {
-            $q->select(DB::raw(1))
-              ->from('azienda_sanitaria_convenzione as ac2')
-              ->whereColumn('ac2.idAziendaSanitaria', 'a.idAziendaSanitaria')
-              ->whereIn('ac2.idConvenzione', $ids);
-        });
-    }
+        // primo binding: l'anno
+        $bindings = [$anno];
 
-    return $query->get()
-        ->map(function ($a) {
-            // se la stringa è vuota o null, ritorna array vuoto
-            $a->Convenzioni = strlen(trim((string)($a->Convenzioni ?? ''))) ? explode(', ', $a->Convenzioni) : [];
-            $a->Lotti = strlen(trim((string)($a->Lotti ?? ''))) ? explode(', ', $a->Lotti) : [];
+        // Filtro opzionale su idConvenzione (singolo o array)
+        if (!empty($idConvenzione)) {
+            $ids = is_array($idConvenzione) ? array_values($idConvenzione) : [$idConvenzione];
+            $placeholders = implode(',', array_fill(0, count($ids), '?'));
+
+            $sql .= "
+            AND EXISTS (
+                SELECT 1
+                FROM azienda_sanitaria_convenzione ac2
+                WHERE ac2.idAziendaSanitaria = a.idAziendaSanitaria
+                  AND ac2.idConvenzione IN ($placeholders)
+            )
+        ";
+
+            foreach ($ids as $id) {
+                $bindings[] = (int) $id;
+            }
+        }
+
+        $sql .= "
+        GROUP BY a.idAziendaSanitaria, a.Nome, a.Indirizzo, a.mail
+        ORDER BY a.Nome
+    ";
+
+        $rows = DB::select($sql, $bindings);
+
+        return collect($rows)->map(function ($a) {
+            $a->Convenzioni = strlen(trim((string)($a->Convenzioni ?? '')))
+                ? explode(', ', $a->Convenzioni) : [];
+            $a->Lotti = strlen(trim((string)($a->Lotti ?? '')))
+                ? explode(', ', $a->Lotti) : [];
             return $a;
         });
-}
+    }
 
 
     public static function getById(int $id): ?\stdClass {
-        return DB::table(self::$table)
-            ->where('idAziendaSanitaria', $id)
-            ->first();
+        $sql = "SELECT * FROM " . self::$table . " WHERE idAziendaSanitaria = ? LIMIT 1";
+        $row = DB::select($sql, [$id]);
+        return $row[0] ?? null;
     }
 
     public static function createSanitaria(array $data): int {
-        $id = DB::table(self::$table)->insertGetId([
-            'Nome'       => $data['Nome'],
-            'Indirizzo'  => $data['Indirizzo'] ?? null,
-            'mail'       => $data['mail'] ?? null,
-            'note'       => $data['note'] ?? null,
-            'created_at' => now(),
-            'updated_at' => now(),
+        $sql = "
+            INSERT INTO " . self::$table . "
+                (Nome, Indirizzo, mail, note, created_at, updated_at)
+            VALUES
+                (?, ?, ?, ?, NOW(), NOW())
+        ";
+
+        DB::insert($sql, [
+            $data['Nome'],
+            $data['Indirizzo'] ?? null,
+            $data['mail'] ?? null,
+            $data['note'] ?? null,
         ]);
 
+        $id = (int) DB::getPdo()->lastInsertId();
+
+        // pivot (se passato)
         self::syncConvenzioni($id, $data['convenzioni'] ?? []);
 
         return $id;
     }
 
     public static function updateSanitaria(int $id, array $data): void {
-        DB::table(self::$table)
-            ->where('idAziendaSanitaria', $id)
-            ->update([
-                'Nome'       => $data['Nome'],
-                'Indirizzo'  => $data['Indirizzo'] ?? null,
-                'mail'       => $data['mail'] ?? null,
-                'note'       => $data['note'] ?? null,
-                'updated_at' => now(),
-            ]);
+        $sql = "
+            UPDATE " . self::$table . "
+            SET Nome = ?, Indirizzo = ?, mail = ?, note = ?, updated_at = NOW()
+            WHERE idAziendaSanitaria = ?
+        ";
 
-        self::syncConvenzioni($id, $data['convenzioni'] ?? []);
-    }
+        DB::update($sql, [
+            $data['Nome'],
+            $data['Indirizzo'] ?? null,
+            $data['mail'] ?? null,
+            $data['note'] ?? null,
+            $id,
+        ]);
 
-    public static function deleteSanitaria(int $id): void {
-        DB::table('azienda_sanitaria_convenzione')->where('idAziendaSanitaria', $id)->delete();
-        DB::table('aziende_sanitarie_lotti')->where('idAziendaSanitaria', $id)->delete(); // <— aggiungi
-        DB::table(self::$table)->where('idAziendaSanitaria', $id)->delete();
-    }
-
-    public static function getConvenzioni(int $id): array {
-        return DB::table('azienda_sanitaria_convenzione')
-            ->where('idAziendaSanitaria', $id)
-            ->pluck('idConvenzione')
-            ->toArray();
-    }
-
-    public static function syncConvenzioni(int $idAzienda, array $convenzioni): void {
-        DB::table('azienda_sanitaria_convenzione')->where('idAziendaSanitaria', $idAzienda)->delete();
-
-        if (!empty($convenzioni)) {
-            $now = now();
-            $data = array_map(fn($idConv) => [
-                'idAziendaSanitaria' => $idAzienda,
-                'idConvenzione'      => $idConv,
-                'created_at'         => $now,
-                'updated_at'         => $now,
-            ], $convenzioni);
-
-            DB::table('azienda_sanitaria_convenzione')->insert($data);
+        // pivot (se passato)
+        if (array_key_exists('convenzioni', $data)) {
+            self::syncConvenzioni($id, $data['convenzioni'] ?? []);
         }
     }
 
-    public static function getAll() {
-        return DB::table('aziende_sanitarie')
-            ->select('idAziendaSanitaria', 'Nome')
-            ->orderBy('Nome')
-            ->get();
+    public static function deleteSanitaria(int $id): void {
+        // pivot
+        DB::delete("DELETE FROM azienda_sanitaria_convenzione WHERE idAziendaSanitaria = ?", [$id]);
+        // lotti
+        DB::delete("DELETE FROM aziende_sanitarie_lotti WHERE idAziendaSanitaria = ?", [$id]);
+        // azienda
+        DB::delete("DELETE FROM " . self::$table . " WHERE idAziendaSanitaria = ?", [$id]);
+    }
+
+    public static function getConvenzioni(int $id): array {
+        $rows = DB::select(
+            "SELECT idConvenzione FROM azienda_sanitaria_convenzione WHERE idAziendaSanitaria = ?",
+            [$id]
+        );
+        return array_map(fn($r) => (int) $r->idConvenzione, $rows);
+    }
+
+    public static function syncConvenzioni(int $idAzienda, array $convenzioni): void {
+        // wipe & reinsert
+        DB::delete("DELETE FROM azienda_sanitaria_convenzione WHERE idAziendaSanitaria = ?", [$idAzienda]);
+
+        if (empty($convenzioni)) {
+            return;
+        }
+
+        // build multi-insert
+        $valuesClauses = [];
+        $bindings = [];
+        foreach ($convenzioni as $idConv) {
+            $valuesClauses[] = "(?, ?, NOW(), NOW())";
+            $bindings[] = $idAzienda;
+            $bindings[] = (int) $idConv;
+        }
+
+        $sql = "
+            INSERT INTO azienda_sanitaria_convenzione
+                (idAziendaSanitaria, idConvenzione, created_at, updated_at)
+            VALUES " . implode(", ", $valuesClauses);
+
+        DB::insert($sql, $bindings);
+    }
+
+    public static function getAll(): Collection {
+        $rows = DB::select("
+            SELECT idAziendaSanitaria, Nome
+            FROM aziende_sanitarie
+            ORDER BY Nome
+        ");
+        return collect($rows);
     }
 }
