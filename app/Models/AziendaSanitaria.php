@@ -12,7 +12,7 @@ class AziendaSanitaria {
      * Lista aziende + convenzioni + lotti (con filtro opzionale su idConvenzione)
      * SQL grezzo (MySQL: usa GROUP_CONCAT).
      */
-    public static function getAllWithConvenzioni($idConvenzione = null): Collection {
+    public static function getAllWithConvenzioni($idConvenzione = null): \Illuminate\Support\Collection {
         $anno = (int) session('anno_riferimento', now()->year);
 
         $sql = "
@@ -20,24 +20,33 @@ class AziendaSanitaria {
             a.idAziendaSanitaria,
             a.Nome,
             a.Indirizzo,
+            a.provincia,
+            a.citta,
             a.mail,
-            GROUP_CONCAT(DISTINCT c.Convenzione ORDER BY c.Convenzione SEPARATOR ', ') AS Convenzioni,
-            GROUP_CONCAT(DISTINCT l.nomeLotto   ORDER BY l.nomeLotto   SEPARATOR ', ') AS Lotti
+            cg.Convenzioni,
+            lg.Lotti
         FROM aziende_sanitarie a
-        LEFT JOIN azienda_sanitaria_convenzione ac
-            ON a.idAziendaSanitaria = ac.idAziendaSanitaria
-        LEFT JOIN convenzioni c
-            ON ac.idConvenzione = c.idConvenzione
-           AND c.idAnno = ?                  -- filtro per anno in JOIN per preservare il LEFT JOIN
-        LEFT JOIN aziende_sanitarie_lotti l
-            ON a.idAziendaSanitaria = l.idAziendaSanitaria
-        WHERE 1 = 1
-    ";
+        LEFT JOIN (
+            SELECT
+                ac.idAziendaSanitaria,
+                GROUP_CONCAT(DISTINCT c.Convenzione ORDER BY c.Convenzione SEPARATOR ', ') AS Convenzioni
+            FROM azienda_sanitaria_convenzione ac
+            JOIN convenzioni c
+              ON c.idConvenzione = ac.idConvenzione
+             AND c.idAnno = ?
+            GROUP BY ac.idAziendaSanitaria
+        ) cg ON cg.idAziendaSanitaria = a.idAziendaSanitaria
+        LEFT JOIN (
+            SELECT
+                l.idAziendaSanitaria,
+                GROUP_CONCAT(DISTINCT l.nomeLotto ORDER BY l.nomeLotto SEPARATOR ', ') AS Lotti
+            FROM aziende_sanitarie_lotti l
+            GROUP BY l.idAziendaSanitaria
+        ) lg ON lg.idAziendaSanitaria = a.idAziendaSanitaria
+        WHERE 1 = 1";
 
-        // primo binding: l'anno
         $bindings = [$anno];
 
-        // Filtro opzionale su idConvenzione (singolo o array)
         if (!empty($idConvenzione)) {
             $ids = is_array($idConvenzione) ? array_values($idConvenzione) : [$idConvenzione];
             $placeholders = implode(',', array_fill(0, count($ids), '?'));
@@ -56,10 +65,7 @@ class AziendaSanitaria {
             }
         }
 
-        $sql .= "
-        GROUP BY a.idAziendaSanitaria, a.Nome, a.Indirizzo, a.mail
-        ORDER BY a.Nome
-    ";
+        $sql .= " ORDER BY a.Nome";
 
         $rows = DB::select($sql, $bindings);
 
@@ -73,6 +79,7 @@ class AziendaSanitaria {
     }
 
 
+
     public static function getById(int $id): ?\stdClass {
         $sql = "SELECT * FROM " . self::$table . " WHERE idAziendaSanitaria = ? LIMIT 1";
         $row = DB::select($sql, [$id]);
@@ -82,14 +89,16 @@ class AziendaSanitaria {
     public static function createSanitaria(array $data): int {
         $sql = "
             INSERT INTO " . self::$table . "
-                (Nome, Indirizzo, mail, note, created_at, updated_at)
+                (Nome, Indirizzo, provincia, citta, mail, note, created_at, updated_at)
             VALUES
-                (?, ?, ?, ?, NOW(), NOW())
+                (?, ?, ?, ?, ?, ?, NOW(), NOW())
         ";
 
         DB::insert($sql, [
             $data['Nome'],
             $data['Indirizzo'] ?? null,
+            $data['provincia'] ?? null,
+            $data['citta'] ?? null,
             $data['mail'] ?? null,
             $data['note'] ?? null,
         ]);
