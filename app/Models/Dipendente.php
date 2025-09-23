@@ -4,259 +4,454 @@ namespace App\Models;
 
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Collection;
-use App\Traits\TracksUserActions;
 
-class Dipendente {
-    use TracksUserActions;
-
+class Dipendente
+{
     protected const TABLE = 'dipendenti';
 
-    private static function baseQueryWithUsers(int $anno) {
-        return DB::table(self::TABLE . ' as d')
-            ->join('associazioni as a', 'd.idAssociazione', '=', 'a.idAssociazione')
-            ->leftJoin('users as uc', 'd.created_by', '=', 'uc.id')
-            ->leftJoin('users as uu', 'd.updated_by', '=', 'uu.id')
-            ->leftJoin('dipendenti_qualifiche as dq', 'dq.idDipendente', '=', 'd.idDipendente')
-            ->leftJoin('qualifiche as q', 'q.id', '=', 'dq.idQualifica')
-            ->leftJoin('dipendenti_livelli_mansione as dlm', 'dlm.idDipendente', '=', 'd.idDipendente')
-            ->leftJoin('livello_mansione as lm', 'lm.id', '=', 'dlm.idLivelloMansione')
-            ->where('d.idAnno', $anno)
-            ->groupBy('d.idDipendente')
-            ->selectRaw('
-                d.idDipendente,
-                MIN(d.idAssociazione) as idAssociazione,
-                MIN(d.idAnno) as idAnno,
-                MIN(d.DipendenteNome) as DipendenteNome,
-                MIN(d.DipendenteCognome) as DipendenteCognome,
-                MIN(d.note) as note,
-                MIN(lm.nome) as livelliMansione,
-                MIN(d.ContrattoApplicato) as ContrattoApplicato,
-                MIN(a.Associazione) as Associazione,
-                MIN(uc.username) as created_by_name,
-                MIN(uu.username) as updated_by_name,
-                GROUP_CONCAT(DISTINCT q.nome ORDER BY q.nome SEPARATOR ", ") as Qualifica,
-                GROUP_CONCAT(DISTINCT lm.nome ORDER BY lm.nome SEPARATOR ", ") as LivelloMansione,
-                MIN(d.note) as note,
-                MIN(d.created_at) as created_at,
-                MIN(d.updated_at) as updated_at
-            ');
+    // ⚠️ Adegua se gli ID reali sono diversi
+    public const Q_AUTISTA_ID        = 1; // AUTISTA SOCCORRITORE
+    public const Q_AMMINISTRATIVO_ID = 7; // IMPIEGATO AMMINISTRATIVO
+
+    /** ---------------------------
+     * Helpers (solo SQL)
+     * --------------------------- */
+
+    private static function mapQualificheByDipendente(): array
+    {
+        $rows = DB::select("
+            SELECT dq.idDipendente, dq.idQualifica, q.nome
+            FROM dipendenti_qualifiche AS dq
+            JOIN qualifiche AS q ON q.id = dq.idQualifica
+            ORDER BY q.nome
+        ");
+
+        $map = [];
+        foreach ($rows as $r) {
+            $id = (int)$r->idDipendente;
+            if (!isset($map[$id])) {
+                $map[$id] = ['ids' => [], 'nomi' => []];
+            }
+            $map[$id]['ids'][]  = (int)$r->idQualifica;
+            $map[$id]['nomi'][] = $r->nome;
+        }
+        return $map;
     }
 
-    public static function getAll(int $anno): Collection {
-        return self::baseQueryWithUsers($anno)->get();
-    }
-
-    public static function getByAssociazione(?int $idAssociazione, int $anno): Collection {
-       
-        $sql = "SELECT 
+    private static function baseSelect(): string
+    {
+        return "
+            SELECT
                 d.idDipendente,
                 d.idAssociazione,
                 d.idAnno,
                 d.DipendenteNome,
                 d.DipendenteCognome,
-                d.note,
                 d.ContrattoApplicato,
-                q.nome as Qualifica,
-                d.LivelloMansione
-                -- lm.nome as LivelloMansione
-                FROM " . self::TABLE . " as d
-                LEFT JOIN dipendenti_qualifiche dq ON dq.idDipendente = d.idDipendente
-                LEFT JOIN qualifiche q ON q.id = dq.idQualifica
-                WHERE idAssociazione = :idAssociazione AND idAnno = :anno";
-                //queste due join sotto le prime due non commentate
-                // LEFT JOIN dipendenti_livelli_mansione dm ON dm.idDipendente = d.idDipendente
-                // LEFT JOIN livello_mansione lm ON lm.id = dm.idLivelloMansione
-                // GROUP BY d.idDipendente, d.idAssociazione, d.idAnno, d.DipendenteNome, d.DipendenteCognome, d.note, d.ContrattoApplicato, d.LivelloMansione";
-
-        
-        $params = ['idAssociazione' => $idAssociazione, 'anno' => $anno];
-
-        return collect(DB::select($sql, $params));
-       
+                d.LivelloMansione,
+                d.note,
+                a.Associazione,
+                d.created_at,
+                d.updated_at
+            FROM ".self::TABLE." AS d
+            JOIN associazioni AS a ON a.idAssociazione = d.idAssociazione
+        ";
     }
 
-    public static function getOne(int $idDipendente): ?object {
-        return DB::table(self::TABLE)->where('idDipendente', $idDipendente)->first();
+    /** ---------------------------
+     * Query principali
+     * --------------------------- */
+
+    public static function getAll(int $anno): Collection
+    {
+        $rows = DB::select(self::baseSelect()." WHERE d.idAnno = ? ORDER BY d.DipendenteCognome", [$anno]);
+        $map  = self::mapQualificheByDipendente();
+
+        foreach ($rows as $r) {
+            $r->Qualifica = isset($map[$r->idDipendente]) ? implode(', ',$map[$r->idDipendente]['nomi']) : '';
+        }
+        return collect($rows);
     }
 
-    public static function getAutisti(int $anno): Collection {
-        $dipendenti = self::getAll($anno);
-        $map = DB::table('dipendenti_qualifiche')
-            ->join('qualifiche', 'dipendenti_qualifiche.idQualifica', '=', 'qualifiche.id')
-            ->select('dipendenti_qualifiche.idDipendente', 'qualifiche.nome')
-            ->get()
-            ->groupBy('idDipendente')
-            ->map(fn($q) => $q->pluck('nome')->toArray());
+    public static function getByAssociazione(?int $idAssociazione, int $anno): Collection
+    {
+        $bindings = [$anno];
+        $sql = self::baseSelect()." WHERE d.idAnno = ?";
 
-        return $dipendenti->filter(
-            fn($d) =>
-            isset($map[$d->idDipendente]) &&
-                collect($map[$d->idDipendente])->contains(fn($q) => str_contains($q, 'AUTISTA'))
-        );
+        if (!is_null($idAssociazione)) {
+            $sql .= " AND d.idAssociazione = ?";
+            $bindings[] = $idAssociazione;
+        }
+
+        $sql .= " ORDER BY d.DipendenteCognome";
+        $rows = DB::select($sql, $bindings);
+
+        $map  = self::mapQualificheByDipendente();
+        foreach ($rows as $r) {
+            $r->Qualifica = isset($map[$r->idDipendente]) ? implode(', ',$map[$r->idDipendente]['nomi']) : '';
+        }
+        return collect($rows);
     }
 
-    public static function getAmministrativi(int $anno): Collection {
-        $dipendenti = self::getAll($anno);
-        $map = DB::table('dipendenti_qualifiche')
-            ->select('idDipendente', 'idQualifica')
-            ->get()
-            ->groupBy('idDipendente')
-            ->map(fn($items) => $items->pluck('idQualifica')->toArray());
-
-        return $dipendenti->filter(fn($d) => in_array(3, $map[$d->idDipendente] ?? []));
+    public static function getOne(int $idDipendente): ?object
+    {
+        $row = DB::selectOne("SELECT * FROM ".self::TABLE." WHERE idDipendente = ? LIMIT 1", [$idDipendente]);
+        return $row ?: null;
     }
 
-    public static function getAltri(int $anno): Collection {
-        $dipendenti = self::getAll($anno);
-        $map = DB::table('dipendenti_qualifiche')
-            ->join('qualifiche', 'dipendenti_qualifiche.idQualifica', '=', 'qualifiche.id')
-            ->select('dipendenti_qualifiche.idDipendente', 'qualifiche.nome')
-            ->get()
-            ->groupBy('idDipendente')
-            ->map(fn($q) => $q->pluck('nome')->toArray());
+    public static function getAutisti(int $anno): Collection
+    {
+        $rows = DB::select(self::baseSelect()." WHERE d.idAnno = ? ORDER BY d.DipendenteCognome", [$anno]);
 
-        return $dipendenti->reject(
-            fn($d) =>
-            isset($map[$d->idDipendente]) &&
-                collect($map[$d->idDipendente])->contains(fn($q) => str_contains($q, 'AUTISTA'))
-        );
+        $ids = DB::select("
+            SELECT DISTINCT idDipendente
+            FROM dipendenti_qualifiche
+            WHERE idQualifica = ?
+        ", [self::Q_AUTISTA_ID]);
+        $autistiIds = array_map(fn($r) => (int)$r->idDipendente, $ids);
+
+        $map = self::mapQualificheByDipendente();
+
+        $filtered = [];
+        foreach ($rows as $r) {
+            if (in_array((int)$r->idDipendente, $autistiIds, true)) {
+                $r->Qualifica = isset($map[$r->idDipendente]) ? implode(', ',$map[$r->idDipendente]['nomi']) : '';
+                $filtered[] = $r;
+            }
+        }
+        return collect($filtered);
     }
 
-    public static function getLivelliMansione(): Collection {
-        return DB::table('livello_mansione')->select('id', 'nome')->orderBy('nome')->get();
+    public static function getAmministrativi(int $anno): Collection
+    {
+        $rows = DB::select(self::baseSelect()." WHERE d.idAnno = ? ORDER BY d.DipendenteCognome", [$anno]);
+
+        $ids = DB::select("
+            SELECT DISTINCT idDipendente
+            FROM dipendenti_qualifiche
+            WHERE idQualifica = ?
+        ", [self::Q_AMMINISTRATIVO_ID]);
+        $ammIds = array_map(fn($r) => (int)$r->idDipendente, $ids);
+
+        $map = self::mapQualificheByDipendente();
+
+        $filtered = [];
+        foreach ($rows as $r) {
+            if (in_array((int)$r->idDipendente, $ammIds, true)) {
+                $r->Qualifica = isset($map[$r->idDipendente]) ? implode(', ',$map[$r->idDipendente]['nomi']) : '';
+                $filtered[] = $r;
+            }
+        }
+        return collect($filtered);
     }
 
-    public static function getLivelliMansioneByDipendente(int $idDipendente): array {
-        return DB::table('dipendenti_livelli_mansione')
-            ->where('idDipendente', $idDipendente)
-            ->pluck('idLivelloMansione')
-            ->toArray();
+    public static function getAltri(int $anno): Collection
+    {
+        // Tutti
+        $rows = DB::select(self::baseSelect()." WHERE d.idAnno = ? ORDER BY d.DipendenteCognome", [$anno]);
+
+        // Autisti ids
+        $aut = DB::select("
+            SELECT DISTINCT idDipendente
+            FROM dipendenti_qualifiche
+            WHERE idQualifica = ?
+        ", [self::Q_AUTISTA_ID]);
+        $autistiIds = array_map(fn($r) => (int)$r->idDipendente, $aut);
+
+        $map = self::mapQualificheByDipendente();
+
+        $filtered = [];
+        foreach ($rows as $r) {
+            if (!in_array((int)$r->idDipendente, $autistiIds, true)) {
+                $r->Qualifica = isset($map[$r->idDipendente]) ? implode(', ',$map[$r->idDipendente]['nomi']) : '';
+                $filtered[] = $r;
+            }
+        }
+        return collect($filtered);
     }
 
-public static function storeDipendente(array $data) {
-    $qualifiche = $data['Qualifica'] ?? [];
+    /** ---------------------------
+     * Lookup tabelle di servizio
+     * --------------------------- */
 
-    unset($data['Qualifica']); // lasciamo LivelloMansione tra i campi da salvare
+    public static function getLivelliMansione(): Collection
+    {
+        return collect(DB::select("SELECT id, nome FROM livello_mansione ORDER BY nome"));
+    }
 
-    $userId = auth()->id();
-    $now = now();
-    $data['created_at'] = $data['updated_at'] = $now;
-    $data['created_by'] = $data['updated_by'] = $userId;
+    public static function getLivelliMansioneByDipendente(int $idDipendente): array
+    {
+        $rows = DB::select("
+            SELECT idLivelloMansione
+            FROM dipendenti_livelli_mansione
+            WHERE idDipendente = ?
+        ", [$idDipendente]);
 
-    // Inserimento dipendente (con LivelloMansione salvato direttamente nella tabella)
-    $id = DB::table(self::TABLE)->insertGetId($data);
+        return array_map(fn($r) => (int)$r->idLivelloMansione, $rows);
+    }
 
-    // Associazione qualifiche
-    foreach (array_unique($qualifiche) as $idQualifica) {
-        DB::table('dipendenti_qualifiche')->insert([
-            'idDipendente' => $id,
-            'idQualifica'  => $idQualifica,
-            'created_at'   => $now,
-            'updated_at'   => $now,
+    public static function getQualifiche(): Collection
+    {
+        return collect(DB::select("SELECT id, nome FROM qualifiche ORDER BY nome"));
+    }
+
+    public static function getQualificheByDipendente(int $idDipendente): array
+    {
+        $rows = DB::select("
+            SELECT idQualifica
+            FROM dipendenti_qualifiche
+            WHERE idDipendente = ?
+        ", [$idDipendente]);
+
+        return array_map(fn($r) => (int)$r->idQualifica, $rows);
+    }
+
+    public static function getNomiQualifiche(int $idDipendente): string
+    {
+        $rows = DB::select("
+            SELECT q.nome
+            FROM dipendenti_qualifiche AS dq
+            JOIN qualifiche AS q ON q.id = dq.idQualifica
+            WHERE dq.idDipendente = ?
+            ORDER BY q.nome
+        ", [$idDipendente]);
+
+        return implode(', ', array_map(fn($r) => $r->nome, $rows));
+    }
+
+    public static function getContrattiApplicati(): Collection
+    {
+        return collect(DB::select("SELECT nome FROM contratti_applicati ORDER BY nome"));
+    }
+
+    public static function getAnni(): Collection
+    {
+        return collect(DB::select("SELECT idAnno, anno FROM anni ORDER BY anno DESC"));
+    }
+
+    public static function getAssociazioni($user, bool $isImpersonating): Collection
+    {
+        if ($user->hasAnyRole(['SuperAdmin','Admin','Supervisor']) && !$isImpersonating) {
+            $rows = DB::select("
+                SELECT idAssociazione, Associazione
+                FROM associazioni
+                WHERE deleted_at IS NULL AND idAssociazione <> 1
+                ORDER BY Associazione
+            ");
+        } else {
+            $rows = DB::select("
+                SELECT idAssociazione, Associazione
+                FROM associazioni
+                WHERE deleted_at IS NULL AND idAssociazione <> 1 AND idAssociazione = ?
+                ORDER BY Associazione
+            ", [$user->IdAssociazione]);
+        }
+        return collect($rows);
+    }
+
+    public static function getAutistiEBarellieri(int $anno, $idAssociazione = null): Collection
+    {
+        $sql = "
+            SELECT
+                d.idDipendente,
+                d.DipendenteNome,
+                d.DipendenteCognome,
+                d.idAssociazione,
+                a.Associazione
+            FROM dipendenti AS d
+            JOIN dipendenti_qualifiche AS dq ON dq.idDipendente = d.idDipendente
+            JOIN associazioni AS a ON a.idAssociazione = d.idAssociazione
+            WHERE d.idAnno = ? AND dq.idQualifica = ?
+        ";
+
+        $bindings = [$anno, self::Q_AUTISTA_ID];
+
+        if (!is_null($idAssociazione)) {
+            $sql .= " AND d.idAssociazione = ?";
+            $bindings[] = $idAssociazione;
+        }
+
+        $sql .= " ORDER BY d.DipendenteCognome";
+
+        return collect(DB::select($sql, $bindings));
+    }
+
+    public static function getCognomeNome(int $idDipendente): ?object
+    {
+        $row = DB::selectOne("
+            SELECT DipendenteNome, DipendenteCognome
+            FROM dipendenti
+            WHERE idDipendente = ?
+            LIMIT 1
+        ", [$idDipendente]);
+
+        return $row ?: null;
+    }
+
+    /** ---------------------------
+     * CRUD (no Eloquent)
+     * --------------------------- */
+
+    public static function storeDipendente(array $data)
+    {
+        // Normalizza chiave legacy
+        if (isset($data['IdAssociazione']) && !isset($data['idAssociazione'])) {
+            $data['idAssociazione'] = $data['IdAssociazione'];
+            unset($data['IdAssociazione']);
+        }
+
+        $qualifiche = $data['Qualifica'] ?? [];
+        unset($data['Qualifica']);
+
+        $now   = now();
+        $uid   = auth()->id();
+
+        $sql = "
+            INSERT INTO ".self::TABLE."
+            (idAssociazione, idAnno, DipendenteNome, DipendenteCognome, ContrattoApplicato, LivelloMansione, note, created_at, updated_at, created_by, updated_by)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ";
+
+        DB::insert($sql, [
+            $data['idAssociazione'],
+            $data['idAnno'],
+            $data['DipendenteNome'],
+            $data['DipendenteCognome'],
+            $data['ContrattoApplicato'] ?? null,
+            $data['LivelloMansione']   ?? null,
+            $data['note']              ?? null,
+            $now, $now, $uid, $uid
         ]);
+
+        $id = (int) DB::getPdo()->lastInsertId();
+
+        // Pivot qualifiche
+        if (!empty($qualifiche)) {
+            $pvSql = "INSERT INTO dipendenti_qualifiche (idDipendente, idQualifica, created_at, updated_at) VALUES (?, ?, ?, ?)";
+            foreach (array_unique($qualifiche) as $q) {
+                DB::insert($pvSql, [$id, (int)$q, $now, $now]);
+            }
+        }
+
+        return redirect()->route('dipendenti.index')->with('success', 'Dipendente creato correttamente.');
     }
 
-    return redirect()->route('dipendenti.index')->with('success', 'Dipendente creato correttamente.');
-}
+    public static function updateDipendente(int $id, array $data)
+    {
+        if (isset($data['IdAssociazione']) && !isset($data['idAssociazione'])) {
+            $data['idAssociazione'] = $data['IdAssociazione'];
+            unset($data['IdAssociazione']);
+        }
 
-public static function updateDipendente(int $id, array $data) {
-    $qualifiche = $data['Qualifica'] ?? [];
+        $qualifiche = $data['Qualifica'] ?? [];
+        unset($data['Qualifica']);
 
-    unset($data['Qualifica']); // lasciamo LivelloMansione tra i campi da aggiornare
+        $now = now();
+        $uid = auth()->id();
 
-    $data['updated_at'] = now();
-    $data['updated_by'] = auth()->id();
+        $sql = "
+            UPDATE ".self::TABLE."
+            SET
+                idAssociazione = ?,
+                idAnno = ?,
+                DipendenteNome = ?,
+                DipendenteCognome = ?,
+                ContrattoApplicato = ?,
+                LivelloMansione = ?,
+                note = ?,
+                updated_at = ?,
+                updated_by = ?
+            WHERE idDipendente = ?
+        ";
 
-    // Aggiornamento del dipendente (LivelloMansione aggiornato direttamente nella tabella)
-    DB::table(self::TABLE)
-        ->where('idDipendente', $id)
-        ->update($data);
-
-    // Aggiorna qualifiche
-    DB::table('dipendenti_qualifiche')->where('idDipendente', $id)->delete();
-    foreach ($qualifiche as $idQualifica) {
-        DB::table('dipendenti_qualifiche')->insert([
-            'idDipendente' => $id,
-            'idQualifica'  => $idQualifica,
-            'created_at'   => now(),
-            'updated_at'   => now(),
+        DB::update($sql, [
+            $data['idAssociazione'],
+            $data['idAnno'],
+            $data['DipendenteNome'],
+            $data['DipendenteCognome'],
+            $data['ContrattoApplicato'] ?? null,
+            $data['LivelloMansione']   ?? null,
+            $data['note']              ?? null,
+            $now, $uid, $id
         ]);
+
+        // Reset & reinsert pivot qualifiche
+        DB::delete("DELETE FROM dipendenti_qualifiche WHERE idDipendente = ?", [$id]);
+
+        if (!empty($qualifiche)) {
+            $pvSql = "INSERT INTO dipendenti_qualifiche (idDipendente, idQualifica, created_at, updated_at) VALUES (?, ?, ?, ?)";
+            foreach (array_unique($qualifiche) as $q) {
+                DB::insert($pvSql, [$id, (int)$q, $now, $now]);
+            }
+        }
+
+        return redirect()->route('dipendenti.index')->with('success', 'Dipendente aggiornato correttamente.');
     }
 
-    return redirect()->route('dipendenti.index')->with('success', 'Dipendente aggiornato correttamente.');
-}
+    public static function eliminaDipendente(int $id): int
+    {
+        // Pulisci pivot
+        DB::delete("DELETE FROM dipendenti_qualifiche WHERE idDipendente = ?", [$id]);
+        DB::delete("DELETE FROM dipendenti_livelli_mansione WHERE idDipendente = ?", [$id]);
 
-    public static function getQualifiche(): Collection {
-        return DB::table('qualifiche')->select('id', 'nome')->orderBy('nome')->get();
+        // Delete principale
+        return DB::delete("DELETE FROM ".self::TABLE." WHERE idDipendente = ?", [$id]);
     }
 
-    public static function getQualificheByDipendente(int $idDipendente): array {
-        return DB::table('dipendenti_qualifiche')
-            ->where('idDipendente', $idDipendente)
-            ->pluck('idQualifica')
-            ->toArray();
-    }
+    /** ---------------------------
+     * Duplicazione anno (copia pivot)
+     * --------------------------- */
+    public static function duplicaAnno(int $idAssociazione, int $fromAnno, int $toAnno): int
+    {
+        $src = DB::select("
+            SELECT *
+            FROM ".self::TABLE."
+            WHERE idAssociazione = ? AND idAnno = ?
+        ", [$idAssociazione, $fromAnno]);
 
-    public static function getNomiQualifiche(int $idDipendente): string {
-        return DB::table('dipendenti_qualifiche')
-            ->join('qualifiche', 'dipendenti_qualifiche.idQualifica', '=', 'qualifiche.id')
-            ->where('dipendenti_qualifiche.idDipendente', $idDipendente)
-            ->pluck('qualifiche.nome')
-            ->implode(', ');
-    }
+        if (empty($src)) return 0;
 
-    public static function getContrattiApplicati(): Collection {
-        return DB::table('contratti_applicati')->select('nome')->orderBy('nome')->get();
-    }
+        $now = now();
+        $uid = auth()->id();
+        $count = 0;
 
-    public static function getAnni(): Collection {
-        return DB::table('anni')->select('idAnno', 'anno')->orderByDesc('anno')->get();
-    }
+        DB::transaction(function () use ($src, $idAssociazione, $toAnno, $now, $uid, &$count) {
+            foreach ($src as $d) {
+                DB::insert("
+                    INSERT INTO ".self::TABLE."
+                    (idAssociazione, idAnno, DipendenteNome, DipendenteCognome, ContrattoApplicato, LivelloMansione, note, created_at, updated_at, created_by, updated_by)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ", [
+                    $idAssociazione, $toAnno,
+                    $d->DipendenteNome, $d->DipendenteCognome,
+                    $d->ContrattoApplicato, $d->LivelloMansione,
+                    $d->note, $now, $now, $uid, $uid
+                ]);
 
-    public static function getAssociazioni($user, bool $isImpersonating): Collection {
-        return ($user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor']) && !$isImpersonating)
-            ? DB::table('associazioni')->select('idAssociazione', 'Associazione')
-            ->whereNull('deleted_at')
-            ->whereNot("idAssociazione", 1)
-            ->orderBy('Associazione')->get()
-            : DB::table('associazioni')->select('idAssociazione', 'Associazione')
-            ->where('idAssociazione', $user->IdAssociazione)
-            ->whereNull('deleted_at')
-            ->whereNot("idAssociazione", 1)->get();
-    }
+                $newId = (int) DB::getPdo()->lastInsertId();
 
-    public static function getAutistiEBarellieri(int $anno, $idAssociazione = null) {
-        return DB::table('dipendenti as d')
-            ->join('dipendenti_qualifiche as dq', 'd.idDipendente', '=', 'dq.idDipendente')
-            ->join('qualifiche as q', 'dq.idQualifica', '=', 'q.id')
-            ->join('associazioni as a', 'd.idAssociazione', '=', 'a.idAssociazione')
-            ->where('d.idAnno', $anno)
-            ->where('dq.idQualifica', 1) // Filtro su idQualifica (pivot)
-            ->when($idAssociazione !== null, function ($query) use ($idAssociazione) {
-                $query->where('d.idAssociazione', $idAssociazione);
-            })
-            ->select(
-                'd.idDipendente',
-                'd.DipendenteNome',
-                'd.DipendenteCognome',
-                'd.idAssociazione',
-                'a.Associazione'
-            )
-            ->orderBy('d.DipendenteCognome')
-            ->get();
-    }
+                // Qualifiche
+                $q = DB::select("SELECT idQualifica FROM dipendenti_qualifiche WHERE idDipendente = ?", [$d->idDipendente]);
+                foreach ($q as $row) {
+                    DB::insert("
+                        INSERT INTO dipendenti_qualifiche (idDipendente, idQualifica, created_at, updated_at)
+                        VALUES (?, ?, ?, ?)
+                    ", [$newId, (int)$row->idQualifica, $now, $now]);
+                }
 
-    public static function getCognomeNome(int $idDipendente): ?object {
-        return DB::table('dipendenti')
-            ->where('idDipendente', $idDipendente)
-            ->select('DipendenteNome', 'DipendenteCognome')
-            ->first();
-    }
+                // Livelli (se usi la pivot)
+                $lv = DB::select("SELECT idLivelloMansione FROM dipendenti_livelli_mansione WHERE idDipendente = ?", [$d->idDipendente]);
+                foreach ($lv as $row) {
+                    DB::insert("
+                        INSERT INTO dipendenti_livelli_mansione (idDipendente, idLivelloMansione, created_at, updated_at)
+                        VALUES (?, ?, ?, ?)
+                    ", [$newId, (int)$row->idLivelloMansione, $now, $now]);
+                }
 
-    public static function eliminaDipendente(int $id){
+                $count++;
+            }
+        });
 
-        return DB::table(self::TABLE)
-                 ->where('idDipendente', $id)
-                 ->delete();
+        return $count;
     }
 }
