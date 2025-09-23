@@ -24,7 +24,7 @@ class CostiRadioController extends Controller {
 
         $automezzi = Automezzo::getForRipartizione($anno, $idAssociazione);
         $numeroAutomezzi = count($automezzi);
-
+            
         return view('ripartizioni.costi_radio.index', compact('numeroAutomezzi', 'anno', 'idAssociazione', 'associazioni'));
     }
 
@@ -47,11 +47,12 @@ class CostiRadioController extends Controller {
         // Recupero ID Associazione
         $selectedAssoc = session('associazione_selezionata');
         $idAssociazione = $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])
-            ? $selectedAssoc
+            ? session('associazione_selezionata')
             : $user->IdAssociazione;
+            
 
         abort_if(!$idAssociazione, 403, "Associazione non determinata.");
-
+ 
         // Recupero automezzi
         $automezzi = Automezzo::getByAssociazione($idAssociazione, $anno);
         $numAutomezzi = max(count($automezzi), 1);
@@ -62,6 +63,7 @@ class CostiRadioController extends Controller {
             ->where('idAssociazione', $idAssociazione)
             ->first();
 
+    
         $rows = [];
 
         // Riga totale
@@ -74,6 +76,7 @@ class CostiRadioController extends Controller {
             'is_totale'                     => -1,
         ];
 
+
         // Righe per ogni automezzo
         foreach ($automezzi as $a) {
             $rows[] = [
@@ -85,7 +88,6 @@ class CostiRadioController extends Controller {
                 'is_totale'                     => 0,
             ];
         }
-
         return response()->json(['data' => $rows]);
     }
 
@@ -96,9 +98,9 @@ class CostiRadioController extends Controller {
         $automezzi = $this->getAutomezziFiltrati($anno);
 
         $idAssociazione = $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])
-            ? ($automezzi[0]->idAssociazione ?? null)
+            ? session('associazione_selezionata')
             : $user->IdAssociazione;
-
+            
         abort_if(!$idAssociazione, 403, "Associazione non determinata.");
 
         $record = DB::table('costi_radio')

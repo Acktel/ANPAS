@@ -91,7 +91,6 @@ class ConvenzioniController extends Controller
             'idAssociazione' => 'required|exists:associazioni,idAssociazione',
             'idAnno' => 'required|exists:anni,idAnno',
             'Convenzione' => 'required|string|max:255',
-            'lettera_identificativa' => 'required|string|max:5',
             'note' => 'nullable|string',
             'aziende_sanitarie' => 'nullable|array',
             'aziende_sanitarie.*' => 'exists:aziende_sanitarie,idAziendaSanitaria',
@@ -103,7 +102,6 @@ class ConvenzioniController extends Controller
             'idAssociazione' => $validated['idAssociazione'],
             'idAnno' => $validated['idAnno'],
             'Convenzione' => $validated['Convenzione'],
-            'lettera_identificativa' => $validated['lettera_identificativa'],
             'note' => $validated['note'] ?? null,
             'created_at' => now(),
             'updated_at' => now(),
@@ -200,7 +198,6 @@ class ConvenzioniController extends Controller
             'idAssociazione' => 'required|exists:associazioni,idAssociazione',
             'idAnno' => 'required|exists:anni,idAnno',
             'Convenzione' => 'required|string|max:255',
-            'lettera_identificativa' => 'required|string|max:5',
             'note' => 'nullable|string',
             'aziende_sanitarie' => 'nullable|array',
             'aziende_sanitarie.*' => 'exists:aziende_sanitarie,idAziendaSanitaria',
@@ -212,7 +209,6 @@ class ConvenzioniController extends Controller
             'idAssociazione' => $validated['idAssociazione'],
             'idAnno' => $validated['idAnno'],
             'Convenzione' => $validated['Convenzione'],
-            'lettera_identificativa' => $validated['lettera_identificativa'],
             'note' => $validated['note'] ?? null,
             'updated_at' => now(),
         ]);
@@ -304,7 +300,6 @@ class ConvenzioniController extends Controller
                     'Convenzione' => $c->Convenzione,
                     'note'      => $c->note,
                     "ordinamento"=> $c->ordinamento,
-                    'lettera_identificativa' => $c->lettera_identificativa,
                 ]);
             }
 

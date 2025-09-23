@@ -132,7 +132,7 @@ class Automezzo
     public static function getByAssociazione(?int $idAssociazione, ?int $anno = null): Collection
     {
         $anno = $anno ?? session('anno_riferimento', now()->year);
-
+        
         return DB::table(self::TABLE . ' as a')
             ->join('associazioni as s', 'a.idAssociazione', '=', 's.idAssociazione')
             ->leftJoin('automezzi_km_riferimento as km', function ($join) use ($anno) {
@@ -228,10 +228,11 @@ class Automezzo
     {
         return DB::table('automezzi')
             ->where('idAnno', $anno)
-            ->when($idAssociazione, fn($q) => $q->where('idAssociazione', $idAssociazione))
-            ->select('idAutomezzo', 'Targa', 'CodiceIdentificativo', 'note') // ← aggiunto
+            ->when($idAssociazione, callback: fn($q) => $q->where('idAssociazione', $idAssociazione))
+            ->select('idAutomezzo', 'Targa', 'CodiceIdentificativo', 'note') 
             ->orderBy('Targa')
             ->get();
+            
     }
 
     public static function getFiltratiByUtente($anno): Collection

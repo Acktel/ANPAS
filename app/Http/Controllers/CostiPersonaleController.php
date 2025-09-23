@@ -51,9 +51,9 @@ class CostiPersonaleController extends Controller {
             return str_contains($q, $qualificaInput);
         });
         $costi = CostiPersonale::getAllByAnno($anno)->keyBy('idDipendente');
-        
+
         $ripartizioni = RipartizionePersonale::getAll($anno, $user)->groupBy('idDipendente');
-       
+
         $convenzioni = Convenzione::getByAssociazioneAnno($idAssociazione, $anno)
             ->sortBy('idConvenzione')
             ->values();
@@ -76,7 +76,7 @@ class CostiPersonaleController extends Controller {
             $tfr = (float)($c->TFR ?? 0);
             $consulenze = (float)($c->Consulenze ?? 0);
             $totale = $retribuzioni + $oneriSociali + $tfr + $consulenze;
-            
+
             $r = [
                 'idDipendente' => $id,
                 'Dipendente'   => trim("{$d->DipendenteCognome} {$d->DipendenteNome}"),
@@ -135,10 +135,17 @@ class CostiPersonaleController extends Controller {
             'OneriSociali'   => 'required|numeric',
             'TFR'            => 'required|numeric',
             'Consulenze'     => 'required|numeric',
-            'Totale'         => 'required|numeric',
         ]);
 
         $data['idAnno'] = session('anno_riferimento', now()->year);
+
+        $data['Totale'] =
+            (float)$data['Retribuzioni'] +
+            (float)$data['OneriSociali'] +
+            (float)$data['TFR'] +
+            (float)$data['Consulenze'];
+
+
         CostiPersonale::updateOrInsert($data);
 
         return response()->json([
@@ -160,11 +167,17 @@ class CostiPersonaleController extends Controller {
             'OneriSociali'   => 'required|numeric',
             'TFR'            => 'required|numeric',
             'Consulenze'     => 'required|numeric',
-            'Totale'         => 'required|numeric',
         ]);
 
         $data['idDipendente'] = $idDipendente;
         $data['idAnno'] = session('anno_riferimento', now()->year);
+
+        $data['Totale'] =
+            (float)$data['Retribuzioni'] +
+            (float)$data['OneriSociali'] +
+            (float)$data['TFR'] +
+            (float)$data['Consulenze'];
+            
         CostiPersonale::updateOrInsert($data);
 
         return redirect()->route('ripartizioni.personale.costi.index')->with('success', 'Dati aggiornati.');

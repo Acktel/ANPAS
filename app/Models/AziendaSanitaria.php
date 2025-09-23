@@ -8,12 +8,24 @@ use Illuminate\Support\Facades\DB;
 class AziendaSanitaria {
     protected static string $table = 'aziende_sanitarie';
 
-    /**
-     * Lista aziende + convenzioni + lotti (con filtro opzionale su idConvenzione)
-     * SQL grezzo (MySQL: usa GROUP_CONCAT).
-     */
+    /** Resolve idAnno from year, creates record if missing. */
+    public static function resolveIdAnno(int $anno): int
+    {
+        $idAnno = DB::table('anni')->where('anno', $anno)->value('idAnno');
+        if (!$idAnno) {
+            $idAnno = DB::table('anni')->insertGetId([
+                'anno'       => $anno,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
+        return (int)$idAnno;
+    }
+
+    /** Lista aziende + convenzioni + lotti per anno corrente (con filtro opzionale su idConvenzione). */
     public static function getAllWithConvenzioni($idConvenzione = null): \Illuminate\Support\Collection {
         $anno = (int) session('anno_riferimento', now()->year);
+        $idAnno = self::resolveIdAnno($anno);
 
         $sql = "
         SELECT
@@ -43,9 +55,10 @@ class AziendaSanitaria {
             FROM aziende_sanitarie_lotti l
             GROUP BY l.idAziendaSanitaria
         ) lg ON lg.idAziendaSanitaria = a.idAziendaSanitaria
-        WHERE 1 = 1";
+        WHERE a.idAnno = ?
+        ";
 
-        $bindings = [$anno];
+        $bindings = [$idAnno, $idAnno];
 
         if (!empty($idConvenzione)) {
             $ids = is_array($idConvenzione) ? array_values($idConvenzione) : [$idConvenzione];
@@ -78,7 +91,23 @@ class AziendaSanitaria {
         });
     }
 
+    public static function getByAnno(int $anno): Collection
+    {
+        $idAnno = self::resolveIdAnno($anno);
+        $rows = DB::select("
+            SELECT *
+            FROM " . self::$table . "
+            WHERE idAnno = ?
+            ORDER BY Nome
+        ", [$idAnno]);
+        return collect($rows);
+    }
 
+    public static function existsForAnno(int $anno): bool
+    {
+        $idAnno = self::resolveIdAnno($anno);
+        return DB::table(self::$table)->where('idAnno', $idAnno)->exists();
+    }
 
     public static function getById(int $id): ?\stdClass {
         $sql = "SELECT * FROM " . self::$table . " WHERE idAziendaSanitaria = ? LIMIT 1";
@@ -87,14 +116,18 @@ class AziendaSanitaria {
     }
 
     public static function createSanitaria(array $data): int {
+        $anno = (int) ($data['anno_riferimento'] ?? session('anno_riferimento', now()->year));
+        $idAnno = self::resolveIdAnno($anno);
+
         $sql = "
             INSERT INTO " . self::$table . "
-                (Nome, Indirizzo, provincia, citta, mail, note, created_at, updated_at)
+                (idAnno, Nome, Indirizzo, provincia, citta, mail, note, created_at, updated_at)
             VALUES
-                (?, ?, ?, ?, ?, ?, NOW(), NOW())
+                (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
         ";
 
         DB::insert($sql, [
+            $idAnno,
             $data['Nome'],
             $data['Indirizzo'] ?? null,
             $data['provincia'] ?? null,
@@ -112,15 +145,18 @@ class AziendaSanitaria {
     }
 
     public static function updateSanitaria(int $id, array $data): void {
+        // NB: non si cambia idAnno in update (anagrafica appartiene ad un anno)
         $sql = "
             UPDATE " . self::$table . "
-            SET Nome = ?, Indirizzo = ?, mail = ?, note = ?, updated_at = NOW()
+            SET Nome = ?, Indirizzo = ?, provincia = ?, citta = ?, mail = ?, note = ?, updated_at = NOW()
             WHERE idAziendaSanitaria = ?
         ";
 
         DB::update($sql, [
             $data['Nome'],
             $data['Indirizzo'] ?? null,
+            $data['provincia'] ?? null,
+            $data['citta'] ?? null,
             $data['mail'] ?? null,
             $data['note'] ?? null,
             $id,
@@ -150,14 +186,10 @@ class AziendaSanitaria {
     }
 
     public static function syncConvenzioni(int $idAzienda, array $convenzioni): void {
-        // wipe & reinsert
         DB::delete("DELETE FROM azienda_sanitaria_convenzione WHERE idAziendaSanitaria = ?", [$idAzienda]);
 
-        if (empty($convenzioni)) {
-            return;
-        }
+        if (empty($convenzioni)) return;
 
-        // build multi-insert
         $valuesClauses = [];
         $bindings = [];
         foreach ($convenzioni as $idConv) {
@@ -175,11 +207,15 @@ class AziendaSanitaria {
     }
 
     public static function getAll(): Collection {
+        $anno = (int) session('anno_riferimento', now()->year);
+        $idAnno = self::resolveIdAnno($anno);
+
         $rows = DB::select("
             SELECT idAziendaSanitaria, Nome
             FROM aziende_sanitarie
+            WHERE idAnno = ?
             ORDER BY Nome
-        ");
+        ", [$idAnno]);
         return collect($rows);
     }
 }

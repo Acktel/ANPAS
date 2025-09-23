@@ -70,16 +70,6 @@ $assoCorr = $associazioni->firstWhere('idAssociazione', $conv->idAssociazione);
               value="{{ old('Convenzione', $conv->Convenzione) }}"
               required>
           </div>
-          <div class="col-md-6 mb-3">
-            <label class="form-label">Lettera identificativa</label>
-            <input type="text"
-              style="text-transform: uppercase;"
-              name="lettera_identificativa"
-              class="form-control"
-              value="{{ old('lettera_identificativa', $conv->lettera_identificativa) }}"
-              maxlength="5"
-              required>
-          </div>
         </div>
 
         {{-- Aziende Sanitarie collegate --}}

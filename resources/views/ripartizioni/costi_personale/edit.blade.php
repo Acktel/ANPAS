@@ -1,13 +1,10 @@
 @extends('layouts.app')
 @section('content')
 <div class="container-fluid">
-  {{-- Titolo --}}
   <h1 class="container-title mb-4">
     Modifica Costi Dipendente:
-
   </h1>
 
-  {{-- Errori di validazione --}}
   @if ($errors->any())
   <div class="alert alert-danger">
     <ul class="mb-0">
@@ -20,19 +17,17 @@
 
   <div class="card-anpas">
     <div class="card-body bg-anpas-white">
-      <form action="{{ route('ripartizioni.personale.costi.update', $record->idDipendente) }}" method="POST">
+      <form action="{{ route('ripartizioni.personale.costi.update', $record->idDipendente) }}" method="POST" id="costiForm">
         @csrf
         @method('PUT')
 
         <input type="hidden" name="idDipendente" value="{{ $record->idDipendente }}">
 
         <div class="row mb-3">
-          {{-- Cognome --}}
           <div class="col-md-6">
             <label class="form-label">Dipendente</label>
             <input type="text" class="form-control" value="{{ $record->DipendenteCognome }} {{ $record->DipendenteNome }}" disabled>
           </div>
-          {{-- Anno --}}
           <div class="col-md-6">
             <label class="form-label">Anno</label>
             <input type="text" class="form-control" value="{{ $anno }}" disabled>
@@ -44,13 +39,13 @@
         <div class="row mb-3">
           <div class="col-md-6">
             <label class="form-label">Retribuzioni</label>
-            <input type="number" name="Retribuzioni" step=1.00" class="form-control"
+            <input type="number" name="Retribuzioni" step="0.01" class="form-control cost-input"
               value="{{ old('Retribuzioni', $record->Retribuzioni) }}">
           </div>
 
           <div class="col-md-6">
             <label class="form-label">Oneri Sociali</label>
-            <input type="number" name="OneriSociali" step=1.00" class="form-control"
+            <input type="number" name="OneriSociali" step="0.01" class="form-control cost-input"
               value="{{ old('OneriSociali', $record->OneriSociali) }}">
           </div>
         </div>
@@ -58,13 +53,13 @@
         <div class="row mb-3">
           <div class="col-md-6">
             <label class="form-label">TFR</label>
-            <input type="number" name="TFR" step=1.00" class="form-control"
+            <input type="number" name="TFR" step="0.01" class="form-control cost-input"
               value="{{ old('TFR', $record->TFR) }}">
           </div>
 
           <div class="col-md-6">
             <label class="form-label">Consulenze</label>
-            <input type="number" name="Consulenze" step=1.00" class="form-control"
+            <input type="number" name="Consulenze" step="0.01" class="form-control cost-input"
               value="{{ old('Consulenze', $record->Consulenze) }}">
           </div>
         </div>
@@ -72,8 +67,8 @@
         <div class="row mb-4">
           <div class="col-md-6">
             <label class="form-label">Totale</label>
-            <input type="number" name="Totale" step=1.00" class="form-control"
-              value="{{ old('Totale', $record->Totale) }}">
+            <input type="number" step="0.01" class="form-control" id="Totale"
+              value="{{ number_format((float)$record->Totale, 2, '.', '') }}" readonly>
           </div>
         </div>
 
@@ -91,4 +86,32 @@
 </div>
 @endsection
 
- 
+@push('scripts')
+<script>
+(function() {
+  const inputs = document.querySelectorAll('.cost-input');
+  const totalEl = document.getElementById('Totale');
+
+  function toNum(v) {
+    if (typeof v === 'string') v = v.replace(',', '.'); // tollera virgola
+    const n = parseFloat(v);
+    return isNaN(n) ? 0 : n;
+  }
+
+  function recalc() {
+    let sum = 0;
+    inputs.forEach(i => sum += toNum(i.value));
+    // fisso a due decimali
+    totalEl.value = sum.toFixed(2);
+  }
+
+  inputs.forEach(i => {
+    i.addEventListener('input', recalc);
+    i.addEventListener('change', recalc);
+  });
+
+  // init
+  recalc();
+})();
+</script>
+@endpush

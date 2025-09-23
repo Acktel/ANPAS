@@ -113,11 +113,11 @@
               <label for="note" class="form-label">Note</label>
               <textarea name="note" id="note" class="form-control" rows="4">{{ old('note') }}</textarea>
             </div>
-
+<hr>
             {{-- Bottoni: Annulla (sx) / Avanti (dx) --}}
             <div class="d-flex justify-content-between">
               <a href="{{ route('aziende-sanitarie.index') }}" class="btn btn-secondary">
-                <i class="fas fa-arrow-left me-1"></i> Annulla
+                <i class="fas fa-times me-1"></i> Annulla
               </a>
               <button type="button" class="btn btn-primary" id="goToLotti">Avanti</button>
             </div>
@@ -168,11 +168,11 @@
                 @endforeach
               </tbody>
             </table>
-
+<hr>
             {{-- Bottoni: Annulla (sx) / Indietro+Avanti (dx) --}}
             <div class="d-flex justify-content-between mt-3">
               <a href="{{ route('aziende-sanitarie.index') }}" class="btn btn-secondary">
-                <i class="fas fa-arrow-left me-1"></i> Annulla
+                <i class="fas fa-times me-1"></i> Annulla
               </a>
               <div class="d-flex gap-2">
                 <button type="button" class="btn btn-secondary" id="backToAnagrafica">Indietro</button>
@@ -201,11 +201,11 @@
                 {{-- righe generate via JS a partire dai lotti --}}
               </tbody>
             </table>
-
+<hr>
             {{-- Bottoni: Annulla (sx) / Indietro+Salva (dx) --}}
             <div class="d-flex justify-content-between mt-3">
               <a href="{{ route('aziende-sanitarie.index') }}" class="btn btn-secondary">
-                <i class="fas fa-arrow-left me-1"></i> Annulla
+                <i class="fas fa-times me-1"></i> Annulla
               </a>
               <div class="d-flex gap-2">
                 <button type="button" class="btn btn-secondary" id="backToLotti">Indietro</button>

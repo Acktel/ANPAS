@@ -111,25 +111,6 @@
             @enderror
           </div>
 
-          <div class="col-md-6 mb-3">
-            <label for="bilancio_consuntivo" class="form-label">Importo Bilancio Consuntivo (€)</label>
-            <input
-              type="number"
-              step="0.01"
-              min="0"
-              class="form-control @error('bilancio_consuntivo') is-invalid @enderror"
-              name="bilancio_consuntivo"
-              id="bilancio_consuntivo"
-              value="{{ old('bilancio_consuntivo') }}"
-              placeholder="0,00"
-            >
-            @error('bilancio_consuntivo')
-              <div class="invalid-feedback">{{ $message }}</div>
-            @enderror
-            <small class="text-muted">
-              Selezionando una <strong>Voce</strong>, questo campo si auto-compila se è disponibile un totale calcolato.
-            </small>
-          </div>
         </div>
 
         <div class="text-center">
