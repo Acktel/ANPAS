@@ -8,15 +8,12 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Http\JsonResponse;
 use App\Models\Dipendente;
 
-class DipendenteController extends Controller
-{
-    public function __construct()
-    {
+class DipendenteController extends Controller {
+    public function __construct() {
         $this->middleware('auth');
     }
 
-    public function index(Request $request)
-    {
+    public function index(Request $request) {
         $user = Auth::user();
         $anno = session('anno_riferimento', now()->year);
         $isImpersonating = session()->has('impersonate');
@@ -46,19 +43,18 @@ class DipendenteController extends Controller
         return view('dipendenti.index', compact('titolo', 'anno', 'associazioni'));
     }
 
-    public function create()
-    {
+    public function create() {
         $user = Auth::user();
         $anno = session('anno_riferimento', now()->year);
         $associazioni = $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])
             ? DB::table('associazioni')
-                ->whereNull('deleted_at')
-                ->whereNot("idAssociazione", 1)
-                ->get()
+            ->whereNull('deleted_at')
+            ->whereNot("idAssociazione", 1)
+            ->get()
             : DB::table('associazioni')->where('idAssociazione', $user->IdAssociazione)
-                ->whereNull('deleted_at')
-                ->whereNot("idAssociazione", 1)
-                ->get();
+            ->whereNull('deleted_at')
+            ->whereNot("idAssociazione", 1)
+            ->get();
 
         $anni = DB::table('anni')->orderByDesc('anno')->get();
         $qualifiche = DB::table('qualifiche')->get();
@@ -74,8 +70,7 @@ class DipendenteController extends Controller
         ));
     }
 
-    public function store(Request $request)
-    {
+    public function store(Request $request) {
 
         $validated = $request->validate([
             'IdAssociazione' => 'required|exists:associazioni,IdAssociazione',
@@ -92,8 +87,7 @@ class DipendenteController extends Controller
         return Dipendente::storeDipendente($validated);
     }
 
-    public function edit(int $idDipendente)
-    {
+    public function edit(int $idDipendente) {
         $dipendente = Dipendente::getOne($idDipendente);
         abort_if(!$dipendente, 404);
 
@@ -102,7 +96,7 @@ class DipendenteController extends Controller
 
         $livelliAttuali = Dipendente::getLivelliMansioneByDipendente($idDipendente);
         // $livelloMansione = $livelliAttuali[0] ?? ''; // prendi il primo se esiste
-        
+
         // ricavo i NOMI dei livelli attuali (filtrando dalla collection dei livelli)
         $livelliNomiAttuali = $livelli
             ->whereIn('id', $livelliAttuali)
@@ -131,8 +125,7 @@ class DipendenteController extends Controller
         ));
     }
 
-    public function update(Request $request, int $idDipendente)
-    {
+    public function update(Request $request, int $idDipendente) {
         $validated = $request->validate([
             'idAssociazione' => 'required|exists:associazioni,idAssociazione',
             'idAnno' => 'required|integer|min:2000|max:' . (date('Y') + 5),
@@ -147,8 +140,7 @@ class DipendenteController extends Controller
         return Dipendente::updateDipendente($idDipendente, $validated);
     }
 
-    public function show(int $idDipendente)
-    {
+    public function show(int $idDipendente) {
         $dipendente = Dipendente::getOne($idDipendente);
         abort_if(!$dipendente, 404);
 
@@ -161,8 +153,7 @@ class DipendenteController extends Controller
         return view('dipendenti.show', compact('dipendente', 'qualifiche', 'livelliMansione'));
     }
 
-    public function getData(Request $request): JsonResponse
-    {
+    public function getData(Request $request): JsonResponse {
         $user = Auth::user();
         $anno = session('anno_riferimento', now()->year);
         $isElevated = !$this->isImpersonating() && $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor']);
@@ -205,8 +196,7 @@ class DipendenteController extends Controller
         return response()->json(['data' => $dataset->values()]);
     }
 
-    public function checkDuplicazioneDisponibile(): JsonResponse
-    {
+    public function checkDuplicazioneDisponibile(): JsonResponse {
         $annoCorrente = session('anno_riferimento', now()->year);
         $annoPrecedente = $annoCorrente - 1;
         $user = Auth::user();
@@ -218,7 +208,7 @@ class DipendenteController extends Controller
         }
         $vuotoCorrente = Dipendente::getByAssociazione($idAssociazione, $annoCorrente)->isEmpty();
         $pienoPrecedente = Dipendente::getByAssociazione($idAssociazione, $annoPrecedente)->isNotEmpty();
-     
+
 
         return response()->json([
             'mostraMessaggio' => $vuotoCorrente && $pienoPrecedente,
@@ -227,8 +217,7 @@ class DipendenteController extends Controller
         ]);
     }
 
-    public function duplicaAnnoPrecedente(): JsonResponse
-    {
+    public function duplicaAnnoPrecedente(): JsonResponse {
         $anno = session('anno_riferimento', now()->year);
         $annoPrec = $anno - 1;
         $user = Auth::user();
@@ -239,22 +228,22 @@ class DipendenteController extends Controller
             } else {
                 $idAssoc = $user->IdAssociazione;
             }
-      
+
             $dipendente = Dipendente::getByAssociazione($idAssoc, $annoPrec);
 
             if ($dipendente->isEmpty()) {
                 return response()->json(['message' => 'Nessuna dipendente da duplicare'], 404);
             }
             foreach ($dipendente as $d) {
-               
-               Dipendente::storeDipendente ([
+
+                Dipendente::storeDipendente([
                     'idAssociazione' => $idAssoc,
                     'idAnno' => $anno,
                     'DipendenteNome' => $d->DipendenteNome,
                     'Qualifica' => $d->idQualifica,
                     'DipendenteCognome' => [$d->DipendenteCognome],
-                    'ContrattoApplicato' => $d->ContrattoApplicato,                    
-                    'note'      => null                    
+                    'ContrattoApplicato' => $d->ContrattoApplicato,
+                    'note'      => null
                 ]);
             }
 
@@ -264,13 +253,11 @@ class DipendenteController extends Controller
         }
     }
 
-    private function isImpersonating(): bool
-    {
+    private function isImpersonating(): bool {
         return session()->has('impersonate');
     }
 
-    public function amministrativiData(Request $request): JsonResponse
-    {
+    public function amministrativiData(Request $request): JsonResponse {
         $anno = session('anno_riferimento', now()->year);
         $dataset = Dipendente::getAmministrativi($anno);
 
@@ -292,38 +279,35 @@ class DipendenteController extends Controller
         return response()->json(['data' => $dataset->values()]);
     }
 
-    public function amministrativi()
-    {
+    public function amministrativi() {
         $anno = session('anno_riferimento', now()->year);
         $titolo = 'Personale Amministrativo';
         $associazioni = Auth::user()->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor']) || session()->has('impersonate')
             ? DB::table('associazioni')
-                ->select('idAssociazione', 'Associazione')
-                ->whereNull('deleted_at')
-                ->orderBy('Associazione')
-                ->get()
+            ->select('idAssociazione', 'Associazione')
+            ->whereNull('deleted_at')
+            ->orderBy('Associazione')
+            ->get()
             : collect();
         return view('dipendenti.index', compact('titolo', 'anno', 'associazioni'));
     }
 
-    public function autisti()
-    {
+    public function autisti() {
         $anno = session('anno_riferimento', now()->year);
         $titolo = 'Personale Autista';
 
         $associazioni = Auth::user()->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor']) || session()->has('impersonate')
             ? DB::table('associazioni')
-                ->select('idAssociazione', 'Associazione')
-                ->whereNull('deleted_at')
-                ->orderBy('Associazione')
-                ->get()
+            ->select('idAssociazione', 'Associazione')
+            ->whereNull('deleted_at')
+            ->orderBy('Associazione')
+            ->get()
             : collect();
 
         return view('dipendenti.index', compact('titolo', 'anno', 'associazioni'));
     }
 
-    public function autistiData(Request $request): JsonResponse
-    {
+    public function autistiData(Request $request): JsonResponse {
         $anno = session('anno_riferimento', now()->year);
         $user = Auth::user();
         $isImpersonating = session()->has('impersonate');
@@ -362,8 +346,7 @@ class DipendenteController extends Controller
         return response()->json(['data' => $filtered->values()]);
     }
 
-    public function getLivelloMansione(int $idDipendente): JsonResponse
-    {
+    public function getLivelloMansione(int $idDipendente): JsonResponse {
         $livelli = Dipendente::getLivelliMansioneByDipendente($idDipendente);
         $dati = DB::table('livello_mansione')
             ->whereIn('id', $livelli)
@@ -373,13 +356,59 @@ class DipendenteController extends Controller
         return response()->json(['livello' => $dati]);
     }
 
-    public function destroy($id)
-    {
+    public function destroy($id) {
         Dipendente::eliminaDipendente($id);
 
         return redirect()->route('dipendenti.index')
             ->with('success', 'Dipendente eliminato correttamente.');
     }
 
+    public function byQualifica(int $id) {
+        $anno = session('anno_riferimento', now()->year);
+        $q = DB::table('qualifiche')->where('id', $id)->first();
+        abort_if(!$q, 404, 'Qualifica non trovata');
 
+        $titolo = 'Personale – ' . $q->nome;
+
+        $associazioni = Auth::user()->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor']) || session()->has('impersonate')
+            ? DB::table('associazioni')
+            ->select('idAssociazione', 'Associazione')
+            ->whereNull('deleted_at')
+            ->orderBy('Associazione')
+            ->get()
+            : collect();
+
+        // Passo anche l’ID per la view (serve al JS per l’ajax url)
+        return view('dipendenti.index', [
+            'titolo'       => $titolo,
+            'anno'         => $anno,
+            'associazioni' => $associazioni,
+            'qualificaId'  => $id,
+        ]);
+    }
+
+    public function byQualificaData(Request $request, int $id): JsonResponse {
+        $anno = session('anno_riferimento', now()->year);
+        $user = Auth::user();
+
+        $idAssociazione = $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor']) && !session()->has('impersonate')
+            ? (session('associazione_selezionata') ?? null)
+            : $user->IdAssociazione;
+
+        if (!$idAssociazione) {
+            return response()->json(['data' => []]);
+        }
+
+        $dataset = Dipendente::getByAssociazione($idAssociazione, $anno);
+
+        // tieni solo chi ha quella qualifica
+        $idsDip = DB::table('dipendenti_qualifiche')
+            ->where('idQualifica', $id)
+            ->pluck('idDipendente')
+            ->toArray();
+
+        $filtered = $dataset->filter(fn($d) => in_array($d->idDipendente, $idsDip, true));
+
+        return response()->json(['data' => $filtered->values()]);
+    }
 }

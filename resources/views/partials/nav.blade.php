@@ -162,14 +162,28 @@ $assocCorr = 'Anpas Nazionale';
                     
                 </li>
                {{-- Dropdown Personale --}}
-                <li class="nav-item dropdown">
-                    <a class="nav-link dropdown-toggle" href="#" id="personaleDropdown" data-bs-toggle="dropdown">Personale</a>
-                    <ul class="dropdown-menu">
-                        <li><a class="dropdown-item" href="{{ route('dipendenti.index') }}">Dipendente</a></li>
-                        <li><a class="dropdown-item" href="{{ route('dipendenti.autisti') }}">Autista</a></li>
-                        <li><a class="dropdown-item" href="{{ route('dipendenti.amministrativi') }}">Amministrativo</a></li>
-                    </ul>
-                </li>
+@php
+  // Carica le qualifiche (puoi metterlo in View Composer / AppServiceProvider con Cache)
+  $menuQualifiche = DB::table('qualifiche')->orderBy('nome')->get();
+@endphp
+
+<li class="nav-item dropdown">
+  <a class="nav-link dropdown-toggle" href="#" id="personaleDropdown" data-bs-toggle="dropdown">Personale</a>
+  <ul class="dropdown-menu" aria-labelledby="personaleDropdown">
+    <li><a class="dropdown-item" href="{{ route('dipendenti.index') }}">Tutti</a></li>
+    <li><hr class="dropdown-divider"></li>
+
+    @foreach($menuQualifiche as $q)
+      <li>
+        <a class="dropdown-item" href="{{ route('dipendenti.byQualifica', $q->id) }}">
+          {{ strtoupper($q->nome) }}
+        </a>
+      </li>
+    @endforeach
+  </ul>
+</li>
+
+
 
                 {{-- Dropdown Documenti --}}
 

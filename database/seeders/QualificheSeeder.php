@@ -9,26 +9,39 @@ class QualificheSeeder extends Seeder
 {
     public function run()
     {
+        // 🔴 Associa ID fissi → nome
         $qualifiche = [
-            'AUTISTA',
-            'SOCCORRITORE',
-            'IMPIEGATO AMM.VO',
-            'COORDINATORE TECNICO',
+            1 => 'AUTISTA SOCCORRITORE',
+            2 => 'ADDETTO LOGISTICA',
+            3 => 'ADDETTO PULIZIA',
+            4 => 'ALTRO',
+            5 => 'COORDINATORE AMMINISTRATIVO',
+            6 => 'COORDINATORE TECNICO',
+            7 => 'IMPIEGATO AMMINISTRATIVO',
         ];
 
-        foreach ($qualifiche as $nome) {
+        foreach ($qualifiche as $id => $nome) {
             DB::table('qualifiche')->updateOrInsert(
-                ['nome' => $nome],
-                ['created_at' => now(), 'updated_at' => now()]
+                ['id' => $id], // chiave primaria forzata
+                ['nome' => $nome, 'created_at' => now(), 'updated_at' => now()]
             );
         }
 
-        $livelli = ['C1', 'C2', 'C3', 'C4', 'B1', 'D1', 'D3'];
+        // 🔴 Id fissi anche per i livelli mansione (adatta gli ID come preferisci)
+        $livelli = [
+            1 => 'C1',
+            2 => 'C2',
+            3 => 'C3',
+            4 => 'C4',
+            5 => 'B1',
+            6 => 'D1',
+            7 => 'D3',
+        ];
 
-        foreach ($livelli as $livello) {
+        foreach ($livelli as $id => $nome) {
             DB::table('livello_mansione')->updateOrInsert(
-                ['nome' => $livello],
-                ['created_at' => now(), 'updated_at' => now()]
+                ['id' => $id],
+                ['nome' => $nome, 'created_at' => now(), 'updated_at' => now()]
             );
         }
     }

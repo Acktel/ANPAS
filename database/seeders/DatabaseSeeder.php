@@ -44,7 +44,7 @@ class DatabaseSeeder extends Seeder
         $this->call(ContrattiSeeder::class);
         $this->call(AdminSeeder::class);
         $this->call( RiepilogoVociConfigSeeder::class);
-        $this->call( TerCitiesSeeder::class);*/
+        $this->call( TerCitiesSeeder::class);
     }
 
     //PER PRODUZIONE

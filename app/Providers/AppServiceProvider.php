@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\View;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Cache\RateLimiting\Limit;
+use App\Models\Qualifica;
 
 class AppServiceProvider extends ServiceProvider {
     /**
@@ -35,6 +36,12 @@ class AppServiceProvider extends ServiceProvider {
         RateLimiter::for('pdf-riepilogo', function () {
             // esempio: max 4 generazioni/minuto a livello globale
             return [Limit::perMinute(5)];
+        });
+
+        View::composer('partials.nav', function ($view) {
+            // prendi solo i campi necessari; ordina alfabeticamente
+            $menuQualifiche = Qualifica::getAll();
+            $view->with('menuQualifiche', $menuQualifiche);
         });
     }
 }
