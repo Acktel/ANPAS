@@ -27,7 +27,7 @@ class DatabaseSeeder extends Seeder
         DB::statement(File::get(database_path('seeders/sql/comuni_cap.sql')));
 
 
-        $this->call(createAssociazioni::class);
+     /*   $this->call(createAssociazioni::class);
         $this->call(SuperAdminSeeder::class);
         $this->call(CreateRole ::class);
         $this->call(AnniSeeder::class);
@@ -43,7 +43,7 @@ class DatabaseSeeder extends Seeder
         $this->call(DipendenteFittizioSeeder::class);
         $this->call(ContrattiSeeder::class);
         $this->call(AdminSeeder::class);
-        $this->call( RiepilogoVociConfigSeeder::class);
+        $this->call( RiepilogoVociConfigSeeder::class);*/
         $this->call( TerCitiesSeeder::class);
     }
 
