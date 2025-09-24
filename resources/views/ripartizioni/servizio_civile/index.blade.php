@@ -101,7 +101,7 @@ async function loadTableDataServizioCivile() {
   const staticCols = [
     { key:'Associazione', label:'Associazione' },
     { key:'FullName',     label:'Descrizione' },
-    { key:'OreTotali',    label:'Ore Totali Servizio Civile' }
+    { key:'OreTotali',    label:'Unità totali Servizio Civile' } //ore totali
   ];
 
   const convenzioni = Object.keys(labels).sort((a,b)=>parseInt(a.slice(1)) - parseInt(b.slice(1)));

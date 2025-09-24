@@ -113,13 +113,13 @@
               <label for="note" class="form-label">Note</label>
               <textarea name="note" id="note" class="form-control" rows="4">{{ old('note') }}</textarea>
             </div>
-<hr>
+{{-- <hr> --}}
             {{-- Bottoni: Annulla (sx) / Avanti (dx) --}}
-            <div class="d-flex justify-content-between">
-              <a href="{{ route('aziende-sanitarie.index') }}" class="btn btn-secondary">
+            <div class="d-flex justify-content-center">
+              <a href="{{ route('aziende-sanitarie.index') }}" class="btn btn-secondary me-2">
                 <i class="fas fa-times me-1"></i> Annulla
               </a>
-              <button type="button" class="btn btn-primary" id="goToLotti">Avanti</button>
+              <button type="button" class="btn btn-anpas-green" id="goToLotti"><i class="fas fa-check me-1"></i> Avanti</button>
             </div>
           </div>
 
@@ -168,15 +168,15 @@
                 @endforeach
               </tbody>
             </table>
-<hr>
+{{-- <hr> --}}
             {{-- Bottoni: Annulla (sx) / Indietro+Avanti (dx) --}}
-            <div class="d-flex justify-content-between mt-3">
-              <a href="{{ route('aziende-sanitarie.index') }}" class="btn btn-secondary">
+            <div class="d-flex justify-content-center mt-5">
+              <a href="{{ route('aziende-sanitarie.index') }}" class="btn btn-secondary me-2">
                 <i class="fas fa-times me-1"></i> Annulla
               </a>
               <div class="d-flex gap-2">
-                <button type="button" class="btn btn-secondary" id="backToAnagrafica">Indietro</button>
-                <button type="button" class="btn btn-primary" id="goToConvenzioni">Avanti</button>
+                <button type="button" class="btn btn-secondary" id="backToAnagrafica"><i class="fas fa-arrow-left"></i>Indietro</button>
+                <button type="button" class="btn btn-anpas-green" id="goToConvenzioni"><i class="fas fa-check me-1"></i>Avanti</button>
               </div>
             </div>
           </div>

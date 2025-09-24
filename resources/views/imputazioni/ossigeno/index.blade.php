@@ -14,9 +14,6 @@
         <div class="card-body d-flex flex-column align-items-start">
             <h4 class="mb-2">
                 NUMERO TOTALE SERVIZI EFFETTUATI NELL'ESERCIZIO<br>
-                <span class="text-danger fw-bold">
-                    (al netto dei servizi effettuati per convenzioni MSA, MSAB e ASA <u>SE PRESENTI</u>):
-                </span>
                 <span id="totaleServizi" class="fw-bold text-anpas-green align-items-center">
                     {{ isset($totale_inclusi) ? number_format($totale_inclusi, 0, ',', '.') : 'N/A' }}
                 </span>
