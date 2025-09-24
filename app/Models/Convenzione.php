@@ -21,7 +21,6 @@ class Convenzione {
                 s.Associazione,
                 c.idAnno,
                 c.Convenzione,
-                c.lettera_identificativa,
                 c.created_at
             FROM " . self::TABLE . " AS c
             JOIN associazioni AS s ON c.idAssociazione = s.idAssociazione
@@ -42,7 +41,6 @@ class Convenzione {
                 c.idAssociazione,
                 c.idAnno,
                 c.Convenzione,
-                c.lettera_identificativa,
                 c.created_at
             FROM " . self::TABLE . " AS c
             WHERE c.idAnno = :anno
@@ -70,7 +68,6 @@ class Convenzione {
                 c.idAssociazione,
                 c.idAnno,
                 c.Convenzione,
-                c.lettera_identificativa,
                 c.created_at
             FROM " . self::TABLE . " AS c
             WHERE c.idAssociazione = :idAssociazione
@@ -160,7 +157,6 @@ public static function getWithAssociazione($idAssociazione, $anno): \Illuminate\
             c.idAssociazione,
             c.idAnno,
             c.Convenzione,
-            c.lettera_identificativa,
             c.ordinamento,
             c.created_at,
             c.updated_at,
@@ -180,7 +176,6 @@ public static function getWithAssociazione($idAssociazione, $anno): \Illuminate\
             c.idAssociazione,
             c.idAnno,
             c.Convenzione,
-            c.lettera_identificativa,
             c.ordinamento,
             c.created_at,
             c.updated_at,
