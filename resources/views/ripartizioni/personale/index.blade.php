@@ -50,27 +50,34 @@
 
   <div class="card-anpas">
     <div class="card-body bg-anpas-white">
-      <div class="table-responsive">
-        <table id="table-ripartizione" class="table table-bordered table-striped-anpas w-100 text-center align-middle">
-          <thead class="thead-anpas">
-            <tr id="header-main"></tr>
-            <tr id="header-sub"></tr>
-          </thead>
-          <tbody></tbody>
-        </table>
+<div class="table-responsive">
+  <table id="table-ripartizione" class="table table-bordered table-striped-anpas w-100 text-center align-middle">
+    <thead class="thead-anpas">
+      <tr id="header-main"></tr>
+      <tr id="header-sub"></tr>
+    </thead>
+    <tbody></tbody>
+    <tfoot>
+      <tr id="totale-row-foot"></tr>
+      <tr id="personale-row-foot"></tr>
+    </tfoot>
+  </table>
+</div>
+
+
+
       </div>
     </div>
   </div>
 </div>
 @endsection
-
 @push('scripts')
 <script>
 async function loadTableData() {
-  const table = $('#table-ripartizione');
+  const $table = $('#table-ripartizione');
   const selectedAssoc = (document.getElementById('assocSelectHidden')?.value || '').trim();
 
-  // fetch dati filtrati
+  // ===== fetch dati tabella (ore / %) =====
   let payload;
   try {
     const url = "{{ route('ripartizioni.personale.data') }}" + (selectedAssoc ? `?idAssociazione=${encodeURIComponent(selectedAssoc)}` : '');
@@ -81,20 +88,20 @@ async function loadTableData() {
     return;
   }
 
-  let data = payload?.data || [];
-  let labels = payload?.labels || {};
+  let data   = payload?.data   || [];
+  let labels = payload?.labels || {}; // { c{idConv} : Nome }
 
-  // sposta riga TOTALE in fondo (la rimuoviamo dall'array dei dati e la teniamo in una variabile)
-  const totIdx = data.findIndex(r => r.is_totale === -1);
+  // stacco riga totale
+  const totIdx    = data.findIndex(r => r.is_totale === -1);
   const totaleRow = totIdx >= 0 ? data.splice(totIdx, 1)[0] : null;
 
   // colonne statiche
   const staticCols = [
-    { key: 'idDipendente', label: '', hidden: true },
+    { key: 'idDipendente', label: '',             hidden: true  },
     { key: 'Associazione', label: 'Associazione', hidden: false },
-    { key: 'FullName', label: 'Dipendente', hidden: false },
-    { key: 'OreTotali', label: 'Ore Totali', hidden: false },
-    { key: 'is_totale', label: '', hidden: true },
+    { key: 'FullName',     label: 'Dipendente',   hidden: false },
+    { key: 'OreTotali',    label: 'Ore Totali',   hidden: false },
+    { key: 'is_totale',    label: '',             hidden: true  },
   ];
 
   const convenzioni = Object.keys(labels).sort((a,b) => {
@@ -106,56 +113,54 @@ async function loadTableData() {
   let hMain = '', hSub = '';
   const cols = [];
 
+  // header + statiche
   staticCols.forEach(col => {
     hMain += `<th rowspan="2"${col.hidden ? ' style="display:none"' : ''}>${col.label}</th>`;
-    // assegno anche "name" identico alla chiave per il mapping sicuro
-    cols.push({ data: col.key, name: col.key, visible: !col.hidden, defaultContent: '', className: 'text-center' });
-
+    cols.push({ data: col.key, visible: !col.hidden, defaultContent: '', className: 'text-center' });
   });
 
+  // convenzioni
   convenzioni.forEach(k => {
     hMain += `<th colspan="2">${labels[k]}</th>`;
     hSub  += `<th>Ore Servizio</th><th>%</th>`;
-    cols.push({ data: `${k}_ore`, name: `${k}_ore`, className: 'text-end', defaultContent: 0 });
-    cols.push({ data: `${k}_percent`, name: `${k}_percent`, className: 'text-end', defaultContent: 0, render: d => (d ?? 0) });
+    cols.push({ data: `${k}_ore`,     className: 'text-end', defaultContent: 0 });
+    cols.push({ data: `${k}_percent`, className: 'text-end', defaultContent: 0, render: d => (d ?? 0) });
   });
 
-  // colonna azioni
+  // azioni
   hMain += `<th rowspan="2">Azioni</th>`;
   cols.push({
-    data: null,
-    name: 'azioni',
-    orderable: false,
-    searchable: false,
-    className: 'col-azioni text-center',
-    render: row => {
-      if (row.is_totale === -1) return '';
-      return `
-        <a href="/ripartizioni/personale/${row.idDipendente}" class="btn btn-anpas-green me-1 btn-icon" title="Visualizza">
-          <i class="fas fa-eye"></i>
-        </a>
-        <a href="/ripartizioni/personale/${row.idDipendente}/edit" class="btn btn-warning me-1 btn-icon" title="Modifica">
-          <i class="fas fa-edit"></i>
-        </a>`;
-    }
+    data: null, orderable: false, searchable: false, className: 'col-azioni text-center',
+    render: row => row.is_totale === -1 ? '' : `
+      <a href="/ripartizioni/personale/${row.idDipendente}" class="btn btn-anpas-green me-1 btn-icon" title="Visualizza"><i class="fas fa-eye"></i></a>
+      <a href="/ripartizioni/personale/${row.idDipendente}/edit" class="btn btn-warning me-1 btn-icon" title="Modifica"><i class="fas fa-edit"></i></a>`
   });
 
+  // header
   $('#header-main').html(hMain);
   $('#header-sub').html(hSub);
-  $('#header-main th[colspan]').addClass('border-bottom-special');
 
-  // distruggi tabella esistente se presente
-  if ($.fn.DataTable.isDataTable(table)) {
-    table.DataTable().clear().destroy(); 
-  }
+  // assicura <tfoot> con 2 righe
+  const tableEl = $table.get(0);
+  if (tableEl && !tableEl.tFoot) tableEl.createTFoot();
+  const $tfoot  = $($table.get(0).tFoot);
+  if (!$tfoot.find('#totale-row-foot').length)    $tfoot.append('<tr id="totale-row-foot"></tr>');
+  if (!$tfoot.find('#personale-row-foot').length) $tfoot.append('<tr id="personale-row-foot"></tr>');
 
-  // inizializzo DataTable — la footerCallback userà il mapping by-name
-  const dt = table.DataTable({
+  // distruggi DT se presente
+  if ($.fn.DataTable.isDataTable($table)) $table.DataTable().clear().destroy();
+
+  // variabili condivise per footerCallback
+  const convIdByKey = {};
+  Object.keys(labels).forEach(k => { convIdByKey[k] = parseInt(k.replace(/^c/,'')) || 0; });
+
+  const dt = $table.DataTable({
     data,
     columns: cols,
     order: [],
     responsive: true,
-    language: { url: '/js/i18n/Italian.json',
+    language: {
+      url: '/js/i18n/Italian.json',
       paginate: {
         first: '<i class="fas fa-angle-double-left"></i>',
         last: '<i class="fas fa-angle-double-right"></i>',
@@ -167,105 +172,124 @@ async function loadTableData() {
     rowCallback: (rowEl, rowData, index) => {
       $(rowEl).removeClass('even odd').addClass(index % 2 === 0 ? 'even' : 'odd');
     },
-    footerCallback: function(row, dataDrawn, start, end, display) {
+
+    footerCallback: async function () {
       const api = this.api();
+      const settings = api.settings()[0];
 
-      // se non esiste il footer row, ricrealo con il numero di colonne effettivo
-      if (! $(api.table().footer()).find('tr#totale-row-foot').length ) {
-        $(api.table().footer()).empty();
-        const $r = $('<tr id="totale-row-foot"></tr>');
-        const totalCols = api.columns().count();
-        for (let i = 0; i < totalCols; i++) $r.append('<td></td>');
-        $(api.table().footer()).append($r);
-      }
+      // colonne visibili (indici reali)
+      const visIdxArr = api.columns(':visible').indexes().toArray();
+      const visibleCount = visIdxArr.length;
+      const $tfoot = $($table.get(0).tFoot);
+      const $totRow  = $tfoot.find('#totale-row-foot');
+      const $persRow = $tfoot.find('#personale-row-foot');
 
-      // aggiorno le celle del footer mappando ogni col di `cols` tramite il suo name
-      cols.forEach(c => {
-        if (!c.name) return;
-        // prendo la colonna con name=c.name
-        const colApi = api.column(`${c.name}:name`);
-        // se non la trova, skip
-        if (!colApi || typeof colApi.index !== 'function') return;
-        const idx = colApi.index();
-        const $cell = $(api.column(idx).footer());
-        if (!$cell.length) return;
+      // sync # celle con # colonne visibili
+      const syncCells = ($row) => {
+        const diff = visibleCount - $row.children('td').length;
+        if (diff > 0) for (let i = 0; i < diff; i++) $row.append('<td></td>');
+        if (diff < 0) for (let i = 0; i < -diff; i++) $row.children('td').last().remove();
+      };
+      syncCells($totRow); syncCells($persRow);
 
-        let html = '';
-        if (totaleRow && typeof c.data === 'string') {
-          let val = totaleRow[c.data] ?? '';
-          if (c.data.endsWith('_percent') && val !== '') val = Number(val).toFixed(2);
-          html = (val === null || val === undefined) ? '' : val;
-        } else {
-          html = '';
+      const firstPos = 0; // prima cella visibile dove scrivere l'etichetta
+
+      // ===== riga TOTALE =====
+      visIdxArr.forEach((realIdx, pos) => {
+        const meta = settings.aoColumns[realIdx] || {};
+        const dataKey = meta.mData || meta.data;
+        const $cell = $totRow.children('td').eq(pos);
+
+        let html = (pos === firstPos) ? 'TOTALE' : '';
+        if (totaleRow && typeof dataKey === 'string') {
+          let val = totaleRow[dataKey];
+          if (val !== undefined && val !== null && val !== '') {
+            if (dataKey.endsWith('_percent')) val = Number(val).toFixed(2);
+            if (pos !== firstPos) html = val;
+          }
         }
         $cell.html(html);
+        if (meta.sClass || meta.className) $cell.attr('class', meta.sClass || meta.className);
+        if (pos === firstPos) $cell.removeClass('text-end').addClass('text-start');
+        else                  $cell.removeClass('text-start').addClass('text-end');
+      });
+      $totRow.toggleClass('table-warning fw-bold', !!totaleRow);
 
-        if (c.className) $cell.attr('class', c.className); else $cell.removeAttr('class');
+      // ===== riga COSTO PERSONALE (per convenzione) =====
+      let perConv = {}, totalePers = 0;
+      try {
+        const urlPers = "{{ route('distinta.imputazione.personale_per_convenzione') }}" + (selectedAssoc ? `?idAssociazione=${encodeURIComponent(selectedAssoc)}` : '');
+        const resPers = await fetch(urlPers);
+        const jsonPers = await resPers.json();
+        perConv    = jsonPers?.per_conv || {};   // [idConv => importo]
+        totalePers = jsonPers?.totale   || 0;
+      } catch (e) {
+        console.error('Errore fetch personale-per-convenzione', e);
+      }
+
+      visIdxArr.forEach((realIdx, pos) => {
+        const meta = settings.aoColumns[realIdx] || {};
+        const dataKey = meta.mData || meta.data;
+        const $cell = $persRow.children('td').eq(pos);
+
+        let html = (pos === firstPos) ? 'COSTO PERSONALE' : '';
+
+        if (typeof dataKey === 'string') {
+          if (dataKey === 'OreTotali') {
+            html = Number(totalePers || 0).toFixed(2);
+          } else if (dataKey.endsWith('_percent')) {
+            const key = dataKey.replace('_percent',''); // es. 'c12'
+            const idC = convIdByKey[key];
+            if (idC && perConv[idC] != null) html = Number(perConv[idC]).toFixed(2);
+          }
+        }
+
+        $cell.html(html);
+        if (meta.sClass || meta.className) $cell.attr('class', meta.sClass || meta.className);
+        if (pos === firstPos) $cell.removeClass('text-end').addClass('text-start');
+        else                  $cell.removeClass('text-start').addClass('text-end');
       });
 
-      // stili della riga
-      if (totaleRow) {
-        $(api.table().footer()).find('tr#totale-row-foot').addClass('table-warning fw-bold');
-      } else {
-        $(api.table().footer()).find('tr#totale-row-foot').removeClass('table-warning fw-bold');
-      }
+      $persRow.addClass('fw-bold');
+      api.columns.adjust(); // aggiusta larghezze se Responsive ha cambiato il layout
     }
   });
 
-  // Dopo l'inizializzazione assicuro che il footer sia creato correttamente e faccio un primo draw
   dt.draw(false);
 }
 
-
-// carica la tabella al caricamento pagina
+// load iniziale
 $(document).ready(() => loadTableData());
-</script>
 
-<script>
+// dropdown associazione
 function setupCustomSelect(formId, inputId, dropdownId, toggleBtnId, hiddenId) {
-  const form = document.getElementById(formId);
-  const input = document.getElementById(inputId);
+  const form     = document.getElementById(formId);
+  const input    = document.getElementById(inputId);
   const dropdown = document.getElementById(dropdownId);
-  const toggleBtn = document.getElementById(toggleBtnId);
-  const hidden = document.getElementById(hiddenId);
+  const toggle   = document.getElementById(toggleBtnId);
+  const hidden   = document.getElementById(hiddenId);
   if (!form || !input || !dropdown || !hidden) return;
 
-  function showDropdown() { dropdown.style.display = 'block'; toggleBtn.setAttribute('aria-expanded','true'); }
-  function hideDropdown() { dropdown.style.display = 'none'; toggleBtn.setAttribute('aria-expanded','false'); }
-
-  function filterDropdown(term) {
-    term = (term || '').toLowerCase();
-    dropdown.querySelectorAll('.assoc-item').forEach(li => {
-      li.style.display = (li.textContent || '').toLowerCase().includes(term) ? '' : 'none';
+  function showDd(){ dropdown.style.display='block'; toggle.setAttribute('aria-expanded','true'); }
+  function hideDd(){ dropdown.style.display='none';  toggle.setAttribute('aria-expanded','false'); }
+  function filterDd(t){
+    const s=(t||'').toLowerCase();
+    dropdown.querySelectorAll('.assoc-item').forEach(li=>{
+      li.style.display=(li.textContent||'').toLowerCase().includes(s)?'':'none';
     });
   }
-
-  function setSelection(id, name) {
-    hidden.value = id ?? '';
-    input.value = name ?? '';
-    loadTableData(); // ricarica tabella filtrata
-    hideDropdown();
+  function setSelection(id,name){
+    hidden.value=id??''; input.value=name??''; hideDd(); loadTableData();
   }
 
-  dropdown.querySelectorAll('.assoc-item').forEach(li => {
-    li.style.cursor = 'pointer';
-    li.addEventListener('click', () => setSelection(li.dataset.id, li.textContent.trim()));
+  dropdown.querySelectorAll('.assoc-item').forEach(li=>{
+    li.style.cursor='pointer';
+    li.addEventListener('click',()=>setSelection(li.dataset.id,(li.textContent||'').trim()));
   });
-
-  input.addEventListener('input', () => filterDropdown(input.value));
-  toggleBtn.addEventListener('click', () => {
-    dropdown.style.display === 'block' ? hideDropdown() : showDropdown();
-  });
-  document.addEventListener('click', e => { if (!form.contains(e.target)) hideDropdown(); });
+  input.addEventListener('input',()=>filterDd(input.value));
+  toggle.addEventListener('click',()=>dropdown.style.display==='block'?hideDd():showDd());
+  document.addEventListener('click',e=>{ if(!form.contains(e.target)) hideDd(); });
 }
-
-// attiva la select
-setupCustomSelect(
-  "assocSelectForm",
-  "assocSelect",
-  "assocSelectDropdown",
-  "assocSelectToggleBtn",
-  "assocSelectHidden"
-);
+setupCustomSelect("assocSelectForm","assocSelect","assocSelectDropdown","assocSelectToggleBtn","assocSelectHidden");
 </script>
 @endpush

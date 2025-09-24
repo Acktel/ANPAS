@@ -1,15 +1,13 @@
 @extends('layouts.app')
 @section('content')
 <div class="container-fluid">
-  <h1 class="container-title mb-4">
-    Modifica Costi Dipendente:
-  </h1>
+  <h1 class="container-title mb-4">Modifica Costi Dipendente</h1>
 
   @if ($errors->any())
   <div class="alert alert-danger">
     <ul class="mb-0">
       @foreach ($errors->all() as $error)
-      <li>{{ $error }}</li>
+        <li>{{ $error }}</li>
       @endforeach
     </ul>
   </div>
@@ -72,12 +70,80 @@
           </div>
         </div>
 
+        {{-- === Ripartizione percentuali per mansioni (solo se più di una qualifica) === --}}
+        @if(($qualifiche->count() ?? 0) > 1)
+          <hr>
+          <h5 class="mb-3">Ripartizione costo per mansione (%)</h5>
+
+          @error('percentuali')
+            <div class="alert alert-danger">{{ $message }}</div>
+          @enderror
+
+          <table class="table table-bordered align-middle mb-2">
+            <thead>
+              <tr>
+                <th style="width:60%">Mansione</th>
+                <th style="width:40%">Percentuale (%)</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-percentuali">
+              @foreach($qualifiche as $q)
+              <tr data-qualifica-id="{{ $q->id }}">
+                <td>{{ $q->nome }}</td>
+                <td>
+                  <input
+                    type="number"
+                    name="percentuali[{{ $q->id }}]"
+                    class="form-control percent-input"
+                    min="0" max="100" step="0.01"
+                    value="{{ old('percentuali.'.$q->id, $percentuali[$q->id] ?? 0) }}"
+                  >
+                </td>
+              </tr>
+              @endforeach
+            </tbody>
+          </table>
+
+          <div class="alert alert-info d-none" id="percentWarning">
+            La somma delle percentuali deve essere esattamente 100%.
+          </div>
+
+          {{-- ANTEPRIMA RIPARTIZIONE COSTI --}}
+          <h6 class="mt-4">Anteprima ripartizione costi per mansione</h6>
+          <div class="table-responsive">
+            <table class="table table-striped-anpas table-bordered mb-4" id="anteprima-table">
+              <thead class="thead-anpas">
+                <tr>
+                  <th>Mansione</th>
+                  <th class="text-end">Retribuzioni</th>
+                  <th class="text-end">Oneri Sociali</th>
+                  <th class="text-end">TFR</th>
+                  <th class="text-end">Consulenze</th>
+                  <th class="text-end">Totale</th>
+                </tr>
+              </thead>
+              <tbody>
+                @foreach($qualifiche as $q)
+                <tr data-anteprima-id="{{ $q->id }}">
+                  <td>{{ $q->nome }}</td>
+                  <td class="text-end" data-col="retribuzioni">0.00</td>
+                  <td class="text-end" data-col="oneri">0.00</td>
+                  <td class="text-end" data-col="tfr">0.00</td>
+                  <td class="text-end" data-col="consulenze">0.00</td>
+                  <td class="text-end fw-bold" data-col="totale">0.00</td>
+                </tr>
+                @endforeach
+              </tbody>
+            </table>
+          </div>
+        @endif
+
         <div class="text-center">
           <button type="submit" class="btn btn-anpas-green me-2">
             <i class="fas fa-check me-1"></i> Salva Modifiche
           </button>
           <a href="{{ route('ripartizioni.personale.costi.index') }}" class="btn btn-secondary">
-            <i class="fas fa-times me-1"></i>Annulla
+            <i class="fas fa-times me-1"></i> Annulla
           </a>
         </div>
       </form>
@@ -91,27 +157,108 @@
 (function() {
   const inputs = document.querySelectorAll('.cost-input');
   const totalEl = document.getElementById('Totale');
+  const percentInputs = document.querySelectorAll('.percent-input');
+  const warning = document.getElementById('percentWarning');
+  const anteprimaBody = document.querySelector('#anteprima-table tbody');
 
   function toNum(v) {
-    if (typeof v === 'string') v = v.replace(',', '.'); // tollera virgola
+    if (typeof v === 'string') v = v.replace(',', '.');
     const n = parseFloat(v);
     return isNaN(n) ? 0 : n;
   }
+  function fix2(n) { return (Math.round(n * 100) / 100).toFixed(2); }
 
-  function recalc() {
-    let sum = 0;
-    inputs.forEach(i => sum += toNum(i.value));
-    // fisso a due decimali
-    totalEl.value = sum.toFixed(2);
+  function getCosti() {
+    const retribuzioni = toNum(document.querySelector('input[name="Retribuzioni"]').value);
+    const oneri        = toNum(document.querySelector('input[name="OneriSociali"]').value);
+    const tfr          = toNum(document.querySelector('input[name="TFR"]').value);
+    const consulenze   = toNum(document.querySelector('input[name="Consulenze"]').value);
+    return { retribuzioni, oneri, tfr, consulenze };
   }
 
-  inputs.forEach(i => {
-    i.addEventListener('input', recalc);
-    i.addEventListener('change', recalc);
-  });
+  function recalcTot() {
+    const c = getCosti();
+    const sum = c.retribuzioni + c.oneri + c.tfr + c.consulenze;
+    if (totalEl) totalEl.value = fix2(sum);
+    // aggiorna anche l'anteprima quando cambiano i costi
+    recalcAnteprima();
+  }
+
+  function recalcWarning() {
+    if (!percentInputs.length || !warning) return true;
+    let sum = 0;
+    percentInputs.forEach(i => sum += toNum(i.value));
+    const ok = Math.abs(sum - 100) <= 0.01;
+    warning.classList.toggle('d-none', ok);
+    return ok;
+  }
+
+  // se solo 2 mansioni, l'altra si auto-completa a 100 - x
+  function wireAutoMirrorIfTwo() {
+    if (percentInputs.length !== 2) return;
+    const a = percentInputs[0];
+    const b = percentInputs[1];
+
+    function mirror(source, target) {
+      let val = toNum(source.value);
+      if (val < 0) val = 0;
+      if (val > 100) val = 100;
+      source.value = fix2(val);
+      target.value = fix2(Math.max(0, 100 - val));
+      recalcWarning();
+      recalcAnteprima();
+    }
+
+    a.addEventListener('input', () => mirror(a, b));
+    a.addEventListener('change', () => mirror(a, b));
+    b.addEventListener('input', () => mirror(b, a));
+    b.addEventListener('change', () => mirror(b, a));
+
+    // normalizza iniziale
+    mirror(a, b);
+  }
+
+  // Aggiorna la tabella "Anteprima ripartizione"
+  function recalcAnteprima() {
+    if (!anteprimaBody) return;
+
+    const c = getCosti();
+    // mappa qualificaId -> percentuale (0..100)
+    const percs = {};
+    percentInputs.forEach(i => {
+      const tr = i.closest('tr');
+      const id = tr ? tr.getAttribute('data-qualifica-id') : null;
+      if (id) percs[id] = toNum(i.value);
+    });
+
+    // per ogni riga anteprima, calcolo
+    anteprimaBody.querySelectorAll('tr').forEach(tr => {
+      const id = tr.getAttribute('data-anteprima-id');
+      const p = (percs[id] || 0) / 100;
+
+      const r = c.retribuzioni * p;
+      const o = c.oneri        * p;
+      const t = c.tfr          * p;
+      const s = c.consulenze   * p;
+      const tot = r + o + t + s;
+
+      tr.querySelector('[data-col="retribuzioni"]').textContent = fix2(r);
+      tr.querySelector('[data-col="oneri"]').textContent        = fix2(o);
+      tr.querySelector('[data-col="tfr"]').textContent          = fix2(t);
+      tr.querySelector('[data-col="consulenze"]').textContent   = fix2(s);
+      tr.querySelector('[data-col="totale"]').textContent       = fix2(tot);
+    });
+  }
+
+  // listeners
+  inputs.forEach(i => { i.addEventListener('input', recalcTot); i.addEventListener('change', recalcTot); });
+  percentInputs.forEach(i => { i.addEventListener('input', () => { recalcWarning(); recalcAnteprima(); }); i.addEventListener('change', () => { recalcWarning(); recalcAnteprima(); }); });
 
   // init
-  recalc();
+  recalcTot();
+  recalcWarning();
+  wireAutoMirrorIfTwo();
+  recalcAnteprima();
 })();
 </script>
 @endpush

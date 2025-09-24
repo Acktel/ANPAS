@@ -51,6 +51,7 @@ public function index(Request $request) {
      * Aggiorna il valore totale a bilancio del materiale sanitario.
      */
     public function updateTotale(Request $request) {
+       
         $request->validate([
             'TotaleBilancio' => 'required|numeric|min:0'
         ]);

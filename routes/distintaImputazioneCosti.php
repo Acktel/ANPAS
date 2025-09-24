@@ -26,4 +26,8 @@ Route::prefix('distinta-imputazione-costi')->name('distinta.imputazione.')->grou
     // inline salva costo diretto
     Route::post('/salva-costo-diretto', [DistintaImputazioneCostiController::class, 'salvaCostoDiretto'])
         ->name('salvaCostoDiretto');
+        
+    // costo personale (Autisti & Barellieri) per convenzione
+    Route::get('/personale-per-convenzione', [DistintaImputazioneCostiController::class, 'personalePerConvenzione'])
+        ->name('personale_per_convenzione');
 });

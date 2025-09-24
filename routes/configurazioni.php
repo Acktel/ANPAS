@@ -15,16 +15,26 @@ Route::middleware(['auth'])->prefix('configurazioni')->group(function () {
     Route::delete('carburante/{id}', [ConfigurazioneVeicoliController::class, 'destroyFuelType'])->name('configurazioni.carburante.destroy');
 
     // PERSONALE
-    Route::get('personale', [ConfigurazionePersonaleController::class, 'index'])->name('configurazioni.personale');
-    Route::post('qualifiche', [ConfigurazionePersonaleController::class, 'storeQualifica'])->name('configurazioni.qualifiche.store');
-    Route::delete('qualifiche/{id}', [ConfigurazionePersonaleController::class, 'destroyQualifica'])->name('configurazioni.qualifiche.destroy');
-    Route::post('contratti', [ConfigurazionePersonaleController::class, 'storeContratto'])->name('configurazioni.contratti.store');
-    Route::delete('contratti/{id}', [ConfigurazionePersonaleController::class, 'destroyContratto'])->name('configurazioni.contratti.destroy');
+    Route::get('personale', [ConfigurazionePersonaleController::class, 'index'])
+        ->name('configurazioni.personale');
 
-    // LIVELLI MANSIONE
-    Route::post('livelli', [ConfigurazionePersonaleController::class, 'storeLivelloMansione'])->name('configurazioni.livelli.store');
-    Route::delete('livelli/{id}', [ConfigurazionePersonaleController::class, 'destroyLivelloMansione'])->name('configurazioni.livelli.destroy');
+    // Qualifiche: SOLO update + reorder (ID fissi, niente create/delete)
+    Route::put('qualifiche/{id}', [ConfigurazionePersonaleController::class, 'updateQualifica'])
+        ->name('configurazioni.qualifiche.update');
+    Route::post('qualifiche/reorder', [ConfigurazionePersonaleController::class, 'reorderQualifiche'])
+        ->name('configurazioni.qualifiche.reorder');
 
+    // Contratti 
+    Route::post('contratti', [ConfigurazionePersonaleController::class, 'storeContratto'])
+        ->name('configurazioni.contratti.store');
+    Route::delete('contratti/{id}', [ConfigurazionePersonaleController::class, 'destroyContratto'])
+        ->name('configurazioni.contratti.destroy');
+
+    // Livelli mansione
+    Route::post('livelli', [ConfigurazionePersonaleController::class, 'storeLivelloMansione'])
+        ->name('configurazioni.livelli.store');
+    Route::delete('livelli/{id}', [ConfigurazionePersonaleController::class, 'destroyLivelloMansione'])
+        ->name('configurazioni.livelli.destroy');
     //AZIENDE SANITARIE
     Route::get('aziende-sanitarie', [ConfigurazioneLottiController::class, 'index'])->name('configurazioni.aziende_sanitarie');
     Route::post('aziende-sanitarie', [ConfigurazioneLottiController::class, 'store'])->name('configurazioni.aziende_sanitarie.store');
