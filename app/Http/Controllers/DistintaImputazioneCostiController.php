@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use App\Services\RipartizioneCostiService;
 use App\Models\CostoDiretto;
+use App\Models\Convenzione;
 
 class DistintaImputazioneCostiController extends Controller {
     public function index(Request $request) {
@@ -57,10 +58,10 @@ class DistintaImputazioneCostiController extends Controller {
         if (empty($selectedAssoc)) {
             return response()->json(['data' => [], 'convenzioni' => []]);
         }
-        
+
         // ⬇️ tutto il calcolo è nel Service
         $payload = RipartizioneCostiService::distintaImputazioneData($selectedAssoc, $anno);
-       
+
         return response()->json($payload);
     }
 
@@ -87,7 +88,7 @@ class DistintaImputazioneCostiController extends Controller {
                 'bilancio_consuntivo'  => (float)($request->bilancio_consuntivo ?? 0),
             ]
         );
-        
+
         return response()->json([
             'idAssociazione' => $request->idAssociazione,
             'success' => 'Costo diretto salvato con successo.'
@@ -194,5 +195,37 @@ class DistintaImputazioneCostiController extends Controller {
 
         return redirect()->route('distinta.imputazione.index', ['idAssociazione' => $validated['idAssociazione']])
             ->with('success', 'Costo diretto / bilancio salvato con successo.');
+    }
+
+    // app/Http/Controllers/DistintaImputazioneCostiController.php
+
+    public function personalePerConvenzione(Request $request) {
+        $user = Auth::user();
+        $anno = (int) session('anno_riferimento', now()->year);
+
+        // stessa logica di selezione associazione usata altrove
+        if ($user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor']) || session()->has('impersonate')) {
+            $selectedAssoc = (int) ($request->integer('idAssociazione') ?: session('associazione_selezionata'));
+        } else {
+            $selectedAssoc = (int) $user->IdAssociazione;
+        }
+        abort_if(!$selectedAssoc, 422, 'Associazione non selezionata');
+
+        // Convenzioni (id => nome) nell’ordine stabile
+        $conv = RipartizioneCostiService::convenzioni($selectedAssoc, $anno);
+        $convIds = array_keys($conv);
+
+        // 6001 = Autisti & Barellieri (importi assoluti per convenzione)
+        [$importiPerConv, $totale] = RipartizioneCostiService::importiAutistiBarellieriByConvenzione(
+            $selectedAssoc,
+            $anno,
+            $convIds
+        );
+
+        return response()->json([
+            'convenzioni' => $conv,          // [idConv => Nome]
+            'per_conv'    => $importiPerConv, // [idConv => importo]
+            'totale'      => $totale,        // somma complessiva
+        ]);
     }
 }

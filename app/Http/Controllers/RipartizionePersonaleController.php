@@ -7,54 +7,49 @@ use Illuminate\Support\Facades\Auth;
 use App\Models\Convenzione;
 use App\Models\RipartizionePersonale;
 use App\Models\Dipendente;
+use App\Services\RipartizioneCostiService;
 
 class RipartizionePersonaleController extends Controller {
-public function index(Request $request) {
-    $anno = session('anno_riferimento', now()->year);
-
-    // chiave dedicata a questa pagina
-    $sessionKey = 'associazione_selezionata';
-
-    // Se arrivo con un parametro, lo salvo
-    if ($request->has('idAssociazione')) {
-        session([$sessionKey => $request->query('idAssociazione')]);
-    }
-
-    // Leggo dalla sessione, con fallback al parametro in query (se non ho ancora salvato)
-    $selectedAssoc = session($sessionKey, $request->query('idAssociazione'));
-
-    $user = Auth::user();
-    $isImpersonating = session()->has('impersonate');
-    $associazioni = Dipendente::getAssociazioni($user, $isImpersonating);
-
-    return view('ripartizioni.personale.index', compact('anno', 'selectedAssoc', 'associazioni'));
-}
-    
-    public function getData(Request $request) {
-        $user = Auth::user();
+    public function index(Request $request) {
         $anno = session('anno_riferimento', now()->year);
-        $sessionKey = 'associazione_selezionata';
-        // $selectedAssoc = $request->query('idAssociazione');
 
-        // Se arriva un parametro, salvo in sessione
+        // chiave dedicata a questa pagina
+        $sessionKey = 'associazione_selezionata';
+
+        // Se arrivo con un parametro, lo salvo
         if ($request->has('idAssociazione')) {
             session([$sessionKey => $request->query('idAssociazione')]);
         }
 
+        // Leggo dalla sessione, con fallback al parametro in query (se non ho ancora salvato)
+        $selectedAssoc = session($sessionKey, $request->query('idAssociazione'));
+
+        $user = Auth::user();
+        $isImpersonating = session()->has('impersonate');
+        $associazioni = Dipendente::getAssociazioni($user, $isImpersonating);
+
+        return view('ripartizioni.personale.index', compact('anno', 'selectedAssoc', 'associazioni'));
+    }
+
+    public function getData(Request $request) {
+        $user = Auth::user();
+        $anno = session('anno_riferimento', now()->year);
+        $sessionKey = 'associazione_selezionata';
+
+        if ($request->has('idAssociazione')) {
+            session([$sessionKey => $request->query('idAssociazione')]);
+        }
         $selectedAssoc = session($sessionKey, $request->query('idAssociazione'));
 
         $assocId = $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])
             ? ($selectedAssoc ?: null)
             : $user->IdAssociazione;
 
-        $dipendenti = Dipendente::getAutistiEBarellieri($anno, $assocId);
+        $dipendenti  = Dipendente::getAutistiEBarellieri($anno, $assocId);
+        $convenzioni = Convenzione::getByAssociazioneAnno($assocId, $anno)
+            ->sortBy('idConvenzione')->values();
 
-        $convenzioni = Convenzione::getByAnno($anno, $user)
-            ->sortBy('idConvenzione')
-            ->values();
-
-        $raw = RipartizionePersonale::getAll($anno, $user, $assocId)
-            ->groupBy('idDipendente');
+        $raw = RipartizionePersonale::getAll($anno, $user, $assocId)->groupBy('idDipendente');
 
         $labels = $convenzioni
             ->pluck('Convenzione', 'idConvenzione')
@@ -67,9 +62,9 @@ public function index(Request $request) {
 
         foreach ($dipendenti as $d) {
             $fullName = "$d->DipendenteNome $d->DipendenteCognome";
-            $servizi = $raw->get($d->idDipendente, collect());
-            $oreTot  = $servizi->sum('OreServizio');
-            $totOre += $oreTot;
+            $servizi  = $raw->get($d->idDipendente, collect());
+            $oreTot   = $servizi->sum('OreServizio');
+            $totOre  += $oreTot;
 
             $r = [
                 'is_totale'    => 0,
@@ -80,8 +75,8 @@ public function index(Request $request) {
             ];
 
             foreach ($convenzioni as $c) {
-                $k   = 'c' . $c->idConvenzione;
-                $ore = $servizi->firstWhere('idConvenzione', $c->idConvenzione)->OreServizio ?? 0;
+                $k    = 'c' . $c->idConvenzione;
+                $ore  = $servizi->firstWhere('idConvenzione', $c->idConvenzione)->OreServizio ?? 0;
                 $perc = $oreTot > 0 ? round($ore / $oreTot * 100, 2) : 0;
 
                 $r["{$k}_ore"]     = $ore;
@@ -92,6 +87,7 @@ public function index(Request $request) {
             $rows[] = $r;
         }
 
+        // riga totale per la tabella ore
         $totalRow = [
             'is_totale'    => -1,
             'idDipendente' => null,
@@ -107,11 +103,38 @@ public function index(Request $request) {
         }
         $rows[] = $totalRow;
 
+        $distinta = RipartizioneCostiService::distintaImputazioneData((int)$assocId, (int)$anno);
+        $costoPersonaleTotale = 0.0;
+        $costoPersonalePerConv = []; // [idConvenzione => importo_indiretti+diretti] oppure solo 'indiretti'
+
+        if (!empty($distinta['data'])) {
+            foreach ($distinta['data'] as $riga) {
+                if ((int)($riga['idVoceConfig'] ?? 0) === 6001) {
+                    // totale già calcolato nella riga
+                    $costoPersonaleTotale = (float)($riga['totale'] ?? 0);
+
+                    // per convenzione i campi sono per NOME convenzione
+                    foreach ($convenzioni as $conv) {
+                        $nome = $conv->Convenzione;
+                        $idC  = (int)$conv->idConvenzione;
+                        // somma diretti+indiretti per comodo (o prendi solo gli 'indiretti' se preferisci)
+                        $dir = (float)($riga[$nome]['diretti']   ?? 0);
+                        $ind = (float)($riga[$nome]['indiretti'] ?? 0);
+                        $costoPersonalePerConv[$idC] = round($dir + $ind, 2);
+                    }
+                    break;
+                }
+            }
+        }
+
         return response()->json([
-            'data'   => $rows,
-            'labels' => $labels,
+            'data'                      => $rows,
+            'labels'                    => $labels,
+            'totale_costo_personale'    => round($costoPersonaleTotale, 2),
+            'costo_personale_per_conv'  => $costoPersonalePerConv,
         ]);
     }
+
 
     public function create() {
         $user = Auth::user();
@@ -145,13 +168,13 @@ public function index(Request $request) {
     public function edit(int $idDipendente, Request $request) {
         $user  = Auth::user();
         $anno  = session('anno_riferimento', now()->year);
-        $selectedAssoc = $request->query('idAssociazione');
+        $selectedAssoc = session('associazione_selezionata', $request->query('idAssociazione'));
 
         $idAssociazione = $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])
             ? ($selectedAssoc ?: null)
             : $user->IdAssociazione;
 
-        $convenzioni = Convenzione::getByAnno($anno, $user)
+        $convenzioni = Convenzione::getByAssociazioneAnno($idAssociazione, $anno)
             ->sortBy('idConvenzione')
             ->values();
 
