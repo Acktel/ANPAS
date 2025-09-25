@@ -17,23 +17,13 @@
         </tr>
         <tr>
           <th>Retribuzioni</th>
-          <th>Oneri sociali</th>
+          <th>Oneri sociali Inps</th>
+          <th>Oneri sociali Inail</th>
           <th>TFR</th>
           <th>Consulenze</th>
         </tr>
       </thead>
       <tbody>
-        {{-- Riga di esempio per “CIRRINCIONE” --}}
-        <tr>
-          <td>CIRRINCIONE</td>
-          <td></td>
-          <td></td>
-          <td>{{ number_format($totRetribuzioni, 2, ',', '.') }}</td>
-          <td>{{ number_format($totOneri, 2, ',', '.') }}</td>
-          <td>{{ number_format($totTfr,      2, ',', '.') }}</td>
-          <td>{{ number_format($totConsul,  2, ',', '.') }}</td>
-          <td>{{ number_format($totFinale,  2, ',', '.') }}</td>
-        </tr>
 
         {{-- Totale Ore / Ore Servizi / % --}}
         <tr>

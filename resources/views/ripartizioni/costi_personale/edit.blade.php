@@ -40,11 +40,15 @@
             <input type="number" name="Retribuzioni" step="0.01" class="form-control cost-input"
               value="{{ old('Retribuzioni', $record->Retribuzioni) }}">
           </div>
-
           <div class="col-md-6">
-            <label class="form-label">Oneri Sociali</label>
-            <input type="number" name="OneriSociali" step="0.01" class="form-control cost-input"
-              value="{{ old('OneriSociali', $record->OneriSociali) }}">
+            <label class="form-label">Oneri Sociali INPS</label>
+            <input type="number" name="OneriSocialiInps" step="0.01" class="form-control cost-input"
+              value="{{ old('OneriSocialiInps', $record->OneriSocialiInps) }}">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Oneri Sociali INAIL</label>
+            <input type="number" name="OneriSocialiInail" step="0.01" class="form-control cost-input"
+              value="{{ old('OneriSocialiInail', $record->OneriSocialiInail) }}">
           </div>
         </div>
 
@@ -116,7 +120,8 @@
                 <tr>
                   <th>Mansione</th>
                   <th class="text-end">Retribuzioni</th>
-                  <th class="text-end">Oneri Sociali</th>
+                  <th class="text-end">Oneri Sociali Inps</th>
+                  <th class="text-end">Oneri Sociali Inail</th>
                   <th class="text-end">TFR</th>
                   <th class="text-end">Consulenze</th>
                   <th class="text-end">Totale</th>
@@ -127,7 +132,8 @@
                 <tr data-anteprima-id="{{ $q->id }}">
                   <td>{{ $q->nome }}</td>
                   <td class="text-end" data-col="retribuzioni">0.00</td>
-                  <td class="text-end" data-col="oneri">0.00</td>
+                  <td class="text-end" data-col="OneriSocialiInps">0.00</td>                  
+                  <td class="text-end" data-col="OneriSocialiInail">0.00</td>
                   <td class="text-end" data-col="tfr">0.00</td>
                   <td class="text-end" data-col="consulenze">0.00</td>
                   <td class="text-end fw-bold" data-col="totale">0.00</td>
@@ -170,15 +176,16 @@
 
   function getCosti() {
     const retribuzioni = toNum(document.querySelector('input[name="Retribuzioni"]').value);
-    const oneri        = toNum(document.querySelector('input[name="OneriSociali"]').value);
+    const OneriSocialiInps        = toNum(document.querySelector('input[name="OneriSocialiInps"]').value);
+    const OneriSocialiInail        = toNum(document.querySelector('input[name="OneriSocialiInail"]').value);
     const tfr          = toNum(document.querySelector('input[name="TFR"]').value);
     const consulenze   = toNum(document.querySelector('input[name="Consulenze"]').value);
-    return { retribuzioni, oneri, tfr, consulenze };
+    return { retribuzioni, OneriSocialiInps, OneriSocialiInail, tfr, consulenze };
   }
 
   function recalcTot() {
     const c = getCosti();
-    const sum = c.retribuzioni + c.oneri + c.tfr + c.consulenze;
+    const sum = c.retribuzioni + c.OneriSocialiInps + c.OneriSocialiInail + c.tfr + c.consulenze;
     if (totalEl) totalEl.value = fix2(sum);
     // aggiorna anche l'anteprima quando cambiano i costi
     recalcAnteprima();
@@ -237,13 +244,15 @@
       const p = (percs[id] || 0) / 100;
 
       const r = c.retribuzioni * p;
-      const o = c.oneri        * p;
+      const o1 = c.OneriSocialiInps        * p;
+      const o2 = c.OneriSocialiInail        * p;
       const t = c.tfr          * p;
       const s = c.consulenze   * p;
-      const tot = r + o + t + s;
+      const tot = r + o1 + o2 + t + s;
 
       tr.querySelector('[data-col="retribuzioni"]').textContent = fix2(r);
-      tr.querySelector('[data-col="oneri"]').textContent        = fix2(o);
+      tr.querySelector('[data-col="OneriSocialiInps"]').textContent        = fix2(o1);
+      tr.querySelector('[data-col="OneriSocialiInail"]').textContent        = fix2(o2);
       tr.querySelector('[data-col="tfr"]').textContent          = fix2(t);
       tr.querySelector('[data-col="consulenze"]').textContent   = fix2(s);
       tr.querySelector('[data-col="totale"]').textContent       = fix2(tot);

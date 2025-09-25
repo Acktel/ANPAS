@@ -1,8 +1,8 @@
 <div class="table-responsive">
-    <table id="table-costi" class="table table-bordered table-striped-anpas w-100 text-center align-middle">
+    <table id="table-costi-autisti"
+           class="table table-bordered table-striped-anpas w-100 text-center align-middle">
         <thead class="thead-anpas">
-            <tr id="header-main"></tr>
-            <tr id="header-sub"></tr>
+            {{-- le righe header vengono generate via JS in buildAutistiTable --}}
         </thead>
         <tbody></tbody>
     </table>

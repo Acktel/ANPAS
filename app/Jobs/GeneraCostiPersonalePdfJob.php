@@ -76,20 +76,22 @@ class GeneraCostiPersonalePdfJob implements ShouldQueue
         // ———— TABELLA A&B (importi per convenzione)
         $abRows = [];
         $abTotalsPerConv = array_fill_keys($convenzioni->pluck('idConvenzione')->all(), 0.0);
-        $abTotals = ['Retribuzioni'=>0.0,'OneriSociali'=>0.0,'TFR'=>0.0,'Consulenze'=>0.0,'Totale'=>0.0];
+        $abTotals = ['Retribuzioni'=>0.0, 'OneriSocialiInps'=>0.0, 'OneriSocialiInail'=>0.0,'TFR'=>0.0,'Consulenze'=>0.0,'Totale'=>0.0];
 
         foreach ($gruppoAB as $d) {
             $c = $costi->get($d->idDipendente);
             $retrib = (float)($c->Retribuzioni ?? 0);
-            $oneri  = (float)($c->OneriSociali ?? 0);
+            $OneriSocialiInps  = (float)($c->OneriSocialiInps ?? 0);
+            $OneriSocialiInail  = (float)($c->OneriSocialiInail ?? 0);
             $tfr    = (float)($c->TFR ?? 0);
             $cons   = (float)($c->Consulenze ?? 0);
-            $tot    = $retrib + $oneri + $tfr + $cons;
+            $tot    = $retrib + $OneriSocialiInps + $OneriSocialiInail + $tfr + $cons;
 
             $row = [
                 'Dipendente'   => trim(($d->DipendenteCognome ?? '').' '.($d->DipendenteNome ?? '')),
                 'Retribuzioni' => $retrib,
-                'OneriSociali' => $oneri,
+                'OneriSocialiInps' => $OneriSocialiInps,
+                'OneriSocialiInail' => $OneriSocialiInail,
                 'TFR'          => $tfr,
                 'Consulenze'   => $cons,
                 'Totale'       => $tot,
@@ -115,7 +117,8 @@ class GeneraCostiPersonalePdfJob implements ShouldQueue
         $abRowsTotal = [
             'Dipendente'   => 'TOTALE',
             'Retribuzioni' => $abTotals['Retribuzioni'],
-            'OneriSociali' => $abTotals['OneriSociali'],
+            'OneriSocialiInps' => $abTotals['OneriSocialiInps'],
+            'OneriSocialiInail' => $abTotals['OneriSocialiInail'],
             'TFR'          => $abTotals['TFR'],
             'Consulenze'   => $abTotals['Consulenze'],
             'Totale'       => $abTotals['Totale'],
@@ -127,20 +130,22 @@ class GeneraCostiPersonalePdfJob implements ShouldQueue
         $blocchiSemplici = [];
         foreach ($altri as $qualifica => $lista) {
             $rows = [];
-            $tot  = ['Retribuzioni'=>0.0,'OneriSociali'=>0.0,'TFR'=>0.0,'Consulenze'=>0.0,'Totale'=>0.0];
+            $tot  = ['Retribuzioni'=>0.0,'OneriSocialiInps'=>0.0,'OneriSocialiInail'=>0.0,'TFR'=>0.0,'Consulenze'=>0.0,'Totale'=>0.0];
 
             foreach ($lista as $d) {
                 $c = $costi->get($d->idDipendente);
                 $retrib = (float)($c->Retribuzioni ?? 0);
-                $oneri  = (float)($c->OneriSociali ?? 0);
+                $OneriSocialiInps  = (float)($c->OneriSocialiInps ?? 0);
+                $OneriSocialiInail  = (float)($c->OneriSocialiInail ?? 0);                
                 $tfr    = (float)($c->TFR ?? 0);
                 $cons   = (float)($c->Consulenze ?? 0);
-                $totale = $retrib + $oneri + $tfr + $cons;
+                $totale = $retrib + $OneriSocialiInps + $OneriSocialiInail + $tfr + $cons;
 
                 $r = [
                     'Dipendente'   => trim(($d->DipendenteCognome ?? '').' '.($d->DipendenteNome ?? '')),
                     'Retribuzioni' => $retrib,
-                    'OneriSociali' => $oneri,
+                    'OneriSocialiInps' => $OneriSocialiInps,
+                    'OneriSocialiInail' => $OneriSocialiInail,
                     'TFR'          => $tfr,
                     'Consulenze'   => $cons,
                     'Totale'       => $totale,

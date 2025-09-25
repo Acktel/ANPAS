@@ -61,7 +61,8 @@
         <tr>
           <th rowspan="2">Cognome e Nome</th>
           <th rowspan="2">Retribuzioni</th>
-          <th rowspan="2">Oneri Sociali</th>
+          <th rowspan="2">Oneri Sociali Inps</th>
+          <th rowspan="2">Oneri Sociali Inail</th>
           <th rowspan="2">TFR</th>
           <th rowspan="2">Consulenze</th>
           <th rowspan="2">Totale</th>
@@ -78,7 +79,8 @@
           <tr>
             <td>{{ $r['Dipendente'] }}</td>
             <td class="right">{{ $num2($r['Retribuzioni']) }}</td>
-            <td class="right">{{ $num2($r['OneriSociali']) }}</td>
+            <td class="right">{{ $num2($r['OneriSocialiInps']) }}</td>
+            <td class="right">{{ $num2($r['OneriSocialiInail']) }}</td>
             <td class="right">{{ $num2($r['TFR']) }}</td>
             <td class="right">{{ $num2($r['Consulenze']) }}</td>
             <td class="right">{{ $num2($r['Totale']) }}</td>
@@ -90,7 +92,8 @@
         <tr class="total">
           <td>{{ $ab['tot']['Dipendente'] }}</td>
           <td class="right">{{ $num2($ab['tot']['Retribuzioni']) }}</td>
-          <td class="right">{{ $num2($ab['tot']['OneriSociali']) }}</td>
+          <td class="right">{{ $num2($ab['tot']['OneriSocialiInps']) }}</td>
+          <td class="right">{{ $num2($ab['tot']['OneriSocialiInail']) }}</td>
           <td class="right">{{ $num2($ab['tot']['TFR']) }}</td>
           <td class="right">{{ $num2($ab['tot']['Consulenze']) }}</td>
           <td class="right">{{ $num2($ab['tot']['Totale']) }}</td>
@@ -115,7 +118,8 @@
           <tr>
             <th>Cognome e Nome</th>
             <th>Retribuzioni</th>
-            <th>Oneri Sociali</th>
+            <th>Oneri Sociali INPS</th>
+            <th>Oneri Sociali INAIL</th>
             <th>TFR</th>
             <th>Consulenze</th>
             <th>Totale</th>
@@ -126,7 +130,8 @@
             <tr class="{{ !empty($r['is_total']) ? 'total' : '' }}">
               <td>{{ $r['Dipendente'] }}</td>
               <td class="right">{{ $num2($r['Retribuzioni']) }}</td>
-              <td class="right">{{ $num2($r['OneriSociali']) }}</td>
+              <td class="right">{{ $num2($r['OneriSocialiInps']) }}</td>
+              <td class="right">{{ $num2($r['OneriSocialiInail']) }}</td>
               <td class="right">{{ $num2($r['TFR']) }}</td>
               <td class="right">{{ $num2($r['Consulenze']) }}</td>
               <td class="right">{{ $num2($r['Totale']) }}</td>

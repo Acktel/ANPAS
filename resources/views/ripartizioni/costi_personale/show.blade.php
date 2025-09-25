@@ -25,8 +25,13 @@
                         <td>{{ number_format($record->Retribuzioni, 2, ',', '.') }} €</td>
                     </tr>
                     <tr>
-                        <th>Oneri Sociali</th>
-                        <td>{{ number_format($record->OneriSociali, 2, ',', '.') }} €</td>
+                        
+                        <th>Oneri Sociali INPS</th>
+                        <td>{{ number_format($record->OneriSocialiInps, 2, ',', '.') }} €</td>
+                    </tr>
+                    <tr>
+                        <th>Oneri Sociali INAIL</th>
+                        <td>{{ number_format($record->OneriSocialiInail, 2, ',', '.') }} €</td>
                     </tr>
                     <tr>
                         <th>TFR</th>
@@ -39,7 +44,7 @@
                     <tr class="table-success">
                         <th>Totale</th>
                         @php
-                        $record->Totale = $record->Retribuzioni + $record->OneriSociali + $record->TFR + $record->Consulenze;
+                        $record->Totale = $record->Retribuzioni + $record->OneriSocialiInps + $record->OneriSocialiInail + $record->TFR + $record->Consulenze;
                         @endphp
                         <td><strong>{{ number_format($record->Totale, 2, ',', '.') }} €</strong></td>
                     </tr>

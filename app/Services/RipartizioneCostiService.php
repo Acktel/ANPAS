@@ -371,7 +371,8 @@ class RipartizioneCostiService {
                         (CASE
                             WHEN COALESCE(cp.Totale,0) > 0 THEN cp.Totale
                             ELSE COALESCE(cp.Retribuzioni,0)
-                               + COALESCE(cp.OneriSociali,0)
+                               + COALESCE(cp.OneriSocialiInps,0)
+                               + COALESCE(cp.OneriSocialiInail,0)
                                + COALESCE(cp.TFR,0)
                                + COALESCE(cp.Consulenze,0)
                          END)

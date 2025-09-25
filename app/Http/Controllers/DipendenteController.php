@@ -257,28 +257,6 @@ class DipendenteController extends Controller {
         return session()->has('impersonate');
     }
 
-    public function amministrativiData(Request $request): JsonResponse {
-        $anno = session('anno_riferimento', now()->year);
-        $dataset = Dipendente::getAmministrativi($anno);
-
-        // opzionale: se vuoi ancora aggiungere nomi delle qualifiche
-        $qualificheMap = DB::table('dipendenti_qualifiche')
-            ->join('qualifiche', 'dipendenti_qualifiche.idQualifica', '=', 'qualifiche.id')
-            ->where('qualifiche.nome', 'LIKE', '%AMMINISTRATIVO%')
-            ->select('dipendenti_qualifiche.idDipendente', 'qualifiche.nome')
-            ->get()
-            ->groupBy('idDipendente');
-
-        $dataset->transform(function ($d) use ($qualificheMap) {
-            $d->Qualifica = isset($qualificheMap[$d->idDipendente])
-                ? implode(', ', $qualificheMap[$d->idDipendente]->pluck('nome')->toArray())
-                : '';
-            return $d;
-        });
-
-        return response()->json(['data' => $dataset->values()]);
-    }
-
     public function amministrativi() {
         $anno = session('anno_riferimento', now()->year);
         $titolo = 'Personale Amministrativo';

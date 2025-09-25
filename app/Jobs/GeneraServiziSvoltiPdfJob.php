@@ -160,7 +160,7 @@ class GeneraServiziSvoltiPdfJob implements ShouldQueue
 
         $filename = "servizi_svolti_{$this->idAssociazione}_{$this->anno}_" . now()->timestamp . ".pdf";
         $path     = "documenti/{$filename}";
-        file_put_contents('/www/wwwroot/gestionale.anpas.piemonte.it/storage/'.$path, $pdf->output());
+        
         Storage::disk('public')->put($path, $pdf->output());
             Log::debug('SERVIZI SVOLTI: salvataggio PDF'. $path );
 

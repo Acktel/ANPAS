@@ -20,8 +20,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('dipendenti/autisti/data', [DipendenteController::class, 'autistiData'])->name('dipendenti.autisti.data');
 
     Route::get('dipendenti/amministrativi', [DipendenteController::class, 'amministrativi'])->name('dipendenti.amministrativi');
-    Route::get('dipendenti/amministrativi/data', [DipendenteController::class, 'amministrativiData'])->name('dipendenti.amministrativi.data');
-
+    
     // Duplicazione anno
     Route::post('dipendenti/duplica-precedente', [DipendenteController::class, 'duplicaAnnoPrecedente'])
         ->name('dipendenti.duplica');

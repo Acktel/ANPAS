@@ -114,16 +114,17 @@ class CostiPersonaleController extends Controller {
             ->toArray();
 
         $rows = [];
-        $totali = ['Retribuzioni' => 0, 'OneriSociali' => 0, 'TFR' => 0, 'Consulenze' => 0, 'Totale' => 0];
+        $totali = ['Retribuzioni' => 0, 'OneriSocialiInps' => 0, 'OneriSocialiInail' => 0, 'TFR' => 0, 'Consulenze' => 0, 'Totale' => 0];
         $totPerConv = [];
-
+        
         foreach ($dipendenti as $d) {
             $id = $d->idDipendente;
             $c = $costi->get($id);
 
             // base (importi pieni)
             $retribuzioni = (float)($c->Retribuzioni ?? 0);
-            $oneriSociali = (float)($c->OneriSociali ?? 0);
+            $OneriSocialiInps = (float)($c->OneriSocialiInps ?? 0);
+            $OneriSocialiInail = (float)($c->OneriSocialiInail ?? 0);
             $tfr          = (float)($c->TFR ?? 0);
             $consulenze   = (float)($c->Consulenze ?? 0);
 
@@ -144,13 +145,14 @@ class CostiPersonaleController extends Controller {
             // applico coefficiente solo se filtro per mansione
             if ($idQualifica) {
                 $retribuzioni *= $coeff;
-                $oneriSociali *= $coeff;
+                $OneriSocialiInps *= $coeff;
+                $OneriSocialiInail *= $coeff;
                 $tfr          *= $coeff;
                 $consulenze   *= $coeff;
             }
 
-            $totale = $retribuzioni + $oneriSociali + $tfr + $consulenze;
-
+            $totale = $retribuzioni + $OneriSocialiInps + $OneriSocialiInail + $tfr + $consulenze;
+            
             // nomi qualifica per riga
             $idsQ = $qualifichePivot[$id] ?? [];
             $nomiQ = collect($idsQ)->map(fn($iq) => $nomiQualifiche[$iq] ?? null)->filter()->values()->implode(', ');
@@ -161,7 +163,8 @@ class CostiPersonaleController extends Controller {
                 'Qualifica'    => $nomiQ,
                 'Contratto'    => $d->ContrattoApplicato,
                 'Retribuzioni' => round($retribuzioni, 2),
-                'OneriSociali' => round($oneriSociali, 2),
+                'OneriSocialiInps' => round($OneriSocialiInps, 2),
+                'OneriSocialiInail' => round($OneriSocialiInail, 2),
                 'TFR'          => round($tfr, 2),
                 'Consulenze'   => round($consulenze, 2),
                 'Totale'       => round($totale, 2),
@@ -210,7 +213,8 @@ class CostiPersonaleController extends Controller {
         $data = $request->validate([
             'idDipendente'   => 'required|integer',
             'Retribuzioni'   => 'required|numeric',
-            'OneriSociali'   => 'required|numeric',
+            'OneriSocialiInps'   => 'required|numeric',
+            'OneriSocialiInail'   => 'required|numeric',
             'TFR'            => 'required|numeric',
             'Consulenze'     => 'required|numeric',
         ]);
@@ -218,7 +222,8 @@ class CostiPersonaleController extends Controller {
         $data['idAnno'] = session('anno_riferimento', now()->year);
         $data['Totale'] =
             (float)$data['Retribuzioni'] +
-            (float)$data['OneriSociali'] +
+            (float)$data['OneriSocialiInps'] +      
+            (float)$data['OneriSocialiInail'] +
             (float)$data['TFR'] +
             (float)$data['Consulenze'];
 
@@ -254,7 +259,8 @@ class CostiPersonaleController extends Controller {
     public function update(Request $request, $idDipendente) {
         $data = $request->validate([
             'Retribuzioni'   => 'required|numeric',
-            'OneriSociali'   => 'required|numeric',
+            'OneriSocialiInps'   => 'required|numeric',
+            'OneriSocialiInail'   => 'required|numeric',
             'TFR'            => 'required|numeric',
             'Consulenze'     => 'required|numeric',
             // array opzionale di percentuali per idQualifica
@@ -266,7 +272,8 @@ class CostiPersonaleController extends Controller {
         $data['idAnno'] = session('anno_riferimento', now()->year);
         $data['Totale'] =
             (float)$data['Retribuzioni'] +
-            (float)$data['OneriSociali'] +
+            (float)$data['OneriSocialiInps'] +
+            (float)$data['OneriSocialiInail'] +
             (float)$data['TFR'] +
             (float)$data['Consulenze'];
 
