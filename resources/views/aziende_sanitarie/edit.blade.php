@@ -6,13 +6,13 @@
   <h1 class="container-title mb-4">Modifica Azienda Sanitaria</h1>
 
   @if($errors->any())
-    <div class="alert alert-danger">
-      <ul class="mb-0">
-        @foreach($errors->all() as $error)
-          <li>{{ $error }}</li>
-        @endforeach
-      </ul>
-    </div>
+  <div class="alert alert-danger">
+    <ul class="mb-0">
+      @foreach($errors->all() as $error)
+      <li>{{ $error }}</li>
+      @endforeach
+    </ul>
+  </div>
   @endif
 
   <form action="{{ route('aziende-sanitarie.update', $azienda->idAziendaSanitaria) }}" method="POST" id="aziendaWizardForm">
@@ -38,46 +38,46 @@
         </ul>
 
         <div class="tab-content">
-        {{-- Indirizzo --}}
-<div class="row">
-          <div class="col-md-6 mb-3">
+          {{-- Indirizzo --}}
+          <div class="row">
+            <div class="col-md-6 mb-3">
               <label for="provincia" class="form-label">Provincia</label>
               <select class="form-control" id="provincia" name="provincia">
-                  <option value="" disabled selected>-- Seleziona provincia --</option>
-                  @php
-                      $allowedProvinces = ['VC', 'AL', 'AT', 'BI', 'CN', 'NO', 'TO', 'VB'];
-                      $provinceUniche = collect($cities)
-                          ->pluck('sigla_provincia')
-                          ->unique()
-                          ->filter(fn($sigla) => in_array($sigla, $allowedProvinces))
-                          ->sort()
-                          ->values();
-                  @endphp
-                  @foreach($provinceUniche as $sigla)
-                      <option value="{{ $sigla }}" {{ old('provincia', $associazione->provincia ?? '') == $sigla ? 'selected' : '' }}>
-                          {{ $sigla }}
-                      </option>
-                  @endforeach
+                <option value="" disabled selected>-- Seleziona provincia --</option>
+                @php
+                $allowedProvinces = ['VC', 'AL', 'AT', 'BI', 'CN', 'NO', 'TO', 'VB'];
+                $provinceUniche = collect($cities)
+                ->pluck('sigla_provincia')
+                ->unique()
+                ->filter(fn($sigla) => in_array($sigla, $allowedProvinces))
+                ->sort()
+                ->values();
+                @endphp
+                @foreach($provinceUniche as $sigla)
+                <option value="{{ $sigla }}" {{ old('provincia', $associazione->provincia ?? '') == $sigla ? 'selected' : '' }}>
+                  {{ $sigla }}
+                </option>
+                @endforeach
               </select>
-          </div>
-          <div class="col-md-6 mb-3">
+            </div>
+            <div class="col-md-6 mb-3">
               <label for="citta_combo" class="form-label">Città</label>
               <div class="position-relative">
-                  <input type="text" id="citta_combo" name="citta" class="form-control"
-                          placeholder="Inizia a scrivere..." autocomplete="off"
-                          value="{{ old('citta', isset($associazione->citta) ? ucfirst(trim($associazione->citta)) : '') }}">
-                  <ul id="citta_list" class="list-group position-absolute w-100" 
-                      style="z-index:1000; display:none; max-height:200px; overflow-y:auto;">
-                      @foreach($cities as $city)
-                        <li class="list-group-item list-group-item-action"
-                            data-provincia="{{ $city->sigla_provincia }}"
-                            {{ old('citta', $associazione->citta ?? '') == trim($city->denominazione_ita) ? 'data-selected="true"' : '' }}>
-                            {{ ucfirst(trim($city->denominazione_ita)) }}
-                        </li>
-                      @endforeach
-                  </ul>
+                <input type="text" id="citta_combo" name="citta" class="form-control"
+                  placeholder="Inizia a scrivere..." autocomplete="off"
+                  value="{{ old('citta', isset($associazione->citta) ? ucfirst(trim($associazione->citta)) : '') }}">
+                <ul id="citta_list" class="list-group position-absolute w-100"
+                  style="z-index:1000; display:none; max-height:200px; overflow-y:auto;">
+                  @foreach($cities as $city)
+                  <li class="list-group-item list-group-item-action"
+                    data-provincia="{{ $city->sigla_provincia }}"
+                    {{ old('citta', $associazione->citta ?? '') == trim($city->denominazione_ita) ? 'data-selected="true"' : '' }}>
+                    {{ ucfirst(trim($city->denominazione_ita)) }}
+                  </li>
+                  @endforeach
+                </ul>
               </div>
-          </div>
+            </div>
           </div>
 
 
@@ -140,29 +140,29 @@
               </thead>
               <tbody>
                 @php
-                  // Se ritorno da validazione fallita, uso gli old(); altrimenti i lotti dal DB
-                  $oldLotti = old('lotti', []);
-                  $rows = count($oldLotti) ? collect($oldLotti) : $lotti;
+                // Se ritorno da validazione fallita, uso gli old(); altrimenti i lotti dal DB
+                $oldLotti = old('lotti', []);
+                $rows = count($oldLotti) ? collect($oldLotti) : $lotti;
                 @endphp
 
                 @foreach($rows as $i => $lotto)
-                  @php
-                    $id   = is_array($lotto) ? ($lotto['id'] ?? null)  : ($lotto->id ?? null);
-                    $nome = is_array($lotto) ? ($lotto['nomeLotto'] ?? '') : ($lotto->nomeLotto ?? '');
-                    $desc = is_array($lotto) ? ($lotto['descrizione'] ?? '') : ($lotto->descrizione ?? '');
-                  @endphp
-                  <tr data-row-index="{{ $i }}">
-                    <input type="hidden" name="lotti[{{ $i }}][id]" value="{{ $id }}">
-                    <input type="hidden" name="lotti[{{ $i }}][_delete]" value="0" class="lotto-delete">
-                    <td class="text-muted">{{ $i + 1 }}</td>
-                    <td><input type="text" name="lotti[{{ $i }}][nomeLotto]" class="form-control" value="{{ $nome }}"></td>
-                    <td><input type="text" name="lotti[{{ $i }}][descrizione]" class="form-control" value="{{ $desc }}"></td>
-                    <td class="text-center">
-                      <button type="button" class="btn btn-sm btn-anpas-delete js-remove-row" title="Elimina">
-                        <i class="fas fa-trash-alt"></i>
-                      </button>
-                    </td>
-                  </tr>
+                @php
+                $id = is_array($lotto) ? ($lotto['id'] ?? null) : ($lotto->id ?? null);
+                $nome = is_array($lotto) ? ($lotto['nomeLotto'] ?? '') : ($lotto->nomeLotto ?? '');
+                $desc = is_array($lotto) ? ($lotto['descrizione'] ?? '') : ($lotto->descrizione ?? '');
+                @endphp
+                <tr data-row-index="{{ $i }}">
+                  <input type="hidden" name="lotti[{{ $i }}][id]" value="{{ $id }}">
+                  <input type="hidden" name="lotti[{{ $i }}][_delete]" value="0" class="lotto-delete">
+                  <td class="text-muted">{{ $i + 1 }}</td>
+                  <td><input type="text" name="lotti[{{ $i }}][nomeLotto]" class="form-control" value="{{ $nome }}"></td>
+                  <td><input type="text" name="lotti[{{ $i }}][descrizione]" class="form-control" value="{{ $desc }}"></td>
+                  <td class="text-center">
+                    <button type="button" class="btn btn-sm btn-anpas-delete js-remove-row" title="Elimina">
+                      <i class="fas fa-trash-alt"></i>
+                    </button>
+                  </td>
+                </tr>
                 @endforeach
               </tbody>
             </table>
@@ -220,82 +220,82 @@
 
 @push('scripts')
 <script>
-(function () {
-  // ====== ELEMENTI ======
-  const tabAnag  = document.getElementById('tab-anagrafica');
-  const tabLotti = document.getElementById('tab-lotti');
-  const tabConv  = document.getElementById('tab-conv');
+  (function() {
+    // ====== ELEMENTI ======
+    const tabAnag = document.getElementById('tab-anagrafica');
+    const tabLotti = document.getElementById('tab-lotti');
+    const tabConv = document.getElementById('tab-conv');
 
-  const btnGoLotti   = document.getElementById('goToLotti');
-  const btnBackAnag  = document.getElementById('backToAnagrafica');
-  const btnGoConv    = document.getElementById('goToConvenzioni');
-  const btnBackLotti = document.getElementById('backToLotti');
+    const btnGoLotti = document.getElementById('goToLotti');
+    const btnBackAnag = document.getElementById('backToAnagrafica');
+    const btnGoConv = document.getElementById('goToConvenzioni');
+    const btnBackLotti = document.getElementById('backToLotti');
 
-  const nomeAziendaInput = document.getElementById('Nome');
+    const nomeAziendaInput = document.getElementById('Nome');
 
-  // LOTTI
-  const tableBody = document.querySelector('#lottiTable tbody');
-  const addBtn    = document.getElementById('addLottoBtn');
-  const inputNome = document.getElementById('newLottoNome');
-  const inputDesc = document.getElementById('newLottoDesc');
+    // LOTTI
+    const tableBody = document.querySelector('#lottiTable tbody');
+    const addBtn = document.getElementById('addLottoBtn');
+    const inputNome = document.getElementById('newLottoNome');
+    const inputDesc = document.getElementById('newLottoDesc');
 
-  // CONVENZIONI
-  const convTbody = document.querySelector('#convTable tbody');
+    // CONVENZIONI
+    const convTbody = document.querySelector('#convTable tbody');
 
-  // Dati dal server
-  const ASSOCS = @json($associazioni->map(fn($a) => ['id' => $a->idAssociazione, 'text' => $a->Associazione]));
-  const CONV_ASSOC_BY_LOTTO = @json($convAssocByLotto ?? []);
-  const OLD_CONV_ASSOC = @json(old('conv_assoc', []));
+    // Dati dal server
+    const ASSOCS = @json($associazioni - > map(fn($a) => ['id' => $a - > idAssociazione, 'text' => $a - > Associazione]));
+    const CONV_ASSOC_BY_LOTTO = @json($convAssocByLotto ?? []);
+    const OLD_CONV_ASSOC = @json(old('conv_assoc', []));
 
-  // ====== UTILS ======
-  function escapeHtml(s) {
-    return (s ?? '').toString()
-      .replaceAll('&', '&amp;')
-      .replaceAll('<', '&lt;')
-      .replaceAll('>', '&gt;')
-      .replaceAll('"', '&quot;')
-      .replaceAll("'", '&#039;');
-  }
+    // ====== UTILS ======
+    function escapeHtml(s) {
+      return (s ?? '').toString()
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
+    }
 
-  function getVisibleLottiRows() {
-    return Array.from(tableBody.querySelectorAll('tr[data-row-index]'))
-      .filter(tr => tr.style.display !== 'none'); // gli "eliminati" vengono nascosti
-  }
+    function getVisibleLottiRows() {
+      return Array.from(tableBody.querySelectorAll('tr[data-row-index]'))
+        .filter(tr => tr.style.display !== 'none'); // gli "eliminati" vengono nascosti
+    }
 
-  // Calcolo nextIndex iniziale (anche con old())
-  let nextIndex = (function () {
-    let max = -1;
-    getVisibleLottiRows().forEach(tr => {
-      const i = parseInt(tr.getAttribute('data-row-index'), 10);
-      if (!isNaN(i) && i > max) max = i;
-    });
-    return max + 1;
-  })();
+    // Calcolo nextIndex iniziale (anche con old())
+    let nextIndex = (function() {
+      let max = -1;
+      getVisibleLottiRows().forEach(tr => {
+        const i = parseInt(tr.getAttribute('data-row-index'), 10);
+        if (!isNaN(i) && i > max) max = i;
+      });
+      return max + 1;
+    })();
 
-  function renumberRows() {
-    const trs = getVisibleLottiRows();
-    trs.forEach((tr, idx) => {
-      tr.setAttribute('data-row-index', idx);
-      tr.querySelector('td').textContent = idx + 1;
+    function renumberRows() {
+      const trs = getVisibleLottiRows();
+      trs.forEach((tr, idx) => {
+        tr.setAttribute('data-row-index', idx);
+        tr.querySelector('td').textContent = idx + 1;
 
-      const idH  = tr.querySelector('input[name^="lotti["][name$="[id]"]');
-      const delH = tr.querySelector('input[name^="lotti["][name$="[_delete]"]');
-      const nm   = tr.querySelector('input[name^="lotti["][name$="[nomeLotto]"]');
-      const ds   = tr.querySelector('input[name^="lotti["][name$="[descrizione]"]');
+        const idH = tr.querySelector('input[name^="lotti["][name$="[id]"]');
+        const delH = tr.querySelector('input[name^="lotti["][name$="[_delete]"]');
+        const nm = tr.querySelector('input[name^="lotti["][name$="[nomeLotto]"]');
+        const ds = tr.querySelector('input[name^="lotti["][name$="[descrizione]"]');
 
-      if (idH)  idH.name  = `lotti[${idx}][id]`;
-      if (delH) delH.name = `lotti[${idx}][_delete]`;
-      if (nm)   nm.name   = `lotti[${idx}][nomeLotto]`;
-      if (ds)   ds.name   = `lotti[${idx}][descrizione]`;
-    });
-    nextIndex = trs.length;
-  }
+        if (idH) idH.name = `lotti[${idx}][id]`;
+        if (delH) delH.name = `lotti[${idx}][_delete]`;
+        if (nm) nm.name = `lotti[${idx}][nomeLotto]`;
+        if (ds) ds.name = `lotti[${idx}][descrizione]`;
+      });
+      nextIndex = trs.length;
+    }
 
-  function addRow(nomeVal = '', descVal = '') {
-    const i = nextIndex++;
-    const tr = document.createElement('tr');
-    tr.setAttribute('data-row-index', i);
-    tr.innerHTML = `
+    function addRow(nomeVal = '', descVal = '') {
+      const i = nextIndex++;
+      const tr = document.createElement('tr');
+      tr.setAttribute('data-row-index', i);
+      tr.innerHTML = `
       <input type="hidden" name="lotti[${i}][id]" value="">
       <input type="hidden" name="lotti[${i}][_delete]" value="0" class="lotto-delete">
       <td class="text-muted">${i + 1}</td>
@@ -307,90 +307,96 @@
         </button>
       </td>
     `;
-    tableBody.appendChild(tr);
-    updateConvTabState();
-  }
-
-  // Add lotto
-  addBtn?.addEventListener('click', function () {
-    const nome = (inputNome.value || '').trim();
-    const desc = (inputDesc.value || '').trim();
-    if (!nome) { inputNome.focus(); return; }
-    addRow(nome, desc);
-    inputNome.value = '';
-    inputDesc.value = '';
-  });
-
-  // Delete lotto (soft per esistenti)
-  tableBody.addEventListener('click', function (e) {
-    const btn = e.target.closest('.js-remove-row');
-    if (!btn) return;
-
-    const tr       = btn.closest('tr');
-    const idInput  = tr.querySelector('input[name$="[id]"]');
-    const delInput = tr.querySelector('input[name$="[_delete]"]');
-
-    if (idInput && idInput.value) {
-      // Lotto esistente: marca per delete e nascondi
-      delInput.value = '1';
-      tr.style.display = 'none';
-    } else {
-      // Lotto nuovo: rimuovi
-      tr.remove();
+      tableBody.appendChild(tr);
+      updateConvTabState();
     }
-    renumberRows();
-    updateConvTabState();
-  });
 
-  // ====== Wizard nav ======
-  function activateTab(btnEl) {
-    if (!btnEl) return;
-    new bootstrap.Tab(btnEl).show();
-  }
-
-  document.getElementById('goToLotti')?.addEventListener('click', function () {
-    if (!(nomeAziendaInput.value || '').trim()) { nomeAziendaInput.focus(); return; }
-    activateTab(tabLotti);
-  });
-
-  document.getElementById('backToAnagrafica')?.addEventListener('click', function () {
-    activateTab(tabAnag);
-  });
-
-  document.getElementById('goToConvenzioni')?.addEventListener('click', function () {
-    if (getVisibleLottiRows().length === 0) {
-      inputNome?.focus();
-      return;
-    }
-    buildConvenzioniPreview();
-    activateTab(tabConv);
-  });
-
-  document.getElementById('backToLotti')?.addEventListener('click', function () {
-    activateTab(tabLotti);
-  });
-
-  // ====== Convenzioni: build + preselezione ======
-  function buildConvenzioniPreview() {
-    convTbody.innerHTML = '';
-    const azienda = (nomeAziendaInput.value || '').trim();
-
-    getVisibleLottiRows().forEach((tr, i) => {
-      const idx    = parseInt(tr.getAttribute('data-row-index'), 10);
-      const idL    = tr.querySelector(`input[name="lotti[${idx}][id]"]`)?.value || '';
-      const nomeL  = tr.querySelector(`input[name="lotti[${idx}][nomeLotto]"]`)?.value || '';
-      const convNm = `${azienda} – ${nomeL}`;
-
-      // Scelte da old() (prioritarie) o da mappa lato server per lotto esistente
-      let selectedIds = [];
-      if (Object.prototype.hasOwnProperty.call(OLD_CONV_ASSOC, String(idx))) {
-        selectedIds = (OLD_CONV_ASSOC[String(idx)] || []).map(x => String(x));
-      } else if (idL && CONV_ASSOC_BY_LOTTO[String(idL)]) {
-        selectedIds = (CONV_ASSOC_BY_LOTTO[String(idL)] || []).map(x => String(x));
+    // Add lotto
+    addBtn?.addEventListener('click', function() {
+      const nome = (inputNome.value || '').trim();
+      const desc = (inputDesc.value || '').trim();
+      if (!nome) {
+        inputNome.focus();
+        return;
       }
+      addRow(nome, desc);
+      inputNome.value = '';
+      inputDesc.value = '';
+    });
 
-      const row = document.createElement('tr');
-      row.innerHTML = `
+    // Delete lotto (soft per esistenti)
+    tableBody.addEventListener('click', function(e) {
+      const btn = e.target.closest('.js-remove-row');
+      if (!btn) return;
+
+      const tr = btn.closest('tr');
+      const idInput = tr.querySelector('input[name$="[id]"]');
+      const delInput = tr.querySelector('input[name$="[_delete]"]');
+
+      if (idInput && idInput.value) {
+        // Lotto esistente: marca per delete e nascondi
+        delInput.value = '1';
+        tr.style.display = 'none';
+      } else {
+        // Lotto nuovo: rimuovi
+        tr.remove();
+      }
+      renumberRows();
+      updateConvTabState();
+    });
+
+    // ====== Wizard nav ======
+    function activateTab(btnEl) {
+      if (!btnEl) return;
+      new bootstrap.Tab(btnEl).show();
+    }
+
+    document.getElementById('goToLotti')?.addEventListener('click', function() {
+      if (!(nomeAziendaInput.value || '').trim()) {
+        nomeAziendaInput.focus();
+        return;
+      }
+      activateTab(tabLotti);
+    });
+
+    document.getElementById('backToAnagrafica')?.addEventListener('click', function() {
+      activateTab(tabAnag);
+    });
+
+    document.getElementById('goToConvenzioni')?.addEventListener('click', function() {
+      if (getVisibleLottiRows().length === 0) {
+        inputNome?.focus();
+        return;
+      }
+      buildConvenzioniPreview();
+      activateTab(tabConv);
+    });
+
+    document.getElementById('backToLotti')?.addEventListener('click', function() {
+      activateTab(tabLotti);
+    });
+
+    // ====== Convenzioni: build + preselezione ======
+    function buildConvenzioniPreview() {
+      convTbody.innerHTML = '';
+      const azienda = (nomeAziendaInput.value || '').trim();
+
+      getVisibleLottiRows().forEach((tr, i) => {
+        const idx = parseInt(tr.getAttribute('data-row-index'), 10);
+        const idL = tr.querySelector(`input[name="lotti[${idx}][id]"]`)?.value || '';
+        const nomeL = tr.querySelector(`input[name="lotti[${idx}][nomeLotto]"]`)?.value || '';
+        const convNm = `${azienda} – ${nomeL}`;
+
+        // Scelte da old() (prioritarie) o da mappa lato server per lotto esistente
+        let selectedIds = [];
+        if (Object.prototype.hasOwnProperty.call(OLD_CONV_ASSOC, String(idx))) {
+          selectedIds = (OLD_CONV_ASSOC[String(idx)] || []).map(x => String(x));
+        } else if (idL && CONV_ASSOC_BY_LOTTO[String(idL)]) {
+          selectedIds = (CONV_ASSOC_BY_LOTTO[String(idL)] || []).map(x => String(x));
+        }
+
+        const row = document.createElement('tr');
+        row.innerHTML = `
         <td class="text-muted">${i + 1}</td>
         <td><input type="text" class="form-control" value="${escapeHtml(convNm)}" readonly></td>
         <td>
@@ -403,33 +409,33 @@
           <div class="form-text">Seleziona una o più associazioni per questo lotto</div>
         </td>
       `;
-      convTbody.appendChild(row);
+        convTbody.appendChild(row);
+      });
+    }
+
+    // ====== Abilita/Disabilita tab Convenzioni ======
+    function updateConvTabState() {
+      const hasLotti = getVisibleLottiRows().length > 0;
+      if (tabConv) {
+        tabConv.disabled = !hasLotti;
+        tabConv.classList.toggle('disabled', !hasLotti);
+        tabConv.setAttribute('aria-disabled', String(!hasLotti));
+      }
+    }
+    // Quando l'utente APRE il tab "Convenzioni" cliccando la tab stessa,
+    // se ci sono lotti costruiamo l’anteprima; se non ci sono, blocchiamo.
+    tabConv?.addEventListener('show.bs.tab', function(e) {
+      if (getVisibleLottiRows().length === 0) {
+        e.preventDefault();
+        inputNome?.focus();
+        return;
+      }
+      buildConvenzioniPreview();
     });
-  }
 
-  // ====== Abilita/Disabilita tab Convenzioni ======
-  function updateConvTabState() {
-    const hasLotti = getVisibleLottiRows().length > 0;
-    if (tabConv) {
-      tabConv.disabled = !hasLotti;
-      tabConv.classList.toggle('disabled', !hasLotti);
-      tabConv.setAttribute('aria-disabled', String(!hasLotti));
-    }
-  }
-  // Quando l'utente APRE il tab "Convenzioni" cliccando la tab stessa,
-  // se ci sono lotti costruiamo l’anteprima; se non ci sono, blocchiamo.
-  tabConv?.addEventListener('show.bs.tab', function (e) {
-    if (getVisibleLottiRows().length === 0) {
-      e.preventDefault();
-      inputNome?.focus();
-      return;
-    }
-    buildConvenzioniPreview(); 
-  });
-
-  // Init
-  updateConvTabState();
-})();
+    // Init
+    updateConvTabState();
+  })();
 </script>
 @endpush
 
@@ -442,7 +448,7 @@
 
 @push('scripts')
 <script>
-document.addEventListener('DOMContentLoaded', function() {
+  document.addEventListener('DOMContentLoaded', function() {
     const input = document.getElementById('citta_combo');
     const list = document.getElementById('citta_list');
     const provinciaSelect = document.getElementById('provincia');
@@ -453,96 +459,102 @@ document.addEventListener('DOMContentLoaded', function() {
      * - se ignoreText = false: filtra anche per testo inserito
      */
     function filterList(options = {}) {
-        const ignoreText = !!options.ignoreText;
-        const provincia = provinciaSelect.value;
+      const ignoreText = !!options.ignoreText;
+      const provincia = provinciaSelect.value;
 
-        // se non è selezionata una provincia, nascondi la lista
-        if (!provincia) {
-            list.style.display = 'none';
-            return;
+      // se non è selezionata una provincia, nascondi la lista
+      if (!provincia) {
+        list.style.display = 'none';
+        return;
+      }
+
+      const text = ignoreText ? '' : input.value.trim().toLowerCase();
+
+      let hasVisible = false;
+      Array.from(list.children).forEach(li => {
+        const matchProvincia = li.dataset.provincia === provincia;
+        const matchText = text === '' ? true : li.textContent.toLowerCase().includes(text);
+        if (matchProvincia && matchText) {
+          li.style.display = 'block';
+          hasVisible = true;
+        } else {
+          li.style.display = 'none';
         }
+      });
 
-        const text = ignoreText ? '' : input.value.trim().toLowerCase();
+      list.style.display = hasVisible ? 'block' : 'none';
 
-        let hasVisible = false;
-        Array.from(list.children).forEach(li => {
-            const matchProvincia = li.dataset.provincia === provincia;
-            const matchText = text === '' ? true : li.textContent.toLowerCase().includes(text);
-            if (matchProvincia && matchText) {
-                li.style.display = 'block';
-                hasVisible = true;
-            } else {
-                li.style.display = 'none';
-            }
-        });
-
-        list.style.display = hasVisible ? 'block' : 'none';
-
-        // se la li selezionata (data-selected="true") non è visibile, resetta input e selezione
-        const selectedLi = list.querySelector('[data-selected="true"]');
-        if (selectedLi && selectedLi.style.display === 'none') {
-            input.value = '';
-            selectedLi.removeAttribute('data-selected');
-        }
+      // se la li selezionata (data-selected="true") non è visibile, resetta input e selezione
+      const selectedLi = list.querySelector('[data-selected="true"]');
+      if (selectedLi && selectedLi.style.display === 'none') {
+        input.value = '';
+        selectedLi.removeAttribute('data-selected');
+      }
     }
 
     // mostra tutte le città della provincia al focus (ignora il testo presente)
-    input.addEventListener('focus', () => filterList({ ignoreText: true }));
+    input.addEventListener('focus', () => filterList({
+      ignoreText: true
+    }));
 
     // mentre l'utente scrive filtra in base al testo
     input.addEventListener('input', () => {
-        // digitando si rimuove la "selezione predefinita"
-        Array.from(list.children).forEach(li => li.removeAttribute('data-selected'));
-        filterList({ ignoreText: false });
+      // digitando si rimuove la "selezione predefinita"
+      Array.from(list.children).forEach(li => li.removeAttribute('data-selected'));
+      filterList({
+        ignoreText: false
+      });
     });
 
     // enter: capitalizza prima lettera e chiudi lista
     input.addEventListener('keydown', function(e) {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            if (input.value.trim() !== '') {
-                input.value = input.value.trim();
-                input.value = input.value.charAt(0).toUpperCase() + input.value.slice(1);
-            }
-            list.style.display = 'none';
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        if (input.value.trim() !== '') {
+          input.value = input.value.trim();
+          input.value = input.value.charAt(0).toUpperCase() + input.value.slice(1);
         }
+        list.style.display = 'none';
+      }
     });
 
     // al cambio provincia mostra subito la lista delle città di quella provincia
     provinciaSelect.addEventListener('change', function() {
-        // se la città precedente non appartiene alla nuova provincia, resettala
-        const selectedLi = list.querySelector('[data-selected="true"]');
-        if (selectedLi && selectedLi.dataset.provincia !== provinciaSelect.value) {
-            selectedLi.removeAttribute('data-selected');
-            input.value = '';
-        }
-        filterList({ ignoreText: true });
+      // se la città precedente non appartiene alla nuova provincia, resettala
+      const selectedLi = list.querySelector('[data-selected="true"]');
+      if (selectedLi && selectedLi.dataset.provincia !== provinciaSelect.value) {
+        selectedLi.removeAttribute('data-selected');
+        input.value = '';
+      }
+      filterList({
+        ignoreText: true
+      });
     });
 
     // click su una voce: imposta input, marca come selezionata e chiudi dropdown
     Array.from(list.children).forEach(li => {
-        li.addEventListener('click', () => {
-            input.value = li.textContent.trim();
-            input.value = input.value.charAt(0).toUpperCase() + input.value.slice(1);
+      li.addEventListener('click', () => {
+        input.value = li.textContent.trim();
+        input.value = input.value.charAt(0).toUpperCase() + input.value.slice(1);
 
-            // marca come selezionata e rimuovi la marcatura dalle altre
-            Array.from(list.children).forEach(i => i.removeAttribute('data-selected'));
-            li.setAttribute('data-selected', 'true');
+        // marca come selezionata e rimuovi la marcatura dalle altre
+        Array.from(list.children).forEach(i => i.removeAttribute('data-selected'));
+        li.setAttribute('data-selected', 'true');
 
-            list.style.display = 'none';
-        });
+        list.style.display = 'none';
+      });
     });
 
     // chiudi lista cliccando fuori
     document.addEventListener('click', (e) => {
-        if (!e.target.closest('.position-relative')) {
-            list.style.display = 'none';
-        }
+      if (!e.target.closest('.position-relative')) {
+        list.style.display = 'none';
+      }
     });
 
     // inizializza (non aprire la lista al caricamento)
     filterList(); // imposta i display corretti
     list.style.display = 'none';
-});
+  });
 </script>
 @endpush
