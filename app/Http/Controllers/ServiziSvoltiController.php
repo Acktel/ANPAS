@@ -51,8 +51,7 @@ class ServiziSvoltiController extends Controller {
         // inizializza riga TOTALE
         $totale = array_merge([
             'idAutomezzo' => null,
-            'Automezzo' => 'TOTALE',
-            'Targa' => '',
+            'Targa' => 'TOTALE',
             'CodiceIdentificativo' => '',
             'Totale' => 0,
             'is_totale' => -1,
@@ -65,7 +64,6 @@ class ServiziSvoltiController extends Controller {
             // calcola Totale servizi per automezzo
             $riga = [
                 'idAutomezzo' => $a->idAutomezzo,
-                'Automezzo' => $a->Automezzo,
                 'Targa' => $a->Targa,
                 'CodiceIdentificativo' => $a->CodiceIdentificativo ?? '',
                 'Totale' => 0,

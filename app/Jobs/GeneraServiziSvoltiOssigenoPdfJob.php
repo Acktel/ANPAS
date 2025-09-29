@@ -76,10 +76,9 @@ class GeneraServiziSvoltiOssigenoPdfJob implements ShouldQueue
         $rows = [];
         $totali = [
             'is_totale'            => -1,
-            'Targa'                => '',
+            'Targa'                => 'Automezzo',
             'CodiceIdentificativo' => '',
-            'Automezzo'            => 'TOTALE',
-            'RipartoOssigeno'      => '', // colonna "sì/no"
+            'RipartoOssigeno'      => '', 
             'Totale'               => 0,
         ];
         foreach ($convenzioni as $c) {
@@ -101,7 +100,6 @@ class GeneraServiziSvoltiOssigenoPdfJob implements ShouldQueue
                 'idAutomezzo'          => $a->idAutomezzo,
                 'Targa'                => (string)($a->Targa ?? ''),
                 'CodiceIdentificativo' => (string)($a->CodiceIdentificativo ?? ''),
-                'Automezzo'            => (string)($a->Automezzo ?? ''),
                 'RipartoOssigeno'      => (bool)$a->incluso_riparto ? 'sì' : 'no',
                 'Totale'               => $tot,
             ];

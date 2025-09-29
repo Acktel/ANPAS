@@ -72,10 +72,6 @@
         {{-- RIGA 2: Nome Automezzo | Targa --}}
         <div class="row mb-3">
           <div class="col-md-6">
-            <label for="Automezzo" class="form-label">Nome Automezzo</label>
-            <input type="text" name="Automezzo" id="Automezzo" class="form-control" value="{{ old('Automezzo') }}" required>
-          </div>
-          <div class="col-md-6">
             <label for="Targa" class="form-label">Targa</label>
             <input type="text" name="Targa" id="Targa" class="form-control" value="{{ old('Targa') }}" required>
           </div>

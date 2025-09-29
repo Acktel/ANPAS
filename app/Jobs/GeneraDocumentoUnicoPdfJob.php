@@ -81,7 +81,7 @@ class GeneraDocumentoUnicoPdfJob implements ShouldQueue
 
         $kmRows = [];
         $kmTot = [
-            'Automezzo' => 'TOTALE', 'Targa'=>'', 'CodiceIdentificativo'=>'',
+           'Targa'=>'TOTALE', 'CodiceIdentificativo'=>'',
             'Totale'=>0.0, 'is_totale'=>-1,
         ];
         foreach ($convenzioni as $c){ $k='c'.$c->idConvenzione; $kmTot[$k.'_km']=0.0; $kmTot[$k.'_percent']=0.0; }
@@ -96,7 +96,6 @@ class GeneraDocumentoUnicoPdfJob implements ShouldQueue
             $r = [
                 'Targa' => (string)($a->Targa ?? ''),
                 'CodiceIdentificativo' => (string)($a->CodiceIdentificativo ?? ''),
-                'Automezzo' => (string)($a->Automezzo ?? ''),
                 'Totale' => $totKm, 'is_totale'=>0,
             ];
             foreach ($convenzioni as $c){

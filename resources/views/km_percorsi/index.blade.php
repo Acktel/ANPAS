@@ -87,10 +87,6 @@
                 hidden: true
             },
             {
-                key: 'Automezzo',
-                label: 'Automezzo'
-            },
-            {
                 key: 'Targa',
                 label: 'Targa'
             },

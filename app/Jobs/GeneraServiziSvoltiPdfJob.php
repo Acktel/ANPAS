@@ -88,9 +88,8 @@ class GeneraServiziSvoltiPdfJob implements ShouldQueue
         $rows = [];
         $totali = [
             'idAutomezzo'          => null,
-            'Targa'                => '',
+            'Targa'                => 'TOTALE',
             'CodiceIdentificativo' => '',
-            'Automezzo'            => 'TOTALE',
             'Totale'               => 0,
             'is_totale'            => -1,
         ];
@@ -114,7 +113,6 @@ class GeneraServiziSvoltiPdfJob implements ShouldQueue
                 'idAutomezzo'          => (int)$a->idAutomezzo,
                 'Targa'                => (string)($a->Targa ?? ''),
                 'CodiceIdentificativo' => (string)($a->CodiceIdentificativo ?? ''),
-                'Automezzo'            => (string)($a->NomeAutomezzo ?? ''),
                 'Totale'               => $tot,
                 'is_totale'            => 0,
             ];

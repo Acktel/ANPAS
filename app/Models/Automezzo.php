@@ -59,7 +59,6 @@ class Automezzo
         return DB::table('automezzi')->insertGetId([
             'idAssociazione'                     => $data['idAssociazione'],
             'idAnno'                             => $data['idAnno'],
-            'Automezzo'                          => $data['Automezzo'],
             'Targa'                              => $data['Targa'],
             'CodiceIdentificativo'               => $data['CodiceIdentificativo'],
             'AnnoPrimaImmatricolazione'          => $data['AnnoPrimaImmatricolazione'],
@@ -105,7 +104,6 @@ class Automezzo
             ->update([
                 'idAssociazione'                     => $data['idAssociazione'],
                 'idAnno'                             => $data['idAnno'],
-                'Automezzo'                          => $data['Automezzo'],
                 'Targa'                              => $data['Targa'],
                 'CodiceIdentificativo'               => $data['CodiceIdentificativo'],
                 'AnnoPrimaImmatricolazione'          => $data['AnnoPrimaImmatricolazione'],
@@ -145,7 +143,6 @@ class Automezzo
                 'a.idAutomezzo',
                 's.Associazione',
                 'a.idAnno',
-                'a.Automezzo',
                 'a.Targa',
                 'a.CodiceIdentificativo',
                 'a.AnnoPrimaImmatricolazione',
@@ -165,7 +162,7 @@ class Automezzo
             ->where('a.idAssociazione', $idAssociazione)
             ->where('a.idAnno', $anno)
             ->orderBy('a.idAnno', 'desc')
-            ->orderBy('a.Automezzo')
+            ->orderBy('a.idAutomezzo')
             ->get();
     }
 
@@ -189,7 +186,6 @@ class Automezzo
             'a.idAutomezzo',
             'ass.Associazione',
             'a.idAnno',
-            'a.Automezzo',
             'a.Targa',
             'a.CodiceIdentificativo',
             'a.AnnoPrimaImmatricolazione',

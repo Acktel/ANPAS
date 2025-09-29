@@ -28,9 +28,7 @@
 
           $selectedAssociazione = session('selectedAssociazione') ?? $automezzo->idAssociazione;
           $assocCorr = Associazione::getById($selectedAssociazione);
-
-          $annoCorr = session('annoCorrente') ?? ($automezzo->idAnno ?? now()->year);
-
+          $annoCorr  = session('annoCorrente') ?? ($automezzo->idAnno ?? now()->year);
         @endphp
 
         {{-- RIGA 1: Associazione | Anno --}}
@@ -38,7 +36,8 @@
           <div class="col-md-6">
             <label class="form-label">Associazione</label>
             <input type="text" class="form-control" value="{{ $assocCorr->Associazione }}" readonly>
-            <input type="hidden" name="idAssociazione" value="{{ $assocCorr->IdAssociazione }}">
+            {{-- ATTENZIONE: controlla il nome proprietà. Probabile: idAssociazione (non IdAssociazione) --}}
+            <input type="hidden" name="idAssociazione" value="{{ $assocCorr->idAssociazione ?? $assocCorr->IdAssociazione }}">
           </div>
 
           <div class="col-md-6">
@@ -60,18 +59,14 @@
           </div>
         </div>
 
-        {{-- RIGA 2: Nome Automezzo | Targa --}}
+        {{-- RIGA 2: Targa | (spazio) --}}
         <div class="row mb-3">
-          <div class="col-md-6">
-            <label for="Automezzo" class="form-label">Nome Automezzo</label>
-            <input type="text" name="Automezzo" id="Automezzo" class="form-control" style="text-transform: uppercase;"
-                   value="{{ old('Automezzo', $automezzo->Automezzo) }}" required>
-          </div>
           <div class="col-md-6">
             <label for="Targa" class="form-label">Targa</label>
             <input type="text" name="Targa" id="Targa" class="form-control" style="text-transform: uppercase;"
                    value="{{ old('Targa', $automezzo->Targa) }}" required>
           </div>
+          <div class="col-md-6"><!-- spacer per allineamento --></div>
         </div>
 
         {{-- RIGA 3: Codice Identificativo | Anno Prima Immatricolazione --}}
@@ -119,14 +114,14 @@
           </div>
           <div class="col-md-6">
             <label for="KmRiferimento" class="form-label">Km di Riferimento</label>
-            <input   type="number"
-                     name="KmRiferimento"
-                     id="KmRiferimento"
-                     class="form-control"
-                     step=1.00"
-                     value="{{ old('KmRiferimento', $automezzo->KmRiferimento) }}"
-                     required
-                     inputmode="decimal">
+            <input type="number"
+                   name="KmRiferimento"
+                   id="KmRiferimento"
+                   class="form-control"
+                   step="1"
+                   value="{{ old('KmRiferimento', $automezzo->KmRiferimento) }}"
+                   required
+                   inputmode="numeric">
           </div>
         </div>
 
@@ -135,7 +130,7 @@
           <div class="col-md-6">
             <label for="KmTotali" class="form-label">Km Totali</label>
             <input type="number" name="KmTotali" id="KmTotali" class="form-control"
-                   min="0" step=1.00"
+                   min="0" step="1"
                    value="{{ old('KmTotali', $automezzo->KmTotali) }}" required readonly>
           </div>
           <div class="col-md-6">
@@ -166,7 +161,7 @@
           </div>
         </div>
 
-        {{-- RIGA 8: Incluso in Riparto --}}
+        {{-- RIGA 8: Incluso in Riparto | (spazio) --}}
         <div class="row mb-4">
           <div class="col-md-6">
             <label for="incluso_riparto" class="form-label">Incluso nel riparto materiale sanitario?</label>
@@ -175,20 +170,19 @@
               <option value="0" {{ old('incluso_riparto', $automezzo->incluso_riparto) == 0 ? 'selected' : '' }}>No</option>
             </select>
           </div>
+          <div class="col-md-6"><!-- spacer per allineamento --></div>
         </div>
 
-        {{-- RIGA 9: Note --}}
+        {{-- RIGA 9: Note | Informazioni aggiuntive --}}
         <div class="row mb-4">
           <div class="col-md-6">
             <label for="note" class="form-label">Note</label>
-              <textarea name="note" id="note" class="form-control" rows="3">{{ old('note', $automezzo->note) }}</textarea>
+            <textarea name="note" id="note" class="form-control" rows="3">{{ old('note', $automezzo->note) }}</textarea>
           </div>
-
-        {{-- RIGA 10: Infomrazioni aggiuntive anno d'acquisto --}}
-            <div class="col-md-6">
-                <label for="informazioniAggiuntive" class="form-label">Informazioni aggiuntive</label>
-                <textarea name="informazioniAggiuntive" id="informazioniAggiuntive" class="form-control" rows="3">{{ old('informazioniAggiuntive', $automezzo->informazioniAggiuntive) }}</textarea>
-            </div>
+          <div class="col-md-6">
+            <label for="informazioniAggiuntive" class="form-label">Informazioni aggiuntive</label>
+            <textarea name="informazioniAggiuntive" id="informazioniAggiuntive" class="form-control" rows="3">{{ old('informazioniAggiuntive', $automezzo->informazioniAggiuntive) }}</textarea>
+          </div>
         </div>
 
         {{-- PULSANTI --}}
@@ -196,10 +190,7 @@
           <button type="submit" class="btn btn-anpas-green me-2">
             <i class="fas fa-check me-1"></i> Aggiorna
           </button>
-          <a href="{{ route('automezzi.index', [
-              'idAssociazione' => $selectedAssociazione,
-              'idAnno' => $annoCorr
-          ]) }}" class="btn btn-secondary">
+          <a href="{{ route('automezzi.index', ['idAssociazione' => $selectedAssociazione, 'idAnno' => $annoCorr]) }}" class="btn btn-secondary">
             <i class="fas fa-times me-1"></i> Annulla
           </a>
         </div>

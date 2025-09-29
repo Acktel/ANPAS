@@ -43,7 +43,6 @@ class RipartizioneOssigeno {
 
             $riga = [
                 'idAutomezzo' => $id,
-                'Automezzo' => $auto->Automezzo,
                 'Targa' => $auto->Targa,
                 'CodiceIdentificativo' => $auto->CodiceIdentificativo,
                 'incluso_riparto' => $incluso,
@@ -72,8 +71,7 @@ class RipartizioneOssigeno {
 
         $rigaTotale = [
             'idAutomezzo' => null,
-            'Automezzo' => 'TOTALE',
-            'Targa' => '',
+            'Targa' => 'TOTALE',
             'CodiceIdentificativo' => '',
             'incluso_riparto' => true,
             'valori' => [],

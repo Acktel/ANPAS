@@ -54,8 +54,7 @@
         <table id="table-materiale" class="table table-bordered table-striped-anpas w-100 text-center align-middle">
           <thead class="thead-anpas">
             <tr>
-              <th style="display: none;"></th> {{-- idAutomezzo --}}
-              <th>Automezzo</th>
+              <th style="display: none;"></th> {{-- idAutomezzo --}}            
               <th>Targa</th>
               <th>Codice ID</th>
               <th>Incluso</th>
@@ -138,7 +137,6 @@ async function loadTableMateriale() {
   // Costruzione colonne per DataTable (deve corrispondere ai <th> in pagina)
   const columns = [
     { data: 'idAutomezzo', visible: false },
-    { data: 'Automezzo' },
     { data: 'Targa' },
     { data: 'CodiceIdentificativo' },
     {

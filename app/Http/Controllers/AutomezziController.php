@@ -78,7 +78,6 @@ public function store(Request $request) {
     $rules = [
         'idAssociazione' => 'required|exists:associazioni,idAssociazione',
         'idAnno' => 'required|integer|min:2000|max:' . (date('Y') + 5),
-        'Automezzo' => 'required|string|max:255',
         'Targa' => 'required|string|max:50',
         'CodiceIdentificativo' => 'required|string|max:100',
         'AnnoPrimaImmatricolazione' => 'required|integer|min:1900|max:' . date('Y'),
@@ -160,8 +159,7 @@ public function store(Request $request) {
 public function update(Request $request, int $idAutomezzo) {
     $rules = [
         'idAssociazione' => 'required|exists:associazioni,idAssociazione',
-        'idAnno' => 'required|integer|min:2000|max:' . (date('Y') + 5),
-        'Automezzo' => 'required|string|max:255',
+        'idAnno' => 'required|integer|min:2000|max:' . (date('Y') + 5),        
         'Targa' => 'required|string|max:50',
         'CodiceIdentificativo' => 'required|string|max:100',
         'AnnoPrimaImmatricolazione' => 'required|integer|min:1900|max:' . date('Y'),
@@ -269,7 +267,6 @@ public function duplicaAnnoPrecedente(Request $request): JsonResponse {
             $newId = DB::table('automezzi')->insertGetId([
                 'idAssociazione' => $selectedAssoc,
                 'idAnno' => $anno,
-                'Automezzo' => $auto->Automezzo,
                 'Targa' => $auto->Targa,
                 'CodiceIdentificativo' => $auto->CodiceIdentificativo,
                 'AnnoPrimaImmatricolazione' => $auto->AnnoPrimaImmatricolazione,
