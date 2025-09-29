@@ -10,7 +10,7 @@ class Kernel extends ConsoleKernel
     protected function schedule(Schedule $schedule): void
     {
         // Esegui il worker ogni minuto
-        $schedule->command('queue:work database --queue=pdf --sleep=3 --tries=1 --timeout=120')
+        $schedule->command('queue:work database --queue=excel,pdf,default --sleep=3 --tries=1 --timeout=120')
              ->withoutOverlapping();
     }
 
