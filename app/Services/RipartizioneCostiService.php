@@ -8,6 +8,7 @@ use App\Models\CostoMaterialeSanitario;
 use App\Models\RipartizioneMaterialeSanitario;
 use App\Models\Automezzo;
 use App\Models\RipartizioneServizioCivile;
+use App\Models\AutomezzoKmRiferimento;
 
 class RipartizioneCostiService {
     /* ========================= MATERIALE SANITARIO / AUTOMEZZI / RADIO ========================= */
@@ -243,11 +244,17 @@ class RipartizioneCostiService {
                 ->toArray();
 
             $totaleServizi = array_sum(array_map('floatval', $serviziPerConv));
-
+        
+            $automezzi = Automezzo::getByAssociazione($idAssociazione, $anno);
+            $numAutomezzi = max(count($automezzi), 1);
+        
+            $kmRiferimento = AutomezzoKmRiferimento::getForAutomezzoAnno($idAutomezzo, $anno);
+       
             foreach ($vociRadio as $voceLabel => $campoDB) {
-                $valore = (float) ($costiRadio->$campoDB ?? 0);
+                $valore = (float) (($costiRadio->$campoDB/ $numAutomezzi)*$kmRiferimento ?? 0);
+              
                 $riga   = ['voce' => $voceLabel, 'totale' => round($valore, 2)];
-
+            
                 foreach ($convenzioni as $idConv => $nomeConv) {
                     $servizi = (float) ($serviziPerConv[$idConv] ?? 0);
                     $importo = ($totaleServizi > 0)
@@ -269,7 +276,7 @@ class RipartizioneCostiService {
         $automezzi = DB::table('automezzi')
             ->where('idAssociazione', $idAssociazione)
             ->where('idAnno', $anno)
-            ->where('incluso_riparto', 1)
+            ->where('incluso_riparto', operator: 1)
             ->pluck('idAutomezzo');
 
         $convenzioni = DB::table('convenzioni')

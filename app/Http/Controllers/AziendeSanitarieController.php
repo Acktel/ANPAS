@@ -91,8 +91,8 @@ class AziendeSanitarieController extends Controller {
         $validated = $request->validate([
             'Nome'       => 'required|string|max:150',
             'Indirizzo'  => 'nullable|string|max:255',
-            'provincia'  => 'required|string|exists:ter_cities,sigla_provincia',
-            'citta'      => 'required|string|max:100',
+            'provincia'  => 'nullable|string|exists:ter_cities,sigla_provincia',
+            'citta'      => 'nullable|string|max:100',
             'mail'       => 'nullable|email|max:150',
             'note'       => 'nullable|string',
 
@@ -225,8 +225,8 @@ class AziendeSanitarieController extends Controller {
         $validated = $request->validate([
             'Nome'           => 'required|string|max:150',
             'Indirizzo'      => 'nullable|string|max:255',
-            'provincia'      => 'required|string|exists:ter_cities,sigla_provincia',
-            'citta'          => 'required|string|max:100',
+            'provincia'      => 'nullable|string|exists:ter_cities,sigla_provincia',
+            'citta'          => 'nullable|string|max:100',
             'mail'           => 'nullable|email|max:150',
             'note'           => 'nullable|string',
 

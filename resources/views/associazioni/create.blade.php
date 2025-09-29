@@ -35,7 +35,7 @@
         <div class="row">
           <div class="col-md-6 mb-3">
               <label for="provincia" class="form-label">Provincia</label>
-              <select class="form-control" id="provincia" name="provincia" required>
+              <select class="form-control" id="provincia" name="provincia">
                   <option value="" disabled selected>-- Seleziona provincia --</option>
                   @php
                       $allowedProvinces = ['VC', 'AL', 'AT', 'BI', 'CN', 'NO', 'TO', 'VB'];
@@ -57,7 +57,7 @@
               <label for="citta_combo" class="form-label">Città</label>
               <div class="position-relative">
                   <input type="text" id="citta_combo" name="citta" class="form-control"
-                          placeholder="Inizia a scrivere..." autocomplete="off" required
+                          placeholder="Inizia a scrivere..." autocomplete="off"
                           value="{{ old('citta', isset($associazione->citta) ? ucfirst(trim($associazione->citta)) : '') }}">
                   <ul id="citta_list" class="list-group position-absolute w-100" 
                       style="z-index:1000; display:none; max-height:200px; overflow-y:auto;">

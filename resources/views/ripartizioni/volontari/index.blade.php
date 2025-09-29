@@ -94,7 +94,7 @@ async function loadTableData() {
   const staticCols = [
     { key:'Associazione', label:'Associazione' },
     { key:'FullName',     label:'Descrizione' },
-    { key:'OreTotali',    label:'Unità Totali di Servizio Volontario' }
+    { key:'OreTotali',    label:'Personale Volontario' }
   ];
 
   const convenzioni = Object.keys(labels).sort((a,b)=>parseInt(a.slice(1))-parseInt(b.slice(1)));
@@ -113,16 +113,7 @@ async function loadTableData() {
     cols.push({ data:`${key}_percent`, defaultContent:0 });
   });
 
-  hMain += `<th rowspan="2">Azioni</th>`;
-  cols.push({
-    data: null,
-    orderable: false,
-    searchable: false,
-    className: 'col-azioni',
-    render: () => {
-      return `<a href="{{ route('ripartizioni.volontari.edit') }}" class="btn btn-warning btn-icon" title="Modifica"><i class="fas fa-edit"></i></a>`;
-    }
-  });
+
 
   $('#header-main').html(hMain);
   $('#header-main th[colspan]').addClass('border-bottom-special');

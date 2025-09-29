@@ -31,7 +31,6 @@ class Automezzo
                 'a.idAssociazione',
                 's.Associazione',
                 'y.anno',
-                'a.Automezzo',
                 'a.Targa',
                 'a.CodiceIdentificativo',
                 'a.AnnoPrimaImmatricolazione',
@@ -50,7 +49,7 @@ class Automezzo
             ])
             ->where('a.idAnno', $anno)
             ->orderBy('s.Associazione')
-            ->orderBy('a.Automezzo')
+            ->orderBy('a.idAutomezzo')
             ->get();
     }
 
