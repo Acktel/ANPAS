@@ -50,7 +50,7 @@ public function index()
             : $user->IdAssociazione;
 
         $dati = RipartizioneMaterialeSanitario::getRipartizione($idAssociazione, $anno);
-
+      
         return response()->json($dati);
     }
 

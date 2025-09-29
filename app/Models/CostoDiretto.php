@@ -4,26 +4,26 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-class CostoDiretto extends Model {
+class CostoDiretto extends Model
+{
     protected $table = 'costi_diretti';
-
     protected $primaryKey = 'idCosto';
+    public $timestamps = true;
 
     protected $fillable = [
         'idAssociazione',
         'idAnno',
         'idConvenzione',
         'idSezione',
-        'idVoceConfig',          
-        'voce',                  
+        'idVoceConfig',
+        'voce',
         'costo',
-        'bilancio_consuntivo',
+        'ammortamento',      
     ];
 
     protected $casts = [
-        'costo' => 'float',
-        'bilancio_consuntivo' => 'float',
+        'costo'              => 'float',
+        'ammortamento'       => 'float',
+        'bilancio_consuntivo'=> 'float', 
     ];
-
-    public $timestamps = true;
 }

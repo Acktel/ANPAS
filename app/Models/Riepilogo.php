@@ -119,7 +119,7 @@ class Riepilogo extends Model {
             ->sum('ds.OreServizio');
     }
 
-        /** Somma UnitàServizio civile (tutti) per Associazione+Anno – per eventuale uso con 1003 in TOTALE */
+    /** Somma UnitàServizio civile (tutti) per Associazione+Anno – per eventuale uso con 1003 in TOTALE */
     public static function sumUnitaServizioPerAssAnno(int $idAssociazione, int $anno): float {
         return (float) DB::table('dipendenti_servizi as ds')
             ->join('convenzioni as c', 'c.idConvenzione', '=', 'ds.idConvenzione')
@@ -289,9 +289,9 @@ class Riepilogo extends Model {
                 if ($voceId === 1001) { // n. volontari totali iscritti all'associazione come da registro
                     $num = DB::table('dipendenti')
                         ->where('idAssociazione', $riepilogo->idAssociazione)
-                        ->where('idAnno', $riepilogo->idAnno)                    
+                        ->where('idAnno', $riepilogo->idAnno)
                         ->count();
-                    
+
                     $rows[] = [
                         'anno'          => $anno,
                         'descrizione'   => $voce->descrizione,
@@ -321,9 +321,9 @@ class Riepilogo extends Model {
                     ];
                     continue;
                 }
-                if ($voceId === self::VOCE_ID_ORE_SERVIZI_CIVILE) {//n. volontari servizio civile naz.le in servizio per la convenzione
+                if ($voceId === self::VOCE_ID_ORE_SERVIZI_CIVILE) { //n. volontari servizio civile naz.le in servizio per la convenzione
                     //SOMMA UNITA'
-                    $unitaTotali = self::sumUnitaServizioPerAssAnno((int)$riepilogo->idAssociazione, (int)$riepilogo->idAnno);              
+                    $unitaTotali = self::sumUnitaServizioPerAssAnno((int)$riepilogo->idAssociazione, (int)$riepilogo->idAnno);
                     $rows[] = [
                         'anno'          => $anno,
                         'descrizione'   => $voce->descrizione,
@@ -336,7 +336,7 @@ class Riepilogo extends Model {
                         'non_editabile' => false,
                     ];
                     continue;
-                } 
+                }
                 if ($voceId === 1007) { // Ore Autisti/Barellieri (ass+anno)
                     $ore = self::sumOreAutistiPerAssAnno((int)$riepilogo->idAssociazione, (int)$riepilogo->idAnno);
                     $rows[] = [
@@ -424,7 +424,7 @@ class Riepilogo extends Model {
                     'valore_id'     => null,
                     'voce_id'       => $voceId,
                     'tot_editabile' => $isT,
-                     'non_editabile' => false,
+                    'non_editabile' => false,
                 ];
             }
 
@@ -458,9 +458,9 @@ class Riepilogo extends Model {
                 ];
                 continue;
             }
-            if ($voceId === self::VOCE_ID_ORE_SERVIZI_CIVILE) {//n. volontari servizio civile naz.le in servizio per la convenzione
+            if ($voceId === self::VOCE_ID_ORE_SERVIZI_CIVILE) { //n. volontari servizio civile naz.le in servizio per la convenzione
                 //SOMMA UNITA'
-                $unitaTotali = self::unitaServizioPerConvenzione((int)$riepilogo->idAssociazione, (int)$idConvenzione, (int)$riepilogo->idAnno);              
+                $unitaTotali = self::unitaServizioPerConvenzione((int)$riepilogo->idAssociazione, (int)$idConvenzione, (int)$riepilogo->idAnno);
                 $rows[] = [
                     'anno'          => $anno,
                     'descrizione'   => $voce->descrizione,
@@ -473,7 +473,7 @@ class Riepilogo extends Model {
                     'non_editabile' => false,
                 ];
                 continue;
-            } 
+            }
             // ---- VOCI CALCOLATE (per-convenzione) ----
             if ($voceId === 1007) { // Ore Autisti/Barellieri per la convenzione
                 $ore = self::sumOreAutistiPerConvenzione((int)$idConvenzione, (int)$riepilogo->idAnno);
@@ -740,19 +740,23 @@ class Riepilogo extends Model {
     }
 
     private static function getPreventivoVolontari(int $idRiepilogo): float {
-        return (float) DB::table('riepilogo_dati')
+        $val = DB::table('riepilogo_dati')
             ->where('idRiepilogo', $idRiepilogo)
-            ->where('idVoceConfig', self::VOCE_ID_ORE_VOLONTARI) // n. volontari totali iscritti all'associazione come da registro
-            ->value('preventivo') ?? 0.0;           
+            ->where('idVoceConfig', self::VOCE_ID_ORE_VOLONTARI)
+            ->value('preventivo');
+
+        return (float) ($val ?? 0.0);
     }
 
-    private static function unitaServizioPerConvenzione($idAssociazione, $idConvenzione, $idAnno){
-        return (float) DB::table('dipendenti_servizi as ds')
+    private static function unitaServizioPerConvenzione(int $idAssociazione, int $idConvenzione, int $idAnno): float {
+        $val = DB::table('dipendenti_servizi as ds')
             ->join('convenzioni as c', 'c.idConvenzione', '=', 'ds.idConvenzione')
             ->where('c.idAssociazione', $idAssociazione)
             ->where('c.idAnno', $idAnno)
             ->where('c.idConvenzione', $idConvenzione)
-            ->where('ds.idDipendente', Riepilogo::ID_SERVIZIO_CIVILE) // ← id fittizio aggregato
+            ->where('ds.idDipendente', self::ID_SERVIZIO_CIVILE)
             ->value('ds.OreServizio');
+
+        return (float) ($val ?? 0.0);
     }
 }

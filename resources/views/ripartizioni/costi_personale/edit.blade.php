@@ -34,40 +34,72 @@
 
         <hr>
 
-        <div class="row mb-3">
-          <div class="col-md-6">
-            <label class="form-label">Retribuzioni</label>
+        {{-- Gruppi base + diretto affiancati --}}
+        <div class="row g-3 mb-3">
+          <div class="col-md-3">
+            <label class="form-label">Retribuzioni (base)</label>
             <input type="number" name="Retribuzioni" step="0.01" class="form-control cost-input"
               value="{{ old('Retribuzioni', $record->Retribuzioni) }}">
           </div>
-          <div class="col-md-6">
-            <label class="form-label">Oneri Sociali INPS</label>
+          <div class="col-md-3">
+            <label class="form-label">Retribuzioni (costo diretto)</label>
+            <input type="number" name="costo_diretto_Retribuzioni" step="0.01" class="form-control cost-input"
+              value="{{ old('costo_diretto_Retribuzioni', $record->costo_diretto_Retribuzioni ?? 0) }}">
+          </div>
+
+          <div class="col-md-3">
+            <label class="form-label">Oneri Sociali INPS (base)</label>
             <input type="number" name="OneriSocialiInps" step="0.01" class="form-control cost-input"
               value="{{ old('OneriSocialiInps', $record->OneriSocialiInps) }}">
           </div>
-          <div class="col-md-6">
-            <label class="form-label">Oneri Sociali INAIL</label>
+          <div class="col-md-3">
+            <label class="form-label">Oneri Sociali INPS (costo diretto)</label>
+            <input type="number" name="costo_diretto_OneriSocialiInps" step="0.01" class="form-control cost-input"
+              value="{{ old('costo_diretto_OneriSocialiInps', $record->costo_diretto_OneriSocialiInps ?? 0) }}">
+          </div>
+
+          <div class="col-md-3">
+            <label class="form-label">Oneri Sociali INAIL (base)</label>
             <input type="number" name="OneriSocialiInail" step="0.01" class="form-control cost-input"
               value="{{ old('OneriSocialiInail', $record->OneriSocialiInail) }}">
           </div>
-        </div>
+          <div class="col-md-3">
+            <label class="form-label">Oneri Sociali INAIL (costo diretto)</label>
+            <input type="number" name="costo_diretto_OneriSocialiInail" step="0.01" class="form-control cost-input"
+              value="{{ old('costo_diretto_OneriSocialiInail', $record->costo_diretto_OneriSocialiInail ?? 0) }}">
+          </div>
 
-        <div class="row mb-3">
-          <div class="col-md-6">
-            <label class="form-label">TFR</label>
+          <div class="col-md-3">
+            <label class="form-label">TFR (base)</label>
             <input type="number" name="TFR" step="0.01" class="form-control cost-input"
               value="{{ old('TFR', $record->TFR) }}">
           </div>
+          <div class="col-md-3">
+            <label class="form-label">TFR (costo diretto)</label>
+            <input type="number" name="costo_diretto_TFR" step="0.01" class="form-control cost-input"
+              value="{{ old('costo_diretto_TFR', $record->costo_diretto_TFR ?? 0) }}">
+          </div>
 
-          <div class="col-md-6">
-            <label class="form-label">Consulenze</label>
+          <div class="col-md-3">
+            <label class="form-label">Consulenze (base)</label>
             <input type="number" name="Consulenze" step="0.01" class="form-control cost-input"
               value="{{ old('Consulenze', $record->Consulenze) }}">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Consulenze (costo diretto)</label>
+            <input type="number" name="costo_diretto_Consulenze" step="0.01" class="form-control cost-input"
+              value="{{ old('costo_diretto_Consulenze', $record->costo_diretto_Consulenze ?? 0) }}">
+          </div>
+        </div>
+
+        <div class="row mb-2">
+          <div class="col-md-12">
+            <small class="text-muted">Il totale è calcolato come somma di tutte le voci <strong>(base + costo diretto)</strong>.</small>
           </div>
         </div>
 
         <div class="row mb-4">
-          <div class="col-md-6">
+          <div class="col-md-4">
             <label class="form-label">Totale</label>
             <input type="number" step="0.01" class="form-control" id="Totale"
               value="{{ number_format((float)$record->Totale, 2, '.', '') }}" readonly>
@@ -132,7 +164,7 @@
                 <tr data-anteprima-id="{{ $q->id }}">
                   <td>{{ $q->nome }}</td>
                   <td class="text-end" data-col="retribuzioni">0.00</td>
-                  <td class="text-end" data-col="OneriSocialiInps">0.00</td>                  
+                  <td class="text-end" data-col="OneriSocialiInps">0.00</td>
                   <td class="text-end" data-col="OneriSocialiInail">0.00</td>
                   <td class="text-end" data-col="tfr">0.00</td>
                   <td class="text-end" data-col="consulenze">0.00</td>
@@ -161,11 +193,25 @@
 @push('scripts')
 <script>
 (function() {
-  const inputs = document.querySelectorAll('.cost-input');
   const totalEl = document.getElementById('Totale');
   const percentInputs = document.querySelectorAll('.percent-input');
   const warning = document.getElementById('percentWarning');
   const anteprimaBody = document.querySelector('#anteprima-table tbody');
+
+  // considera anche i "costo_diretto_*"
+  const selectors = [
+    'input[name="Retribuzioni"]',
+    'input[name="costo_diretto_Retribuzioni"]',
+    'input[name="OneriSocialiInps"]',
+    'input[name="costo_diretto_OneriSocialiInps"]',
+    'input[name="OneriSocialiInail"]',
+    'input[name="costo_diretto_OneriSocialiInail"]',
+    'input[name="TFR"]',
+    'input[name="costo_diretto_TFR"]',
+    'input[name="Consulenze"]',
+    'input[name="costo_diretto_Consulenze"]',
+  ];
+  const inputs = document.querySelectorAll(selectors.join(','));
 
   function toNum(v) {
     if (typeof v === 'string') v = v.replace(',', '.');
@@ -174,20 +220,35 @@
   }
   function fix2(n) { return (Math.round(n * 100) / 100).toFixed(2); }
 
-  function getCosti() {
-    const retribuzioni = toNum(document.querySelector('input[name="Retribuzioni"]').value);
-    const OneriSocialiInps        = toNum(document.querySelector('input[name="OneriSocialiInps"]').value);
-    const OneriSocialiInail        = toNum(document.querySelector('input[name="OneriSocialiInail"]').value);
-    const tfr          = toNum(document.querySelector('input[name="TFR"]').value);
-    const consulenze   = toNum(document.querySelector('input[name="Consulenze"]').value);
-    return { retribuzioni, OneriSocialiInps, OneriSocialiInail, tfr, consulenze };
+  function getCostiSommaBaseDiretto() {
+    const retr  = toNum(document.querySelector('input[name="Retribuzioni"]')?.value);
+    const retrD = toNum(document.querySelector('input[name="costo_diretto_Retribuzioni"]')?.value);
+
+    const inps  = toNum(document.querySelector('input[name="OneriSocialiInps"]')?.value);
+    const inpsD = toNum(document.querySelector('input[name="costo_diretto_OneriSocialiInps"]')?.value);
+
+    const inail  = toNum(document.querySelector('input[name="OneriSocialiInail"]')?.value);
+    const inailD = toNum(document.querySelector('input[name="costo_diretto_OneriSocialiInail"]')?.value);
+
+    const tfr   = toNum(document.querySelector('input[name="TFR"]')?.value);
+    const tfrD  = toNum(document.querySelector('input[name="costo_diretto_TFR"]')?.value);
+
+    const cons  = toNum(document.querySelector('input[name="Consulenze"]')?.value);
+    const consD = toNum(document.querySelector('input[name="costo_diretto_Consulenze"]')?.value);
+
+    return {
+      retribuzioni: retr + retrD,
+      OneriSocialiInps: inps + inpsD,
+      OneriSocialiInail: inail + inailD,
+      tfr: tfr + tfrD,
+      consulenze: cons + consD,
+    };
   }
 
-  function recalcTot() {
-    const c = getCosti();
+  function recalcTotale() {
+    const c = getCostiSommaBaseDiretto();
     const sum = c.retribuzioni + c.OneriSocialiInps + c.OneriSocialiInail + c.tfr + c.consulenze;
     if (totalEl) totalEl.value = fix2(sum);
-    // aggiorna anche l'anteprima quando cambiano i costi
     recalcAnteprima();
   }
 
@@ -200,7 +261,7 @@
     return ok;
   }
 
-  // se solo 2 mansioni, l'altra si auto-completa a 100 - x
+  // se solo 2 mansioni, la seconda si autocompleta a 100 - x
   function wireAutoMirrorIfTwo() {
     if (percentInputs.length !== 2) return;
     const a = percentInputs[0];
@@ -221,16 +282,14 @@
     b.addEventListener('input', () => mirror(b, a));
     b.addEventListener('change', () => mirror(b, a));
 
-    // normalizza iniziale
-    mirror(a, b);
+    mirror(a, b); // normalizza iniziale
   }
 
-  // Aggiorna la tabella "Anteprima ripartizione"
+  // Anteprima: applica le percentuali ai costi (base+diretto)
   function recalcAnteprima() {
     if (!anteprimaBody) return;
 
-    const c = getCosti();
-    // mappa qualificaId -> percentuale (0..100)
+    const c = getCostiSommaBaseDiretto();
     const percs = {};
     percentInputs.forEach(i => {
       const tr = i.closest('tr');
@@ -238,33 +297,32 @@
       if (id) percs[id] = toNum(i.value);
     });
 
-    // per ogni riga anteprima, calcolo
     anteprimaBody.querySelectorAll('tr').forEach(tr => {
       const id = tr.getAttribute('data-anteprima-id');
-      const p = (percs[id] || 0) / 100;
+      const p = ((percs[id] || 0) / 100);
 
-      const r = c.retribuzioni * p;
-      const o1 = c.OneriSocialiInps        * p;
-      const o2 = c.OneriSocialiInail        * p;
-      const t = c.tfr          * p;
-      const s = c.consulenze   * p;
+      const r  = c.retribuzioni * p;
+      const o1 = c.OneriSocialiInps * p;
+      const o2 = c.OneriSocialiInail * p;
+      const t  = c.tfr * p;
+      const s  = c.consulenze * p;
       const tot = r + o1 + o2 + t + s;
 
       tr.querySelector('[data-col="retribuzioni"]').textContent = fix2(r);
-      tr.querySelector('[data-col="OneriSocialiInps"]').textContent        = fix2(o1);
-      tr.querySelector('[data-col="OneriSocialiInail"]').textContent        = fix2(o2);
-      tr.querySelector('[data-col="tfr"]').textContent          = fix2(t);
-      tr.querySelector('[data-col="consulenze"]').textContent   = fix2(s);
-      tr.querySelector('[data-col="totale"]').textContent       = fix2(tot);
+      tr.querySelector('[data-col="OneriSocialiInps"]').textContent = fix2(o1);
+      tr.querySelector('[data-col="OneriSocialiInail"]').textContent = fix2(o2);
+      tr.querySelector('[data-col="tfr"]').textContent = fix2(t);
+      tr.querySelector('[data-col="consulenze"]').textContent = fix2(s);
+      tr.querySelector('[data-col="totale"]').textContent = fix2(tot);
     });
   }
 
   // listeners
-  inputs.forEach(i => { i.addEventListener('input', recalcTot); i.addEventListener('change', recalcTot); });
+  inputs.forEach(i => { i.addEventListener('input', recalcTotale); i.addEventListener('change', recalcTotale); });
   percentInputs.forEach(i => { i.addEventListener('input', () => { recalcWarning(); recalcAnteprima(); }); i.addEventListener('change', () => { recalcWarning(); recalcAnteprima(); }); });
 
   // init
-  recalcTot();
+  recalcTotale();
   recalcWarning();
   wireAutoMirrorIfTwo();
   recalcAnteprima();

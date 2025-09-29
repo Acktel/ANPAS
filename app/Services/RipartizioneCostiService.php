@@ -158,6 +158,7 @@ class RipartizioneCostiService {
     }
 
     public static function calcolaRipartizioneTabellaFinale(int $idAssociazione, int $anno, int $idAutomezzo): array {
+        // Voci ripartite sui KM dell’automezzo
         $voci = [
             'LEASING/NOLEGGIO A LUNGO TERMINE'                          => 'LeasingNoleggio',
             'ASSICURAZIONI'                                             => 'Assicurazione',
@@ -177,73 +178,92 @@ class RipartizioneCostiService {
             'OSSIGENO'                                                  => 'Ossigeno',
         ];
 
+        // Convenzioni dell’anno per l’associazione (ordine stabile)
         $convenzioni = DB::table('convenzioni')
             ->where('idAssociazione', $idAssociazione)
             ->where('idAnno', $anno)
+            ->orderBy('ordinamento')
+            ->orderBy('idConvenzione')
             ->pluck('Convenzione', 'idConvenzione')
             ->toArray();
 
+        if (empty($convenzioni)) {
+            return [];
+        }
+
         $tabella = [];
 
+        // ---------- Sezione MEZZI: ripartizione per KM ----------
+        // Prelevo una sola volta i KM per convenzione dell’automezzo
+        $kmPerConv = DB::table('automezzi_km')
+            ->where('idAutomezzo', $idAutomezzo)
+            ->pluck('KMPercorsi', 'idConvenzione')
+            ->toArray();
+
+        $totaleKM = array_sum(array_map('floatval', $kmPerConv));
+
         foreach ($voci as $voceLabel => $colDB) {
-            $valore = DB::table('costi_automezzi')
+            $valore = (float) (DB::table('costi_automezzi')
                 ->where('idAutomezzo', $idAutomezzo)
                 ->where('idAnno', $anno)
-                ->value($colDB) ?? 0;
+                ->value($colDB) ?? 0);
 
-            $ripartizione = DB::table('automezzi_km')
-                ->where('idAutomezzo', $idAutomezzo)
-                ->pluck('KMPercorsi', 'idConvenzione')
-                ->toArray();
-
-            $totaleKM = array_sum($ripartizione);
-
-            $riga = ['voce' => $voceLabel, 'totale' => $valore];
+            $riga = ['voce' => $voceLabel, 'totale' => round($valore, 2)];
 
             foreach ($convenzioni as $idConv => $nomeConv) {
-                $km      = $ripartizione[$idConv] ?? 0;
-                $importo = $totaleKM > 0 ? round(($km / $totaleKM) * $valore, 2) : 0;
+                $km = (float) ($kmPerConv[$idConv] ?? 0);
+                $importo = ($totaleKM > 0)
+                    ? round(($km / $totaleKM) * $valore, 2)
+                    : 0.0;
+
                 $riga[$nomeConv] = $importo;
             }
 
             $tabella[] = $riga;
         }
 
-        // Costi radio
+        // ---------- Sezione RADIO: ripartizione per N. SERVIZI ----------
         $costiRadio = DB::table('costi_radio')
             ->where('idAssociazione', $idAssociazione)
             ->where('idAnno', $anno)
             ->first();
 
-        $vociRadio = [
-            'MANUTENZIONE APPARATI RADIO'    => 'ManutenzioneApparatiRadio',
-            'MONTAGGIO/SMONTAGGIO RADIO 118' => 'MontaggioSmontaggioRadio118',
-            'LOCAZIONE PONTE RADIO'          => 'LocazionePonteRadio',
-            'AMMORTAMENTO IMPIANTI RADIO'    => 'AmmortamentoImpiantiRadio',
-        ];
+        if ($costiRadio) {
+            $vociRadio = [
+                'MANUTENZIONE APPARATI RADIO'    => 'ManutenzioneApparatiRadio',
+                'MONTAGGIO/SMONTAGGIO RADIO 118' => 'MontaggioSmontaggioRadio118',
+                'LOCAZIONE PONTE RADIO'          => 'LocazionePonteRadio',
+                'AMMORTAMENTO IMPIANTI RADIO'    => 'AmmortamentoImpiantiRadio',
+            ];
 
-        $servizi = DB::table('automezzi_servizi')
-            ->where('idAutomezzo', $idAutomezzo)
-            ->pluck('NumeroServizi', 'idConvenzione')
-            ->toArray();
+            // Numero servizi dell’automezzo per convenzione
+            $serviziPerConv = DB::table('automezzi_servizi')
+                ->where('idAutomezzo', $idAutomezzo)
+                ->pluck('NumeroServizi', 'idConvenzione')
+                ->toArray();
 
-        $totaleServizi = array_sum($servizi);
+            $totaleServizi = array_sum(array_map('floatval', $serviziPerConv));
 
-        foreach ($vociRadio as $voceLabel => $campoDB) {
-            $valore = $costiRadio->$campoDB ?? 0;
-            $riga   = ['voce' => $voceLabel, 'totale' => $valore];
+            foreach ($vociRadio as $voceLabel => $campoDB) {
+                $valore = (float) ($costiRadio->$campoDB ?? 0);
+                $riga   = ['voce' => $voceLabel, 'totale' => round($valore, 2)];
 
-            foreach ($convenzioni as $idConv => $nomeConv) {
-                $serv    = $servizi[$idConv] ?? 0;
-                $importo = $totaleServizi > 0 ? round(($serv / $totaleServizi) * $valore, 2) : 0;
-                $riga[$nomeConv] = $importo;
+                foreach ($convenzioni as $idConv => $nomeConv) {
+                    $servizi = (float) ($serviziPerConv[$idConv] ?? 0);
+                    $importo = ($totaleServizi > 0)
+                        ? round(($servizi / $totaleServizi) * $valore, 2)
+                        : 0.0;
+
+                    $riga[$nomeConv] = $importo;
+                }
+
+                $tabella[] = $riga;
             }
-
-            $tabella[] = $riga;
         }
 
         return $tabella;
     }
+
 
     public static function calcolaTabellaTotale(int $idAssociazione, int $anno): array {
         $automezzi = DB::table('automezzi')
@@ -293,20 +313,20 @@ class RipartizioneCostiService {
 
         if (!$idRiepilogo) return [];
 
-        $voci = DB::table('riepilogo_dati')
-            ->where('idRiepilogo', $idRiepilogo)
-            ->whereIn('idTipologiaRiepilogo', $tipologie)
-            ->select('idTipologiaRiepilogo', 'descrizione')
+        $voci = DB::table('riepilogo_dati as rd')
+            ->join('riepilogo_voci_config as vc', 'vc.id', '=', 'rd.idVoceConfig')
+            ->where('rd.idRiepilogo', $idRiepilogo)
+            ->whereIn('vc.idTipologiaRiepilogo', $tipologie)
+            ->select('vc.idTipologiaRiepilogo', 'vc.descrizione')
             ->distinct()
-            ->orderBy('idTipologiaRiepilogo')
-            ->orderBy('descrizione')
+            ->orderBy('vc.idTipologiaRiepilogo')
+            ->orderBy('vc.descrizione')
             ->get();
 
         $out = [];
         foreach ($voci as $voce) {
-            $out[(int) $voce->idTipologiaRiepilogo][] = trim(strtoupper($voce->descrizione));
+            $out[(int) $voce->idTipologiaRiepilogo][] = trim(mb_strtoupper($voce->descrizione, 'UTF-8'));
         }
-
         return $out;
     }
 
@@ -407,6 +427,7 @@ class RipartizioneCostiService {
                 'idVoceConfig',
                 'idConvenzione',
                 DB::raw('SUM(costo) as sum_costo'),
+                DB::raw('SUM(ammortamento) as sum_amm'),
                 DB::raw('SUM(bilancio_consuntivo) as sum_bilancio')
             )
             ->where('idAssociazione', $idAssociazione)
@@ -415,16 +436,27 @@ class RipartizioneCostiService {
             ->groupBy('idVoceConfig', 'idConvenzione')
             ->get();
 
-        $dirByVoceByConv = [];
-        $dirTotByVoce    = [];
+        $dirByVoceByConv = [];   // lordo
+        $ammByVoceByConv = [];   // ammortamento
+        $netByVoceByConv = [];   // netto = diretti - ammortamento
+        $dirTotByVoce    = [];   // lordo totale voce
+        $ammTotByVoce    = [];   // amm totale voce
+        $netTotByVoce    = [];   // netto totale voce
         $bilByVoce       = [];
 
         foreach ($cdId as $r) {
             $v = (int) $r->idVoceConfig;
             $c = (int) $r->idConvenzione;
-            $dirByVoceByConv[$v][$c] = ($dirByVoceByConv[$v][$c] ?? 0) + (float) $r->sum_costo;
-            $dirTotByVoce[$v]        = ($dirTotByVoce[$v] ?? 0) + (float) $r->sum_costo;
-            $bilByVoce[$v]           = ($bilByVoce[$v] ?? 0) + (float) $r->sum_bilancio;
+            $dir = (float) $r->sum_costo;
+            $amm = (float) $r->sum_amm;
+
+            $dirByVoceByConv[$v][$c] = ($dirByVoceByConv[$v][$c] ?? 0) + $dir;
+            $ammByVoceByConv[$v][$c] = ($ammByVoceByConv[$v][$c] ?? 0) + $amm;
+            $netByVoceByConv[$v][$c] = ($netByVoceByConv[$v][$c] ?? 0) + ($dir - $amm);
+
+            $dirTotByVoce[$v] = ($dirTotByVoce[$v] ?? 0) + $dir;
+            $ammTotByVoce[$v] = ($ammTotByVoce[$v] ?? 0) + $amm;
+            $netTotByVoce[$v] = ($netTotByVoce[$v] ?? 0) + ($dir - $amm);
         }
 
         $cdNo = DB::table('costi_diretti')
@@ -466,7 +498,7 @@ class RipartizioneCostiService {
             }
         }
 
-        return [$dirByVoceByConv, $dirTotByVoce, $bilancioByVoce];
+        return [$dirByVoceByConv, $dirTotByVoce, $bilancioByVoce, $ammByVoceByConv, $ammTotByVoce, $netByVoceByConv, $netTotByVoce];
     }
 
     /* ========================= DISTINTA IMPUTAZIONE COSTI ========================= */
@@ -478,32 +510,26 @@ class RipartizioneCostiService {
         $convIds  = array_keys($convenzioni);
         $convNomi = array_values($convenzioni);
 
-        $quoteRicavi = self::quoteRicaviByConvenzione($idAssociazione, $anno, $convIds);
-
-        // 6001: importi assoluti
+        $quoteRicavi   = self::quoteRicaviByConvenzione($idAssociazione, $anno, $convIds);
         [$abPerConv, $abTotale] = self::importiAutistiBarellieriByConvenzione($idAssociazione, $anno, $convIds);
 
-        // 6002..6006: % servizi svolti
-        $percServizi = self::percentualiServiziByConvenzione($idAssociazione, $anno, $convIds);
-        $IDS_SERVIZI = [6002, 6003, 6004, 6005, 6006];
+        // % servizi svolti (6002..6006)
+        $percServizi  = self::percentualiServiziByConvenzione($idAssociazione, $anno, $convIds);
+        $IDS_SERVIZI  = [6002, 6003, 6004, 6005, 6006];
 
-        // 6009: % servizio civile
+        // % Servizio Civile (6009)
         $percServCivile = self::percentualiServizioCivileByConvenzione($idAssociazione, $anno, $convIds);
         $VOCE_SCIV_ID   = 6009;
 
-        // 8001...8007:COSTI AMINISTRATIVI: spese postali → % ricavi
-        $IDS_ADMIN_RICAVI = [8001, 8002, 8003, 8004, 8005, 8006, 8007];
-
-        // 9002...:COSTI QUOTE AMMORTAMENTO: spese postali → % ricavi
+        // % ricavi
+        $IDS_ADMIN_RICAVI       = [8001, 8002, 8003, 8004, 8005, 8006, 8007];
         $IDS_QUOTE_AMMORTAMENTO = [9002, 9003, 9006, 9007, 9008, 9009];
 
-        //10001: BENI STRUMENTALI>516:
-        $BENI_STRUMENTALI_ID   = 10001;
+        // BENI STRUMENTALI
+        $BENI_STRUMENTALI_ID  = 10001;
+        $IDS_BENI_STRUMENTALI = [11001, 11002];
 
-        //11001,11002: ALTRI COSTI
-        $IDS_BENI_STRUMENTALI   = [11001, 11002];
-
-        // Voci config
+        // Voci attive
         $vociConfig = DB::table('riepilogo_voci_config as vc')
             ->select('vc.id', 'vc.descrizione', 'vc.idTipologiaRiepilogo', 'vc.ordinamento')
             ->whereBetween('vc.idTipologiaRiepilogo', [2, 11])
@@ -513,7 +539,7 @@ class RipartizioneCostiService {
             ->orderBy('vc.id')
             ->get();
 
-        // Legacy (automezzi/radio)
+        // Legacy per fallback
         $legacy = self::calcolaTabellaTotale($idAssociazione, $anno);
         $ripByNormDesc = [];
         foreach ((array) $legacy as $r) {
@@ -540,8 +566,6 @@ class RipartizioneCostiService {
             'automezzi'                           => 'AMMORTAMENTO AUTOMEZZI',
             'impianti radio'                      => 'AMMORTAMENTO IMPIANTI RADIO',
             'attrezzature ambulanze'              => 'AMMORTAMENTO ATTREZZATURA SANITARIA',
-
-
         ];
         foreach ($alias as $cfg => $leg) {
             $cfgN = self::norm($cfg);
@@ -549,9 +573,16 @@ class RipartizioneCostiService {
             if (isset($ripByNormDesc[$legN])) $ripByNormDesc[$cfgN] = $ripByNormDesc[$legN];
         }
 
-        // Diretti/bilancio
-        [$dirByVoceByConv, $dirTotByVoce, $bilancioByVoce]
-            = self::aggregatiDirettiEBilancio($idAssociazione, $anno, $vociConfig, $ripByNormDesc);
+        // === Diretti/ammortamento/netti/bilancio ===
+        [
+            $dirByVoceByConv,  // lordo per conv
+            $dirTotByVoce,     // lordo tot voce
+            $bilancioByVoce,
+            $ammByVoceByConv,  // amm per conv
+            $ammTotByVoce,     // amm tot voce
+            $netByVoceByConv,  // netto per conv
+            $netTotByVoce      // netto tot voce
+        ] = self::aggregatiDirettiEBilancio($idAssociazione, $anno, $vociConfig, $ripByNormDesc);
 
         $tipToSez   = [2 => 2, 3 => 3, 4 => 4, 5 => 5, 6 => 6, 7 => 7, 8 => 8, 9 => 9, 10 => 10, 11 => 11];
         $VOCE_AB_ID = 6001;
@@ -563,18 +594,21 @@ class RipartizioneCostiService {
             $sez   = (int) ($tipToSez[$vc->idTipologiaRiepilogo] ?? 0);
             $descN = self::norm($vc->descrizione);
 
-            $bilancio = (float) ($bilancioByVoce[$idV] ?? 0);
-            $dirTot   = (float) ($dirTotByVoce[$idV] ?? 0);
-            $ripRow   = $ripByNormDesc[$descN] ?? null;
+            $bilancio    = (float) ($bilancioByVoce[$idV] ?? 0);
+            $dirTotLordo = (float) ($dirTotByVoce[$idV] ?? 0);
+            $ammTot      = (float) ($ammTotByVoce[$idV] ?? 0);
+            $dirTotNetto = (float) ($netTotByVoce[$idV] ?? ($dirTotLordo - $ammTot));
+            $ripRow      = $ripByNormDesc[$descN] ?? null;
 
-            $baseIndiretti = max(0.0, $bilancio - $dirTot); // “Totale costi ripartiti”
+            // BASE INDIRETTI = BILANCIO − DIRETTI_NETTI
+            $baseIndiretti = max(0.0, $bilancio - $dirTotNetto);
 
             $riga = [
                 'idVoceConfig' => $idV,
                 'voce'         => $vc->descrizione,
                 'sezione_id'   => $sez,
                 'bilancio'     => $bilancio,
-                'diretta'      => 0.0,
+                'diretta'      => $dirTotNetto, // ← aggregata NETTA
                 'totale'       => 0.0,
             ];
 
@@ -582,11 +616,14 @@ class RipartizioneCostiService {
             $ultimoId = null;
 
             foreach ($convenzioni as $idC => $nomeC) {
-                $ultimoId = $idC;
-                $dir = (float) ($dirByVoceByConv[$idV][$idC] ?? 0);
-                $ind = 0.0;
+                $ultimoId   = $idC;
+                $dirLordo   = (float) ($dirByVoceByConv[$idV][$idC] ?? 0);
+                $amm        = (float) ($ammByVoceByConv[$idV][$idC] ?? 0);
+                $net        = (float) ($netByVoceByConv[$idV][$idC] ?? ($dirLordo - $amm));
+                $ind        = 0.0;
 
                 if ($idV === $VOCE_AB_ID) {
+                    // 6001: importi assoluti
                     $ind = (float) ($abPerConv[$idC] ?? 0.0);
                 } elseif (in_array($idV, $IDS_SERVIZI, true)) {
                     // 6002..6006: % servizi svolti
@@ -595,40 +632,51 @@ class RipartizioneCostiService {
                     // 6009: % Servizio Civile
                     $ind = round($baseIndiretti * (float) ($percServCivile[$idC] ?? 0.0), 2);
                 } elseif (in_array($idV, $IDS_ADMIN_RICAVI, true)) {
-                    // 8001..8002: % ricavi
+                    // 8001..: % ricavi
                     $ind = round($baseIndiretti * (float) ($quoteRicavi[$idC] ?? 0.0), 2);
                 } elseif (in_array($idV, $IDS_QUOTE_AMMORTAMENTO, true)) {
                     // 9002..: % ricavi
                     $ind = round($baseIndiretti * (float) ($quoteRicavi[$idC] ?? 0.0), 2);
                 } elseif ($idV === $BENI_STRUMENTALI_ID) {
-                    // 6009: % Servizio Civile
+                    // beni > 516 → % ricavi
                     $ind = round($baseIndiretti * (float) ($quoteRicavi[$idC] ?? 0.0), 2);
                 } elseif ($sez === 5) {
-                    // gestione struttura: % ricavi
+                    // gestione struttura → % ricavi
                     $ind = round($baseIndiretti * (float) ($quoteRicavi[$idC] ?? 0.0), 2);
-                } elseif ($idV === $IDS_BENI_STRUMENTALI) {
-                    // 6009: % Servizio Civile
+                } elseif (in_array($idV, $IDS_BENI_STRUMENTALI, true)) {
+                    // altri costi (11001,11002) → % ricavi
                     $ind = round($baseIndiretti * (float) ($quoteRicavi[$idC] ?? 0.0), 2);
                 } else {
-                    // legacy/per-conv altrimenti pro-rata diretti
+                    // legacy/per-conv; altrimenti pro-rata sui diretti NETTI
                     if (is_array($ripRow)) {
                         $ind = (float) ($ripRow[$nomeC] ?? 0);
                     } else {
-                        $quota = $dirTot > 0 ? ($dir / $dirTot) : 0.0;
+                        $quota = $dirTotNetto > 0 ? ($net / $dirTotNetto) : 0.0;
                         $ind   = round($baseIndiretti * $quota, 2);
                     }
                 }
 
-                $riga[$nomeC]    = ['diretti' => $dir, 'indiretti' => $ind];
-                $riga['diretta'] += $dir;
-                $sommaInd        += $ind;
+                $riga[$nomeC] = [
+                    'diretti'      => $dirLordo, // mostro lordo
+                    'ammortamento' => $amm,      // nuova colonna
+                    'indiretti'    => $ind,
+                    // 'netto'      => $net,     // opzionale
+                ];
+
+                $sommaInd += $ind;
             }
 
-            // riallineo centesimi
+            // riallineo centesimi sugli indiretti
             $delta = 0.0;
             if ($idV === $VOCE_AB_ID) {
                 $delta = round($abTotale - $sommaInd, 2);
-            } elseif (in_array($idV, $IDS_SERVIZI, true) || $idV === $VOCE_SCIV_ID || $sez === 5) {
+            } elseif (
+                in_array($idV, $IDS_SERVIZI, true) || $idV === $VOCE_SCIV_ID || $sez === 5
+                || in_array($idV, $IDS_ADMIN_RICAVI, true)
+                || in_array($idV, $IDS_QUOTE_AMMORTAMENTO, true)
+                || $idV === $BENI_STRUMENTALI_ID
+                || in_array($idV, $IDS_BENI_STRUMENTALI, true)
+            ) {
                 $delta = round($baseIndiretti - $sommaInd, 2);
             }
             if (abs($delta) >= 0.01 && $ultimoId !== null) {
@@ -643,6 +691,7 @@ class RipartizioneCostiService {
 
         return ['data' => $righe, 'convenzioni' => $convNomi];
     }
+
 
     /* ========================= SUPPORTO % SERVIZI ========================= */
 

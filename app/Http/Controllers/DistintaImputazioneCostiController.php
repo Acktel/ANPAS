@@ -2,20 +2,27 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+
 use App\Services\RipartizioneCostiService;
 use App\Models\CostoDiretto;
-use App\Models\Convenzione;
+use App\Models\Riepilogo;
 
-class DistintaImputazioneCostiController extends Controller {
-    public function index(Request $request) {
-        $anno = (int) session('anno_riferimento', now()->year);
-        $user = Auth::user();
+class DistintaImputazioneCostiController extends Controller
+{
+    /* =========================
+       INDEX
+       ========================= */
+    public function index(Request $request)
+    {
+        $anno      = (int) session('anno_riferimento', now()->year);
+        $user      = Auth::user();
         $isElevato = $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor']);
 
         if ($isElevato) {
+            // elenco associazioni per select (attive, esclusa la 1)
             $associazioni = DB::table('associazioni')
                 ->select('idAssociazione', 'Associazione')
                 ->whereNull('deleted_at')
@@ -23,7 +30,7 @@ class DistintaImputazioneCostiController extends Controller {
                 ->orderBy('Associazione')
                 ->get();
 
-            // priorità: query -> sessione -> prima disponibile
+            // priorità: query -> session -> prima disponibile
             $selectedAssoc = $request->integer('idAssociazione')
                 ?? session('associazione_selezionata')
                 ?? optional($associazioni->first())->idAssociazione;
@@ -34,101 +41,118 @@ class DistintaImputazioneCostiController extends Controller {
 
         return view('distinta_imputazione_costi.index', compact('anno', 'associazioni', 'selectedAssoc'));
     }
-    public function getData(Request $request) {
+
+    /* =========================
+       AJAX DATA (accordion)
+       ========================= */
+    public function getData(Request $request)
+    {
         $user            = Auth::user();
         $anno            = (int) session('anno_riferimento', now()->year);
         $isImpersonating = session()->has('impersonate');
 
-        // Associazione selezionata (stessa logica usata altrove)
         if ($user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor']) || $isImpersonating) {
+            // memorizza eventuale associazione scelta
+            if ($request->filled('idAssociazione')) {
+                session(['associazione_selezionata' => (int) $request->integer('idAssociazione')]);
+            }
+
+            // prendi la selezionata o prima disponibile
             $associazioni = DB::table('associazioni')
                 ->select('idAssociazione', 'Associazione')
                 ->whereNull('deleted_at')
                 ->orderBy('Associazione')
                 ->get();
 
-            if ($request->filled('idAssociazione')) {
-                session(['associazione_selezionata' => (int) $request->integer('idAssociazione')]);
-            }
-
             $selectedAssoc = (int) (session('associazione_selezionata') ?? optional($associazioni->first())->idAssociazione);
         } else {
             $selectedAssoc = (int) $user->IdAssociazione;
         }
+
         if (empty($selectedAssoc)) {
             return response()->json(['data' => [], 'convenzioni' => []]);
         }
 
-        // ⬇️ tutto il calcolo è nel Service
+        // Tutto il calcolo è nel Service
         $payload = RipartizioneCostiService::distintaImputazioneData($selectedAssoc, $anno);
 
         return response()->json($payload);
     }
 
-    /* ====== resto metodi invariati (salvaCostoDiretto / store / edit / update / destroy) ====== */
-
-    public function salvaCostoDiretto(Request $request) {
-        $request->validate([
+    /* =========================
+       SALVATAGGIO VELOCE (AJAX singola voce legacy)
+       — niente sconto, niente bilancio scritto
+       ========================= */
+    public function salvaCostoDiretto(Request $request)
+    {
+        $validated = $request->validate([
             'idAssociazione' => 'required|integer',
             'idAnno'         => 'required|integer',
             'idConvenzione'  => 'required|integer',
             'voce'           => 'required|string',
-            'costo'          => 'required|numeric',
+            'costo'          => 'required|numeric|min:0',
         ]);
 
         CostoDiretto::updateOrCreate(
             [
-                'idAssociazione' => (int)$request->idAssociazione,
-                'idAnno'         => (int)$request->idAnno,
-                'idConvenzione'  => (int)$request->idConvenzione,
-                'voce'           => trim($request->voce),
+                'idAssociazione' => (int) $validated['idAssociazione'],
+                'idAnno'         => (int) $validated['idAnno'],
+                'idConvenzione'  => (int) $validated['idConvenzione'],
+                'voce'           => trim($validated['voce']),
             ],
             [
-                'costo'                => (float)$request->costo,
-                'bilancio_consuntivo'  => (float)($request->bilancio_consuntivo ?? 0),
+                'costo' => (float) $validated['costo'],
+                // NIENTE bilancio_consuntivo qui
+                // NIENTE sconto qui
             ]
         );
 
         return response()->json([
-            'idAssociazione' => $request->idAssociazione,
-            'success' => 'Costo diretto salvato con successo.'
+            'idAssociazione' => $validated['idAssociazione'],
+            'success'        => 'Costo diretto salvato con successo.',
         ]);
     }
 
-
-    public function create(Request $request, int $sezione) {
-        $anno = (int) session('anno_riferimento', now()->year);
-        $user = Auth::user();
-
-        // associazione selezionata come altrove
+    /* =========================
+       CREATE (form aggiunta)
+       ========================= */
+    public function create(Request $request, int $sezione)
+    {
+        $anno      = (int) session('anno_riferimento', now()->year);
+        $user      = Auth::user();
         $isElevato = $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor']);
+
+        // Associazione selezionata come altrove
         $idAssociazione = $isElevato
             ? ($request->integer('idAssociazione') ?: (int) session('associazione_selezionata'))
             : (int) $user->IdAssociazione;
 
         abort_if(!$idAssociazione, 422, 'Associazione non selezionata');
 
-        // nome associazione
-        $associazione = DB::table('associazioni')->where('idAssociazione', $idAssociazione)->value('Associazione');
-
-        // convenzioni dell’anno (per select)
-        $convenzioni = DB::table('convenzioni')
-            ->select('idConvenzione', 'Convenzione')
+        // Nome associazione
+        $associazione = DB::table('associazioni')
             ->where('idAssociazione', $idAssociazione)
-            ->where('idAnno', $anno)
-            ->orderBy('ordinamento')->orderBy('idConvenzione')
-            ->get();
+            ->value('Associazione');
 
-        // voci disponibili per la sezione (da riepilogo_voci_config)
+        // Convenzioni per anno/associazione (usa helper del Riepilogo)
+        // Ritorna oggetti { id, text } => li mappiamo per la view
+        $convenzioni = Riepilogo::getConvenzioniForAssAnno($idAssociazione, $anno)
+            ->map(fn($r) => (object) ['idConvenzione' => $r->id, 'Convenzione' => $r->text]);
+
+        // Voci disponibili per la sezione
         $vociDisponibili = DB::table('riepilogo_voci_config')
             ->select('id', 'descrizione')
             ->where('idTipologiaRiepilogo', $sezione)
             ->where('attivo', 1)
-            ->orderBy('ordinamento')->orderBy('id')
+            ->orderBy('ordinamento')
+            ->orderBy('id')
             ->get();
 
-        // --- Bilancio "suggerito" per voce (accumulo per DESCRIZIONE, non per idVoceConfig)
-        //    costi_diretti NON ha la colonna idVoceConfig nel tuo schema attuale
+        /**
+         * BILANCIO “SUGGERITO” PER VOCE
+         * Nota: il bilancio NON viene scritto in store/salva.
+         * Qui lo mostriamo soltanto (se proviene da storici/import/altre fonti).
+         */
         $righe = DB::table('costi_diretti')
             ->select('voce', DB::raw('SUM(bilancio_consuntivo) AS tot'))
             ->where('idAssociazione', $idAssociazione)
@@ -137,18 +161,36 @@ class DistintaImputazioneCostiController extends Controller {
             ->get();
 
         $norm = fn(string $s) => preg_replace('/\s+/u', ' ', trim(mb_strtoupper($s, 'UTF-8')));
-
-        // mappa descrizione normalizzata -> totale bilancio
         $bilancioByDesc = [];
         foreach ($righe as $r) {
-            $bilancioByDesc[$norm((string)$r->voce)] = (float) $r->tot;
+            $bilancioByDesc[$norm((string) $r->voce)] = (float) $r->tot;
         }
 
-        // convertiamo in mappa idVoceConfig -> totale bilancio, usando la descrizione della voce config
+        // mappa idVoceConfig -> totale bilancio (display-only)
         $bilancioPerVoce = [];
         foreach ($vociDisponibili as $v) {
             $bilancioPerVoce[$v->id] = (float) ($bilancioByDesc[$norm($v->descrizione)] ?? 0);
         }
+
+        // Pre-riempimento: esistenti per voce -> convenzione -> {costo, ammortamento}
+        $esistenti = DB::table('costi_diretti')
+            ->select('idVoceConfig', 'idConvenzione', 'costo', 'ammortamento')
+            ->where('idAssociazione', $idAssociazione)
+            ->where('idAnno', $anno)
+            ->whereNotNull('idVoceConfig')
+            ->get()
+            ->groupBy('idVoceConfig')
+            ->map(function ($rows) {
+                $m = [];
+                foreach ($rows as $r) {
+                    $m[(int) $r->idConvenzione] = [
+                        'costo'        => (float) ($r->costo ?? 0),
+                        'ammortamento' => (float) ($r->ammortamento ?? 0),
+                    ];
+                }
+                return $m;
+            })
+            ->toArray();
 
         return view('distinta_imputazione_costi.create', [
             'sezione'         => $sezione,
@@ -156,54 +198,63 @@ class DistintaImputazioneCostiController extends Controller {
             'idAssociazione'  => $idAssociazione,
             'convenzioni'     => $convenzioni,
             'vociDisponibili' => $vociDisponibili,
-            'bilancioPerVoce' => $bilancioPerVoce,
+            'bilancioPerVoce' => $bilancioPerVoce,  // solo display
+            'esistenti'       => $esistenti,        // prefill costo/ammortamento
         ]);
     }
 
-
-    /** Salvataggio costo diretto / bilancio consuntivo per voce e convenzione */
-    public function store(Request $request) {
+    /* =========================
+       STORE (salvataggio form)
+       — salva SOLO costo/ammortamento. Niente bilancio.
+       ========================= */
+    public function store(Request $request)
+    {
         $validated = $request->validate([
-            'idAssociazione'      => 'required|integer|exists:associazioni,idAssociazione',
-            'idAnno'              => 'required|integer',
-            'idConvenzione'       => 'required|integer|exists:convenzioni,idConvenzione',
-            'idSezione'           => 'required|integer',
-            'idVoceConfig'        => 'required|integer|exists:riepilogo_voci_config,id', // ⬅️ obbligatoria ora
-            'costo'               => 'nullable|numeric|min:0',
-            'bilancio_consuntivo' => 'nullable|numeric|min:0',
+            'idAssociazione' => 'required|integer|exists:associazioni,idAssociazione',
+            'idAnno'         => 'required|integer',
+            'idConvenzione'  => 'required|integer|exists:convenzioni,idConvenzione',
+            'idSezione'      => 'required|integer',
+            'idVoceConfig'   => 'required|integer|exists:riepilogo_voci_config,id',
+            'costo'          => 'nullable|numeric|min:0',
+            'ammortamento'   => 'nullable|numeric|min:0',
+            // nessun bilancio_consuntivo qui
         ]);
 
-        // opzionale: tieni sincronizzato anche il campo legacy 'voce' finché esiste
-        $voceDescr = DB::table('riepilogo_voci_config')->where('id', $validated['idVoceConfig'])->value('descrizione') ?? '';
+        // Descrizione voce per compat legacy
+        $voceDescr = Riepilogo::getVoceDescrizione((int) $validated['idVoceConfig']) ?? '';
 
         DB::table('costi_diretti')->updateOrInsert(
             [
-                'idAssociazione' => (int)$validated['idAssociazione'],
-                'idAnno'         => (int)$validated['idAnno'],
-                'idConvenzione'  => (int)$validated['idConvenzione'],
-                'idSezione'      => (int)$validated['idSezione'],
-                'idVoceConfig'   => (int)$validated['idVoceConfig'],
+                'idAssociazione' => (int) $validated['idAssociazione'],
+                'idAnno'         => (int) $validated['idAnno'],
+                'idConvenzione'  => (int) $validated['idConvenzione'],
+                'idSezione'      => (int) $validated['idSezione'],
+                'idVoceConfig'   => (int) $validated['idVoceConfig'],
             ],
             [
-                'voce'                => $voceDescr, // transitorio
-                'costo'               => (float)($validated['costo'] ?? 0),
-                'bilancio_consuntivo' => (float)($validated['bilancio_consuntivo'] ?? 0),
-                'updated_at'          => now(),
-                'created_at'          => now(),
+                'voce'         => $voceDescr, // compat legacy
+                'costo'        => (float) ($validated['costo'] ?? 0),
+                'ammortamento' => (float) ($validated['ammortamento'] ?? 0),
+                // niente bilancio_consuntivo qui
+                'updated_at'   => now(),
+                'created_at'   => now(),
             ]
         );
 
-        return redirect()->route('distinta.imputazione.index', ['idAssociazione' => $validated['idAssociazione']])
-            ->with('success', 'Costo diretto / bilancio salvato con successo.');
+        return redirect()
+            ->route('distinta.imputazione.index', ['idAssociazione' => $validated['idAssociazione']])
+            ->with('success', 'Costo diretto salvato con successo.');
     }
 
-    // app/Http/Controllers/DistintaImputazioneCostiController.php
-
-    public function personalePerConvenzione(Request $request) {
+    /* =========================
+       API: personale per convenzione
+       ========================= */
+    public function personalePerConvenzione(Request $request)
+    {
         $user = Auth::user();
         $anno = (int) session('anno_riferimento', now()->year);
 
-        // stessa logica di selezione associazione usata altrove
+        // stessa logica selezione associazione
         if ($user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor']) || session()->has('impersonate')) {
             $selectedAssoc = (int) ($request->integer('idAssociazione') ?: session('associazione_selezionata'));
         } else {
@@ -212,7 +263,7 @@ class DistintaImputazioneCostiController extends Controller {
         abort_if(!$selectedAssoc, 422, 'Associazione non selezionata');
 
         // Convenzioni (id => nome) nell’ordine stabile
-        $conv = RipartizioneCostiService::convenzioni($selectedAssoc, $anno);
+        $conv    = RipartizioneCostiService::convenzioni($selectedAssoc, $anno);
         $convIds = array_keys($conv);
 
         // 6001 = Autisti & Barellieri (importi assoluti per convenzione)
@@ -223,9 +274,9 @@ class DistintaImputazioneCostiController extends Controller {
         );
 
         return response()->json([
-            'convenzioni' => $conv,          // [idConv => Nome]
+            'convenzioni' => $conv,           // [idConv => Nome]
             'per_conv'    => $importiPerConv, // [idConv => importo]
-            'totale'      => $totale,        // somma complessiva
+            'totale'      => $totale,         // somma complessiva
         ]);
     }
 }

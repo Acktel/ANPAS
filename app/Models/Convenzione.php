@@ -100,7 +100,7 @@ class Convenzione {
             ->max('ordinamento');
 
         $ordinamento = is_null($maxOrd) ? 0 : $maxOrd + 1;
-        
+
         DB::insert("INSERT INTO " . self::TABLE . "
             (idAssociazione, idAnno, Convenzione, lettera_identificativa, ordinamento, created_at, updated_at)
             VALUES
@@ -150,8 +150,8 @@ class Convenzione {
         DB::delete("DELETE FROM " . self::TABLE . " WHERE idConvenzione = ?", [$id]);
     }
 
-public static function getWithAssociazione($idAssociazione, $anno): \Illuminate\Support\Collection {
-    $sql = "
+    public static function getWithAssociazione($idAssociazione, $anno): \Illuminate\Support\Collection {
+        $sql = "
         SELECT 
             c.idConvenzione,
             c.idAssociazione,
@@ -183,32 +183,30 @@ public static function getWithAssociazione($idAssociazione, $anno): \Illuminate\
         ORDER BY c.ordinamento, c.idConvenzione
     ";
 
-    return collect(DB::select($sql, [
-        'idAssociazione' => $idAssociazione,
-        'idAnno' => $anno,
-    ]));
-}
+        return collect(DB::select($sql, [
+            'idAssociazione' => $idAssociazione,
+            'idAnno' => $anno,
+        ]));
+    }
 
-    public static function createMateriale(array $data): int
-    {
-    $now = now()->toDateTimeString();
+    public static function createMateriale(array $data): int {
+        $now = now()->toDateTimeString();
 
-    DB::insert("
+        DB::insert("
         INSERT INTO materiale_sanitario (sigla, descrizione, created_at, updated_at)
         VALUES (:sigla, :descrizione, :created_at, :updated_at)
     ", [
-        'sigla'      => $data['sigla'],
-        'descrizione'=> $data['descrizione'],
-        'created_at' => $now,
-        'updated_at' => $now,
-    ]);
+            'sigla'      => $data['sigla'],
+            'descrizione' => $data['descrizione'],
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
 
-    return DB::getPdo()->lastInsertId();
+        return DB::getPdo()->lastInsertId();
     }
 
-public static function getMaterialeSanitario(int $idConvenzione): \Illuminate\Support\Collection
-    {
-    $sql = "
+    public static function getMaterialeSanitario(int $idConvenzione): \Illuminate\Support\Collection {
+        $sql = "
         SELECT ms.id, ms.sigla, ms.descrizione
         FROM materiale_sanitario AS ms
         JOIN convenzioni_materiale_sanitario AS cms
@@ -216,33 +214,48 @@ public static function getMaterialeSanitario(int $idConvenzione): \Illuminate\Su
         WHERE cms.idConvenzione = :idConvenzione
     ";
 
-    return collect(DB::select($sql, ['idConvenzione' => $idConvenzione]));
+        return collect(DB::select($sql, ['idConvenzione' => $idConvenzione]));
     }
-    
-    public static function syncMateriali(int $idConvenzione, array $materiali): void
-    {
-    DB::delete("DELETE FROM convenzioni_materiale_sanitario WHERE idConvenzione = ?", [$idConvenzione]);
 
-    $now = now()->toDateTimeString();
+    public static function syncMateriali(int $idConvenzione, array $materiali): void {
+        DB::delete("DELETE FROM convenzioni_materiale_sanitario WHERE idConvenzione = ?", [$idConvenzione]);
 
-    foreach ($materiali as $idMateriale) {
-        DB::insert("
+        $now = now()->toDateTimeString();
+
+        foreach ($materiali as $idMateriale) {
+            DB::insert("
             INSERT INTO convenzioni_materiale_sanitario (idConvenzione, idMaterialeSanitario, created_at, updated_at)
             VALUES (?, ?, ?, ?)
         ", [$idConvenzione, $idMateriale, $now, $now]);
+        }
     }
-    }
-
-
-
 
     public static function getByAssociazioneAnno(?int $idAssociazione, int $idAnno): Collection {
-        $query = DB::table(self::TABLE)->where( 'idAnno', $idAnno);
-       
+        $query = DB::table(self::TABLE)->where('idAnno', $idAnno);
+
         if (!is_null($idAssociazione)) {
             $query->where('idAssociazione', $idAssociazione);
         }
-        
+
         return $query->orderBy('Convenzione')->get();
+    }
+
+    public static function checkMaterialeSanitario(?int $idAssociazione, int $idAnno): bool {
+        $query = DB::table(self::TABLE)->where('idAnno', $idAnno);
+
+        if (!is_null($idAssociazione)) {
+            $query->where('idAssociazione', $idAssociazione);
+        }
+
+        $convenzioni = $query->get();
+
+        foreach ($convenzioni as $convenzione) {
+            $materiali = self::getMaterialeSanitario($convenzione->idConvenzione);
+            if ($materiali->isNotEmpty()) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

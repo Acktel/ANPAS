@@ -190,8 +190,8 @@ $assocCorr = 'Anpas Nazionale';
                 <li class="nav-item dropdown">
                     <a class="nav-link dropdown-toggle" href="#" id="documentiDropdown" data-bs-toggle="dropdown">Documenti</a>
                     <ul class="dropdown-menu">
-                        <li><a class="dropdown-item" href="{{ route('documenti.registro') }}">Esportazioni</a></li>
-                      
+                        <li><a class="dropdown-item" href="{{ route('documenti.registro') }}">Esportazioni PDF</a></li>
+                        <li><a class="dropdown-item" href="{{ route('documenti.registro_xls') }}">Esportazioni EXCEL</a></li>
                     </ul>
                 </li>
                 @endauth

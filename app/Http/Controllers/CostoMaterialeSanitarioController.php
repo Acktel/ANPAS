@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Auth;
 use App\Models\RipartizioneMaterialeSanitario;
 use App\Models\CostoMaterialeSanitario;
 use App\Models\Automezzo;
+use App\Models\Convenzione;
 use App\Models\Dipendente;
 use Illuminate\Http\JsonResponse;
 
@@ -69,71 +70,78 @@ public function index(Request $request) {
             ->with('success', 'Aggiornamento completato.');
     }
 
-    public function getData(Request $request): JsonResponse {
+    public function getData(Request $request): JsonResponse
+{
     $anno = session('anno_riferimento', now()->year);
     $user = Auth::user();
 
-    // Prendi idAssociazione dalla query string, oppure dalla sessione, oppure dal fallback utente
     $idAssociazione = $request->query('idAssociazione')
         ?? session('associazione_selezionata')
         ?? $user->IdAssociazione;
 
-    // Ottieni gli automezzi filtrati per associazione
     $automezzi = Automezzo::getByAssociazione($idAssociazione, $anno);
 
-    // Ricalcola i dati con la giusta associazione
-    $dati = RipartizioneMaterialeSanitario::getRipartizione($idAssociazione, $anno);
+    $dati           = RipartizioneMaterialeSanitario::getRipartizione($idAssociazione, $anno);
     $totaleBilancio = CostoMaterialeSanitario::getTotale($idAssociazione, $anno);
+    $checkConv      = Convenzione::checkMaterialeSanitario($idAssociazione, $anno) === true;
 
     $righe = [];
 
+    // 1) Calcolo il totale_inclusi "aggiustato"
+    $totaleInclusiAdj = 0;
+    foreach ($dati['righe'] as $r) {
+        if (!empty($r['is_totale'])) continue;
+        if (!empty($r['incluso_riparto'])) {
+            $n = (int)($r['totale'] ?? 0);
+            if ($checkConv) {
+                // sempre -1, anche se era già 0
+                $n = $n - 1;
+            }
+            $totaleInclusiAdj += $n;
+        }
+    }
+
+    // 2) Costruisco righe output usando il totale_inclusi "aggiustato"
     foreach ($dati['righe'] as $riga) {
-        if (isset($riga['is_totale']) && $riga['is_totale']) {
-
-        $nServiziTotale = isset($riga['totale']) ? (int) $riga['totale'] : 0;
-
-            // calcola percentuale in modo coerente con le altre righe
-            $percentualeTotale = ($dati['totale_inclusi'] > 0)
-                ? round(($nServiziTotale / $dati['totale_inclusi']) * 100, 2)
-                : 0;
-
-
+        if (!empty($riga['is_totale'])) {
             $righe[] = [
                 'Targa'       => 'TOTALE',
-                'n_servizi'   => $riga['totale'],
-                'percentuale' => $percentualeTotale,
+                'n_servizi'   => $totaleInclusiAdj,
+                'percentuale' => $totaleInclusiAdj > 0 ? 100 : 0,
                 'importo'     => $totaleBilancio,
-                'is_totale'   => -1
+                'is_totale'   => -1,
             ];
             continue;
         }
 
-        $incluso = $riga['incluso_riparto'];
+        $incluso = !empty($riga['incluso_riparto']);
+        $nServ   = (int)($riga['totale'] ?? 0);
 
-        if ($incluso) {
-            $percentuale = ($dati['totale_inclusi'] > 0)
-                ? round(($riga['totale'] / $dati['totale_inclusi']) * 100, 2)
-                : 0;
+        if ($checkConv) {
+            // sempre -1 anche se era già 0
+            $nServ = $nServ - 1;
+        }
 
-            $importo = ($dati['totale_inclusi'] > 0)
-                ? round(($riga['totale'] / $dati['totale_inclusi']) * $totaleBilancio, 2)
-                : 0;
+        if ($incluso && $totaleInclusiAdj > 0) {
+            $percentuale = round(($nServ / $totaleInclusiAdj) * 100, 2);
+            $importo     = round(($nServ / $totaleInclusiAdj) * $totaleBilancio, 2);
         } else {
             $percentuale = 0;
-            $importo = 0;
+            $importo     = 0;
         }
 
         $righe[] = [
             'Targa'       => $riga['Targa'],
-            'n_servizi'   => $riga['totale'],
+            'n_servizi'   => $nServ,
             'percentuale' => $percentuale,
             'importo'     => $importo,
-            'is_totale'   => 0
+            'is_totale'   => 0,
         ];
     }
 
     return response()->json(['data' => $righe]);
 }
+
 
 
 
