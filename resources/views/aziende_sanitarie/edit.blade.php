@@ -243,7 +243,7 @@
     const convTbody = document.querySelector('#convTable tbody');
 
     // Dati dal server
-    const ASSOCS = @json($associazioni - > map(fn($a) => ['id' => $a - > idAssociazione, 'text' => $a - > Associazione]));
+    const ASSOCS = @json($associazioni->map(function($a) { return ['id' => $a->idAssociazione, 'text' => $a->Associazione]; }));
     const CONV_ASSOC_BY_LOTTO = @json($convAssocByLotto ?? []);
     const OLD_CONV_ASSOC = @json(old('conv_assoc', []));
 

@@ -59,7 +59,7 @@ class GeneraCostiPersonalePdfJob implements ShouldQueue
         $dip = Dipendente::getByAssociazione($this->idAssociazione, $this->anno);
 
         // Mappa costi e ripartizioni
-        $costi = CostiPersonale::getAllByAnno($this->anno)->keyBy('idDipendente');
+        $costi = CostiPersonale::getAllByAnno($this->anno)->keyBy(keyBy: 'idDipendente');
         $rip   = RipartizionePersonale::getAll($this->anno, auth()->user(), $this->idAssociazione)
                  ->groupBy('idDipendente'); // -> Collection keyed by idDipendente
 

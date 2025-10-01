@@ -18,7 +18,7 @@ class MergeBundlePdfsJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    public bool $deleteChildrenAfterMerge = true; // ← se vuoi tenere i figli, metti false
+    public bool $deleteChildrenAfterMerge = true;
 
     public function __construct(
         public int $bundleId,

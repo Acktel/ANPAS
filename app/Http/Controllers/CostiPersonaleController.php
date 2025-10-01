@@ -11,8 +11,7 @@ use App\Models\Convenzione;
 use App\Models\RipartizionePersonale;
 use App\Models\CostiMansioni;
 
-class CostiPersonaleController extends Controller
-{
+class CostiPersonaleController extends Controller {
     public function index(Request $request) {
         $anno = session('anno_riferimento', now()->year);
         $selectedAssoc = session('associazione_selezionata') ?? $request->query('idAssociazione');
@@ -31,192 +30,176 @@ class CostiPersonaleController extends Controller
     }
 
     public function getData() {
-    $anno = session('anno_riferimento', now()->year);
-    $user = Auth::user();
+        $anno = session('anno_riferimento', now()->year);
+        $user = Auth::user();
 
-    $idQualifica = request()->query('idQualifica');
-    $idQualifica = is_numeric($idQualifica) ? (int)$idQualifica : null;
+        $idQualifica = request()->query('idQualifica');
+        $idQualifica = is_numeric($idQualifica) ? (int)$idQualifica : null;
 
-    $qualificaTesto = $idQualifica ? '' : strtolower(trim((string) request()->query('qualifica', '')));
+        $qualificaTesto = $idQualifica ? '' : strtolower(trim((string) request()->query('qualifica', '')));
 
-    $selectedAssoc = session('associazione_selezionata');
-    $idAssociazione = $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])
-        ? $selectedAssoc
-        : $user->IdAssociazione;
+        $selectedAssoc = session('associazione_selezionata');
+        $idAssociazione = $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])
+            ? $selectedAssoc
+            : $user->IdAssociazione;
 
-    if (!$idAssociazione) {
-        return response()->json(['data' => [], 'labels' => []]);
-    }
-
-    // Dipendenti dell'associazione/anno
-    $dipendenti = Dipendente::getByAssociazione($idAssociazione, $anno);
-
-    // Pivot: dipendente -> [idQualifica...]
-    $qualifichePivot = DB::table('dipendenti_qualifiche')
-        ->select('idDipendente', 'idQualifica')
-        ->get()
-        ->groupBy('idDipendente')
-        ->map(fn($rows) => $rows->pluck('idQualifica')->map(fn($v) => (int)$v)->toArray());
-
-    // Mappa id->nome
-    $nomiQualifiche = DB::table('qualifiche')->pluck('nome', 'id');
-
-    // Filtro testuale (legacy)
-    if (!$idQualifica && $qualificaTesto !== '') {
-        $matching = DB::table('qualifiche')
-            ->whereRaw('LOWER(nome) LIKE ?', ['%' . $qualificaTesto . '%'])
-            ->pluck('id')
-            ->map(fn($v) => (int)$v)
-            ->values();
-
-        if ($matching->count() === 1) {
-            $idQualifica = (int)$matching->first();
-        } else {
-            $dipendenti = $dipendenti->filter(function ($d) use ($qualifichePivot, $nomiQualifiche, $qualificaTesto) {
-                $ids = $qualifichePivot[$d->idDipendente] ?? [];
-                $nomi = collect($ids)->map(fn($idQ) => strtolower($nomiQualifiche[$idQ] ?? ''));
-                return $nomi->contains(fn($n) => str_contains($n, $qualificaTesto));
-            });
+        if (!$idAssociazione) {
+            return response()->json(['data' => [], 'labels' => []]);
         }
-    }
 
-    // Filtro per idQualifica
-    if ($idQualifica) {
-        $dipendenti = $dipendenti->filter(function ($d) use ($qualifichePivot, $idQualifica) {
-            $ids = $qualifichePivot[$d->idDipendente] ?? [];
-            return in_array($idQualifica, $ids, true);
-        });
-    }
+        // Dipendenti dell'associazione/anno
+        $dipendenti = Dipendente::getByAssociazione($idAssociazione, $anno);
 
-    // Costi per anno
-    $costi = CostiPersonale::getAllByAnno($anno)->keyBy('idDipendente');
+        // Pivot: dipendente -> [idQualifica...]
+        $qualifichePivot = DB::table('dipendenti_qualifiche')
+            ->select('idDipendente', 'idQualifica')
+            ->get()
+            ->groupBy('idDipendente')
+            ->map(fn($rows) => $rows->pluck('idQualifica')->map(fn($v) => (int)$v)->toArray());
 
-    // Percentuali per qualifica selezionata (idDipendente => %)
-    $percSelezionata = $idQualifica
-        ? CostiMansioni::getPercentualiByQualifica($idQualifica, $anno)
-        : [];
+        // Mappa id->nome
+        $nomiQualifiche = DB::table('qualifiche')->pluck('nome', 'id');
 
-    // Ripartizioni ore per convenzioni
-    $ripartizioni = RipartizionePersonale::getAll($anno, $user)->groupBy('idDipendente');
+        // Filtro testuale (legacy)
+        if (!$idQualifica && $qualificaTesto !== '') {
+            $matching = DB::table('qualifiche')
+                ->whereRaw('LOWER(nome) LIKE ?', ['%' . $qualificaTesto . '%'])
+                ->pluck('id')
+                ->map(fn($v) => (int)$v)
+                ->values();
 
-    // Convenzioni per colonne dinamiche
-    $convenzioni = Convenzione::getByAssociazioneAnno($idAssociazione, $anno)
-        ->sortBy('idConvenzione')
-        ->values();
-
-    $labels = $convenzioni
-        ->pluck('Convenzione', 'idConvenzione')
-        ->mapWithKeys(fn($nome, $id) => ["C$id" => $nome])
-        ->toArray();
-
-    $rows = [];
-    $totali = ['Retribuzioni' => 0, 'OneriSocialiInps' => 0, 'OneriSocialiInail' => 0, 'TFR' => 0, 'Consulenze' => 0, 'Totale' => 0];
-    $totPerConv = [];
-
-    foreach ($dipendenti as $d) {
-        $id = $d->idDipendente;
-        $c = $costi->get($id) ?? (object)[];
-
-        // --- base (schema nuovo o vecchio) ---
-        $retribuzioni_base = (float)($c->Retribuzioni ?? 0);
-        // Fallback schema vecchio: se manca INPS ma c'è OneriSociali unico, consideralo lato INPS
-        $inps_base   = (float)($c->OneriSocialiInps ?? ($c->OneriSociali ?? 0));
-        $inail_base  = (float)($c->OneriSocialiInail ?? 0);
-        $tfr_base    = (float)($c->TFR ?? 0);
-        $cons_base   = (float)($c->Consulenze ?? 0);
-
-        // --- diretti (tutti opzionali) ---
-        $retribuzioni_dir = (float)($c->costo_diretto_Retribuzioni ?? 0);
-        // Fallback diretto: se non esiste *_Inps usa costo_diretto_OneriSociali (vecchio schema)
-        $inps_dir   = (float)($c->costo_diretto_OneriSocialiInps ?? ($c->costo_diretto_OneriSociali ?? 0));
-        $inail_dir  = (float)($c->costo_diretto_OneriSocialiInail ?? 0);
-        $tfr_dir    = (float)($c->costo_diretto_TFR ?? 0);
-        $cons_dir   = (float)($c->costo_diretto_Consulenze ?? 0);
-
-        // --- somma base + diretto ---
-        $retribuzioni     = $retribuzioni_base + $retribuzioni_dir;
-        $OneriSocialiInps   = $inps_base + $inps_dir;
-        $OneriSocialiInail  = $inail_base + $inail_dir;
-        $tfr              = $tfr_base + $tfr_dir;
-        $consulenze       = $cons_base + $cons_dir;
-
-        // --- coefficiente mansione (se filtro specifico) ---
-        $coeff = 1.0;
-        if ($idQualifica) {
-            $idsQ = $qualifichePivot[$id] ?? [];
-            if (count($idsQ) > 1) {
-                $pct = (float)($percSelezionata[$id] ?? 0);
-                $coeff = max(0.0, $pct / 100.0);
+            if ($matching->count() === 1) {
+                $idQualifica = (int)$matching->first();
+            } else {
+                $dipendenti = $dipendenti->filter(function ($d) use ($qualifichePivot, $nomiQualifiche, $qualificaTesto) {
+                    $ids = $qualifichePivot[$d->idDipendente] ?? [];
+                    $nomi = collect($ids)->map(fn($idQ) => strtolower($nomiQualifiche[$idQ] ?? ''));
+                    return $nomi->contains(fn($n) => str_contains($n, $qualificaTesto));
+                });
             }
         }
 
+        // Filtro per idQualifica
         if ($idQualifica) {
-            $retribuzioni     *= $coeff;
-            $OneriSocialiInps *= $coeff;
-            $OneriSocialiInail*= $coeff;
-            $tfr              *= $coeff;
-            $consulenze       *= $coeff;
+            $dipendenti = $dipendenti->filter(function ($d) use ($qualifichePivot, $idQualifica) {
+                $ids = $qualifichePivot[$d->idDipendente] ?? [];
+                return in_array($idQualifica, $ids, true);
+            });
         }
 
-        $totale = $retribuzioni + $OneriSocialiInps + $OneriSocialiInail + $tfr + $consulenze;
+        // Costi per anno
+        $costi = CostiPersonale::getAllByAnno($anno)->keyBy('idDipendente');
 
-        // nomi qualifica per riga
-        $idsQ = $qualifichePivot[$id] ?? [];
-        $nomiQ = collect($idsQ)->map(fn($iq) => $nomiQualifiche[$iq] ?? null)->filter()->values()->implode(', ');
+        // Percentuali per qualifica selezionata (idDipendente => %)
+        $percSelezionata = $idQualifica
+            ? CostiMansioni::getPercentualiByQualifica($idQualifica, $anno)
+            : [];
 
-        $r = [
-            'idDipendente'    => $id,
-            'Dipendente'      => trim("{$d->DipendenteCognome} {$d->DipendenteNome}"),
-            'Qualifica'       => $nomiQ,
-            'Contratto'       => $d->ContrattoApplicato,
-            'Retribuzioni'    => round($retribuzioni, 2),
-            'OneriSocialiInps'=> round($OneriSocialiInps, 2),
-            'OneriSocialiInail'=> round($OneriSocialiInail, 2),
-            'TFR'             => round($tfr, 2),
-            'Consulenze'      => round($consulenze, 2),
-            'Totale'          => round($totale, 2),
-            'is_totale'       => false,
-        ];
+        // Ripartizioni ore per convenzioni
+        $ripartizioni = RipartizionePersonale::getAll($anno, $user)->groupBy('idDipendente');
 
-        // accumula totali
-        foreach ($totali as $k => $_) {
-            $totali[$k] += $r[$k];
+        // Convenzioni per colonne dinamiche
+        $convenzioni = Convenzione::getByAssociazioneAnno($idAssociazione, $anno)
+            ->sortBy('idConvenzione')
+            ->values();
+
+        $labels = $convenzioni
+            ->pluck('Convenzione', 'idConvenzione')
+            ->mapWithKeys(fn($nome, $id) => ["C$id" => $nome])
+            ->toArray();
+
+        $rows = [];
+        $totali = ['Retribuzioni' => 0, 'OneriSocialiInps' => 0, 'OneriSocialiInail' => 0, 'TFR' => 0, 'Consulenze' => 0, 'Totale' => 0];
+        $totPerConv = [];
+
+        foreach ($dipendenti as $d) {
+            $id = $d->idDipendente;
+           $cn = $this->normalizeCostRow($costi->get($id) ?? null);
+
+            $retribuzioni      = $cn['Retribuzioni'] + $cn['costo_diretto_Retribuzioni'];
+            $OneriSocialiInps  = $cn['OneriSocialiInps'] + $cn['costo_diretto_OneriSocialiInps'];
+            $OneriSocialiInail = $cn['OneriSocialiInail'] + $cn['costo_diretto_OneriSocialiInail'];
+            $tfr               = $cn['TFR'] + $cn['costo_diretto_TFR'];
+            $consulenze        = $cn['Consulenze'] + $cn['costo_diretto_Consulenze'];
+
+
+            // --- coefficiente mansione (se filtro specifico) ---
+            $coeff = 1.0;
+            if ($idQualifica) {
+                $idsQ = $qualifichePivot[$id] ?? [];
+                if (count($idsQ) > 1) {
+                    $pct = (float)($percSelezionata[$id] ?? 0);
+                    $coeff = max(0.0, $pct / 100.0);
+                }
+            }
+
+            if ($idQualifica) {
+                $retribuzioni     *= $coeff;
+                $OneriSocialiInps *= $coeff;
+                $OneriSocialiInail *= $coeff;
+                $tfr              *= $coeff;
+                $consulenze       *= $coeff;
+            }
+
+            $totale = $retribuzioni + $OneriSocialiInps + $OneriSocialiInail + $tfr + $consulenze;
+
+            // nomi qualifica per riga
+            $idsQ = $qualifichePivot[$id] ?? [];
+            $nomiQ = collect($idsQ)->map(fn($iq) => $nomiQualifiche[$iq] ?? null)->filter()->values()->implode(', ');
+
+            $r = [
+                'idDipendente'    => $id,
+                'Dipendente'      => trim("{$d->DipendenteCognome} {$d->DipendenteNome}"),
+                'Qualifica'       => $nomiQ,
+                'Contratto'       => $d->ContrattoApplicato ?? '',
+                'Retribuzioni'    => round($retribuzioni, 2),
+                'OneriSocialiInps' => round($OneriSocialiInps, 2),
+                'OneriSocialiInail' => round($OneriSocialiInail, 2),
+                'TFR'             => round($tfr, 2),
+                'Consulenze'      => round($consulenze, 2),
+                'Totale'          => round($totale, 2),
+                'is_totale'       => false,
+            ];
+
+            // accumula totali
+            foreach ($totali as $k => $_) {
+                $totali[$k] += $r[$k];
+            }
+
+            // ripartizione per convenzione
+            $rip = $ripartizioni->get($id) ?? collect();
+            $oreTot = $rip->sum('OreServizio');
+
+            foreach ($convenzioni as $conv) {
+                $convKey = "C{$conv->idConvenzione}";
+                $entry = $rip->firstWhere('idConvenzione', $conv->idConvenzione);
+                $percent = ($oreTot > 0 && $entry) ? round($entry->OreServizio / $oreTot * 100, 2) : 0;
+                $importo = round(($percent / 100) * $totale, 2);
+
+                $r["{$convKey}_percent"] = $percent;
+                $r["{$convKey}_importo"] = $importo;
+
+                $totPerConv["{$convKey}_importo"] = ($totPerConv["{$convKey}_importo"] ?? 0) + $importo;
+                $totPerConv["{$convKey}_percent"] = 0; // non si somma in % sul totale (placeholder)
+            }
+
+            $rows[] = $r;
         }
 
-        // ripartizione per convenzione
-        $rip = $ripartizioni->get($id) ?? collect();
-        $oreTot = $rip->sum('OreServizio');
+        // riga totale
+        $rows[] = array_merge([
+            'idDipendente' => null,
+            'Dipendente'   => 'TOTALE',
+            'Qualifica'    => '',
+            'Contratto'    => '',
+            'is_totale'    => true,
+        ], array_map(fn($v) => round($v, 2), $totali), $totPerConv);
 
-        foreach ($convenzioni as $conv) {
-            $convKey = "C{$conv->idConvenzione}";
-            $entry = $rip->firstWhere('idConvenzione', $conv->idConvenzione);
-            $percent = ($oreTot > 0 && $entry) ? round($entry->OreServizio / $oreTot * 100, 2) : 0;
-            $importo = round(($percent / 100) * $totale, 2);
-
-            $r["{$convKey}_percent"] = $percent;
-            $r["{$convKey}_importo"] = $importo;
-
-            $totPerConv["{$convKey}_importo"] = ($totPerConv["{$convKey}_importo"] ?? 0) + $importo;
-            $totPerConv["{$convKey}_percent"] = 0; // non si somma in % sul totale (placeholder)
-        }
-
-        $rows[] = $r;
+        return response()->json([
+            'data'   => $rows,
+            'labels' => $labels,
+        ]);
     }
-
-    // riga totale
-    $rows[] = array_merge([
-        'idDipendente' => null,
-        'Dipendente'   => 'TOTALE',
-        'Qualifica'    => '',
-        'Contratto'    => '',
-        'is_totale'    => true,
-    ], array_map(fn($v) => round($v, 2), $totali), $totPerConv);
-
-    return response()->json([
-        'data'   => $rows,
-        'labels' => $labels,
-    ]);
-}
 
 
     public function salva(Request $request) {
@@ -335,5 +318,66 @@ class CostiPersonaleController extends Controller
         }
 
         return view('ripartizioni.costi_personale.show', compact('record', 'anno'));
+    }
+
+    /** Normalizza un record costi (qualsiasi schema) nelle chiavi attese. */
+    private function normalizeCostRow(object|array|null $row): array {
+        $src = (array) ($row ?? []);
+
+        // alias → chiave canonica
+        $aliases = [
+            // base
+            'retribuzioni'           => 'Retribuzioni',
+            'oneri_sociali_inps'     => 'OneriSocialiInps',
+            'oneri_sociali_inail'    => 'OneriSocialiInail',
+            'oneri_sociali'          => 'OneriSocialiInps',  // schema vecchio: metti tutto su INPS
+            'tfr'                    => 'TFR',
+            'consulenze'             => 'Consulenze',
+
+            // diretti
+            'costo_diretto_retribuzioni'            => 'costo_diretto_Retribuzioni',
+            'costo_diretto_oneri_sociali_inps'      => 'costo_diretto_OneriSocialiInps',
+            'costo_diretto_oneri_sociali_inail'     => 'costo_diretto_OneriSocialiInail',
+            'costo_diretto_oneri_sociali'           => 'costo_diretto_OneriSocialiInps', // vecchio schema
+            'costo_diretto_tfr'                     => 'costo_diretto_TFR',
+            'costo_diretto_consulenze'              => 'costo_diretto_Consulenze',
+        ];
+
+        $canon = [
+            // base
+            'Retribuzioni'         => 0.0,
+            'OneriSocialiInps'     => 0.0,
+            'OneriSocialiInail'    => 0.0,
+            'TFR'                  => 0.0,
+            'Consulenze'           => 0.0,
+            // diretti
+            'costo_diretto_Retribuzioni'      => 0.0,
+            'costo_diretto_OneriSocialiInps'  => 0.0,
+            'costo_diretto_OneriSocialiInail' => 0.0,
+            'costo_diretto_TFR'               => 0.0,
+            'costo_diretto_Consulenze'        => 0.0,
+        ];
+
+        // porta tutto in lowercase per match con aliases
+        $lower = [];
+        foreach ($src as $k => $v) {
+            $lower[strtolower($k)] = $v;
+        }
+
+        // applica alias
+        foreach ($aliases as $from => $to) {
+            if (array_key_exists($from, $lower)) {
+                $canon[$to] = (float) $lower[$from];
+            }
+        }
+
+        // se già arrivano camel-case giusti, sovrascrivi (priorità a chiavi “giuste”)
+        foreach ($canon as $k => $v) {
+            if (array_key_exists($k, $src) && $src[$k] !== null && $src[$k] !== '') {
+                $canon[$k] = (float) $src[$k];
+            }
+        }
+
+        return $canon;
     }
 }

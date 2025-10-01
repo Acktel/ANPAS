@@ -24,7 +24,7 @@ class RipartizionePersonale
 
         if ($idAssociazioneFiltro !== null) {
             $q->where('d.idAssociazione', $idAssociazioneFiltro);
-        } elseif (!$user->hasAnyRole(['SuperAdmin','Admin','Supervisor'])) {
+        } elseif ($user  && !$user->hasAnyRole(['SuperAdmin','Admin','Supervisor'])) {
             $q->where('d.idAssociazione', $user->IdAssociazione);
         }
 
