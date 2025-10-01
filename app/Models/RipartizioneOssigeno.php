@@ -20,7 +20,7 @@ class RipartizioneOssigeno {
         }
 
         $automezzi = $automezziQuery
-            ->select('idAutomezzo', 'Automezzo', 'Targa', 'CodiceIdentificativo', 'incluso_riparto')
+            ->select('idAutomezzo', 'Targa', 'CodiceIdentificativo', 'incluso_riparto')
             ->get()
             ->keyBy('idAutomezzo');
 

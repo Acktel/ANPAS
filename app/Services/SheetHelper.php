@@ -39,7 +39,6 @@ class SheetHelper {
         $headers = [
             'Associazione',
             'Anno',
-            'Automezzo',
             'Targa',
             'Codice Identificativo',
             'Anno Prima Immatricolazione',

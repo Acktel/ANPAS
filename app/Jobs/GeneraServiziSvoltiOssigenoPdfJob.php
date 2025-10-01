@@ -15,6 +15,8 @@ use Throwable;
 use App\Models\DocumentoGenerato;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Bus\Batchable;
+use PhpOffice\PhpSpreadsheet\Reader\IReadFilter;
+use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 
 class GeneraServiziSvoltiOssigenoPdfJob implements ShouldQueue
 {
@@ -76,7 +78,7 @@ class GeneraServiziSvoltiOssigenoPdfJob implements ShouldQueue
         $rows = [];
         $totali = [
             'is_totale'            => -1,
-            'Targa'                => 'Automezzo',
+            'Targa'                => 'TOTALE',
             'CodiceIdentificativo' => '',
             'RipartoOssigeno'      => '', 
             'Totale'               => 0,

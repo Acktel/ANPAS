@@ -47,7 +47,7 @@ class RipartizionePersonale
               ->get()
         );
     }
-
+    
     public static function upsert(int $idDip, int $idConv, float $ore)
     {
         DB::table(self::TABLE)

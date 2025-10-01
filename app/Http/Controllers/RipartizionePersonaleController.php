@@ -135,7 +135,6 @@ class RipartizionePersonaleController extends Controller {
         ]);
     }
 
-
     public function create() {
         $user = Auth::user();
         $anno = session('anno_riferimento', now()->year);

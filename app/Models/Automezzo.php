@@ -215,7 +215,7 @@ class Automezzo
         return DB::table('automezzi')
             ->where('idAnno', operator: $anno)
             ->when($idAssociazione, fn($q) => $q->where('idAssociazione', $idAssociazione))
-            ->select('idAutomezzo', 'Automezzo', 'Targa', 'CodiceIdentificativo', 'note') // ← aggiunto
+            ->select('idAutomezzo', 'Targa', 'CodiceIdentificativo', 'note')
             ->get();
     }
 

@@ -12,6 +12,9 @@ Route::middleware(['auth'])->group(function () {
     // Avvio job REGISTRI – Prima pagina (XLS)
     Route::post('documenti/registri/pagina1/xls', [DocumentiExcelController::class, 'startRegistriP1Xls'])
         ->name('documenti.registri_p1.xls');
+    
+    Route::post('/documenti/schede-riparto-costi/xls', [DocumentiExcelController::class, 'startSchedeRipartoCostiXls'])
+    ->name('documenti.schede_riparto_costi.xls');
 
     /*
     =====================================================
