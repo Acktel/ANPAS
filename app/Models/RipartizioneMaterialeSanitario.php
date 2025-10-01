@@ -115,7 +115,7 @@ class RipartizioneMaterialeSanitario {
 
         return $query
             ->select('idAutomezzo', 'Targa', 'CodiceIdentificativo', 'incluso_riparto')
-            ->orderBy('Automezzo')
+            ->orderBy('idAutomezzo')
             ->get();
     }
 

@@ -16,9 +16,6 @@
         <dt class="col-md-4 text-anpas-green fw-semibold">Anno</dt>
         <dd class="col-md-8">{{ $automezzo->idAnno }}</dd>
 
-        <dt class="col-md-4 text-anpas-green fw-semibold">Veicolo</dt>
-        <dd class="col-md-8">{{ $automezzo->Automezzo }}</dd>
-
         <dt class="col-md-4 text-anpas-green fw-semibold">Targa</dt>
         <dd class="col-md-8">{{ $automezzo->Targa }}</dd>
 

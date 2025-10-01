@@ -34,7 +34,6 @@ return new class extends Migration
             $table->foreignId('idAnno')
                   ->constrained('anni', 'idAnno')
                   ->cascadeOnDelete();
-            $table->string('Automezzo', 100);
             $table->timestamps();
         });
 

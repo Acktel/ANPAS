@@ -14,7 +14,6 @@
     <table class="table table-bordered text-center align-middle">
       <thead class="table-light">
         <tr>
-          <th rowspan="2">Automezzo</th>
           <th rowspan="2">Targa</th>
           <th rowspan="2">Incluso</th>
           @foreach($convenzioni as $conv)
@@ -25,8 +24,7 @@
       </thead>
       <tbody>
         @foreach($righe as $riga)
-          <tr class="{{ $riga['incluso_riparto'] ? '' : 'table-secondary' }}">
-            <td>{{ $riga['Automezzo'] }}</td>
+          <tr class="{{ $riga['incluso_riparto'] ? '' : 'table-secondary' }}">           
             <td>{{ $riga['Targa'] }}</td>
             <td>{{ $riga['incluso_riparto'] ? 'SI' : 'NO' }}</td>
             @foreach($convenzioni as $conv)

@@ -61,7 +61,6 @@
     <tr>
       <th class="col-targa" rowspan="2">Targa</th>
       <th class="col-cod"   rowspan="2">Codice identificativo</th>
-      <th class="col-nome"  rowspan="2">Automezzo</th>
       <th class="col-tot"   rowspan="2">KM totali</th>
       @foreach ($convenzioni as $c)<th colspan="2">{{ $c->Convenzione }}</th>@endforeach
     </tr>
@@ -74,7 +73,6 @@
       <tr class="{{ ($r['is_totale'] ?? 0)===-1 ? 'row-total' : '' }}">
         <td>{{ ($r['is_totale'] ?? 0)===-1 ? '' : ($r['Targa'] ?? '') }}</td>
         <td>{{ ($r['is_totale'] ?? 0)===-1 ? '' : ($r['CodiceIdentificativo'] ?? '') }}</td>
-        <td>{{ ($r['is_totale'] ?? 0)===-1 ? 'TOTALE' : ($r['Automezzo'] ?? '') }}</td>
         <td class="text-end">{{ $num0($r['Totale'] ?? 0) }}</td>
         @foreach ($convenzioni as $c)
           @php $k='c'.$c->idConvenzione; @endphp
@@ -95,7 +93,6 @@
     <tr>
       <th class="col-targa" rowspan="2">Targa</th>
       <th class="col-cod"   rowspan="2">Codice identificativo</th>
-      <th class="col-nome"  rowspan="2">Automezzo</th>
       <th class="col-tot"   rowspan="2">Totale servizi</th>
       @foreach ($convenzioni as $c)<th colspan="2">{{ $c->Convenzione }}</th>@endforeach
     </tr>
@@ -108,7 +105,6 @@
       <tr class="{{ ($r['is_totale'] ?? 0)===-1 ? 'row-total' : '' }}">
         <td>{{ ($r['is_totale'] ?? 0)===-1 ? '' : ($r['Targa'] ?? '') }}</td>
         <td>{{ ($r['is_totale'] ?? 0)===-1 ? '' : ($r['CodiceIdentificativo'] ?? '') }}</td>
-        <td>{{ ($r['is_totale'] ?? 0)===-1 ? 'TOTALE' : ($r['Automezzo'] ?? '') }}</td>
         <td class="text-end">{{ $num0($r['Totale'] ?? 0) }}</td>
         @foreach ($convenzioni as $c)
           @php $k='c'.$c->idConvenzione; @endphp
@@ -129,7 +125,6 @@
     <tr>
       <th class="col-targa">Targa</th>
       <th class="col-cod">Codice identificativo</th>
-      <th class="col-nome">Automezzo</th>
       <th>Modello</th>
       <th>Km totali</th>
       <th>Carburante</th>
@@ -140,7 +135,6 @@
       <tr>
         <td>{{ $a->Targa }}</td>
         <td>{{ $a->CodiceIdentificativo }}</td>
-        <td>{{ $a->Automezzo }}</td>
         <td>{{ $a->Modello ?? '' }}</td>
         <td class="text-end">{{ $num0($a->KmTotali ?? 0) }}</td>
         <td>{{ $a->idTipoCarburante ?? '' }}</td>

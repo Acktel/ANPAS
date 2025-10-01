@@ -11,7 +11,6 @@
     <table class="table table-bordered">
       <thead>
         <tr>
-          <th>Automezzo</th>
           <th>Targa</th>
           <th>Codice ID</th>
           <th>Includi nel Riparto?</th>
@@ -20,7 +19,6 @@
       <tbody>
         @foreach($dati as $a)
           <tr>
-            <td>{{ $a->Automezzo }}</td>
             <td>{{ $a->Targa }}</td>
             <td>{{ $a->CodiceIdentificativo ?? '' }}</td>
             <td>

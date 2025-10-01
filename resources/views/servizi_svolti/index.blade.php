@@ -152,7 +152,7 @@
         $(td).addClass('col-azioni');
       },
       render: function(row) {
-        if (row.Automezzo === 'TOTALE') return '';
+        if (row.Targa === 'TOTALE') return '';
         return `
         <a href="/servizi-svolti/${row.idAutomezzo}" class="btn  btn-anpas-green me-1 btn-icon" title="Visualizza">
           <i class="fas fa-eye"></i>

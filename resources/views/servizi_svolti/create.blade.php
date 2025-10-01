@@ -26,7 +26,7 @@
         <option value="">-- Seleziona --</option>
         @foreach($automezzi as $a)
           <option value="{{ $a->idAutomezzo }}">
-            {{ $a->Automezzo }} ({{ $a->Targa }})
+            {{ $a->Targa }}
           </option>
         @endforeach
       </select>

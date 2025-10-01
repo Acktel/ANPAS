@@ -62,7 +62,6 @@ class GeneraDistintaKmPercorsiPdfJob implements ShouldQueue {
                 'idAutomezzo',
                 DB::raw('TRIM(Targa)                   as Targa'),
                 DB::raw('TRIM(CodiceIdentificativo)    as CodiceIdentificativo'),
-                DB::raw('Automezzo                     as NomeAutomezzo'),
             ])
             ->get();
 

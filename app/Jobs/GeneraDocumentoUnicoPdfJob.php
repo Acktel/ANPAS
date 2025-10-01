@@ -126,11 +126,11 @@ class GeneraDocumentoUnicoPdfJob implements ShouldQueue
             ->get()->groupBy(fn($r)=>$r->idAutomezzo.'-'.$r->idConvenzione);
 
         $servRows=[]; 
-        $servTot=['Automezzo'=>'TOTALE','Targa'=>'','CodiceIdentificativo'=>'','Totale'=>0,'is_totale'=>-1];
+        $servTot=['Targa'=>'TOTALE','CodiceIdentificativo'=>'','Totale'=>0,'is_totale'=>-1];
         foreach ($convenzioni as $c){ $k='c'.$c->idConvenzione; $servTot[$k.'_n']=0; $servTot[$k.'_percent']=0.0; }
 
         foreach ($automezzi as $a){
-            $r=['Targa'=>$a->Targa??'','CodiceIdentificativo'=>$a->CodiceIdentificativo??'','Automezzo'=>$a->Automezzo??'','Totale'=>0,'is_totale'=>0];
+            $r=['Targa'=>$a->Targa??'','CodiceIdentificativo'=>$a->CodiceIdentificativo??'','Totale'=>0,'is_totale'=>0];
             foreach ($convenzioni as $c){
                 $k='c'.$c->idConvenzione; $key=$a->idAutomezzo.'-'.$c->idConvenzione;
                 $n = $serviziGrouped->has($key)? (int)$serviziGrouped->get($key)->first()->NumeroServizi : 0;

@@ -3,7 +3,7 @@
 @section('content')
 <div class="container">
     <h1 class="container-title mb-4">
-        Dettaglio Servizi Svolti – {{ $automezzo->Automezzo }} ({{ $automezzo->Targa }}) – Anno {{ session('anno_riferimento') }}
+        Dettaglio Servizi Svolti –{{ $automezzo->Targa }} – Anno {{ session('anno_riferimento') }}
     </h1>
 
     <div class="table-responsive">

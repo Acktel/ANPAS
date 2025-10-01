@@ -3,7 +3,7 @@
 @section('content')
 <div class="container">
     <h1 class="container-title mb-4">
-        Modifica KM percorsi – {{ $automezzo->Automezzo }} ({{ $automezzo->Targa }}) – Anno {{ session('anno_riferimento') }}
+        Modifica KM percorsi – ({{ $automezzo->Targa }}) – Anno {{ session('anno_riferimento') }}
     </h1>
 
     <form method="POST" action="{{ route('km-percorsi.update', $automezzo->idAutomezzo) }}">

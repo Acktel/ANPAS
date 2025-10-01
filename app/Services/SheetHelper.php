@@ -68,7 +68,6 @@ class SheetHelper {
         foreach ($automezzi as $auto) {
             $sheet->setCellValue("A{$row}", $auto->Associazione ?? '')
                 ->setCellValue("B{$row}", $auto->anno ?? $auto->idAnno)
-                ->setCellValue("C{$row}", $auto->Automezzo)
                 ->setCellValue("D{$row}", $auto->Targa)
                 ->setCellValue("E{$row}", $auto->CodiceIdentificativo)
                 ->setCellValue("F{$row}", $auto->AnnoPrimaImmatricolazione)

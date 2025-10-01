@@ -60,7 +60,7 @@ class GeneraServiziSvoltiOssigenoPdfJob implements ShouldQueue
             ->where('idAssociazione',$this->idAssociazione)
             ->where('idAnno',$this->anno)
             ->orderBy('CodiceIdentificativo')
-            ->get(['idAutomezzo','Targa','CodiceIdentificativo','Automezzo','incluso_riparto']);
+            ->get(['idAutomezzo','Targa','CodiceIdentificativo','incluso_riparto']);
 
         // numero servizi per (automezzo, convenzione)
         $servizi = DB::table('automezzi_servizi as s')

@@ -67,7 +67,6 @@
       <tr>
         <th rowspan="2">Targa</th>
         <th rowspan="2">Codice identificativo</th>
-        <th rowspan="2">Automezzo</th>
         <th rowspan="2">Totale n. servizi<br>nell’anno</th>
         @foreach ($convenzioni as $c)
           <th colspan="2">{{ $c->Convenzione }}</th>
@@ -87,7 +86,6 @@
         <tr class="{{ $isTot ? 'row-total' : '' }}">
           <td class="wrap">{{ $isTot ? '' : ($r['Targa'] ?? '') }}</td>
           <td class="wrap">{{ $isTot ? '' : ($r['CodiceIdentificativo'] ?? '') }}</td>
-          <td class="wrap">{{ $isTot ? 'TOTALE' : ($r['Automezzo'] ?? '') }}</td>
           <td class="text-end">{{ $num0($r['Totale'] ?? 0) }}</td>
 
           @foreach ($convenzioni as $c)

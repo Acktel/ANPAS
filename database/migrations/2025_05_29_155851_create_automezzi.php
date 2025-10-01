@@ -22,7 +22,6 @@ return new class extends Migration
             $table->foreignId('idAnno')
                   ->constrained('anni', 'idAnno')
                   ->cascadeOnDelete();
-            $table->string('Automezzo', 100);
             $table->string('Targa', 20);
             $table->string('CodiceIdentificativo', 50)->nullable();
             $table->year('AnnoPrimaImmatricolazione')->nullable();
