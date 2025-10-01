@@ -10,7 +10,7 @@
         @csrf
         <div class="form-group">
             <label for="TotaleBilancio">Totale a Bilancio (€)</label>
-            <input type="number" step=1.00" class="form-control" id="TotaleBilancio" name="TotaleBilancio" value="{{ $totale }}" required>
+            <input type="number" step="0.01" class="form-control" id="TotaleBilancio" name="TotaleBilancio" value="{{ $totale }}" required>
         </div>
 <div class="d-flex align-items-center my-3">
     <button type="submit" class="btn btn-anpas-green me-2">
