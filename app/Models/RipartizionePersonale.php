@@ -11,7 +11,7 @@ class RipartizionePersonale
     public static function getAll(int $anno, $user, ?int $idAssociazioneFiltro = null)
     {
         $q = DB::table(self::TABLE . ' as ds')
-            ->join('dipendenti as d', 'ds.idDipendente', '=', 'd.idDipendente')
+            ->join('dipendenti as d', first: 'ds.idDipendente', '=', 'd.idDipendente')
             ->join('associazioni as a', 'd.idAssociazione', '=', 'a.idAssociazione')
             ->select(
                 'ds.idDipendente',

@@ -19,6 +19,8 @@ use Illuminate\Bus\Batchable;
 class GeneraCostiRadioPdfJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels, Batchable;
+    public $tries = 1;        
+    public $timeout = 600;    
 
     public function __construct(
         public int $documentoId,
@@ -61,11 +63,20 @@ class GeneraCostiRadioPdfJob implements ShouldQueue
             ->first();
 
         $totali = [
-            'ManutenzioneApparatiRadio'   => (float)($tot->ManutenzioneApparatiRadio ?? 0),
-            'MontaggioSmontaggioRadio118' => (float)($tot->MontaggioSmontaggioRadio118 ?? 0),
-            'LocazionePonteRadio'         => (float)($tot->LocazionePonteRadio ?? 0),
-            'AmmortamentoImpiantiRadio'   => (float)($tot->AmmortamentoImpiantiRadio ?? 0),
+            'ManutenzioneApparatiRadio'   => (float)($tot?->ManutenzioneApparatiRadio   ?? 0),
+            'MontaggioSmontaggioRadio118' => (float)($tot?->MontaggioSmontaggioRadio118 ?? 0),
+            'LocazionePonteRadio'         => (float)($tot?->LocazionePonteRadio         ?? 0),
+            'AmmortamentoImpiantiRadio'   => (float)($tot?->AmmortamentoImpiantiRadio   ?? 0),
         ];
+
+        // optional: logga se non c’è record
+        if (!$tot) {
+            \Log::warning('costi_radio: nessun record', [
+                'idAssociazione' => $this->idAssociazione,
+                'anno'           => $this->anno,
+            ]);
+        }
+
 
         // righe dettaglio per automezzo: riparto uniforme
         $rows = [];
