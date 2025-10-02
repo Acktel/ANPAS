@@ -117,7 +117,7 @@
 
           <div class="col-md-6">
             <label for="KmRiferimento" class="form-label">Km di Riferimento</label>
-            <input type="number" name="KmRiferimento" id="KmRiferimento" class="form-control" min="0" step=1.00" value="{{ old('KmRiferimento') }}" required>
+            <input type="number" name="KmRiferimento" id="KmRiferimento" class="form-control" min="0" step="0.01" value="{{ old('KmRiferimento') }}" required>
           </div>
         </div>
 
@@ -125,7 +125,7 @@
         <div class="row mb-4">
           {{-- <div class="col-md-6">
             <label for="KmTotali" class="form-label">Km Totali</label>
-            <input type="number" name="KmTotali" id="KmTotali" class="form-control" min="0" step=1.00" value="{{ old('KmTotali') }}" required>
+            <input type="number" name="KmTotali" id="KmTotali" class="form-control" min="0" step="0.01" value="{{ old('KmTotali') }}" required>
           </div> --}}
           <div class="col-md-6">
             <label for="idTipoCarburante" class="form-label">Tipo Carburante</label>

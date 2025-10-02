@@ -1,6 +1,27 @@
 {{-- resources/views/template/costi_personale.blade.php --}}
 @php
   $num2 = fn($v) => number_format((float)$v, 2, ',', '.');
+
+  /**
+   * Normalizza una riga (array o stdClass) garantendo tutte le chiavi richieste.
+   */
+  $safeRow = function ($row) {
+    $r = is_array($row) ? $row : (array) $row;
+    return array_replace([
+      'Dipendente'         => '',
+      'Retribuzioni'       => 0.0,
+      'OneriSocialiInps'   => 0.0,
+      'OneriSocialiInail'  => 0.0,
+      'TFR'                => 0.0,
+      'Consulenze'         => 0.0,
+      'Totale'             => 0.0,
+      'conv'               => [],
+      'is_total'           => false,
+    ], $r);
+  };
+
+  // Normalizza il totale AB per evitare chiavi mancanti
+  $abTot = $safeRow($ab['tot'] ?? []);
 @endphp
 <!doctype html>
 <html lang="it">
@@ -54,15 +75,15 @@
     <table>
       <colgroup>
         <col class="w-name">
-        <col class="w-num"><col class="w-num"><col class="w-num-sm"><col class="w-num"><col class="w-num">
+        <col class="w-num"><col class="w-num"><col class="w-num-sm"><col class="w-num"><col class="w-num"><col class="w-num">
         @foreach($convenzioni as $c) <col> @endforeach
       </colgroup>
       <thead>
         <tr>
           <th rowspan="2">Cognome e Nome</th>
           <th rowspan="2">Retribuzioni</th>
-          <th rowspan="2">Oneri Sociali Inps</th>
-          <th rowspan="2">Oneri Sociali Inail</th>
+          <th rowspan="2">Oneri Sociali INPS</th>
+          <th rowspan="2">Oneri Sociali INAIL</th>
           <th rowspan="2">TFR</th>
           <th rowspan="2">Consulenze</th>
           <th rowspan="2">Totale</th>
@@ -75,7 +96,8 @@
         </tr>
       </thead>
       <tbody>
-        @foreach($ab['rows'] as $r)
+        @foreach($ab['rows'] as $r0)
+          @php($r = $safeRow($r0))
           <tr>
             <td>{{ $r['Dipendente'] }}</td>
             <td class="right">{{ $num2($r['Retribuzioni']) }}</td>
@@ -90,29 +112,29 @@
           </tr>
         @endforeach
         <tr class="total">
-          <td>{{ $ab['tot']['Dipendente'] }}</td>
-          <td class="right">{{ $num2($ab['tot']['Retribuzioni']) }}</td>
-          <td class="right">{{ $num2($ab['tot']['OneriSocialiInps']) }}</td>
-          <td class="right">{{ $num2($ab['tot']['OneriSocialiInail']) }}</td>
-          <td class="right">{{ $num2($ab['tot']['TFR']) }}</td>
-          <td class="right">{{ $num2($ab['tot']['Consulenze']) }}</td>
-          <td class="right">{{ $num2($ab['tot']['Totale']) }}</td>
+          <td>{{ $abTot['Dipendente'] }}</td>
+          <td class="right">{{ $num2($abTot['Retribuzioni']) }}</td>
+          <td class="right">{{ $num2($abTot['OneriSocialiInps']) }}</td>
+          <td class="right">{{ $num2($abTot['OneriSocialiInail']) }}</td>
+          <td class="right">{{ $num2($abTot['TFR']) }}</td>
+          <td class="right">{{ $num2($abTot['Consulenze']) }}</td>
+          <td class="right">{{ $num2($abTot['Totale']) }}</td>
           @foreach($convenzioni as $c)
-            <td class="right">{{ $num2($ab['tot']['conv'][$c->idConvenzione] ?? 0) }}</td>
+            <td class="right">{{ $num2($abTot['conv'][$c->idConvenzione] ?? 0) }}</td>
           @endforeach
         </tr>
       </tbody>
     </table>
   </div>
 
-  {{-- ====================== BLOCCHI SEMPLICI (scorrono, no page-break forzati) ====================== --}}
+  {{-- ====================== BLOCCHI SEMPLICI ====================== --}}
   @foreach($semplici as $blocco)
     <div class="section">
       <h3>{{ $blocco['titolo'] }}</h3>
       <table>
         <colgroup>
           <col class="simp-name">
-          <col class="simp-num"><col class="simp-num"><col class="simp-num-sm"><col class="simp-num"><col class="simp-total">
+          <col class="simp-num"><col class="simp-num"><col class="simp-num-sm"><col class="simp-num"><col class="simp-num"><col class="simp-total">
         </colgroup>
         <thead>
           <tr>
@@ -126,7 +148,8 @@
           </tr>
         </thead>
         <tbody>
-          @foreach($blocco['rows'] as $r)
+          @foreach($blocco['rows'] as $r0)
+            @php($r = $safeRow($r0))
             <tr class="{{ !empty($r['is_total']) ? 'total' : '' }}">
               <td>{{ $r['Dipendente'] }}</td>
               <td class="right">{{ $num2($r['Retribuzioni']) }}</td>

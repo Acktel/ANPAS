@@ -19,11 +19,11 @@
           </div>
           <div class="mb-3">
             <label for="preventivo" class="form-label">Preventivo</label>
-            <input type="number" class="form-control" name="preventivo" step=1.00" required>
+            <input type="number" class="form-control" name="preventivo" step="0.01" required>
           </div>
           <div class="mb-3">
             <label for="consuntivo" class="form-label">Consuntivo</label>
-            <input type="number" class="form-control" name="consuntivo" step=1.00" required>
+            <input type="number" class="form-control" name="consuntivo" step="0.01" required>
           </div>
         </div>
         <div class="modal-footer">

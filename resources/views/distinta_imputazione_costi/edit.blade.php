@@ -29,7 +29,7 @@
             <input type="number"
                    id="preventivo"
                    name="preventivo"
-                   step=1.00"
+                   step="0.01"
                    class="form-control"
                    value="{{ old('preventivo', $voce->preventivo) }}"
                    required>
@@ -39,7 +39,7 @@
             <input type="number"
                    id="consuntivo"
                    name="consuntivo"
-                   step=1.00"
+                   step="0.01"
                    class="form-control"
                    value="{{ old('consuntivo', $voce->consuntivo) }}"
                    required>

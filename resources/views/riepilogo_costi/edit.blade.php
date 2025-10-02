@@ -55,7 +55,7 @@
           <label class="form-label">Preventivo</label>
           <input type="number"
                  name="preventivo"
-                 step="1.00"
+                 step="0.01"
                  min="0"
                  class="form-control @error('preventivo') is-invalid @enderror js-preventivo"
                  value="{{ old('preventivo', $prev) }}"
