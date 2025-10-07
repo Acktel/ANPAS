@@ -171,6 +171,8 @@ $(async function () {
 
   // DataTable
   table.DataTable({
+    stateDuration: -1,
+    stateSave: true, 
     data,
     columns: cols,
     order: [],

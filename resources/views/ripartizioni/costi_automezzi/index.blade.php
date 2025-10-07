@@ -149,6 +149,8 @@
         let totaleRow = null; // variabile per riga totale
 
         $('#table-costi-automezzi').DataTable({
+            stateDuration: -1,
+            stateSave: true,  
             ajax: {
                 url: url,
                 dataSrc: function(res) {

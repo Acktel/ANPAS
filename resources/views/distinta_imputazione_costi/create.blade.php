@@ -1,57 +1,55 @@
-{{-- resources/views/distinta_imputazione_costi/create.blade.php --}}
 @extends('layouts.app')
 
 @php
-  $anno = session('anno_riferimento', now()->year);
-  // priorità: old -> querystring -> session
+  // fallback per sicurezza
+  $anno = $anno ?? (int) session('anno_riferimento', now()->year);
+
   $preselectConvenzione = old('idConvenzione')
       ?? request('idConvenzione')
       ?? session('convenzione_selezionata');
+
+  $sezioniMap = [
+    2 => 'Automezzi',
+    3 => 'Attrezzatura Sanitaria',
+    4 => 'Telecomunicazioni',
+    5 => 'Costi gestione struttura',
+    6 => 'Costo del personale',
+    7 => 'Materiale sanitario di consumo',
+    8 => 'Costi amministrativi',
+    9 => 'Quote di ammortamento',
+    10 => 'Beni Strumentali < 516,00 €',
+    11 => 'Altri costi',
+  ];
+  $sezioneLabel = $sezioniMap[$sezione] ?? "Sezione $sezione";
 @endphp
 
 @section('content')
 <div class="container-fluid">
-  <h1 class="container-title mb-4">Aggiungi Costi Diretti</h1>
 
-  @if ($errors->any())
-    <div class="alert alert-danger">
-      <ul class="mb-0">
-        @foreach ($errors->all() as $err)
-          <li>{{ $err }}</li>
-        @endforeach
-      </ul>
+  {{-- Header pagina --}}
+  <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
+    <h1 class="container-title mb-2 mb-md-0">
+      Costi diretti — {{ $sezioneLabel }}
+    </h1>
+    <div class="d-flex gap-2">
+      <span class="badge rounded-pill text-bg-secondary">
+        Associazione: {{ $associazione }}
+      </span>
+      <span class="badge rounded-pill text-bg-primary">
+        Anno: {{ $anno }}
+      </span>
     </div>
-  @endif
+  </div>
 
-  <div class="card-anpas mb-4">
+  {{-- Card con select convenzione + link bilancio sezione --}}
+  <div class="card-anpas mb-3">
     <div class="card-body bg-anpas-white">
-      <form action="{{ route('distinta.imputazione.store') }}" method="POST" novalidate>
-        @csrf
-
-        <input type="hidden" name="idSezione" value="{{ $sezione }}">
-
-        {{-- Associazione e Anno --}}
-        <div class="row mb-3">
-          <div class="col-md-6">
-            <label class="form-label">Associazione</label>
-            <input type="text" class="form-control" value="{{ $associazione }}" disabled>
-            <input type="hidden" name="idAssociazione" value="{{ $idAssociazione }}">
-          </div>
-          <div class="col-md-6">
-            <label class="form-label">Anno</label>
-            <input type="text" class="form-control" value="{{ $anno }}" disabled>
-            <input type="hidden" name="idAnno" value="{{ $anno }}">
-          </div>
-        </div>
-
-        {{-- Convenzione --}}
-        <div class="mb-3">
+      <div class="row g-3 align-items-end">
+        <div class="col-md-8">
           <label for="idConvenzione" class="form-label">Convenzione</label>
           <select
-            name="idConvenzione"
             id="idConvenzione"
             class="form-select @error('idConvenzione') is-invalid @enderror"
-            required
           >
             <option value="">-- Seleziona --</option>
             @foreach($convenzioni as $conv)
@@ -63,157 +61,149 @@
               </option>
             @endforeach
           </select>
-          @error('idConvenzione')
-            <div class="invalid-feedback">{{ $message }}</div>
-          @enderror
+          @error('idConvenzione') <div class="invalid-feedback">{{ $message }}</div> @enderror
+          <small class="text-muted">La pagina si aggiorna per precompilare i campi della convenzione scelta.</small>
         </div>
 
-        {{-- Voce (da riepilogo_voci_config) --}}
-        <div class="mb-3">
-          <label for="idVoceConfig" class="form-label">Voce</label>
-          <select
-            name="idVoceConfig"
-            id="idVoceConfig"
-            class="form-select @error('idVoceConfig') is-invalid @enderror"
-            required
-          >
-            <option value="">-- Seleziona --</option>
-            @foreach($vociDisponibili as $voce)
-              <option
-                value="{{ $voce->id }}"
-                {{ (string)old('idVoceConfig') === (string)$voce->id ? 'selected' : '' }}
-              >
-                {{ $voce->descrizione }}
-              </option>
-            @endforeach
-          </select>
-          @error('idVoceConfig')
-            <div class="invalid-feedback">{{ $message }}</div>
-          @enderror
-        </div>
-
-        {{-- Importi --}}
-        <div class="row">
-          <div class="col-md-4 mb-3">
-            <label for="costo" class="form-label">Importo Costo Diretto (€)</label>
-            <input
-              type="number"
-              step="0.01"
-              min="0"
-              class="form-control @error('costo') is-invalid @enderror"
-              name="costo"
-              id="costo"
-              value="{{ old('costo') }}"
-              placeholder="0,00"
+        <div class="col-md-4 text-md-end">
+          @if(in_array($sezione, [5,8], true))
+            <a
+              href="{{ route('distinta.imputazione.editBilancio', ['sezione' => $sezione, 'idAssociazione' => $idAssociazione]) }}"
+              class="btn btn-outline-secondary"
+              title="Modifica solo gli importi da bilancio della sezione"
             >
-            @error('costo')
-              <div class="invalid-feedback">{{ $message }}</div>
-            @enderror
-          </div>
-
-          <div class="col-md-4 mb-3">
-            <label for="ammortamento" class="form-label">Ammortamento (€)</label>
-            <input
-              type="number"
-              step="0.01"
-              min="0"
-              class="form-control @error('ammortamento') is-invalid @enderror"
-              name="ammortamento"
-              id="ammortamento"
-              value="{{ old('ammortamento') }}"
-              placeholder="0,00"
-            >
-            @error('ammortamento')
-              <div class="invalid-feedback">{{ $message }}</div>
-            @enderror
-          </div>
-
-
+              <i class="fas fa-pen me-1"></i> Modifica Importi da Bilancio
+            </a>
+          @endif
         </div>
-
-        <div class="text-center">
-          <button type="submit" class="btn btn-anpas-green me-3">
-            <i class="fas fa-check me-1"></i> Salva
-          </button>
-          <a href="{{ route('distinta.imputazione.index') }}" class="btn btn-secondary">Annulla</a>
-        </div>
-      </form>
+      </div>
     </div>
   </div>
+
+  {{-- FORM BULK --}}
+  <form action="{{ route('distinta.imputazione.storeBulk') }}" method="POST" novalidate>
+    @csrf
+    <input type="hidden" name="idSezione" value="{{ $sezione }}">
+    <input type="hidden" name="idAssociazione" value="{{ $idAssociazione }}">
+    <input type="hidden" name="idAnno" value="{{ $anno }}">
+    {{-- IMPORTANTE: passiamo anche la convenzione selezionata al submit --}}
+    <input type="hidden" name="idConvenzione" id="idConvenzioneHidden" value="{{ $preselectConvenzione }}">
+
+    <div class="card-anpas">
+      <div class="card-body bg-anpas-white">
+        <div class="table-responsive">
+          <table class="table table-bordered table-striped-anpas align-middle">
+            <thead class="thead-anpas">
+              <tr>
+                <th style="width:36%">Voce</th>
+                <th class="text-end" style="width:18%">Importo Costo Diretto (€)</th>
+                <th class="text-end" style="width:18%">Sconto (€)</th>
+                <th class="text-end" style="width:14%">Indiretti (solo display)</th>
+              </tr>
+            </thead>
+            <tbody>
+              @php
+                $convSel    = (string) ($preselectConvenzione ?? '');
+                $esist      = $esistenti ?? [];
+                $indMap     = $indirettiByVoceByConv ?? []; // [idVoce][idConv] => € indiretti
+              @endphp
+
+              @foreach($vociDisponibili as $voce)
+                @php
+                  $byVoce = $esist[(int)$voce->id] ?? [];
+                  $pref   = ($convSel !== '' && isset($byVoce[(int)$convSel]))
+                              ? $byVoce[(int)$convSel]
+                              : ['costo'=>null,'ammortamento'=>null];
+
+                  $oldCosto = old("righe.{$voce->id}.costo", $pref['costo']);
+                  $oldAmm   = old("righe.{$voce->id}.ammortamento", $pref['ammortamento']);
+
+                  $indView  = ($convSel !== '')
+                              ? ($indMap[(int)$voce->id][(int)$convSel] ?? null)
+                              : null;
+                @endphp
+                <tr>
+                  <td>{{ $voce->descrizione }}</td>
+
+                  <td>
+                    <input
+                      type="number" step="0.01" min="0"
+                      class="form-control text-end"
+                      name="righe[{{ $voce->id }}][costo]"
+                      value="{{ $oldCosto !== null ? number_format((float)$oldCosto, 2, '.', '') : '' }}"
+                      placeholder="0,00">
+                  </td>
+
+                  <td>
+                    <input
+                      type="number" step="0.01" min="0"
+                      class="form-control text-end"
+                      name="righe[{{ $voce->id }}][ammortamento]"
+                      value="{{ $oldAmm !== null ? number_format((float)$oldAmm, 2, '.', '') : '' }}"
+                      placeholder="0,00">
+                  </td>
+
+                  {{-- Indiretti readonly per la convenzione selezionata --}}
+                  <td>
+                    <input
+                      type="text"
+                      class="form-control text-end disabled"
+                      value="{{ $indView !== null ? number_format((float)$indView, 2, '.', '') : '' }}"
+                      placeholder="{{ $convSel === '' ? 'Seleziona convenzione' : '—' }}"
+                      readonly>
+                  </td>
+                </tr>
+              @endforeach
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    {{-- Barra azioni sticky --}}
+    <div class="savebar shadow-sm">
+      <div class="container-fluid py-2 d-flex justify-content-end gap-2">
+        <a href="{{ route('distinta.imputazione.index', ['idAssociazione' => $idAssociazione]) }}" class="btn btn-secondary">
+          Annulla
+        </a>
+        <button type="submit" class="btn btn-anpas-green">
+          <i class="fas fa-check me-1"></i> Salva tutto
+        </button>
+      </div>
+    </div>
+  </form>
+
 </div>
 @endsection
 
+@push('styles')
+<style>
+  .savebar {
+    position: sticky;
+    bottom: 0;
+    background: #fff;
+    border-top: 1px solid rgba(0,0,0,.1);
+    z-index: 1020;
+  }
+  .thead-anpas th { vertical-align: middle; }
+</style>
+@endpush
+
 @push('scripts')
 <script>
-  // --- Dati dal controller ---
-  // bilanci: { "idVoceConfig": number }
-  // esistenti: { "idVoceConfig": { "idConvenzione": { costo: number, ammortamento: number } } }
-  const bilanciRaw   = @json($bilancioPerVoce ?? []);
-  const esistentiRaw = @json($esistenti ?? (object)[]);
-  
-console.log(bilanciRaw, esistentiRaw);
-  // Normalizzo chiavi a stringa
-  const toStringKeys = (obj) => {
-    const out = {};
-    Object.keys(obj || {}).forEach(k => {
-      const v = obj[k];
-      if (v && typeof v === 'object' && !Array.isArray(v)) {
-        out[String(k)] = toStringKeys(v); // ricorsivo
-      } else {
-        out[String(k)] = v;
-      }
-    });
-    return out;
-  };
+  // Cambio convenzione => ricarico con ?idConvenzione=... e mantengo idAssociazione
+  const sel = document.getElementById('idConvenzione');
+  const hidden = document.getElementById('idConvenzioneHidden');
 
-  const bilanci   = toStringKeys(bilanciRaw);
-  const esistenti = toStringKeys(esistentiRaw);
+  // sync iniziale (in caso di autocompilazioni strane)
+  if (sel && hidden && !hidden.value) hidden.value = sel.value || '';
 
-  // --- Helpers DOM ---
-  const $voce = document.getElementById('idVoceConfig');
-  const $conv = document.getElementById('idConvenzione');
-
-  function setMoney(el, val) {
-    if (!el) return;
-    const n = Number(val);
-    el.value = Number.isFinite(n) ? n.toFixed(2) : '';
-  }
-
-  function getNested(o, k1, k2) {
-    const a = o && Object.prototype.hasOwnProperty.call(o, String(k1)) ? o[String(k1)] : undefined;
-    if (!a) return undefined;
-    return a[String(k2)];
-  }
-
-  function applySuggerimenti() {
-    const voceId = ($voce && $voce.value) ? String($voce.value) : '';
-    const convId = ($conv && $conv.value) ? String($conv.value) : '';
-
-    // 1) Bilancio “calcolato” per voce (solo display)
-    const bil = Object.prototype.hasOwnProperty.call(bilanci, voceId) ? bilanci[voceId] : '';
-    setMoney(document.getElementById('bilancio_consuntivo_view'), bil);
-
-    // 2) Prefill costo/ammortamento se esiste già una riga salvata per (voce, convenzione)
-    const riga = voceId && convId ? getNested(esistenti, voceId, convId) : undefined;
-
-    if (riga) {
-      setMoney(document.getElementById('costo'),        riga.costo);
-      setMoney(document.getElementById('ammortamento'), riga.ammortamento);
-    } else {
-      setMoney(document.getElementById('costo'),        '');
-      setMoney(document.getElementById('ammortamento'), '');
-    }
-  }
-
-  // Aggiorna quando cambia o si digita (per UI che “prefillano” da tastiera)
-  ['change','input'].forEach(ev => {
-    $voce && $voce.addEventListener(ev, applySuggerimenti);
-    $conv && $conv.addEventListener(ev, applySuggerimenti);
+  sel?.addEventListener('change', function(){
+    hidden.value = this.value || '';
+    const url = new URL(window.location.href);
+    url.searchParams.set('idConvenzione', this.value || '');
+    url.searchParams.set('idAssociazione', '{{ (int)$idAssociazione }}');
+    window.location = url.toString();
   });
-
-  // Al load (copre il caso con convenzione/voce già selezionate)
-  document.addEventListener('DOMContentLoaded', applySuggerimenti);
-  // Esegui anche subito nel caso la sezione scripts venga resa dopo il DOM
-  applySuggerimenti();
 </script>
 @endpush

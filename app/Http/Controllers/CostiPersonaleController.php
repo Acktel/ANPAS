@@ -33,11 +33,12 @@ class CostiPersonaleController extends Controller {
         $anno = session('anno_riferimento', now()->year);
         $user = Auth::user();
 
+        // filtro per qualifica (id o testo legacy)
         $idQualifica = request()->query('idQualifica');
         $idQualifica = is_numeric($idQualifica) ? (int)$idQualifica : null;
-
         $qualificaTesto = $idQualifica ? '' : strtolower(trim((string) request()->query('qualifica', '')));
 
+        // associazione corrente
         $selectedAssoc = session('associazione_selezionata');
         $idAssociazione = $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])
             ? $selectedAssoc
@@ -47,20 +48,20 @@ class CostiPersonaleController extends Controller {
             return response()->json(['data' => [], 'labels' => []]);
         }
 
-        // Dipendenti dell'associazione/anno
+        // dipendenti di associazione/anno
         $dipendenti = Dipendente::getByAssociazione($idAssociazione, $anno);
 
-        // Pivot: dipendente -> [idQualifica...]
+        // pivot qualifiche: idDip => [idQualifica...]
         $qualifichePivot = DB::table('dipendenti_qualifiche')
             ->select('idDipendente', 'idQualifica')
             ->get()
             ->groupBy('idDipendente')
             ->map(fn($rows) => $rows->pluck('idQualifica')->map(fn($v) => (int)$v)->toArray());
 
-        // Mappa id->nome
+        // id -> nome qualifica
         $nomiQualifiche = DB::table('qualifiche')->pluck('nome', 'id');
 
-        // Filtro testuale (legacy)
+        // filtro testuale (legacy)
         if (!$idQualifica && $qualificaTesto !== '') {
             $matching = DB::table('qualifiche')
                 ->whereRaw('LOWER(nome) LIKE ?', ['%' . $qualificaTesto . '%'])
@@ -79,7 +80,7 @@ class CostiPersonaleController extends Controller {
             }
         }
 
-        // Filtro per idQualifica
+        // filtro per idQualifica
         if ($idQualifica) {
             $dipendenti = $dipendenti->filter(function ($d) use ($qualifichePivot, $idQualifica) {
                 $ids = $qualifichePivot[$d->idDipendente] ?? [];
@@ -87,18 +88,18 @@ class CostiPersonaleController extends Controller {
             });
         }
 
-        // Costi per anno
+        // costi anno
         $costi = CostiPersonale::getAllByAnno($anno)->keyBy('idDipendente');
 
-        // Percentuali per qualifica selezionata (idDipendente => %)
+        // percentuali per qualifica selezionata (idDip => %)
         $percSelezionata = $idQualifica
             ? CostiMansioni::getPercentualiByQualifica($idQualifica, $anno)
             : [];
 
-        // Ripartizioni ore per convenzioni
+        // ripartizioni ore per convenzioni
         $ripartizioni = RipartizionePersonale::getAll($anno, $user)->groupBy('idDipendente');
 
-        // Convenzioni per colonne dinamiche
+        // convenzioni colonne dinamiche
         $convenzioni = Convenzione::getByAssociazioneAnno($idAssociazione, $anno)
             ->sortBy('idConvenzione')
             ->values();
@@ -109,21 +110,30 @@ class CostiPersonaleController extends Controller {
             ->toArray();
 
         $rows = [];
-        $totali = ['Retribuzioni' => 0, 'OneriSocialiInps' => 0, 'OneriSocialiInail' => 0, 'TFR' => 0, 'Consulenze' => 0, 'Totale' => 0];
-        $totPerConv = [];
+        $totali = [
+            'Retribuzioni' => 0.0,
+            'OneriSocialiInps' => 0.0,
+            'OneriSocialiInail' => 0.0,
+            'TFR' => 0.0,
+            'Consulenze' => 0.0,
+            'Totale' => 0.0,
+        ];
+        // Totali per convenzione in CENTESIMI
+        $totPerConvCents = [];
 
         foreach ($dipendenti as $d) {
             $id = $d->idDipendente;
-           $cn = $this->normalizeCostRow($costi->get($id) ?? null);
 
-            $retribuzioni      = $cn['Retribuzioni'] + $cn['costo_diretto_Retribuzioni'];
-            $OneriSocialiInps  = $cn['OneriSocialiInps'] + $cn['costo_diretto_OneriSocialiInps'];
-            $OneriSocialiInail = $cn['OneriSocialiInail'] + $cn['costo_diretto_OneriSocialiInail'];
-            $tfr               = $cn['TFR'] + $cn['costo_diretto_TFR'];
-            $consulenze        = $cn['Consulenze'] + $cn['costo_diretto_Consulenze'];
+            // normalizza record costi (supporto schema vecchio/nuovo)
+            $cn = $this->normalizeCostRow($costi->get($id) ?? null);
 
+            $retribuzioni      = (float)$cn['Retribuzioni']        + (float)$cn['costo_diretto_Retribuzioni'];
+            $OneriSocialiInps  = (float)$cn['OneriSocialiInps']    + (float)$cn['costo_diretto_OneriSocialiInps'];
+            $OneriSocialiInail = (float)$cn['OneriSocialiInail']   + (float)$cn['costo_diretto_OneriSocialiInail'];
+            $tfr               = (float)$cn['TFR']                 + (float)$cn['costo_diretto_TFR'];
+            $consulenze        = (float)$cn['Consulenze']          + (float)$cn['costo_diretto_Consulenze'];
 
-            // --- coefficiente mansione (se filtro specifico) ---
+            // coefficiente mansione se filtro qualifica e dip ha più qualifiche
             $coeff = 1.0;
             if ($idQualifica) {
                 $idsQ = $qualifichePivot[$id] ?? [];
@@ -134,56 +144,117 @@ class CostiPersonaleController extends Controller {
             }
 
             if ($idQualifica) {
-                $retribuzioni     *= $coeff;
-                $OneriSocialiInps *= $coeff;
+                $retribuzioni      *= $coeff;
+                $OneriSocialiInps  *= $coeff;
                 $OneriSocialiInail *= $coeff;
-                $tfr              *= $coeff;
-                $consulenze       *= $coeff;
+                $tfr               *= $coeff;
+                $consulenze        *= $coeff;
             }
 
-            $totale = $retribuzioni + $OneriSocialiInps + $OneriSocialiInail + $tfr + $consulenze;
+            $totale_raw = $retribuzioni + $OneriSocialiInps + $OneriSocialiInail + $tfr + $consulenze;
+            $totale_cents = (int) round($totale_raw * 100, 0, PHP_ROUND_HALF_UP);
 
             // nomi qualifica per riga
             $idsQ = $qualifichePivot[$id] ?? [];
             $nomiQ = collect($idsQ)->map(fn($iq) => $nomiQualifiche[$iq] ?? null)->filter()->values()->implode(', ');
 
             $r = [
-                'idDipendente'    => $id,
-                'Dipendente'      => trim("{$d->DipendenteCognome} {$d->DipendenteNome}"),
-                'Qualifica'       => $nomiQ,
-                'Contratto'       => $d->ContrattoApplicato ?? '',
-                'Retribuzioni'    => round($retribuzioni, 2),
-                'OneriSocialiInps' => round($OneriSocialiInps, 2),
+                'idDipendente'      => $id,
+                'Dipendente'        => trim("{$d->DipendenteCognome} {$d->DipendenteNome}"),
+                'Qualifica'         => $nomiQ,
+                'Contratto'         => $d->ContrattoApplicato ?? '',
+                'Retribuzioni'      => round($retribuzioni, 2),
+                'OneriSocialiInps'  => round($OneriSocialiInps, 2),
                 'OneriSocialiInail' => round($OneriSocialiInail, 2),
-                'TFR'             => round($tfr, 2),
-                'Consulenze'      => round($consulenze, 2),
-                'Totale'          => round($totale, 2),
-                'is_totale'       => false,
+                'TFR'               => round($tfr, 2),
+                'Consulenze'        => round($consulenze, 2),
+                'Totale'            => round($totale_raw, 2),
+                'is_totale'         => false,
             ];
 
-            // accumula totali
+            // accumula totali di colonna (in euro, arrotondati a 2 come mostrati)
             foreach ($totali as $k => $_) {
                 $totali[$k] += $r[$k];
             }
 
-            // ripartizione per convenzione
-            $rip = $ripartizioni->get($id) ?? collect();
+            // ===== Ripartizione per convenzione: calcolo in CENTESIMI con ridistribuzione residui =====
+            $rip   = $ripartizioni->get($id) ?? collect();
             $oreTot = $rip->sum('OreServizio');
 
+            // shares: idConv => ore ; percShow solo display
+            $shares = [];
+            $percShow = [];
+            if ($oreTot > 0) {
+                foreach ($convenzioni as $conv) {
+                    $entry = $rip->firstWhere('idConvenzione', $conv->idConvenzione);
+                    $ore = $entry ? (float)$entry->OreServizio : 0.0;
+                    $shares[$conv->idConvenzione] = $ore;
+                    $percShow[$conv->idConvenzione] = $ore > 0 ? round($ore / $oreTot * 100, 2) : 0.0; // SOLO display
+                }
+            } else {
+                foreach ($convenzioni as $conv) {
+                    $shares[$conv->idConvenzione] = 0.0;
+                    $percShow[$conv->idConvenzione] = 0.0;
+                }
+            }
+
+            // quote provvisorie in centesimi + remainders
+            $provCents = [];
+            $remainders = [];
+            $sumProv = 0;
+
+            if ($totale_cents > 0 && $oreTot > 0) {
+                foreach ($shares as $idConv => $ore) {
+                    $quota = ($totale_cents * $ore) / $oreTot; // reale in centesimi
+                    $prov  = (int) floor($quota);
+                    $provCents[$idConv] = $prov;
+                    $remainders[$idConv] = $quota - $prov;
+                    $sumProv += $prov;
+                }
+
+                // residui da distribuire
+                $diff = $totale_cents - $sumProv;
+                if ($diff > 0) {
+                    uasort($remainders, function ($a, $b) {
+                        if ($a == $b) return 0;
+                        return ($a > $b) ? -1 : 1;
+                    });
+                    foreach (array_keys($remainders) as $idConv) {
+                        if ($diff <= 0) break;
+                        $provCents[$idConv] += 1;
+                        $diff--;
+                    }
+                }
+            } else {
+                foreach ($shares as $idConv => $_) {
+                    $provCents[$idConv] = 0;
+                }
+            }
+
+            // scrivi percentuali e importi finali (e accumula totali convenzione in CENTESIMI)
             foreach ($convenzioni as $conv) {
                 $convKey = "C{$conv->idConvenzione}";
-                $entry = $rip->firstWhere('idConvenzione', $conv->idConvenzione);
-                $percent = ($oreTot > 0 && $entry) ? round($entry->OreServizio / $oreTot * 100, 2) : 0;
-                $importo = round(($percent / 100) * $totale, 2);
+                $percent = $percShow[$conv->idConvenzione] ?? 0.0;
+                $importoCents = $provCents[$conv->idConvenzione] ?? 0;
 
                 $r["{$convKey}_percent"] = $percent;
-                $r["{$convKey}_importo"] = $importo;
+                $r["{$convKey}_importo"] = round($importoCents / 100, 2);
 
-                $totPerConv["{$convKey}_importo"] = ($totPerConv["{$convKey}_importo"] ?? 0) + $importo;
-                $totPerConv["{$convKey}_percent"] = 0; // non si somma in % sul totale (placeholder)
+                $totPerConvCents["{$convKey}_importo"] = ($totPerConvCents["{$convKey}_importo"] ?? 0) + $importoCents;
+                $totPerConvCents["{$convKey}_percent"] = 0; // placeholder
             }
 
             $rows[] = $r;
+        }
+
+        // converti i totali per convenzione da CENTESIMI a €
+        $totPerConvEuro = [];
+        foreach ($totPerConvCents as $k => $v) {
+            if (str_ends_with($k, '_importo')) {
+                $totPerConvEuro[$k] = round(((int)$v) / 100, 2);
+            } else {
+                $totPerConvEuro[$k] = $v;
+            }
         }
 
         // riga totale
@@ -193,14 +264,13 @@ class CostiPersonaleController extends Controller {
             'Qualifica'    => '',
             'Contratto'    => '',
             'is_totale'    => true,
-        ], array_map(fn($v) => round($v, 2), $totali), $totPerConv);
+        ], array_map(fn($v) => round($v, 2), $totali), $totPerConvEuro);
 
         return response()->json([
             'data'   => $rows,
             'labels' => $labels,
         ]);
     }
-
 
     public function salva(Request $request) {
         $data = $request->validate([

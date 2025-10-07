@@ -66,7 +66,7 @@
         <div class="col-md-4">
           <label class="form-label">Consuntivo</label>
           <input type="text"
-                 class="form-control js-consuntivo"
+                 class="form-control js-consuntivo disabled"
                  value="{{ number_format($cons, 2, ',', '.') }}"
                  readonly>
           {{-- opzionale: se vuoi inviarlo comunque al controller, aggiungi un hidden numerico --}}

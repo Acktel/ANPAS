@@ -81,7 +81,8 @@
             let storedTotaleRow = null;
 
         $('#ossigenoTable').DataTable({
-            // 
+            stateDuration: -1,
+            stateSave: true, 
             ajax: {
     url: '{{ route("imputazioni.ossigeno.getData") }}',
 dataSrc: function(res) {

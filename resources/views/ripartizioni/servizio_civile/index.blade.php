@@ -140,6 +140,8 @@ async function loadTableDataServizioCivile() {
 
 
   table.DataTable({
+    stateDuration: -1,
+    stateSave: true, 
     data,
     columns: cols,
     paging: false,

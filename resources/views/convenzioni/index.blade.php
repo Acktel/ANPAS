@@ -140,7 +140,9 @@
     if ($('#convenzioniTable tbody tr').length > 0 &&
       $('#convenzioniTable tbody tr td').length >= 6) {
       $('#convenzioniTable').DataTable({
-        paging: false,
+        paging: true,
+        stateDuration: -1,
+        stateSave: true,  
         info: false,
         className: 'col-actions text-center',
         language: {

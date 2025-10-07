@@ -138,6 +138,8 @@ if (Route::is('dipendenti.byQualifica') && isset($qualificaId)) {
     $('#dipendentiTable').DataTable({
       processing: true,
       serverSide: false,
+      stateDuration: -1,
+      stateSave: true,  
       ajax: {
         url: ajaxUrl,
         dataSrc(json) {

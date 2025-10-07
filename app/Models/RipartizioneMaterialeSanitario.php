@@ -25,6 +25,7 @@ class RipartizioneMaterialeSanitario {
 
         $automezzi = $automezziQuery
             ->select('idAutomezzo', 'Targa', 'CodiceIdentificativo', 'incluso_riparto')
+            ->where('incluso_riparto',1)
             ->get()
             ->keyBy('idAutomezzo');
 

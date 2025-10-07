@@ -90,6 +90,8 @@
         let totaleRow = null; // Dichiariamo fuori
 
         $('#costiRadioTable').DataTable({
+            stateDuration: -1,
+            stateSave: true,  
             ajax: {
                 url: '{{ route("ripartizioni.costi_radio.getData") }}',
                 dataSrc: function(res) {

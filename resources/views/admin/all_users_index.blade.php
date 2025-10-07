@@ -82,6 +82,8 @@ document.addEventListener('DOMContentLoaded', function() {
   const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
 
   const table = $('#allUsersTable').DataTable({
+    stateDuration: -1,
+    stateSave: true,  
     ajax: {
       url: "{{ route('all-users.data') }}",
       data: function(d) {

@@ -5,33 +5,48 @@ namespace App\Services;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Collection;
 use App\Models\CostoMaterialeSanitario;
+use App\Models\CostoOssigeno;
 use App\Models\RipartizioneMaterialeSanitario;
+use App\Models\RipartizioneOssigeno;
+use App\Models\Convenzione;
 use App\Models\Automezzo;
 use App\Models\RipartizioneServizioCivile;
 use App\Models\AutomezzoKmRiferimento;
 
+
 class RipartizioneCostiService {
     /* ========================= MATERIALE SANITARIO / AUTOMEZZI / RADIO ========================= */
-
     public static function getMaterialiSanitariConsumo(int $idAssociazione, int $idAnno, int $idAutomezzo): float {
         $totaleBilancio = CostoMaterialeSanitario::getTotale($idAssociazione, $idAnno);
+        if ($totaleBilancio <= 0) return 0.0;
 
-        $automezzi = Automezzo::getByAssociazione($idAssociazione, $idAnno);
-        $dati      = RipartizioneMaterialeSanitario::getRipartizione($idAssociazione, $idAnno);
+        $dati = RipartizioneMaterialeSanitario::getRipartizione($idAssociazione, $idAnno);
 
-        $totaleInclusi    = $dati['totale_inclusi'] ?? 0;
-        $serviziAutomezzo = 0;
+        // stesso “-1” usato nella pagina di imputazione (se presente la convenzione tecnica)
+        $applyMinusOne = method_exists(Convenzione::class, 'checkMaterialeSanitario')
+            ? (Convenzione::checkMaterialeSanitario($idAssociazione, $idAnno) === true)
+            : false;
+
+        $totaleInclusiAdj    = 0.0;
+        $serviziAutomezzoAdj = 0.0;
 
         foreach ($dati['righe'] as $riga) {
-            if (($riga['idAutomezzo'] ?? null) == $idAutomezzo && !empty($riga['incluso_riparto'])) {
-                $serviziAutomezzo = (float) ($riga['totale'] ?? 0);
-                break;
+            if (!empty($riga['is_totale'])) continue;
+            if (empty($riga['incluso_riparto'])) continue;
+
+            $n = (float)($riga['totale'] ?? 0);
+            if ($applyMinusOne) $n = max(0.0, $n - 1.0);
+
+            $totaleInclusiAdj += $n;
+            if ((int)($riga['idAutomezzo'] ?? 0) === $idAutomezzo) {
+                $serviziAutomezzoAdj = $n;
             }
         }
 
-        if ($totaleInclusi <= 0 || $serviziAutomezzo <= 0) return 0.0;
-        return round(($serviziAutomezzo / $totaleInclusi) * $totaleBilancio, 2);
+        if ($totaleInclusiAdj <= 0 || $serviziAutomezzoAdj <= 0) return 0.0;
+        return round(($serviziAutomezzoAdj / $totaleInclusiAdj) * $totaleBilancio, 2);
     }
+
 
     public static function calcolaRipartizione(int $idAssociazione, int $anno, float $totaleBilancio, ?int $idAutomezzo = null): array {
         $automezzi = DB::table('automezzi')
@@ -159,8 +174,8 @@ class RipartizioneCostiService {
     }
 
     public static function calcolaRipartizioneTabellaFinale(int $idAssociazione, int $anno, int $idAutomezzo): array {
-        // Voci ripartite sui KM dell’automezzo
-        $voci = [
+        // Voci ripartite per KM (Materiali e Ossigeno gestite a parte)
+        $vociKm = [
             'LEASING/NOLEGGIO A LUNGO TERMINE'                          => 'LeasingNoleggio',
             'ASSICURAZIONI'                                             => 'Assicurazione',
             'MANUTENZIONE ORDINARIA'                                    => 'ManutenzioneOrdinaria',
@@ -175,11 +190,9 @@ class RipartizioneCostiService {
             'AMMORTAMENTO AUTOMEZZI'                                    => 'AmmortamentoMezzi',
             'AMMORTAMENTO ATTREZZATURA SANITARIA'                       => 'AmmortamentoSanitaria',
             'ALTRI COSTI MEZZI'                                         => 'AltriCostiMezzi',
-            'MATERIALI SANITARI DI CONSUMO'                             => 'MaterialiSanitariConsumo',
-            'OSSIGENO'                                                  => 'Ossigeno',
         ];
 
-        // Convenzioni dell’anno per l’associazione (ordine stabile)
+        // Convenzioni (ordine stabile)
         $convenzioni = DB::table('convenzioni')
             ->where('idAssociazione', $idAssociazione)
             ->where('idAnno', $anno)
@@ -194,16 +207,23 @@ class RipartizioneCostiService {
 
         $tabella = [];
 
-        // ---------- Sezione MEZZI: ripartizione per KM ----------
-        // Prelevo una sola volta i KM per convenzione dell’automezzo
+        // ---------- PRE-CALCOLI PER L'AUTOMEZZO ----------
+        // KM per convenzione
         $kmPerConv = DB::table('automezzi_km')
             ->where('idAutomezzo', $idAutomezzo)
             ->pluck('KMPercorsi', 'idConvenzione')
             ->toArray();
-
         $totaleKM = array_sum(array_map('floatval', $kmPerConv));
 
-        foreach ($voci as $voceLabel => $colDB) {
+        // SERVIZI per convenzione
+        $serviziPerConv = DB::table('automezzi_servizi')
+            ->where('idAutomezzo', $idAutomezzo)
+            ->pluck('NumeroServizi', 'idConvenzione')
+            ->toArray();
+        $totaleServizi = array_sum(array_map('floatval', $serviziPerConv));
+
+        // ---------- SEZIONE MEZZI (KM) ----------
+        foreach ($vociKm as $voceLabel => $colDB) {
             $valore = (float) (DB::table('costi_automezzi')
                 ->where('idAutomezzo', $idAutomezzo)
                 ->where('idAnno', $anno)
@@ -211,19 +231,65 @@ class RipartizioneCostiService {
 
             $riga = ['voce' => $voceLabel, 'totale' => round($valore, 2)];
 
+            $somma = 0.0;
+            $lastNome = null;
             foreach ($convenzioni as $idConv => $nomeConv) {
                 $km = (float) ($kmPerConv[$idConv] ?? 0);
-                $importo = ($totaleKM > 0)
-                    ? round(($km / $totaleKM) * $valore, 2)
-                    : 0.0;
-
+                $importo = ($totaleKM > 0) ? round(($km / $totaleKM) * $valore, 2) : 0.0;
                 $riga[$nomeConv] = $importo;
+                $somma += $importo;
+                $lastNome = $nomeConv;
+            }
+            // riallineo centesimi
+            $delta = round($riga['totale'] - $somma, 2);
+            if (abs($delta) >= 0.01 && $lastNome !== null) {
+                $riga[$lastNome] += $delta;
             }
 
             $tabella[] = $riga;
         }
 
-        // ---------- Sezione RADIO: ripartizione per N. SERVIZI ----------
+        // ---------- MATERIALI SANITARI DI CONSUMO (SERVIZI) ----------
+        $valoreMSC = self::getMaterialiSanitariConsumo($idAssociazione, $anno, $idAutomezzo);
+
+        $riga = ['voce' => 'MATERIALI SANITARI DI CONSUMO', 'totale' => round($valoreMSC, 2)];
+        $somma = 0.0;
+        $lastNome = null;
+
+        foreach ($convenzioni as $idConv => $nomeConv) {
+            $n = (float) ($serviziPerConv[$idConv] ?? 0);
+            $importo = ($totaleServizi > 0) ? round(($n / $totaleServizi) * $valoreMSC, 2) : 0.0;
+            $riga[$nomeConv] = $importo;
+            $somma += $importo;
+            $lastNome = $nomeConv;
+        }
+        $delta = round($riga['totale'] - $somma, 2);
+        if (abs($delta) >= 0.01 && $lastNome !== null) {
+            $riga[$lastNome] += $delta;
+        }
+        $tabella[] = $riga;
+
+        // ---------- OSSIGENO (SERVIZI) ----------
+        $valoreOss = self::getOssigenoConsumo($idAssociazione, $anno, $idAutomezzo);
+
+        $riga = ['voce' => 'OSSIGENO', 'totale' => round($valoreOss, 2)];
+        $somma = 0.0;
+        $lastNome = null;
+
+        foreach ($convenzioni as $idConv => $nomeConv) {
+            $n = (float) ($serviziPerConv[$idConv] ?? 0);
+            $importo = ($totaleServizi > 0) ? round(($n / $totaleServizi) * $valoreOss, 2) : 0.0;
+            $riga[$nomeConv] = $importo;
+            $somma += $importo;
+            $lastNome = $nomeConv;
+        }
+        $delta = round($riga['totale'] - $somma, 2);
+        if (abs($delta) >= 0.01 && $lastNome !== null) {
+            $riga[$lastNome] += $delta;
+        }
+        $tabella[] = $riga;
+
+        // ---------- SEZIONE RADIO (RIPARTIZIONE PER % KM DELL'AUTOMEZZO) ----------
         $costiRadio = DB::table('costi_radio')
             ->where('idAssociazione', $idAssociazione)
             ->where('idAnno', $anno)
@@ -237,31 +303,32 @@ class RipartizioneCostiService {
                 'AMMORTAMENTO IMPIANTI RADIO'    => 'AmmortamentoImpiantiRadio',
             ];
 
-            // Numero servizi dell’automezzo per convenzione
-            $serviziPerConv = DB::table('automezzi_servizi')
-                ->where('idAutomezzo', $idAutomezzo)
-                ->pluck('NumeroServizi', 'idConvenzione')
-                ->toArray();
-
-            $totaleServizi = array_sum(array_map('floatval', $serviziPerConv));
-        
             $automezzi = Automezzo::getByAssociazione($idAssociazione, $anno);
             $numAutomezzi = max(count($automezzi), 1);
-        
-            $kmRiferimento = AutomezzoKmRiferimento::getForAutomezzoAnno($idAutomezzo, $anno);
-       
-            foreach ($vociRadio as $voceLabel => $campoDB) {
-                $valore = (float) (($costiRadio->$campoDB/ $numAutomezzi)*$kmRiferimento ?? 0);
-              
-                $riga   = ['voce' => $voceLabel, 'totale' => round($valore, 2)];
-            
-                foreach ($convenzioni as $idConv => $nomeConv) {
-                    $servizi = (float) ($serviziPerConv[$idConv] ?? 0);
-                    $importo = ($totaleServizi > 0)
-                        ? round(($servizi / $totaleServizi) * $valore, 2)
-                        : 0.0;
 
+            foreach ($vociRadio as $voceLabel => $campoDB) {
+                $importoBase = (float) ($costiRadio->$campoDB ?? 0);
+
+                // Importo “per automezzo”, poi ripartito tra le sue convenzioni
+                $importoPerAutomezzo = ($numAutomezzi > 0) ? ($importoBase / $numAutomezzi) : 0.0;
+
+                $riga   = ['voce' => $voceLabel, 'totale' => round($importoPerAutomezzo, 2)];
+                $somma  = 0.0;
+                $lastNome = null;
+
+                foreach ($convenzioni as $idConv => $nomeConv) {
+                    $km = (float) ($kmPerConv[$idConv] ?? 0.0);
+                    $quota = ($totaleKM > 0) ? ($km / $totaleKM) : 0.0;     // % km dell’automezzo per quella convenzione
+                    $importo = round($importoPerAutomezzo * $quota, 2);
                     $riga[$nomeConv] = $importo;
+                    $somma += $importo;
+                    $lastNome = $nomeConv;
+                }
+
+                // Riallineo centesimi sulla somma per farla combaciare con il “totale” per automezzo
+                $delta = round(round($importoPerAutomezzo, 2) - $somma, 2);
+                if (abs($delta) >= 0.01 && $lastNome !== null) {
+                    $riga[$lastNome] += $delta;
                 }
 
                 $tabella[] = $riga;
@@ -464,6 +531,8 @@ class RipartizioneCostiService {
             $dirTotByVoce[$v] = ($dirTotByVoce[$v] ?? 0) + $dir;
             $ammTotByVoce[$v] = ($ammTotByVoce[$v] ?? 0) + $amm;
             $netTotByVoce[$v] = ($netTotByVoce[$v] ?? 0) + ($dir - $amm);
+
+            $bilByVoce[$v] = ($bilByVoce[$v] ?? 0) + (float) $r->sum_bilancio;
         }
 
         $cdNo = DB::table('costi_diretti')
@@ -509,7 +578,6 @@ class RipartizioneCostiService {
     }
 
     /* ========================= DISTINTA IMPUTAZIONE COSTI ========================= */
-
     public static function distintaImputazioneData(int $idAssociazione, int $anno): array {
         $convenzioni = self::convenzioni($idAssociazione, $anno);
         if (empty($convenzioni)) return ['data' => [], 'convenzioni' => []];
@@ -518,11 +586,21 @@ class RipartizioneCostiService {
         $convNomi = array_values($convenzioni);
 
         $quoteRicavi   = self::quoteRicaviByConvenzione($idAssociazione, $anno, $convIds);
-        [$abPerConv, $abTotale] = self::importiAutistiBarellieriByConvenzione($idAssociazione, $anno, $convIds);
+        $persPerQualByConv = self::importiPersonalePerQualificaByConvenzione($idAssociazione, $anno, $convIds);
+        // estraggo gli array per comodità (se mancanti, array vuoti)
+        $per6001 = $persPerQualByConv[6001] ?? [];
+        $per6002 = $persPerQualByConv[6002] ?? [];
+        $per6003 = $persPerQualByConv[6003] ?? [];
+        $per6004 = $persPerQualByConv[6004] ?? [];
+        $per6005 = $persPerQualByConv[6005] ?? [];
+        $per6006 = $persPerQualByConv[6006] ?? [];
 
-        // % servizi svolti (6002..6006)
-        $percServizi  = self::percentualiServiziByConvenzione($idAssociazione, $anno, $convIds);
-        $IDS_SERVIZI  = [6002, 6003, 6004, 6005, 6006];
+        $tot6001 = array_sum($per6001);
+        $tot6002 = array_sum($per6002);
+        $tot6003 = array_sum($per6003);
+        $tot6004 = array_sum($per6004);
+        $tot6005 = array_sum($per6005);
+        $tot6006 = array_sum($per6006);
 
         // % Servizio Civile (6009)
         $percServCivile = self::percentualiServizioCivileByConvenzione($idAssociazione, $anno, $convIds);
@@ -629,12 +707,18 @@ class RipartizioneCostiService {
                 $net        = (float) ($netByVoceByConv[$idV][$idC] ?? ($dirLordo - $amm));
                 $ind        = 0.0;
 
-                if ($idV === $VOCE_AB_ID) {
-                    // 6001: importi assoluti
-                    $ind = (float) ($abPerConv[$idC] ?? 0.0);
-                } elseif (in_array($idV, $IDS_SERVIZI, true)) {
-                    // 6002..6006: % servizi svolti
-                    $ind = round($baseIndiretti * (float) ($percServizi[$idC] ?? 0.0), 2);
+                if ($idV === 6001) {           // autisti & barellieri
+                    $ind = (float) ($per6001[$idC] ?? 0.0);
+                } elseif ($idV === 6002) {     // coordinatori tecnici
+                    $ind = (float) ($per6002[$idC] ?? 0.0);
+                } elseif ($idV === 6003) {     // addetto pulizia
+                    $ind = (float) ($per6003[$idC] ?? 0.0);
+                } elseif ($idV === 6004) {     // addetto logistica
+                    $ind = (float) ($per6004[$idC] ?? 0.0);
+                } elseif ($idV === 6005) {     // personale amministrativo
+                    $ind = (float) ($per6005[$idC] ?? 0.0);
+                } elseif ($idV === 6006) {     // coordinatori amministrativi
+                    $ind = (float) ($per6006[$idC] ?? 0.0);
                 } elseif ($idV === $VOCE_SCIV_ID) {
                     // 6009: % Servizio Civile
                     $ind = round($baseIndiretti * (float) ($percServCivile[$idC] ?? 0.0), 2);
@@ -675,30 +759,55 @@ class RipartizioneCostiService {
 
             // riallineo centesimi sugli indiretti
             $delta = 0.0;
-            if ($idV === $VOCE_AB_ID) {
-                $delta = round($abTotale - $sommaInd, 2);
-            } elseif (
-                in_array($idV, $IDS_SERVIZI, true) || $idV === $VOCE_SCIV_ID || $sez === 5
-                || in_array($idV, $IDS_ADMIN_RICAVI, true)
-                || in_array($idV, $IDS_QUOTE_AMMORTAMENTO, true)
-                || $idV === $BENI_STRUMENTALI_ID
-                || in_array($idV, $IDS_BENI_STRUMENTALI, true)
-            ) {
-                $delta = round($baseIndiretti - $sommaInd, 2);
+            switch ($idV) {
+                case 6001:
+                    $delta = round($tot6001 - $sommaInd, 2);
+                    break;
+                case 6002:
+                    $delta = round($tot6002 - $sommaInd, 2);
+                    break;
+                case 6003:
+                    $delta = round($tot6003 - $sommaInd, 2);
+                    break;
+                case 6004:
+                    $delta = round($tot6004 - $sommaInd, 2);
+                    break;
+                case 6005:
+                    $delta = round($tot6005 - $sommaInd, 2);
+                    break;
+                case 6006:
+                    $delta = round($tot6006 - $sommaInd, 2);
+                    break;
+
+                default:
+                    if (
+                        $idV === $VOCE_SCIV_ID || $sez === 5 ||
+                        in_array($idV, $IDS_ADMIN_RICAVI, true) ||
+                        in_array($idV, $IDS_QUOTE_AMMORTAMENTO, true) ||
+                        $idV === $BENI_STRUMENTALI_ID ||
+                        in_array($idV, $IDS_BENI_STRUMENTALI, true)
+                    ) {
+                        $delta = round($baseIndiretti - $sommaInd, 2);
+                    } elseif (is_array($ripRow)) {
+                        // righe legacy/per-conv → allinea alla somma attesa della riga legacy
+                        $target = 0.0;
+                        foreach ($convenzioni as $idC2 => $nomeC2) {
+                            $target += (float) ($ripRow[$nomeC2] ?? 0);
+                        }
+                        $delta = round($target - $sommaInd, 2);
+                    }
             }
             if (abs($delta) >= 0.01 && $ultimoId !== null) {
                 $nomeUltima = $convenzioni[$ultimoId];
                 $riga[$nomeUltima]['indiretti'] += $delta;
                 $sommaInd += $delta;
             }
-
             $riga['totale'] = $sommaInd;
             $righe[] = $riga;
         }
 
         return ['data' => $righe, 'convenzioni' => $convNomi];
     }
-
 
     /* ========================= SUPPORTO % SERVIZI ========================= */
 
@@ -773,5 +882,236 @@ class RipartizioneCostiService {
             }
         }
         return $out;
+    }
+
+    public static function importiPersonalePerQualificaByConvenzione(
+        int $idAssociazione,
+        int $anno,
+        array $convIds
+    ): array {
+        if (empty($convIds)) return [];
+
+        // Qualifica -> voce (6001..6006)
+        $voceByQualifica = [
+            1 => 6001, // Autista soccorritore
+            6 => 6002, // Coordinatore tecnico
+            3 => 6003, // Addetto pulizia
+            2 => 6004, // Addetto logistica
+            7 => 6005, // Impiegato amministrativo
+            5 => 6006, // Coordinatore amministrativo
+        ];
+
+        // Dipendenti dell’associazione/anno
+        $dip = DB::table('dipendenti')
+            ->where('idAssociazione', $idAssociazione)
+            ->where('idAnno', $anno)
+            ->get(['idDipendente']);
+
+        if ($dip->isEmpty()) return [];
+
+        $dipIds = $dip->pluck('idDipendente')->map(fn($v) => (int)$v)->all();
+
+        // Costi personale (lordo + diretto)
+        $costi = DB::table('costi_personale')
+            ->selectRaw("
+            idDipendente,
+            COALESCE(Retribuzioni,0)+COALESCE(costo_diretto_Retribuzioni,0)         AS Retr,
+            COALESCE(OneriSocialiInps,0)+COALESCE(costo_diretto_OneriSocialiInps,0) AS Inps,
+            COALESCE(OneriSocialiInail,0)+COALESCE(costo_diretto_OneriSocialiInail,0) AS Inail,
+            COALESCE(TFR,0)+COALESCE(costo_diretto_TFR,0)                           AS Tfr,
+            COALESCE(Consulenze,0)+COALESCE(costo_diretto_Consulenze,0)             AS Cons
+        ")
+            ->whereIn('idDipendente', $dipIds)
+            ->where('idAnno', $anno)
+            ->get()
+            ->keyBy('idDipendente');
+
+        // Qualifiche per dipendente
+        $qualByDip = DB::table('dipendenti_qualifiche')
+            ->whereIn('idDipendente', $dipIds)
+            ->get()
+            ->groupBy('idDipendente')
+            ->map(fn($rows) => $rows->pluck('idQualifica')->map(fn($v) => (int)$v)->all());
+
+        // Percentuali mansioni per dipendente (idQualifica => %)
+        $percByDip = DB::table('costi_personale_mansioni')
+            ->whereIn('idDipendente', $dipIds)
+            ->where('idAnno', $anno)
+            ->get()
+            ->groupBy('idDipendente')
+            ->map(function ($rows) {
+                $m = [];
+                foreach ($rows as $r) $m[(int)$r->idQualifica] = (float)$r->percentuale;
+                return $m;
+            });
+
+        // Ore per riparto SOLO 6001 (A&B)
+        $oreByDipConv = DB::table('dipendenti_servizi as ds')
+            ->join('convenzioni as c', 'c.idConvenzione', '=', 'ds.idConvenzione')
+            ->whereIn('ds.idDipendente', $dipIds)
+            ->whereIn('ds.idConvenzione', $convIds)
+            ->where('c.idAnno', $anno)
+            ->get(['ds.idDipendente', 'ds.idConvenzione', 'ds.OreServizio']);
+
+        $oreTotByDip = [];
+        foreach ($oreByDipConv as $r) {
+            $d = (int)$r->idDipendente;
+            $oreTotByDip[$d] = ($oreTotByDip[$d] ?? 0) + (float)$r->OreServizio;
+        }
+
+        // Output iniziale in centesimi
+        $out = [];
+        foreach ([6001, 6002, 6003, 6004, 6005, 6006] as $v) {
+            foreach ($convIds as $idC) $out[$v][$idC] = 0;
+        }
+
+        // Totali (in cent) da ripartire per 6002..6006
+        $totByVoceCents = array_fill_keys([6002, 6003, 6004, 6005, 6006], 0);
+
+        foreach ($dipIds as $idDip) {
+            $c = $costi[$idDip] ?? null;
+            if (!$c) continue;
+
+            $totDipEuro = (float)$c->Retr + (float)$c->Inps + (float)$c->Inail + (float)$c->Tfr + (float)$c->Cons;
+            if ($totDipEuro <= 0) continue;
+
+            $totDipCents = (int) round($totDipEuro * 100, 0, PHP_ROUND_HALF_UP);
+
+            $qDip = $qualByDip[$idDip] ?? [];
+            if (empty($qDip)) continue;
+
+            // Percentuali: se assenti → 100% se 1 qualifica, altrimenti uniforme
+            $perc = $percByDip[$idDip] ?? [];
+            if (empty($perc)) {
+                if (count($qDip) === 1) {
+                    $perc[$qDip[0]] = 100.0;
+                } else {
+                    $u = 100.0 / count($qDip);
+                    foreach ($qDip as $q) $perc[$q] = $u;
+                }
+            }
+
+            // Centesimi per voce (6001..6006) – rounding per-dipendente
+            $provVoce = [];
+            $remVoce = [];
+            $sumVoce = 0;
+            foreach ($perc as $idQ => $pct) {
+                $voceId = $voceByQualifica[$idQ] ?? null;
+                if (!$voceId) continue;
+                $quota = $totDipCents * ((float)$pct / 100.0);
+                $f = (int) floor($quota);
+                $provVoce[$voceId] = ($provVoce[$voceId] ?? 0) + $f;
+                $remVoce[$voceId]  = ($remVoce[$voceId]  ?? 0) + ($quota - $f);
+                $sumVoce += $f;
+            }
+            $dRem = $totDipCents - $sumVoce;
+            if ($dRem > 0 && !empty($remVoce)) {
+                arsort($remVoce);
+                foreach (array_keys($remVoce) as $vId) {
+                    if ($dRem <= 0) break;
+                    $provVoce[$vId] += 1;
+                    $dRem--;
+                }
+            }
+
+            // Distribuzione:
+            foreach ($provVoce as $vId => $centi) {
+                if ($vId === 6001) {
+                    // 6001 → riparto per convenzione in base alle ore del dipendente
+                    $oreTot = (float)($oreTotByDip[$idDip] ?? 0);
+                    if ($oreTot <= 0) continue; // senza ore non ripartiamo A&B
+
+                    $provConv = [];
+                    $remConv = [];
+                    $sum = 0;
+                    foreach ($oreByDipConv->where('idDipendente', $idDip) as $r) {
+                        $share = $centi * ((float)$r->OreServizio / $oreTot);
+                        $f = (int) floor($share);
+                        $idC = (int)$r->idConvenzione;
+                        $provConv[$idC] = ($provConv[$idC] ?? 0) + $f;
+                        $remConv[$idC]  = ($remConv[$idC]  ?? 0) + ($share - $f);
+                        $sum += $f;
+                    }
+                    $diff = $centi - $sum;
+                    if ($diff > 0 && !empty($remConv)) {
+                        arsort($remConv);
+                        foreach (array_keys($remConv) as $idC) {
+                            if ($diff <= 0) break;
+                            $provConv[$idC] += 1;
+                            $diff--;
+                        }
+                    }
+                    foreach ($provConv as $idC => $cents) $out[6001][$idC] += $cents;
+                } else {
+                    // 6002..6006 → accumulo totale per qualifica (poi % ricavi)
+                    $totByVoceCents[$vId] += $centi;
+                }
+            }
+        }
+
+        // Riparto 6002..6006 per % ricavi (fallback: quote uguali)
+        $quote = self::quoteRicaviByConvenzione($idAssociazione, $anno, $convIds);
+        $sumW = 0.0;
+        foreach ($convIds as $id) $sumW += (float)($quote[$id] ?? 0.0);
+        $weights = $sumW > 0 ? $quote : array_fill_keys($convIds, 1.0);
+        if ($sumW <= 0) $sumW = (float) count($convIds);
+
+        foreach ([6002, 6003, 6004, 6005, 6006] as $vId) {
+            $tot = (int) ($totByVoceCents[$vId] ?? 0);
+            if ($tot <= 0) continue;
+
+            $prov = [];
+            $rem = [];
+            $sum = 0;
+            foreach ($convIds as $idC) {
+                $share = $tot * ((float)$weights[$idC] / $sumW);
+                $f = (int) floor($share);
+                $prov[$idC] = $f;
+                $rem[$idC]  = $share - $f;
+                $sum += $f;
+            }
+            $diff = $tot - $sum;
+            if ($diff > 0) {
+                arsort($rem);
+                foreach (array_keys($rem) as $idC) {
+                    if ($diff <= 0) break;
+                    $prov[$idC] += 1;
+                    $diff--;
+                }
+            }
+            foreach ($convIds as $idC) $out[$vId][$idC] += $prov[$idC];
+        }
+
+        // Converto in euro
+        foreach ($out as $vId => $byConv) {
+            foreach ($byConv as $idC => $cent) {
+                $out[$vId][$idC] = round(((int)$cent) / 100, 2);
+            }
+        }
+
+        return $out; // es: [6001=>[conv=>€], 6002=>[...], ..., 6006=>[...]]
+    }
+
+    public static function getOssigenoConsumo(int $idAssociazione, int $idAnno, int $idAutomezzo): float {
+        $totaleBilancio = CostoOssigeno::getTotale($idAssociazione, $idAnno);
+        if ($totaleBilancio <= 0) return 0.0;
+
+        $dati = RipartizioneOssigeno::getRipartizione($idAssociazione, $idAnno);
+
+        $totaleInclusi    = (float)($dati['totale_inclusi'] ?? 0);
+        $serviziAutomezzo = 0.0;
+
+        foreach ($dati['righe'] as $riga) {
+            if (!empty($riga['is_totale'])) continue;
+            if (empty($riga['incluso_riparto'])) continue;
+
+            if ((int)($riga['idAutomezzo'] ?? 0) === $idAutomezzo) {
+                $serviziAutomezzo = (float)($riga['totale'] ?? 0);
+                break;
+            }
+        }
+
+        if ($totaleInclusi <= 0 || $serviziAutomezzo <= 0) return 0.0;
+        return round(($serviziAutomezzo / $totaleInclusi) * $totaleBilancio, 2);
     }
 }

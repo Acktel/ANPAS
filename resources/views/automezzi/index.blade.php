@@ -207,6 +207,8 @@ document.addEventListener('DOMContentLoaded', function() {
   const table = $('#automezziTable').DataTable({
     processing: true,
     serverSide: false,
+    stateDuration: -1,
+    stateSave: true,  
     ajax: {
       url: '{{ route("automezzi.datatable") }}',
       data: function(d) {

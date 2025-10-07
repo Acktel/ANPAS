@@ -181,6 +181,8 @@
                 //     className: 'kmTh'
                 // }
             ],
+            stateDuration: -1,
+            stateSave: true, 
             order: [],// ordina per is_totale (0: normali, -1: totale)
             responsive: true,
             language: {

@@ -123,6 +123,8 @@ async function loadTableData() {
 
   console.log('Dati ricevuti:', data);
   table.DataTable({
+    stateDuration: -1,
+    stateSave: true, 
     data,
     columns: cols,
     paging: false,

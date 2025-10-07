@@ -100,6 +100,8 @@
 
     // init DT fresca
     $table.DataTable({
+      stateDuration: -1,
+      stateSave: true,  
       data,
       columns,
       columnDefs: [
@@ -166,6 +168,8 @@
 
     if (!$.fn.DataTable.isDataTable($table)) {
       $table.DataTable({
+        stateDuration: -1,
+        stateSave: true,  
         data,
         columns: [
           { data: 'Dipendente',       title: 'Dipendente' },

@@ -80,10 +80,10 @@
                   aria-expanded="false"
                   aria-controls="collapse-{{ $id }}">
             <div class="row w-100 text-start gx-2">
-              <div class="col-5 fw-bold">{{ $id }} — {{ $titolo }}</div>
-              <div class="col-2" id="summary-prev-{{ $id }}">-</div>
-              <div class="col-2" id="summary-cons-{{ $id }}">-</div>
-              <div class="col-2" id="summary-scos-{{ $id }}">-</div>
+              <div class="col-5 fw-bold">{{ $id-1 }} - {{ $titolo }}</div>
+              <div class="col-2" id="summary-prev-{{ $id }}">Preventivo: -</div>
+              <div class="col-2" id="summary-cons-{{ $id }}">Cosnuntivo: -</div>
+              <div class="col-2" id="summary-scos-{{ $id }}">Scosatmento: -</div>
             </div>
           </button>
         </h2>
@@ -235,9 +235,9 @@
 
         // summary sezione
         const scos = sumPrev !== 0 ? ((sumCons - sumPrev) / sumPrev * 100) : 0;
-        document.getElementById(`summary-prev-${idTipologia}`).textContent = eur(sumPrev);
-        document.getElementById(`summary-cons-${idTipologia}`).textContent = eur(sumCons);
-        document.getElementById(`summary-scos-${idTipologia}`).textContent = pct(scos);
+        document.getElementById(`summary-prev-${idTipologia}`).textContent ='Preventivo: '+ eur(sumPrev);
+        document.getElementById(`summary-cons-${idTipologia}`).textContent ='Consuntivo: '+ eur(sumCons);
+        document.getElementById(`summary-scos-${idTipologia}`).textContent ='Sostamento: '+ pct(scos);
 
         return { prev: sumPrev, cons: sumCons };
       })

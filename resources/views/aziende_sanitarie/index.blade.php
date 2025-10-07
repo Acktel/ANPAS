@@ -145,6 +145,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
   // === DataTable via AJAX con filtro convenzione ===
   const table = $('#aziendeSanitarieTable').DataTable({
+    stateDuration: -1,
+    stateSave: true,  
     ajax: {
       url: '{{ route('aziende-sanitarie.data') }}',
       data: function(d) {

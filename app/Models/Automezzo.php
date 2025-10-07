@@ -165,6 +165,46 @@ class Automezzo
             ->get();
     }
 
+     public static function getByAssociazioneInclusoRiparto(?int $idAssociazione, ?int $anno = null): Collection
+    {
+        $anno = $anno ?? session('anno_riferimento', now()->year);
+        
+        return DB::table(self::TABLE . ' as a')
+            ->join('associazioni as s', 'a.idAssociazione', '=', 's.idAssociazione')
+            ->leftJoin('automezzi_km_riferimento as km', function ($join) use ($anno) {
+                $join->on('a.idAutomezzo', '=', 'km.idAutomezzo')
+                    ->where('km.idAnno', '=', $anno);
+            })
+            ->leftJoin('vehicle_types as vt', 'a.idTipoVeicolo', '=', 'vt.id')
+            ->leftJoin('fuel_types as ft', 'a.idTipoCarburante', '=', 'ft.id')
+            ->select([
+                'a.idAutomezzo',
+                's.Associazione',
+                'a.idAnno',
+                'a.Targa',
+                'a.CodiceIdentificativo',
+                'a.AnnoPrimaImmatricolazione',
+                'a.AnnoAcquisto',
+                'a.Modello',
+                'a.incluso_riparto',
+                'vt.nome as TipoVeicolo',
+                'km.KmRiferimento',
+                'a.KmTotali',
+                'ft.nome as TipoCarburante',
+                'a.DataUltimaAutorizzazioneSanitaria',
+                'a.DataUltimoCollaudo',
+                'a.note',
+                'a.informazioniAggiuntive'
+                // 'a.informazioniAggiuntive as informazioniAggiuntive',
+            ])
+            ->where('a.idAssociazione', $idAssociazione)
+            ->where('a.idAnno', $anno)
+            ->where('a.incluso_riparto')
+            ->orderBy('a.idAnno', 'desc')
+            ->orderBy('a.idAutomezzo')
+            ->get();
+    }
+
     public static function getForDataTable(int $anno, ?int $assocId): Collection
     {
         $query = DB::table('automezzi as a')

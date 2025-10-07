@@ -57,6 +57,8 @@ document.addEventListener('DOMContentLoaded', function () {
   const isSuperAdmin = {{ $isSuperAdmin ? 'true' : 'false' }};
 
   $('#associazioniTable').DataTable({
+    stateDuration: -1,
+    stateSave: true,  
     ajax: {
       url: "{{ route('associazioni.data') }}",
           data: function(d) {

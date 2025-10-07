@@ -175,6 +175,8 @@
     $('#header-sub').html(headerSub);
 
     table.DataTable({
+      stateDuration: -1,
+      stateSave: true, 
       data,
       columns,
       columnDefs: [{

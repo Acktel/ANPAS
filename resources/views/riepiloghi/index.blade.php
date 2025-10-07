@@ -108,6 +108,8 @@ document.addEventListener('DOMContentLoaded', function () {
     dataTable = $table.DataTable({
       processing: true,
       serverSide: false,
+      stateDuration: -1,
+      stateSave: true, 
       ajax: {
         url: ajaxDataUrl,
         data: function(d) {

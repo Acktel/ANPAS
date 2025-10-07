@@ -12,8 +12,8 @@ class RipartizioneOssigeno {
     private const TABLE_AUTOMEZZI = 'automezzi';
 
     public static function getRipartizione(?int $idAssociazione, int $anno): array {
-        $automezziQuery = DB::table(self::TABLE_AUTOMEZZI)
-            ->where('idAnno', operator: $anno);
+        $automezziQuery = DB::table(table: self::TABLE_AUTOMEZZI)
+            ->where('idAnno',  $anno);
 
         if (!is_null($idAssociazione)) {
             $automezziQuery->where('idAssociazione', $idAssociazione);
@@ -21,6 +21,7 @@ class RipartizioneOssigeno {
 
         $automezzi = $automezziQuery
             ->select('idAutomezzo', 'Targa', 'CodiceIdentificativo', 'incluso_riparto')
+            ->where('incluso_riparto',1)
             ->get()
             ->keyBy('idAutomezzo');
 

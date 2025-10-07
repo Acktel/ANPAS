@@ -9,16 +9,14 @@ class RapportoRicavo
 {
     protected const TABLE = 'rapporti_ricavi';
 
-    /** Tutte le righe per anno+associazione (key = idConvenzione) */
     public static function getByAssociazione(int $anno, int $idAssociazione): Collection
     {
         return DB::table(self::TABLE)
             ->where('idAnno', $anno)
             ->where('idAssociazione', $idAssociazione)
-            ->get();
+            ->get(); 
     }
 
-    /** Mappa idConvenzione => Rimborso per anno+associazione */
     public static function mapByAssociazione(int $anno, int $idAssociazione): array
     {
         return DB::table(self::TABLE)
@@ -28,16 +26,11 @@ class RapportoRicavo
             ->toArray();
     }
 
-    /** Ricavi (join convenzioni) per anno+associazione — utile per viste/report */
     public static function getWithConvenzioni(int $anno, int $idAssociazione): Collection
     {
         return DB::table(self::TABLE.' as rr')
             ->join('convenzioni as c', 'rr.idConvenzione', '=', 'c.idConvenzione')
-            ->select([
-                'rr.idConvenzione',
-                'c.Convenzione',
-                'rr.Rimborso',
-            ])
+            ->select(['rr.idConvenzione', 'c.Convenzione', 'rr.Rimborso', 'rr.note'])
             ->where('rr.idAnno', $anno)
             ->where('rr.idAssociazione', $idAssociazione)
             ->orderBy('c.ordinamento')
@@ -45,8 +38,8 @@ class RapportoRicavo
             ->get();
     }
 
-    /** Inserisce/aggiorna il rimborso per (anno, associazione, convenzione) */
-    public static function upsert(int $idConvenzione, int $idAssociazione, int $anno, float $rimborso): void
+    /** Inserisce/aggiorna rimborso + nota per (anno, associazione, convenzione) */
+    public static function upsert(int $idConvenzione, int $idAssociazione, int $anno, float $rimborso, ?string $note = null): void
     {
         DB::table(self::TABLE)->updateOrInsert(
             [
@@ -56,13 +49,12 @@ class RapportoRicavo
             ],
             [
                 'Rimborso'   => $rimborso,
+                'note'       => ($note === '') ? null : $note,
                 'updated_at' => now(),
-                // NB: lasciamo gestire created_at dal primo insert (se serve aggiungilo qui)
             ]
         );
     }
 
-    /** Cancella tutte le righe per anno+associazione */
     public static function deleteByAssociazione(int $idAssociazione, int $anno): void
     {
         DB::table(self::TABLE)
@@ -71,25 +63,15 @@ class RapportoRicavo
             ->delete();
     }
 
-    /* --- Opzionale: compat di vecchi metodi (se ancora referenziati altrove) --- */
-
-    /** (Legacy) Ricavi di TUTTE le associazioni per anno, con join ad associazioni e convenzioni */
     public static function getAllByAnno(int $anno, ?int $idAssociazione = null): Collection
     {
         $q = DB::table(self::TABLE.' as rr')
             ->join('convenzioni as c', 'rr.idConvenzione', '=', 'c.idConvenzione')
             ->join('associazioni as a', 'rr.idAssociazione', '=', 'a.idAssociazione')
-            ->select([
-                'rr.idAssociazione',
-                'a.Associazione',
-                'rr.idConvenzione',
-                'rr.Rimborso',
-            ])
+            ->select(['rr.idAssociazione', 'a.Associazione', 'rr.idConvenzione', 'rr.Rimborso', 'rr.note'])
             ->where('rr.idAnno', $anno);
 
-        if ($idAssociazione) {
-            $q->where('rr.idAssociazione', $idAssociazione);
-        }
+        if ($idAssociazione) $q->where('rr.idAssociazione', $idAssociazione);
 
         return collect($q->get());
     }

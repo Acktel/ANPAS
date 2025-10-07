@@ -155,6 +155,8 @@ async function loadTableData() {
   Object.keys(labels).forEach(k => { convIdByKey[k] = parseInt(k.replace(/^c/,'')) || 0; });
 
   const dt = $table.DataTable({
+    stateDuration: -1,
+    stateSave: true, 
     data,
     columns: cols,
     order: [],

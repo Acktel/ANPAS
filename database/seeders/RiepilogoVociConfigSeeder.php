@@ -101,20 +101,18 @@ class RiepilogoVociConfigSeeder extends Seeder {
                 'retribuzioni, oneri, fondo tfr e consulenze esterne coordinatori amministrativi',
 
                 // volontari
-                'rimborso spese pasti',
-                'rimborsi da avvicendamenti',
-                'assicurazioni volontari',
-                'formazione allegato a + dae',
-                'formazione raae',
-                'formazione trasporto infermi (sara)',
+                'Volontari:rimborso spese pasti',
+                'Volontari:rimborsi da avvicendamenti',
+                'Volontari:assicurazioni volontari',
+                'Volontari:formazione allegato a + dae',
+                'Volontari:formazione raae',
+                'Volontari:formazione trasporto infermi (sara)',
 
-                // servizio civile nazionale
-                'servizio civile nazionale',
-                'quota anpas servizio civile nazionale',
+                // servizio civile nazionale              
+                'Servizio Civile Nazionale:quota anpas servizio civile nazionale',
 
                 // abbigliamento
-                'abbigliamento',
-                'divise personale associazione',
+                'Abbigliamento:divise personale associazione',
             ],
 
             // 7 — materiale sanitario di consumo

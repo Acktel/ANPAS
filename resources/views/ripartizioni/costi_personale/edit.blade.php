@@ -127,13 +127,16 @@
               <tr data-qualifica-id="{{ $q->id }}">
                 <td>{{ $q->nome }}</td>
                 <td>
-                  <input
-                    type="number"
-                    name="percentuali[{{ $q->id }}]"
-                    class="form-control percent-input"
-                    min="0" max="100" step="0.01"
-                    value="{{ old('percentuali.'.$q->id, $percentuali[$q->id] ?? 0) }}"
-                  >
+                <input
+                  type="text"
+                  inputmode="decimal"
+                  autocomplete="off"
+                  name="percentuali[{{ $q->id }}]"
+                  class="form-control percent-input"
+                  data-min="0"
+                  data-max="100"
+                  data-decimals="2"
+                  value="{{ old('percentuali.'.$q->id, $percentuali[$q->id] ?? '') }}">
                 </td>
               </tr>
               @endforeach
@@ -213,13 +216,39 @@
   ];
   const inputs = document.querySelectorAll(selectors.join(','));
 
+  // ===== parsing/formatting permissivo per percentuali =====
+  function parseDecimalLoose(v) {
+    if (v == null) return null;
+    const s = String(v).trim().replace(/\s+/g, '').replace(',', '.');
+    if (s === '' || s === '-' || s === '.' || s === '-.') return null; // stato intermedio
+    const n = Number(s);
+    return Number.isFinite(n) ? n : null;
+  }
+  function formatFixed(n, decimals = 2) {
+    const p = Math.pow(10, decimals);
+    return (Math.round(n * p) / p).toFixed(decimals);
+  }
+  function clampAndFormatInput(el) {
+    const min = parseDecimalLoose(el.dataset?.min);
+    const max = parseDecimalLoose(el.dataset?.max);
+    const dec = Number(el.dataset?.decimals || 2);
+    let n = parseDecimalLoose(el.value);
+
+    if (n == null) { el.value = ''; return 0; }
+    if (min != null && n < min) n = min;
+    if (max != null && n > max) n = max;
+    el.value = formatFixed(n, dec);
+    return n;
+  }
+
+  // ===== utilità numeriche per i calcoli esistenti =====
   function toNum(v) {
-    if (typeof v === 'string') v = v.replace(',', '.');
-    const n = parseFloat(v);
-    return isNaN(n) ? 0 : n;
+    const n = parseDecimalLoose(v);
+    return n == null ? 0 : n;
   }
   function fix2(n) { return (Math.round(n * 100) / 100).toFixed(2); }
 
+  // ===== calcolo costi base + diretto =====
   function getCostiSommaBaseDiretto() {
     const retr  = toNum(document.querySelector('input[name="Retribuzioni"]')?.value);
     const retrD = toNum(document.querySelector('input[name="costo_diretto_Retribuzioni"]')?.value);
@@ -261,31 +290,7 @@
     return ok;
   }
 
-  // se solo 2 mansioni, la seconda si autocompleta a 100 - x
-  function wireAutoMirrorIfTwo() {
-    if (percentInputs.length !== 2) return;
-    const a = percentInputs[0];
-    const b = percentInputs[1];
-
-    function mirror(source, target) {
-      let val = toNum(source.value);
-      if (val < 0) val = 0;
-      if (val > 100) val = 100;
-      source.value = fix2(val);
-      target.value = fix2(Math.max(0, 100 - val));
-      recalcWarning();
-      recalcAnteprima();
-    }
-
-    a.addEventListener('input', () => mirror(a, b));
-    a.addEventListener('change', () => mirror(a, b));
-    b.addEventListener('input', () => mirror(b, a));
-    b.addEventListener('change', () => mirror(b, a));
-
-    mirror(a, b); // normalizza iniziale
-  }
-
-  // Anteprima: applica le percentuali ai costi (base+diretto)
+  // ===== Anteprima: applica percentuali ai costi =====
   function recalcAnteprima() {
     if (!anteprimaBody) return;
 
@@ -317,12 +322,54 @@
     });
   }
 
-  // listeners
-  inputs.forEach(i => { i.addEventListener('input', recalcTotale); i.addEventListener('change', recalcTotale); });
-  percentInputs.forEach(i => { i.addEventListener('input', () => { recalcWarning(); recalcAnteprima(); }); i.addEventListener('change', () => { recalcWarning(); recalcAnteprima(); }); });
+  // ===== Auto-mirror solo con 2 mansioni, e solo a fine digitazione =====
+  function wireAutoMirrorIfTwo() {
+    if (percentInputs.length !== 2) return;
+    const [a, b] = percentInputs;
 
-  // init
+    function mirror(source, target) {
+      clampAndFormatInput(source);
+      const v = parseDecimalLoose(source.value);
+      if (v == null) { target.value = ''; }
+      else {
+        const x = Math.max(0, Math.min(100, v));
+        const rest = Math.max(0, 100 - x);
+        target.value = formatFixed(rest, Number(target.dataset?.decimals || 2));
+      }
+      recalcWarning();
+      recalcAnteprima();
+    }
+
+    const finA = () => mirror(a, b);
+    const finB = () => mirror(b, a);
+    a.addEventListener('blur', finA);
+    a.addEventListener('change', finA);
+    b.addEventListener('blur', finB);
+    b.addEventListener('change', finB);
+
+    // normalizza una tantum all'avvio (senza disturbare la digitazione)
+    mirror(a, b);
+  }
+
+  // ===== listeners =====
+  inputs.forEach(i => {
+    i.addEventListener('input', recalcTotale);
+    i.addEventListener('change', recalcTotale);
+  });
+
+  percentInputs.forEach(i => {
+    // durante input: solo ricalcoli, nessun clamp/format
+    i.addEventListener('input', () => { recalcWarning(); recalcAnteprima(); });
+    // a fine input: clamp + format
+    const onFinish = () => { clampAndFormatInput(i); recalcWarning(); recalcAnteprima(); };
+    i.addEventListener('blur', onFinish);
+    i.addEventListener('change', onFinish);
+  });
+
+  // ===== init =====
   recalcTotale();
+  // normalizza iniziale (se arrivano valori già sporchi)
+  percentInputs.forEach(i => clampAndFormatInput(i));
   recalcWarning();
   wireAutoMirrorIfTwo();
   recalcAnteprima();

@@ -88,6 +88,8 @@ $(function () {
 
 
     $('#materialeSanitarioTable').DataTable({
+        stateDuration: -1,
+        stateSave: true,  
         ajax: {
             url: '{{ route("imputazioni.materiale_sanitario.getData") }}',
 

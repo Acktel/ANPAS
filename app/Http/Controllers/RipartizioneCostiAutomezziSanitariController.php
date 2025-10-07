@@ -8,17 +8,18 @@ use Illuminate\Support\Facades\Auth;
 use App\Models\RipartizioneCostiAutomezziSanitari;
 use App\Models\Automezzo;
 use App\Services\RipartizioneCostiService;
-use App\Models\CostoDiretto;
 
-class RipartizioneCostiAutomezziSanitariController extends Controller {
-    public function index() {
+class RipartizioneCostiAutomezziSanitariController extends Controller
+{
+    public function index()
+    {
         $anno = session('anno_riferimento', now()->year);
         $user = Auth::user();
         $isElevato = $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor']);
 
         if ($isElevato) {
             $associazioni = DB::table('associazioni')
-                ->select('idAssociazione' , 'Associazione')
+                ->select('idAssociazione', 'Associazione')
                 ->whereNull('deleted_at')
                 ->where('idAssociazione', '!=', 1)
                 ->orderBy('Associazione')
@@ -26,42 +27,72 @@ class RipartizioneCostiAutomezziSanitariController extends Controller {
 
             $selectedAssoc = session('associazione_selezionata')
                 ?? optional($associazioni->first())->idAssociazione;
+
+            // Precarico gli automezzi per l’associazione selezionata (se c’è)
+            $automezziAssoc = collect();
+            if (!empty($selectedAssoc)) {
+                $automezziAssoc = DB::table('automezzi')
+                    ->select('idAutomezzo', 'Targa')
+                    ->where('idAssociazione', $selectedAssoc)
+                    ->where('idAnno', $anno)
+                    ->orderBy('Targa')
+                    ->get();
+            }
+
+            $selectedAutomezzo = session('automezzo_selezionato', 'TOT');
         } else {
-            $associazioni  = collect(); // non mostriamo la select per utenti non elevati
+            // Utenti non elevati: niente select associazione, automezzi filtrati per utente
+            $associazioni = collect();
             $selectedAssoc = (int) $user->IdAssociazione;
+            $automezziAssoc = Automezzo::getFiltratiByUtente($anno)
+                ->map(fn ($a) => (object) ['idAutomezzo' => $a->idAutomezzo, 'Targa' => $a->Targa]);
+            $selectedAutomezzo = session('automezzo_selezionato', 'TOT');
         }
 
-        $automezzi = Automezzo::getFiltratiByUtente($anno);
-
-        return view('ripartizioni.costi_automezzi_sanitari.index', compact('anno', 'associazioni', 'automezzi', 'isElevato'));
+        return view('ripartizioni.costi_automezzi_sanitari.index', [
+            'anno'              => $anno,
+            'associazioni'      => $associazioni,
+            'isElevato'         => $isElevato,
+            'selectedAssoc'     => $selectedAssoc,
+            'automezziAssoc'    => $automezziAssoc,
+            'selectedAutomezzo' => $selectedAutomezzo,
+        ]);
     }
 
-    public function getData(Request $request) {
+    public function getData(Request $request)
+    {
         $anno = session('anno_riferimento', now()->year);
-        $idAutomezzo = $request->input('idAutomezzo'); // filtro dinamico        
+        $idAutomezzo = $request->input('idAutomezzo'); // filtro dinamico
         $dati = RipartizioneCostiAutomezziSanitari::calcola($idAutomezzo, $anno);
         return response()->json(['data' => $dati]);
     }
 
-    public function getTabellaFinale(Request $request) {
+    public function getTabellaFinale(Request $request)
+    {
         $anno = session('anno_riferimento', now()->year);
         $user = Auth::user();
 
         $idAssociazione = $user->IdAssociazione;
         if ($user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor']) && $request->filled('idAssociazione')) {
-            $idAssociazione = $request->input('idAssociazione');
+            $idAssociazione = (int) $request->input('idAssociazione');
         }
 
-        $idAutomezzo = $request->input('idAutomezzo');
+        $idAutomezzo = $request->input('idAutomezzo', 'TOT');
+
+        // ✅ Memorizzo in sessione le ultime scelte
+        session([
+            'associazione_selezionata' => $idAssociazione,
+            'automezzo_selezionato'    => $idAutomezzo,
+        ]);
 
         // Recupera i nomi delle convenzioni in ordine
         $convenzioni = DB::table('convenzioni')
             ->where('idAssociazione', $idAssociazione)
             ->where('idAnno', $anno)
+            ->orderBy('ordinamento')
+            ->orderBy('idConvenzione')
             ->pluck('Convenzione')
             ->toArray();
-
-        $tabella = [];
 
         if ($idAutomezzo === 'TOT') {
             $tabella = RipartizioneCostiService::calcolaTabellaTotale($idAssociazione, $anno);
@@ -69,14 +100,14 @@ class RipartizioneCostiAutomezziSanitariController extends Controller {
             $tabella = RipartizioneCostiService::calcolaRipartizioneTabellaFinale(
                 $idAssociazione,
                 $anno,
-                (int)$idAutomezzo
+                (int) $idAutomezzo
             );
         }
 
         $colonne = array_merge(['voce', 'totale'], $convenzioni);
 
         return response()->json([
-            'data' => $tabella,
+            'data'    => $tabella,
             'colonne' => $colonne,
         ]);
     }

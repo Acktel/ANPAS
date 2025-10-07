@@ -3,6 +3,13 @@
 @php
   $user = Auth::user();
   $isImpersonating = session()->has('impersonate');
+  $sezioniBilancioEdit = [5,8];
+
+  // $selectedAssoc arriva dal controller; fallback d’emergenza
+  $selectedAssoc = $selectedAssoc
+    ?? request('idAssociazione')
+    ?? session('associazione_selezionata')
+    ?? ($user?->IdAssociazione ?? null);
 @endphp
 
 @section('content')
@@ -15,8 +22,8 @@
 
   @if($user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor']) || $isImpersonating)
   <div class="mb-3">
-    <form method="POST" action="{{ route('sessione.setAssociazione') }}" id="assocForm" class="w-100 position-relative" style="max-width:400px">
-      @csrf
+    {{-- Selettore associazione: usa GET su index con ?idAssociazione=... --}}
+    <form method="GET" action="{{ route('distinta.imputazione.index') }}" id="assocForm" class="w-100 position-relative" style="max-width:400px">
       <div class="input-group">
         <input
           id="assocSelect"
@@ -24,7 +31,7 @@
           class="form-control"
           autocomplete="off"
           placeholder="Seleziona associazione"
-          value="{{ optional($associazioni->firstWhere('idAssociazione', session('associazione_selezionata')))->Associazione ?? '' }}"
+          value="{{ optional($associazioni->firstWhere('idAssociazione', $selectedAssoc))->Associazione ?? '' }}"
           aria-label="Seleziona associazione"
           aria-haspopup="listbox"
           aria-expanded="false"
@@ -33,14 +40,14 @@
         <button type="button" id="assocSelectToggleBtn" class="btn btn-outline-secondary" aria-haspopup="listbox" aria-expanded="false" title="Mostra elenco">
           <i class="fas fa-chevron-down"></i>
         </button>
-        <input type="hidden" id="assocSelectHidden" name="idAssociazione" value="{{ session('associazione_selezionata') ?? '' }}">
+        <input type="hidden" id="assocSelectHidden" name="idAssociazione" value="{{ $selectedAssoc ?? '' }}">
       </div>
 
       <ul id="assocSelectDropdown"
           class="list-group shadow-sm"
           style="z-index:2000; display:none; max-height:240px; overflow:auto; position:absolute; width:100%; top:100%; left:0; background-color:#fff;">
         @foreach($associazioni as $assoc)
-          <li tabindex="0" class="list-group-item assoc-item" data-id="{{ $assoc->idAssociazione }}">
+          <li tabindex="0" class="list-group-item assoc-item" data-id="{{ (int)$assoc->idAssociazione }}">
             {{ $assoc->Associazione }}
           </li>
         @endforeach
@@ -72,18 +79,28 @@
           data-bs-target="#collapse-{{ $id }}" aria-expanded="false" aria-controls="collapse-{{ $id }}">
           <div class="row w-100 text-start gx-2">
             <div class="col-6 fw-bold">{{ $titolo }}</div>
-            <div class="col-2" id="summary-bilancio-{{ $id }}">-</div>
-            <div class="col-2" id="summary-diretta-{{ $id }}">-</div>
-            <div class="col-2" id="summary-totale-{{ $id }}">-</div>
+            <div class="col-2" id="summary-bilancio-{{ $id }}">Importo Totale da Bilancio Consuntivo:-</div>
+            <div class="col-2" id="summary-diretta-{{ $id }}">Costi di Diretta Imputazione (Netti):-</div>
+            <div class="col-2" id="summary-totale-{{ $id }}">Totale Costi Ripartiti (Indiretti):-</div>
           </div>
         </button>
       </h2>
       <div id="collapse-{{ $id }}" class="accordion-collapse collapse" data-bs-parent="#accordionDistinta">
         <div class="accordion-body">
           <div class="mb-2 text-end">
-            <a href="{{ route('distinta.imputazione.create', ['sezione' => $id]) }}" class="btn btn-sm btn-anpas-green p-2">
-              <i class="fas fa-plus me-1"></i>Aggiungi Costi diretti
+            <a href="{{ $selectedAssoc ? route('distinta.imputazione.create', ['sezione' => $id, 'idAssociazione' => $selectedAssoc]) : '#' }}"
+               class="btn btn-sm btn-anpas-green p-2 me-2 {{ $selectedAssoc ? '' : 'disabled' }}"
+               @if(!$selectedAssoc) tabindex="-1" aria-disabled="true" @endif>
+              <i class="fas fa-plus me-1"></i>Aggiungi Costi
             </a>
+
+            @if(in_array($id, $sezioniBilancioEdit, true))
+              <a href="{{ $selectedAssoc ? route('distinta.imputazione.editBilancio', ['sezione' => $id, 'idAssociazione' => $selectedAssoc]) : '#' }}"
+                 class="btn btn-sm btn-warning p-2 {{ $selectedAssoc ? '' : 'disabled' }}"
+                 @if(!$selectedAssoc) tabindex="-1" aria-disabled="true" @endif>
+                <i class="fas fa-pen me-1"></i> Modifica Importi da Bilancio
+              </a>
+            @endif
           </div>
 
           <div class="table-responsive">
@@ -109,9 +126,9 @@
       <div class="accordion-header bg-light text-dark fw-bold py-3 px-4 border rounded">
         <div class="row w-100 text-start gx-2">
           <div class="col-6">Totale generale</div>
-          <div class="col-2" id="tot-bilancio">-</div>
-          <div class="col-2" id="tot-diretta">-</div>
-          <div class="col-2" id="tot-totale">-</div>
+          <div class="col-2" id="tot-bilancio">Importo Totale da Bilancio Consuntivo: </div>
+          <div class="col-2" id="tot-diretta">Costi di Diretta Imputazione (Netti): </div>
+          <div class="col-2" id="tot-totale">Totale Costi Ripartiti (Indiretti): </div>
         </div>
       </div>
     </div>
@@ -123,7 +140,8 @@
 <script>
 window.distintaCosti = {
   sezioni: @json($sezioni),
-  csrf: '{{ csrf_token() }}'
+  csrf: '{{ csrf_token() }}',
+  selectedAssoc: {{ $selectedAssoc ? (int)$selectedAssoc : 'null' }},
 };
 
 function fmt2(n){ n = Number(n||0); return Number.isFinite(n) ? n.toFixed(2) : '0.00'; }
@@ -131,25 +149,28 @@ function fmt2(n){ n = Number(n||0); return Number.isFinite(n) ? n.toFixed(2) : '
 $(function () {
   const intestazioniAggiunte = new Set();
 
+  // Passo idAssociazione all’API /data
+  const dataUrl = (function(){
+    const base = '{{ route("distinta.imputazione.data") }}';
+    const idA  = window.distintaCosti.selectedAssoc;
+    return idA ? (base + '?idAssociazione=' + encodeURIComponent(idA)) : base;
+  })();
+
   $.ajax({
-    url: '{{ route("distinta.imputazione.data") }}',
+    url: dataUrl,
     method: 'GET',
     success: function (response) {
       if (!response) return;
 
-      // convenzioni può essere:
-      // - array di nomi: ["Conv A","Conv B"]
-      // - mappa id=>nome: {12:"Conv A", 34:"Conv B"}
       const convMap = (function(c){
         if (!c) return {};
         if (Array.isArray(c)) {
           const m={}; c.forEach((name,idx)=> m[String(idx)] = String(name)); return m;
         }
-        // già mappa
         const out={}; Object.keys(c).forEach(k => out[String(k)] = String(c[k])); return out;
       })(response.convenzioni);
 
-      const convIds   = Object.keys(convMap);   // ["12","34"] o ["0","1"]
+      const convIds   = Object.keys(convMap);
       const convNames = convIds.map(id => convMap[id]);
 
       const righe = Array.isArray(response.data) ? response.data : [];
@@ -166,7 +187,7 @@ $(function () {
             headerMain.append(`<th colspan="3" class="text-center">${$('<div>').text(name).html()}</th>`);
             headerSub.append(`
               <th class="text-center">Diretti</th>
-              <th class="text-center">Ammortamento</th>
+              <th class="text-center">Sconto</th>
               <th class="text-center">Indiretti</th>
             `);
           });
@@ -189,7 +210,6 @@ $(function () {
           <td class="text-end">${fmt2(riga.diretta)}</td>
           <td class="text-end">${fmt2(riga.totale)}</td>`;
 
-        // Celle per ogni convenzione: cerca prima per ID, poi per NOME
         convIds.forEach(cid => {
           const cname = convMap[cid];
 
@@ -209,7 +229,6 @@ $(function () {
         html += `</tr>`;
         $tbody.append(html);
 
-        // Riepiloghi per sezione (bilancio = totale da bilancio voce; diretta = diretti netti voce; totale = indiretti voce)
         totaliPerSezione[idSezione].bilancio += Number(riga.bilancio || 0);
         totaliPerSezione[idSezione].diretta  += Number(riga.diretta  || 0);
         totaliPerSezione[idSezione].totale   += Number(riga.totale   || 0);
@@ -219,17 +238,15 @@ $(function () {
         totaliGenerali.totale   += Number(riga.totale   || 0);
       });
 
-      // Aggiorna i sommari per sezione
       Object.keys(totaliPerSezione).forEach(id => {
-        $(`#summary-bilancio-${id}`).text(fmt2(totaliPerSezione[id].bilancio));
-        $(`#summary-diretta-${id}`).text(fmt2(totaliPerSezione[id].diretta));
-        $(`#summary-totale-${id}`).text(fmt2(totaliPerSezione[id].totale));
+        $(`#summary-bilancio-${id}`).text('Importo Totale da Bilancio Consuntivo:  '+fmt2(totaliPerSezione[id].bilancio));
+        $(`#summary-diretta-${id}`).text('Costi di Diretta Imputazione (Netti):  '+fmt2(totaliPerSezione[id].diretta));
+        $(`#summary-totale-${id}`).text('Totale Costi Ripartiti (Indiretti):  '+fmt2(totaliPerSezione[id].totale));
       });
 
-      // Totale generale
-      $('#tot-bilancio').text(fmt2(totaliGenerali.bilancio));
-      $('#tot-diretta').text(fmt2(totaliGenerali.diretta));
-      $('#tot-totale').text(fmt2(totaliGenerali.totale));
+      $('#tot-bilancio').text('Importo Totale da Bilancio Consuntivo:  '+fmt2(totaliGenerali.bilancio));
+      $('#tot-diretta').text('Costi di Diretta Imputazione (Netti):  '+fmt2(totaliGenerali.diretta));
+      $('#tot-totale').text('Totale Costi Ripartiti (Indiretti):  '+fmt2(totaliGenerali.totale));
     },
     error: function (xhr) {
       console.error("Errore caricamento distinta costi", xhr);
@@ -323,10 +340,10 @@ document.addEventListener('DOMContentLoaded', function () {
 
   function chooseItem(item) {
     if (!item) return;
-    input.value = item.textContent.trim();
-    hidden.value = item.getAttribute('data-id');
-    closeDropdown();
-    form.submit();
+    const id = item.getAttribute('data-id');
+    hidden.value = id;
+    // redirect con ?idAssociazione=...
+    window.location = '{{ route('distinta.imputazione.index') }}' + '?idAssociazione=' + encodeURIComponent(id);
   }
 
   items().forEach(item => {
