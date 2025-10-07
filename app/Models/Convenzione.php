@@ -10,7 +10,7 @@ class Convenzione {
     protected const TABLE = 'convenzioni';
 
     /**
-     * Recupera tutte le convenzioni per anno, con join associazione (solo ruoli alti).
+     * Tutte le convenzioni per anno, con join associazione (solo ruoli alti).
      */
     public static function getAll(?int $anno = null): Collection {
         $anno = $anno ?? session('anno_riferimento', now()->year);
@@ -21,6 +21,7 @@ class Convenzione {
                 s.Associazione,
                 c.idAnno,
                 c.Convenzione,
+                c.materiale_fornito_asl,
                 c.created_at
             FROM " . self::TABLE . " AS c
             JOIN associazioni AS s ON c.idAssociazione = s.idAssociazione
@@ -32,7 +33,7 @@ class Convenzione {
     }
 
     /**
-     * Recupera convenzioni per anno e (opzionalmente) filtro utente.
+     * Convenzioni per anno e (opzionalmente) filtro utente.
      */
     public static function getByAnno(int $anno, ?\App\Models\User $user = null): Collection {
         $sql = "
@@ -41,6 +42,7 @@ class Convenzione {
                 c.idAssociazione,
                 c.idAnno,
                 c.Convenzione,
+                c.materiale_fornito_asl,
                 c.created_at
             FROM " . self::TABLE . " AS c
             WHERE c.idAnno = :anno
@@ -57,7 +59,7 @@ class Convenzione {
     }
 
     /**
-     * Convenzioni per specifica associazione (e opzionalmente per anno).
+     * Convenzioni per specifica associazione (e anno).
      */
     public static function getByAssociazione(int $idAssociazione, ?int $idAnno = null): Collection {
         $idAnno = $idAnno ?? session('anno_riferimento', now()->year);
@@ -68,6 +70,7 @@ class Convenzione {
                 c.idAssociazione,
                 c.idAnno,
                 c.Convenzione,
+                c.materiale_fornito_asl,
                 c.created_at
             FROM " . self::TABLE . " AS c
             WHERE c.idAssociazione = :idAssociazione
@@ -77,7 +80,7 @@ class Convenzione {
 
         return collect(DB::select($sql, [
             'idAssociazione' => $idAssociazione,
-            'idAnno' => $idAnno,
+            'idAnno'         => $idAnno,
         ]));
     }
 
@@ -90,6 +93,7 @@ class Convenzione {
 
     /**
      * Crea una nuova convenzione.
+     * Accetta: idAssociazione, idAnno, Convenzione, (opz.) lettera_identificativa, note, materiale_fornito_asl
      */
     public static function createConvenzione(array $data): int {
         $now = now()->toDateTimeString();
@@ -102,24 +106,26 @@ class Convenzione {
         $ordinamento = is_null($maxOrd) ? 0 : $maxOrd + 1;
 
         DB::insert("INSERT INTO " . self::TABLE . "
-            (idAssociazione, idAnno, Convenzione, lettera_identificativa, ordinamento, created_at, updated_at)
+            (idAssociazione, idAnno, Convenzione, lettera_identificativa, note, materiale_fornito_asl, ordinamento, created_at, updated_at)
             VALUES
-            (:idAssociazione, :idAnno, :Convenzione, :lettera_identificativa, :ordinamento, :created_at, :updated_at)", [
+            (:idAssociazione, :idAnno, :Convenzione, :lettera_identificativa, :note, :materiale_fornito_asl, :ordinamento, :created_at, :updated_at)", [
             'idAssociazione'         => $data['idAssociazione'],
             'idAnno'                 => $data['idAnno'],
             'Convenzione'            => $data['Convenzione'],
-            'lettera_identificativa' => $data['lettera_identificativa'],
+            'lettera_identificativa' => $data['lettera_identificativa'] ?? null,
             'note'                   => $data['note'] ?? null,
+            'materiale_fornito_asl'  => (int) ($data['materiale_fornito_asl'] ?? 0),
             'ordinamento'            => $ordinamento,
             'created_at'             => $now,
             'updated_at'             => $now,
         ]);
 
-        return DB::getPdo()->lastInsertId();
+        return (int) DB::getPdo()->lastInsertId();
     }
 
     /**
      * Aggiorna convenzione.
+     * Accetta: idAssociazione, idAnno, Convenzione, (opz.) lettera_identificativa, note, materiale_fornito_asl
      */
     public static function updateConvenzione(int $id, array $data): void {
         $now = Carbon::now()->toDateTimeString();
@@ -131,13 +137,15 @@ class Convenzione {
                 Convenzione            = :Convenzione,
                 lettera_identificativa = :lettera_identificativa,
                 note                   = :note,
+                materiale_fornito_asl  = :materiale_fornito_asl,
                 updated_at             = :updated_at
             WHERE idConvenzione = :id", [
             'idAssociazione'         => $data['idAssociazione'],
             'idAnno'                 => $data['idAnno'],
             'Convenzione'            => $data['Convenzione'],
-            'lettera_identificativa' => $data['lettera_identificativa'],
+            'lettera_identificativa' => $data['lettera_identificativa'] ?? null,
             'note'                   => $data['note'] ?? null,
+            'materiale_fornito_asl'  => (int) ($data['materiale_fornito_asl'] ?? 0),
             'updated_at'             => $now,
             'id'                     => $id,
         ]);
@@ -150,86 +158,54 @@ class Convenzione {
         DB::delete("DELETE FROM " . self::TABLE . " WHERE idConvenzione = ?", [$id]);
     }
 
+    /**
+     * Listing per pagina index, con nome associazione e flag materiale_fornito_asl.
+     */
     public static function getWithAssociazione($idAssociazione, $anno): \Illuminate\Support\Collection {
         $sql = "
-        SELECT 
-            c.idConvenzione,
-            c.idAssociazione,
-            c.idAnno,
-            c.Convenzione,
-            c.ordinamento,
-            c.created_at,
-            c.updated_at,
-            a.Associazione,
-            GROUP_CONCAT(asl.Nome ORDER BY asl.Nome SEPARATOR ', ') AS AziendeSanitarie,
-            GROUP_CONCAT(ms.descrizione ORDER BY ms.descrizione SEPARATOR ', ') AS MaterialeSanitario
-        FROM convenzioni AS c
-        JOIN associazioni AS a ON a.idAssociazione = c.idAssociazione
-        LEFT JOIN azienda_sanitaria_convenzione AS asco ON c.idConvenzione = asco.idConvenzione
-        LEFT JOIN aziende_sanitarie AS asl ON asco.idAziendaSanitaria = asl.idAziendaSanitaria
-        LEFT JOIN convenzioni_materiale_sanitario AS cms ON c.idConvenzione = cms.idConvenzione
-        LEFT JOIN materiale_sanitario AS ms ON cms.idMaterialeSanitario = ms.id
-        WHERE c.idAssociazione = :idAssociazione
-          AND c.idAnno = :idAnno
-        GROUP BY 
-            c.idConvenzione,
-            c.idAssociazione,
-            c.idAnno,
-            c.Convenzione,
-            c.ordinamento,
-            c.created_at,
-            c.updated_at,
-            a.Associazione
-        ORDER BY c.ordinamento, c.idConvenzione
-    ";
+            SELECT 
+                c.idConvenzione,
+                c.idAssociazione,
+                c.idAnno,
+                c.Convenzione,
+                c.ordinamento,
+                c.created_at,
+                c.updated_at,
+                c.materiale_fornito_asl,
+                a.Associazione,
+                GROUP_CONCAT(asl.Nome ORDER BY asl.Nome SEPARATOR ', ') AS AziendeSanitarie
+            FROM convenzioni AS c
+            JOIN associazioni AS a ON a.idAssociazione = c.idAssociazione
+            LEFT JOIN azienda_sanitaria_convenzione AS asco ON c.idConvenzione = asco.idConvenzione
+            LEFT JOIN aziende_sanitarie AS asl ON asco.idAziendaSanitaria = asl.idAziendaSanitaria
+            WHERE c.idAssociazione = :idAssociazione
+              AND c.idAnno = :idAnno
+            GROUP BY 
+                c.idConvenzione, c.idAssociazione, c.idAnno, c.Convenzione,
+                c.ordinamento, c.created_at, c.updated_at, c.materiale_fornito_asl, a.Associazione
+            ORDER BY c.ordinamento, c.idConvenzione
+        ";
 
         return collect(DB::select($sql, [
             'idAssociazione' => $idAssociazione,
-            'idAnno' => $anno,
+            'idAnno'         => $anno,
         ]));
     }
 
-    public static function createMateriale(array $data): int {
-        $now = now()->toDateTimeString();
-
-        DB::insert("
-        INSERT INTO materiale_sanitario (sigla, descrizione, created_at, updated_at)
-        VALUES (:sigla, :descrizione, :created_at, :updated_at)
-    ", [
-            'sigla'      => $data['sigla'],
-            'descrizione' => $data['descrizione'],
-            'created_at' => $now,
-            'updated_at' => $now,
-        ]);
-
-        return DB::getPdo()->lastInsertId();
-    }
-
-    public static function getMaterialeSanitario(int $idConvenzione): \Illuminate\Support\Collection {
-        $sql = "
-        SELECT ms.id, ms.sigla, ms.descrizione
-        FROM materiale_sanitario AS ms
-        JOIN convenzioni_materiale_sanitario AS cms
-          ON ms.id = cms.idMaterialeSanitario
-        WHERE cms.idConvenzione = :idConvenzione
-    ";
-
-        return collect(DB::select($sql, ['idConvenzione' => $idConvenzione]));
-    }
-
-    public static function syncMateriali(int $idConvenzione, array $materiali): void {
-        DB::delete("DELETE FROM convenzioni_materiale_sanitario WHERE idConvenzione = ?", [$idConvenzione]);
-
-        $now = now()->toDateTimeString();
-
-        foreach ($materiali as $idMateriale) {
-            DB::insert("
-            INSERT INTO convenzioni_materiale_sanitario (idConvenzione, idMaterialeSanitario, created_at, updated_at)
-            VALUES (?, ?, ?, ?)
-        ", [$idConvenzione, $idMateriale, $now, $now]);
+    /**
+     * Ritorna TRUE se esiste almeno una convenzione col flag attivo per (associazione, anno).
+     */
+    public static function checkMaterialeSanitario(?int $idAssociazione, int $idAnno): bool {
+        $q = DB::table('convenzioni')->where('idAnno', $idAnno);
+        if (!is_null($idAssociazione)) {
+            $q->where('idAssociazione', $idAssociazione);
         }
+        return $q->where('materiale_fornito_asl', 1)->exists();
     }
 
+    /**
+     * Convenzioni per associazione/anno (utility).
+     */
     public static function getByAssociazioneAnno(?int $idAssociazione, int $idAnno): Collection {
         $query = DB::table(self::TABLE)->where('idAnno', $idAnno);
 
@@ -238,24 +214,5 @@ class Convenzione {
         }
 
         return $query->orderBy('Convenzione')->get();
-    }
-
-    public static function checkMaterialeSanitario(?int $idAssociazione, int $idAnno): bool {
-        $query = DB::table(self::TABLE)->where('idAnno', $idAnno);
-
-        if (!is_null($idAssociazione)) {
-            $query->where('idAssociazione', $idAssociazione);
-        }
-
-        $convenzioni = $query->get();
-
-        foreach ($convenzioni as $convenzione) {
-            $materiali = self::getMaterialeSanitario($convenzione->idConvenzione);
-            if ($materiali->isNotEmpty()) {
-                return true;
-            }
-        }
-
-        return false;
     }
 }

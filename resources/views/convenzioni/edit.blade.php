@@ -1,9 +1,9 @@
 @extends('layouts.app')
 @php
-$user = Auth::user();
-$isImpersonating = session()->has('impersonate');
-$annoCorr = session('anno_riferimento', now()->year);
-$assoCorr = $associazioni->firstWhere('idAssociazione', $conv->idAssociazione);
+  $user = Auth::user();
+  $isImpersonating = session()->has('impersonate');
+  $annoCorr = session('anno_riferimento', now()->year);
+  $assoCorr = $associazioni->firstWhere('idAssociazione', $conv->idAssociazione);
 @endphp
 
 @section('content')
@@ -13,13 +13,13 @@ $assoCorr = $associazioni->firstWhere('idAssociazione', $conv->idAssociazione);
   </h1>
 
   @if($errors->any())
-  <div class="alert alert-danger">
-    <ul class="mb-0">
-      @foreach($errors->all() as $e)
-      <li>{{ $e }}</li>
-      @endforeach
-    </ul>
-  </div>
+    <div class="alert alert-danger">
+      <ul class="mb-0">
+        @foreach($errors->all() as $e)
+          <li>{{ $e }}</li>
+        @endforeach
+      </ul>
+    </div>
   @endif
 
   <div class="card-anpas mb-4">
@@ -32,49 +32,47 @@ $assoCorr = $associazioni->firstWhere('idAssociazione', $conv->idAssociazione);
           {{-- Associazione --}}
           <div class="col-md-6 mb-3">
             <label class="form-label">Associazione</label>
-            <input type="text" class="form-control" value="{{ $assoCorr->Associazione }}" readonly>
-            <input type="hidden" name="idAssociazione" value="{{ $assoCorr->idAssociazione }}">
+            <input type="text" class="form-control" value="{{ $assoCorr->Associazione ?? '' }}" readonly>
+            <input type="hidden" name="idAssociazione" value="{{ $assoCorr->idAssociazione ?? $conv->idAssociazione }}">
           </div>
-
 
           {{-- Anno --}}
-          @if (! $isImpersonating && $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor']))
-          <div class="col-md-6 mb-3">
-            <label for="idAnno" class="form-label">Anno</label>
-            <select name="idAnno" id="idAnno" class="form-select" required>
-              @foreach($anni as $annoRec)
-              <option value="{{ $annoRec->idAnno }}"
-                {{ old('idAnno', $conv->idAnno) == $annoRec->idAnno ? 'selected' : '' }}>
-                {{ $annoRec->idAnno }}
-              </option>
-              @endforeach
-            </select>
-          </div>
+          @if (!$isImpersonating && $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor']))
+            <div class="col-md-6 mb-3">
+              <label for="idAnno" class="form-label">Anno</label>
+              <select name="idAnno" id="idAnno" class="form-select" required>
+                @foreach($anni as $annoRec)
+                  <option value="{{ $annoRec->idAnno }}"
+                    {{ old('idAnno', $conv->idAnno) == $annoRec->idAnno ? 'selected' : '' }}>
+                    {{ $annoRec->idAnno }}
+                  </option>
+                @endforeach
+              </select>
+            </div>
           @else
-          <div class="col-md-6 mb-3">
-            <label class="form-label">Anno</label>
-            <input type="text" class="form-control" value="{{ $conv->idAnno }}" readonly>
-            <input type="hidden" name="idAnno" value="{{ $conv->idAnno }}">
-          </div>
+            <div class="col-md-6 mb-3">
+              <label class="form-label">Anno</label>
+              <input type="text" class="form-control" value="{{ $conv->idAnno }}" readonly>
+              <input type="hidden" name="idAnno" value="{{ $conv->idAnno }}">
+            </div>
           @endif
         </div>
-
 
         <div class="row">
           <div class="col-md-6 mb-3">
             <label class="form-label">Descrizione</label>
             <input type="text"
-              style="text-transform: uppercase;"
-              name="Convenzione"
-              class="form-control"
-              value="{{ old('Convenzione', $conv->Convenzione) }}"
-              required>
+                   style="text-transform: uppercase;"
+                   name="Convenzione"
+                   class="form-control"
+                   value="{{ old('Convenzione', $conv->Convenzione) }}"
+                   required>
           </div>
         </div>
 
-        {{-- Aziende Sanitarie collegate --}}
         <div class="row">
-          <div class="col-md-2 mb-3">
+          {{-- Aziende Sanitarie collegate --}}
+          <div class="col-md-6 mb-3">
             <label for="aziende_sanitarie" class="form-label">Aziende Sanitarie associate</label>
             <select name="aziende_sanitarie[]" id="aziende_sanitarie" class="form-select" multiple size="6">
               @foreach($aziendeSanitarie as $az)
@@ -84,37 +82,33 @@ $assoCorr = $associazioni->firstWhere('idAssociazione', $conv->idAssociazione);
                 </option>
               @endforeach
             </select>
-            <small class="form-text text-muted">Puoi selezionare una o più aziende sanitarie. (CTRL/CMD per selezione multipla)</small>
+            <small class="form-text text-muted">
+              Puoi selezionare una o più aziende sanitarie. (CTRL/CMD per selezione multipla)
+            </small>
           </div>
 
-          <div class="col-md-4"></div>
-
-        {{-- Materiale sanitario di consumo --}}
-        <div class="col-md-2 mb-3">
-            <label for="Qualifica" class="form-label">Materiale sanitario</label>
-            <select name="materiali[]" id="materiali" class="form-select" multiple size="6">
-              @foreach($materiali as $materiale)
-                  <option value="{{ $materiale->id }}"
-                      @if(!empty($materialiSelezionati) && in_array($materiale->id, $materialiSelezionati)) selected @endif>
-                      {{ $materiale->descrizione }}
-                  </option>
-              @endforeach
-            </select>
-            <div class="form-text">Seleziona uno o più materiali sanitari. (CTRL/CMD per selezione multipla)</div>
+          {{-- Flag: materiale fornito da ASL (Sì/No) --}}
+          <div class="col-md-6 mb-3">
+            <label class="form-label d-block">Materiale sanitario fornito da azienda sanitaria</label>
+            @php $flag = (int) old('materiale_fornito_asl', $conv->materiale_fornito_asl ?? 0); @endphp
+            <div class="form-check form-check-inline">
+              <input class="form-check-input" type="radio" name="materiale_fornito_asl" id="matSi" value="1" {{ $flag === 1 ? 'checked' : '' }}>
+              <label class="form-check-label" for="matSi">Sì</label>
+            </div>
+            <div class="form-check form-check-inline ms-3">
+              <input class="form-check-input" type="radio" name="materiale_fornito_asl" id="matNo" value="0" {{ $flag === 0 ? 'checked' : '' }}>
+              <label class="form-check-label" for="matNo">No</label>
+            </div>
           </div>
         </div>
 
-          {{-- RIGA 9: Note --}}
-          <div class="row">
-          <div class="col-md-6">
+        <div class="row">
+          {{-- Note --}}
+          <div class="col-md-8">
             <label for="note" class="form-label">Note</label>
-              <textarea name="note" id="note" class="form-control" rows="3">{{ old('note', $conv->note) }}</textarea>
+            <textarea name="note" id="note" class="form-control" rows="3">{{ old('note', $conv->note) }}</textarea>
           </div>
-          </div>
-
-        <div class="row mb-3">
-
-
+        </div>
 
         <div class="d-flex justify-content-center mt-4">
           <button type="submit" class="btn btn-anpas-green me-2">
@@ -122,9 +116,9 @@ $assoCorr = $associazioni->firstWhere('idAssociazione', $conv->idAssociazione);
           </button>
           <a href="{{ route('convenzioni.index', [
                 'idAssociazione' => $selectedAssoc,
-                'idAnno' => $selectedAnno
-            ]) }}" class="btn btn-secondary">
-            <i class="fas fa-times me-1"></i>Annulla
+                'idAnno'         => $selectedAnno
+          ]) }}" class="btn btn-secondary">
+            <i class="fas fa-times me-1"></i> Annulla
           </a>
         </div>
       </form>

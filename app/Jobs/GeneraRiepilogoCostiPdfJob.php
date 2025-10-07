@@ -2,8 +2,9 @@
 
 namespace App\Jobs;
 
-use Illuminate\Bus\Queueable;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Bus\Batchable;
+use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
@@ -14,7 +15,6 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Throwable;
 
-use Barryvdh\DomPDF\Facade\Pdf;
 use App\Models\DocumentoGenerato;
 use App\Models\RiepilogoCosti;
 
@@ -22,52 +22,57 @@ class GeneraRiepilogoCostiPdfJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels, Batchable;
 
+    /** Evita retry multipli su errori logici */
+    public $tries = 1;
+    /** DomPDF può richiedere tempo */
+    public $timeout = 600;
+    /** Niente backoff tra retry (tanto tries=1) */
+    public $backoff = 0;
+
     public function __construct(
         public int $documentoId,
         public int $idAssociazione,
         public int $anno,
         public int $utenteId,
     ) {
-        $this->onQueue('pdf'); // coda dedicata
+        $this->onQueue('pdf');
     }
 
     public function middleware(): array
     {
-        // lock specifico; NO dontRelease per evitare scarti silenziosi
         $key = "pdf-riepilogo-costi-{$this->idAssociazione}-{$this->anno}";
         return [
-            (new WithoutOverlapping($key))
-                ->expireAfter(120),
+            (new WithoutOverlapping($key))->expireAfter(300),
         ];
     }
 
     public function handle(): void
     {
-        /** @var DocumentoGenerato $doc */
-        $doc = DocumentoGenerato::findOrFail($this->documentoId);
-
-        // Stato per il polling UI
+        // Imposta subito lo stato, utile per il polling UI
         DB::table('documenti_generati')->where('id', $this->documentoId)->update([
             'stato'      => 'processing',
             'updated_at' => now(),
         ]);
 
-        // Definisci SEMPRE la variabile nello scope
         $associazioneNome = '';
 
         try {
-            Log::debug('RIEPILOGO: start', [
-                'documentoId'    => $this->documentoId,
-                'idAssociazione' => $this->idAssociazione,
-                'anno'           => $this->anno,
-            ]);
+            // Carico documento
+            /** @var DocumentoGenerato $doc */
+            $doc = DocumentoGenerato::findOrFail($this->documentoId);
 
-            // Nome associazione come STRINGA
+            // Nome associazione (stringa semplice)
             $associazioneNome = (string) (DB::table('associazioni')
                 ->where('idAssociazione', $this->idAssociazione)
                 ->value('Associazione') ?? '');
 
-            // titoli sezioni (2..11)
+            // Verifica che la view esista (se no l’eccezione è brutta)
+            $viewName = 'template.pdf_riepiloghi_dati_costi';
+            if (! view()->exists($viewName)) {
+                throw new \RuntimeException("View '{$viewName}' non trovata.");
+            }
+
+            // Titoli sezioni
             $sezioniTitoli = [
                 2  => 'Automezzi',
                 3  => 'Attrezzatura Sanitaria',
@@ -82,20 +87,22 @@ class GeneraRiepilogoCostiPdfJob implements ShouldQueue
             ];
             $tipologieIds = array_keys($sezioniTitoli);
 
-            // Builder blocco (TOT o per singola convenzione)
+            // Helper: costruisce blocco sezioni per TOT o singola convenzione
             $buildBlock = function (int|string $idConvenzione) use ($tipologieIds, $sezioniTitoli) {
                 $sezioni = [];
                 $totPrev = 0.0;
                 $totCons = 0.0;
 
                 foreach ($tipologieIds as $tip) {
+                    // ATTENZIONE: assicurati che questo metodo ritorni una Collection
                     $rows = RiepilogoCosti::getByTipologia(
                         $tip,
                         $this->anno,
                         $this->idAssociazione,
                         $idConvenzione
-                    ); // Collection di stdClass {descrizione, preventivo, consuntivo}
+                    );
 
+                    // Hard-cast numeri per evitare “string to float”
                     $sumPrev = (float) $rows->sum(fn($r) => (float) ($r->preventivo ?? 0));
                     $sumCons = (float) $rows->sum(fn($r) => (float) ($r->consuntivo ?? 0));
 
@@ -123,7 +130,7 @@ class GeneraRiepilogoCostiPdfJob implements ShouldQueue
             ]];
             $totaleTot = ['prev' => $totPrev, 'cons' => $totCons];
 
-            // Blocchi per ciascuna convenzione
+            // Blocchi per convenzione
             $convenzioni = DB::table('convenzioni')
                 ->where('idAssociazione', $this->idAssociazione)
                 ->where('idAnno', $this->anno)
@@ -141,7 +148,7 @@ class GeneraRiepilogoCostiPdfJob implements ShouldQueue
                 ];
             }
 
-            // Mapping blocks -> pagine per la view compatta
+            // Mappatura per la view
             $pagine = [];
             foreach ($blocks as $b) {
                 $sezioniCosti = [];
@@ -149,9 +156,9 @@ class GeneraRiepilogoCostiPdfJob implements ShouldQueue
                     $righe = [];
                     foreach ($sec['rows'] as $r) {
                         $righe[] = (object) [
-                            'descrizione' => $r->descrizione ?? '',
-                            'preventivo'  => (float) ($r->preventivo ?? 0),
-                            'consuntivo'  => (float) ($r->consuntivo ?? 0),
+                            'descrizione' => (string) ($r->descrizione ?? ''),
+                            'preventivo'  => (float)  ($r->preventivo  ?? 0),
+                            'consuntivo'  => (float)  ($r->consuntivo  ?? 0),
                         ];
                     }
 
@@ -166,31 +173,29 @@ class GeneraRiepilogoCostiPdfJob implements ShouldQueue
                 }
 
                 $pagine[] = [
-                    'conv_label'    => $b['nome'],   // "TOTALE" o nome convenzione
-                    'tab_generale'  => [],           // lasciato vuoto se non usi il blocco dati
+                    'conv_label'    => $b['nome'],
+                    'tab_generale'  => [],
                     'sezioni_costi' => $sezioniCosti,
                 ];
             }
 
-            Log::debug('RIEPILOGO: render view', ['view' => 'template.pdf_riepiloghi_dati_costi']);
-
             // Render PDF
-            $pdf = Pdf::loadView('template.pdf_riepiloghi_dati_costi', [
+            $pdf = Pdf::loadView($viewName, [
                 'anno'           => $this->anno,
                 'idAssociazione' => $this->idAssociazione,
-                'associazione'   => $associazioneNome, // <— allineato al nome che la view usa
+                // Passo sia stringa che oggetto per massima compatibilità con la view
+                'associazione'   => $associazioneNome,
+                'associazioneObj'=> (object)['Associazione' => $associazioneNome],
                 'totaleTot'      => $totaleTot,
                 'pagine'         => $pagine,
             ])->setPaper('a4', 'landscape');
-            Log::debug('RIEPILOGO: salvataggio PDF');
 
             // Salvataggio
             $filename = "riepilogo_costi_{$this->idAssociazione}_{$this->anno}_" . now()->timestamp . ".pdf";
             $path     = "documenti/{$filename}";
-
             Storage::disk('public')->put($path, $pdf->output());
 
-            // Aggiorna il record documento
+            // Aggiorno documento
             $doc->update([
                 'nome_file'     => $filename,
                 'percorso_file' => $path,
@@ -204,10 +209,11 @@ class GeneraRiepilogoCostiPdfJob implements ShouldQueue
                 'path'        => $path,
             ]);
         } catch (Throwable $e) {
-            Log::error('GeneraRiepilogoCostiPdfJob error: '.$e->getMessage(), [
+            Log::error('GeneraRiepilogoCostiPdfJob error', [
                 'documentoId'    => $this->documentoId,
                 'idAssociazione' => $this->idAssociazione,
                 'anno'           => $this->anno,
+                'message'        => $e->getMessage(),
                 'trace'          => $e->getTraceAsString(),
             ]);
 
@@ -217,7 +223,8 @@ class GeneraRiepilogoCostiPdfJob implements ShouldQueue
                 'updated_at' => now(),
             ]);
 
-            throw $e;
+            // Segnalo il fallimento al worker (evita rethrow che poi ti stampa solo MaxAttemptsExceeded)
+            $this->fail($e);
         }
     }
 
@@ -229,7 +236,6 @@ class GeneraRiepilogoCostiPdfJob implements ShouldQueue
             'anno'           => $this->anno,
         ]);
 
-        // Fallback stato
         DB::table('documenti_generati')->where('id', $this->documentoId)->update([
             'stato'      => 'error',
             'updated_at' => now(),

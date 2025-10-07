@@ -3,7 +3,7 @@
 @php
   $user = Auth::user();
   $isImpersonating = session()->has('impersonate');
-  $sezioniBilancioEdit = [5,8];
+  $sezioniBilancioEdit = [5,6,8,9,10,11];
 
   // $selectedAssoc arriva dal controller; fallback d’emergenza
   $selectedAssoc = $selectedAssoc

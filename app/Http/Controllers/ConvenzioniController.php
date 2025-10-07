@@ -8,22 +8,22 @@ use Illuminate\Support\Facades\DB;
 use App\Models\Convenzione;
 use Illuminate\Http\JsonResponse;
 
-class ConvenzioniController extends Controller
-{
-    public function __construct()
-    {
+class ConvenzioniController extends Controller {
+    public function __construct() {
         $this->middleware('auth');
     }
 
-    public function index(Request $request)
-    {
+    /* =========================
+       INDEX
+       ========================= */
+    public function index(Request $request) {
         $user = Auth::user();
-        $anno = session('anno_riferimento', now()->year);
+        $anno = (int) session('anno_riferimento', now()->year);
 
-        $associazioni = collect();
+        $associazioni  = collect();
         $selectedAssoc = null;
 
-        // chiave unica per questa pagina (puoi anche usare il nome route con route()->getName())
+        // chiave usata in tutta l’app per ricordare l’associazione corrente
         $sessionKey = 'associazione_selezionata';
 
         if ($user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])) {
@@ -33,21 +33,21 @@ class ConvenzioniController extends Controller
                 ->orderBy('Associazione')
                 ->get();
 
-            if ($request->has('idAssociazione')) {
-                // salvo la selezione solo per QUESTA pagina
-                session([$sessionKey => $request->get('idAssociazione')]);
-                $selectedAssoc = $request->get('idAssociazione');
+            if ($request->filled('idAssociazione')) {
+                $selectedAssoc = (int) $request->get('idAssociazione');
+                session([$sessionKey => $selectedAssoc]);
             } else {
-                // recupero dalla sessione di questa pagina
-                $selectedAssoc = session($sessionKey, $associazioni->first()->idAssociazione ?? null);
+                $selectedAssoc = (int) (session($sessionKey, $associazioni->first()->idAssociazione ?? 0));
             }
         } else {
-            $selectedAssoc = $user->IdAssociazione;
+            $selectedAssoc = (int) $user->IdAssociazione;
         }
-        if ($request->has('idAssociazione')) {
+
+        // allinea anche la sessione “globale” se passo da query
+        if ($request->filled('idAssociazione')) {
             session(['associazione_selezionata' => $selectedAssoc]);
         }
-        
+
         $convenzioni = Convenzione::getWithAssociazione($selectedAssoc, $anno);
 
         return view('convenzioni.index', compact(
@@ -58,8 +58,10 @@ class ConvenzioniController extends Controller
         ));
     }
 
-    public function create()
-    {
+    /* =========================
+       CREATE
+       ========================= */
+    public function create() {
         $anni = DB::table('anni')->orderBy('anno', 'desc')->get();
 
         $associazioni = DB::table('associazioni')
@@ -73,69 +75,57 @@ class ConvenzioniController extends Controller
             ->orderBy('Nome')
             ->get();
 
-        $materiali = DB::table('materiale_sanitario')
-            ->select('id', 'sigla', 'descrizione')
-            ->orderBy('descrizione')
-            ->get();
-
-        // Recupera dalla sessione la selezione corrente
         $selectedAssoc = session('associazione_selezionata') ?? ($associazioni->first()->idAssociazione ?? null);
-        $selectedAnno = session('selectedAnno') ?? ($anni->first()->idAnno ?? null);
+        $selectedAnno  = session('selectedAnno') ?? ($anni->first()->idAnno ?? null);
 
-        return view('convenzioni.create', compact('anni', 'associazioni', 'aziendeSanitarie', 'materiali', 'selectedAssoc', 'selectedAnno'));
+        return view('convenzioni.create', compact(
+            'anni',
+            'associazioni',
+            'aziendeSanitarie',
+            'selectedAssoc',
+            'selectedAnno'
+        ));
     }
 
-    public function store(Request $request)
-    {
+    /* =========================
+       STORE
+       ========================= */
+    public function store(Request $request) {
         $validated = $request->validate([
-            'idAssociazione' => 'required|exists:associazioni,idAssociazione',
-            'idAnno' => 'required|exists:anni,idAnno',
-            'Convenzione' => 'required|string|max:255',
-            'note' => 'nullable|string',
-            'aziende_sanitarie' => 'nullable|array',
-            'aziende_sanitarie.*' => 'exists:aziende_sanitarie,idAziendaSanitaria',
-            'materiali' => 'nullable|array',
-            'materiali.*' => 'exists:materiale_sanitario,id',
+            'idAssociazione'        => 'required|exists:associazioni,idAssociazione',
+            'idAnno'                => 'required|exists:anni,idAnno',
+            'Convenzione'           => 'required|string|max:255',
+            'note'                  => 'nullable|string',
+            'aziende_sanitarie'     => 'nullable|array',
+            'aziende_sanitarie.*'   => 'exists:aziende_sanitarie,idAziendaSanitaria',
+            'materiale_fornito_asl' => 'required|boolean', // <— nuovo flag
         ]);
 
         $idConv = DB::table('convenzioni')->insertGetId([
-            'idAssociazione' => $validated['idAssociazione'],
-            'idAnno' => $validated['idAnno'],
-            'Convenzione' => $validated['Convenzione'],
-            'note' => $validated['note'] ?? null,
-            'created_at' => now(),
-            'updated_at' => now(),
+            'idAssociazione'        => (int) $validated['idAssociazione'],
+            'idAnno'                => (int) $validated['idAnno'],
+            'Convenzione'           => strtoupper(trim($validated['Convenzione'])),
+            'note'                  => $validated['note'] ?? null,
+            'materiale_fornito_asl' => (int) (bool) $validated['materiale_fornito_asl'],
+            'created_at'            => now(),
+            'updated_at'            => now(),
         ]);
 
-
-        $materialiIds = $validated['materiali'] ?? [];
-
-        if (!empty($validated['materiale_sanitario'])) {
-            $idMat = DB::table('materiale_sanitario')->insertGetId([
-                'sigla' => substr($validated['materiale_sanitario'], 0, 10),
-                'descrizione' => $validated['materiale_sanitario'],
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
-            $materialiIds[] = $idMat;
-        }
-
-        if (!empty($materialiIds)) {
-            $this->syncMateriali($idConv, $materialiIds);
-        }
-
+        // aziende sanitarie collegate (se presenti)
         if (!empty($validated['aziende_sanitarie'])) {
             $this->syncAziendeSanitarie($idConv, $validated['aziende_sanitarie']);
         }
 
         return redirect()->route('convenzioni.index', [
             'idAssociazione' => $validated['idAssociazione'],
-            'idAnno' => $validated['idAnno'],
+            'idAnno'         => $validated['idAnno'],
         ])->with('success', 'Convenzione creata con successo.');
     }
 
-    public function edit(int $id)
-    {
+    /* =========================
+       EDIT
+       ========================= */
+    public function edit(int $id) {
         $conv = Convenzione::getById($id);
         abort_if(!$conv, 404);
 
@@ -151,32 +141,18 @@ class ConvenzioniController extends Controller
             ->orderBy('anno', 'desc')
             ->get();
 
-        // 🔽 Qui recuperi tutte le aziende sanitarie disponibili
         $aziendeSanitarie = DB::table('aziende_sanitarie')
             ->select('idAziendaSanitaria', 'Nome')
             ->orderBy('Nome')
             ->get();
 
-        // 🔽 Qui quelle associate alla convenzione corrente
         $aziendeSelezionate = DB::table('azienda_sanitaria_convenzione')
             ->where('idConvenzione', $id)
             ->pluck('idAziendaSanitaria')
             ->toArray();
 
-        $materiali = DB::table('materiale_sanitario')
-            ->select('id', 'sigla', 'descrizione')
-            ->orderBy('descrizione')
-            ->get();
-
-        // 🔽 Materiali già selezionati per questa convenzione
-        $materialiSelezionati = DB::table('convenzioni_materiale_sanitario')
-            ->where('idConvenzione', $id)
-            ->pluck('idMaterialeSanitario')
-            ->toArray();
-
-        // Recupera dalla sessione o fallback ai valori correnti della convenzione
         $selectedAssoc = session('associazione_selezionata') ?? $conv->idAssociazione;
-        $selectedAnno = session('selectedAnno') ?? $conv->idAnno;
+        $selectedAnno  = session('selectedAnno') ?? $conv->idAnno;
 
         return view('convenzioni.edit', compact(
             'conv',
@@ -184,66 +160,48 @@ class ConvenzioniController extends Controller
             'anni',
             'aziendeSanitarie',
             'aziendeSelezionate',
-            'materiali',
-            'materialiSelezionati',
             'selectedAssoc',
             'selectedAnno'
         ));
     }
 
-
-    public function update(Request $request, int $id)
-    {
+    /* =========================
+       UPDATE
+       ========================= */
+    public function update(Request $request, int $id) {
         $validated = $request->validate([
-            'idAssociazione' => 'required|exists:associazioni,idAssociazione',
-            'idAnno' => 'required|exists:anni,idAnno',
-            'Convenzione' => 'required|string|max:255',
-            'note' => 'nullable|string',
-            'aziende_sanitarie' => 'nullable|array',
-            'aziende_sanitarie.*' => 'exists:aziende_sanitarie,idAziendaSanitaria',
-            'materiali' => 'nullable|array',
-            'materiali.*' => 'exists:materiale_sanitario,id',
+            'idAssociazione'        => 'required|exists:associazioni,idAssociazione',
+            'idAnno'                => 'required|exists:anni,idAnno',
+            'Convenzione'           => 'required|string|max:255',
+            'note'                  => 'nullable|string',
+            'aziende_sanitarie'     => 'nullable|array',
+            'aziende_sanitarie.*'   => 'exists:aziende_sanitarie,idAziendaSanitaria',
+            'materiale_fornito_asl' => 'required|boolean', // <— nuovo flag
         ]);
 
-        DB::table('convenzioni')->where('idConvenzione', $id)->update([
-            'idAssociazione' => $validated['idAssociazione'],
-            'idAnno' => $validated['idAnno'],
-            'Convenzione' => $validated['Convenzione'],
-            'note' => $validated['note'] ?? null,
-            'updated_at' => now(),
-        ]);
-
-        $this->syncMateriali($id, $validated['materiali'] ?? []);
+        DB::table('convenzioni')
+            ->where('idConvenzione', $id)
+            ->update([
+                'idAssociazione'        => (int) $validated['idAssociazione'],
+                'idAnno'                => (int) $validated['idAnno'],
+                'Convenzione'           => strtoupper(trim($validated['Convenzione'])),
+                'note'                  => $validated['note'] ?? null,
+                'materiale_fornito_asl' => (int) (bool) $validated['materiale_fornito_asl'],
+                'updated_at'            => now(),
+            ]);
 
         $this->syncAziendeSanitarie($id, $validated['aziende_sanitarie'] ?? []);
 
         return redirect()->route('convenzioni.index', [
             'idAssociazione' => $validated['idAssociazione'],
-            'idAnno' => $validated['idAnno'],
+            'idAnno'         => $validated['idAnno'],
         ])->with('success', 'Convenzione aggiornata.');
     }
 
-    private function syncMateriali(int $idConvenzione, array $idMateriali): void
-    {
-        DB::table('convenzioni_materiale_sanitario')
-            ->where('idConvenzione', $idConvenzione)
-            ->delete();
-
-        if (!empty($idMateriali)) {
-            $now = now();
-            $insertData = array_map(fn($idMat) => [
-                'idConvenzione' => $idConvenzione,
-                'idMaterialeSanitario' => $idMat,
-                'created_at' => $now,
-                'updated_at' => $now,
-            ], $idMateriali);
-
-            DB::table('convenzioni_materiale_sanitario')->insert($insertData);
-        }
-    }
-
-    public function destroy(int $id)
-    {
+    /* =========================
+       DESTROY
+       ========================= */
+    public function destroy(int $id) {
         abort_if(!Convenzione::getById($id), 404);
 
         Convenzione::deleteConvenzione($id);
@@ -251,66 +209,73 @@ class ConvenzioniController extends Controller
         return redirect()->route('convenzioni.index')->with('success', 'Convenzione eliminata.');
     }
 
-    public function checkDuplicazioneDisponibile(): JsonResponse
-    {
-        $anno = session('anno_riferimento', now()->year);
+    /* =========================
+       CHECK DUPLICAZIONE
+       ========================= */
+    public function checkDuplicazioneDisponibile(): JsonResponse {
+        $anno     = (int) session('anno_riferimento', now()->year);
         $annoPrec = $anno - 1;
-        $user = Auth::user();
+        $user     = Auth::user();
 
-        if ($user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])) {
-            $idAssoc = session('associazione_selezionata');
-        } else {
-            $idAssoc = $user->IdAssociazione;
-        }
-        $correnteVuoto = Convenzione::getByAssociazioneAnno($idAssoc, $anno)->isEmpty();
+        $idAssoc = $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])
+            ? (int) session('associazione_selezionata')
+            : (int) $user->IdAssociazione;
+
+        $correnteVuoto   = Convenzione::getByAssociazioneAnno($idAssoc, $anno)->isEmpty();
         $precedentePieno = Convenzione::getByAssociazioneAnno($idAssoc, $annoPrec)->isNotEmpty();
 
         return response()->json([
             'mostraMessaggio' => $correnteVuoto && $precedentePieno,
-            'annoCorrente' => $anno,
-            'annoPrecedente' => $annoPrec,
+            'annoCorrente'    => $anno,
+            'annoPrecedente'  => $annoPrec,
         ]);
     }
 
-    public function duplicaAnnoPrecedente(): JsonResponse
-    {
-        $anno = session('anno_riferimento', now()->year);
+    /* =========================
+       DUPLICA ANNO PRECEDENTE
+       ========================= */
+    public function duplicaAnnoPrecedente(): JsonResponse {
+        $anno     = (int) session('anno_riferimento', now()->year);
         $annoPrec = $anno - 1;
-        $user = Auth::user();
+        $user     = Auth::user();
 
         try {
-            if ($user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])) {
-                $idAssoc = session('associazione_selezionata');
-            } else {
-                $idAssoc = $user->IdAssociazione;
-            }
-            
+            $idAssoc = $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])
+                ? (int) session('associazione_selezionata')
+                : (int) $user->IdAssociazione;
+
             $convenzioni = Convenzione::getByAssociazioneAnno($idAssoc, $annoPrec);
-            
-           
             if ($convenzioni->isEmpty()) {
                 return response()->json(['message' => 'Nessuna convenzione da duplicare'], 404);
             }
 
             foreach ($convenzioni as $c) {
-                
-                Convenzione::createConvenzione([
-                    'idAssociazione' => $idAssoc,
-                    'idAnno' => $anno,
-                    'Convenzione' => $c->Convenzione,
-                    'note'      => $c->note,
-                    "ordinamento"=> $c->ordinamento,
+                DB::table('convenzioni')->insert([
+                    'idAssociazione'        => $idAssoc,
+                    'idAnno'                => $anno,
+                    'Convenzione'           => $c->Convenzione,
+                    'note'                  => $c->note,
+                    'ordinamento'           => $c->ordinamento,
+                    'materiale_fornito_asl' => (int) ($c->materiale_fornito_asl ?? 0),
+                    'lettera_identificativa' => $c->lettera_identificativa ?? null, // se presente in schema
+                    'created_at'            => now(),
+                    'updated_at'            => now(),
                 ]);
             }
 
             return response()->json(['message' => 'Convenzioni duplicate.']);
         } catch (\Throwable $e) {
-            return response()->json(['message' => 'Errore durante la duplicazione.', 'error' => $e->getMessage()], 500);
+            return response()->json([
+                'message' => 'Errore durante la duplicazione.',
+                'error'   => $e->getMessage()
+            ], 500);
         }
     }
 
-    public function riordina(Request $request): JsonResponse
-    {
+    /* =========================
+       RIORDINA
+       ========================= */
+    public function riordina(Request $request): JsonResponse {
         $ids = $request->input('order');
 
         if (!is_array($ids)) {
@@ -326,22 +291,24 @@ class ConvenzioniController extends Controller
         return response()->json(['message' => 'Ordinamento aggiornato']);
     }
 
-    private function syncAziendeSanitarie(int $idConvenzione, array $idAziende): void
-    {
+    /* =========================
+       SUPPORTO: sync aziende sanitarie
+       ========================= */
+    private function syncAziendeSanitarie(int $idConvenzione, array $idAziende): void {
         DB::table('azienda_sanitaria_convenzione')
             ->where('idConvenzione', $idConvenzione)
             ->delete();
 
         if (!empty($idAziende)) {
             $now = now();
-            $insertData = array_map(fn($idAz) => [
-                'idAziendaSanitaria' => $idAz,
-                'idConvenzione' => $idConvenzione,
-                'created_at' => $now,
-                'updated_at' => $now,
+            $rows = array_map(fn($idAz) => [
+                'idAziendaSanitaria' => (int) $idAz,
+                'idConvenzione'      => $idConvenzione,
+                'created_at'         => $now,
+                'updated_at'         => $now,
             ], $idAziende);
 
-            DB::table('azienda_sanitaria_convenzione')->insert($insertData);
+            DB::table('azienda_sanitaria_convenzione')->insert($rows);
         }
-    }
+    }  
 }

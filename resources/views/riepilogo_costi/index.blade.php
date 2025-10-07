@@ -237,7 +237,7 @@
         const scos = sumPrev !== 0 ? ((sumCons - sumPrev) / sumPrev * 100) : 0;
         document.getElementById(`summary-prev-${idTipologia}`).textContent ='Preventivo: '+ eur(sumPrev);
         document.getElementById(`summary-cons-${idTipologia}`).textContent ='Consuntivo: '+ eur(sumCons);
-        document.getElementById(`summary-scos-${idTipologia}`).textContent ='Sostamento: '+ pct(scos);
+        document.getElementById(`summary-scos-${idTipologia}`).textContent ='Scostamento: '+ pct(scos);
 
         return { prev: sumPrev, cons: sumCons };
       })

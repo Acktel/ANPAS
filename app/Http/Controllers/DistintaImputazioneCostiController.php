@@ -11,16 +11,16 @@ use App\Models\CostoDiretto;
 use App\Models\Riepilogo;
 
 class DistintaImputazioneCostiController extends Controller {
-    /** Sezioni dove si può editare l’Importo Totale da Bilancio Consuntivo (giallo) */
-    /** Sezioni dove si può editare l’Importo Totale da Bilancio Consuntivo */
-    private const SEZIONI_BILANCIO_EDITABILE = [5, 8, 10, 11];
-
+    // Sezioni dove si può editare l’Importo Totale da Bilancio Consuntivo
+    private const SEZIONI_BILANCIO_EDITABILE = [5, 6, 8, 9, 10, 11];
     /** Whitelist voci editabili per sezione (ALL = tutte le voci attive della sezione) */
     private const VOCI_BILANCIO_EDIT_PER_SEZIONE = [
         5  => 'ALL',
+        6  => [6007,6008,6009,6010,6011,6012,6013,6014], // solo questi ID
         8  => 'ALL',
-        10 => [6007,6008,6009,6010,6011,6012,6013,6014],
-        11 => [9002,9003,9006,9007,9008,9009],
+        9  => [9002,9003,9006,9007,9008,9009],           // solo questi ID
+        10 => 'ALL',
+        11 => 'ALL',
     ];
     /* =========================
        INDEX
@@ -475,10 +475,6 @@ class DistintaImputazioneCostiController extends Controller {
         return redirect()
             ->route('distinta.imputazione.index', ['idAssociazione' => $idAssociazione])
             ->with('success', 'Costi diretti aggiornati correttamente.');
-    }
-
-    private static function voceBilancioPerId(int $idVoce): bool {
-        return in_array($idVoce, self::VOCI_BILANCIO_EDITABILE_IDS, true);
     }
 
     /* =========================
