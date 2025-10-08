@@ -12,17 +12,6 @@ return new class extends Migration {
             $table->string('cap', 10)->nullable()->after('citta');
         });
 
-        // (opzionale) prova un backfill veloce se hai tabella CAP (adatta i nomi tabella/colonne)
-        // Esempio: tabella 'ter_cap' con campi: cap, denominazione_ita, sigla_provincia
-        if (Schema::hasTable('ter_cap')) {
-            DB::statement("
-                UPDATE associazioni a
-                JOIN ter_cap t
-                  ON t.denominazione_ita = a.citta
-                 AND t.sigla_provincia = a.provincia
-                SET a.cap = t.cap
-            ");
-        }
     }
 
     public function down(): void
