@@ -82,7 +82,6 @@
             <th>Provincia</th>
             <th>Città</th>
             <th>Email</th>
-            <th>Convenzioni</th>
             <th>Lotti</th>
             <th class="col-actions text-center">Azioni</th>
           </tr>
@@ -96,13 +95,6 @@
               <td>{{ $a->provincia }}</td>
               <td>{{ $a->citta }}</td>
               <td>{{ $a->mail }}</td>
-              <td>
-                @if (!empty($a->Convenzioni))
-                  {{ implode(', ', $a->Convenzioni) }}
-                @else
-                  <span class="text-muted">—</span>
-                @endif
-              </td>
               <td>
                 @if (!empty($a->Lotti))
                   {{ implode(', ', $a->Lotti) }}
