@@ -1,3 +1,4 @@
+{{-- resources/views/aziende_sanitarie/index.blade.php --}}
 @extends('layouts.app')
 
 @section('content')
@@ -10,45 +11,7 @@
     <div class="alert alert-success">{{ session('success') }}</div>
   @endif
 
-  @if (auth()->user()->hasAnyRole(['SuperAdmin','Admin','Supervisor']))
-    <div class="mb-3">
-      <form method="GET" id="convSelectForm" action="{{ route('aziende-sanitarie.index') }}" class="w-100" style="max-width:400px; position:relative;">
-        <div class="input-group">
-          <!-- Campo visibile -->
-          <input
-            id="convSelect"
-            name="convLabel"
-            class="form-control"
-            autocomplete="off"
-            placeholder="Seleziona convenzione"
-            value="{{ optional($convenzioni->firstWhere('idConvenzione', $selectedConvenzione))->Convenzione ?? '' }}"
-            aria-label="Seleziona convenzione">
 
-          <!-- Bottone per aprire/chiudere -->
-          <button type="button" id="convSelectToggleBtn" class="btn btn-outline-secondary"
-                  aria-haspopup="listbox" aria-expanded="false" title="Mostra elenco">
-            <i class="fas fa-chevron-down"></i>
-          </button>
-
-          <!-- Campo nascosto con l'id reale -->
-          <input type="hidden" id="convSelectHidden" name="idConvenzione" value="{{ $selectedConvenzione ?? '' }}">
-        </div>
-
-        <!-- Dropdown custom -->
-        <ul id="convSelectDropdown" class="list-group position-absolute w-100"
-            style="z-index:2000; display:none; max-height:240px; overflow:auto; top:100%; left:0;
-                   background-color:#fff; opacity:1; -webkit-backdrop-filter:none; backdrop-filter:none;">
-          @foreach ($convenzioni as $conv)
-            <li class="list-group-item conv-item" data-id="{{ $conv->idConvenzione }}">
-              {{ $conv->Convenzione }}
-            </li>
-          @endforeach
-        </ul>
-      </form>
-    </div>
-  @endif
-
-  <!-- Messaggio duplicazione (come nelle convenzioni) -->
   <div id="noDataMessage" class="alert alert-info d-none">
     Nessuna azienda sanitaria presente per l’anno corrente.<br>
     Vuoi importare le anagrafiche e i collegamenti dall’anno precedente?
@@ -81,6 +44,7 @@
             <th>Indirizzo</th>
             <th>Provincia</th>
             <th>Città</th>
+            <th>CAP</th> {{-- NEW --}}
             <th>Email</th>
             <th>Lotti</th>
             <th class="col-actions text-center">Azioni</th>
@@ -94,7 +58,8 @@
               <td>{{ $a->Indirizzo }}</td>
               <td>{{ $a->provincia }}</td>
               <td>{{ $a->citta }}</td>
-              <td>{{ $a->mail }}</td>              
+              <td>{{ $a->cap ?? '' }}</td> {{-- NEW --}}
+              <td>{{ $a->mail }}</td>
               <td>
                 @if (!empty($a->Lotti))
                   {{ implode(', ', $a->Lotti) }}
@@ -138,7 +103,7 @@ document.addEventListener('DOMContentLoaded', function () {
   // === DataTable via AJAX con filtro convenzione ===
   const table = $('#aziendeSanitarieTable').DataTable({
     stateDuration: -1,
-    stateSave: true,  
+    stateSave: true,
     ajax: {
       url: '{{ route('aziende-sanitarie.data') }}',
       data: function(d) {
@@ -151,6 +116,7 @@ document.addEventListener('DOMContentLoaded', function () {
       { data: 'Indirizzo' },
       { data: 'provincia' },
       { data: 'citta' },
+      { data: 'cap' },            // NEW
       { data: 'mail' },
       {
         data: 'Lotti',
@@ -241,7 +207,7 @@ document.addEventListener('DOMContentLoaded', function () {
     convInput.value = label;
     closeDropdown();
     table.ajax.reload();  // ricarica con filtro
-    convForm.submit();    // persisti in session come fai nelle convenzioni
+    convForm.submit();    // persisti in session
   });
 
   convInput?.addEventListener('keydown', function (e) {
@@ -269,7 +235,7 @@ document.addEventListener('DOMContentLoaded', function () {
         document.getElementById('noDataMessage')?.classList.remove('d-none');
       }
     })
-    .catch(() => { /* ignora */ });
+    .catch(() => {});
 
   document.getElementById('btn-duplica-si')?.addEventListener('click', async function () {
     const btn = this;
@@ -285,7 +251,6 @@ document.addEventListener('DOMContentLoaded', function () {
       });
       const json = await res.json();
       if (res.ok) {
-        // ricarico tabella e nascondo banner
         table.ajax.reload(() => location.reload());
       } else {
         alert(json.message || 'Errore duplicazione');

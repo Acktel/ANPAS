@@ -5,7 +5,8 @@ namespace App\Models;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
-class AziendaSanitaria {
+class AziendaSanitaria
+{
     protected static string $table = 'aziende_sanitarie';
 
     /** Resolve idAnno from year, creates record if missing. */
@@ -19,12 +20,13 @@ class AziendaSanitaria {
                 'updated_at' => now(),
             ]);
         }
-        return (int)$idAnno;
+        return (int) $idAnno;
     }
 
     /** Lista aziende + convenzioni + lotti per anno corrente (con filtro opzionale su idConvenzione). */
-    public static function getAllWithConvenzioni($idConvenzione = null): \Illuminate\Support\Collection {
-        $anno = (int) session('anno_riferimento', now()->year);
+    public static function getAllWithConvenzioni($idConvenzione = null): \Illuminate\Support\Collection
+    {
+        $anno  = (int) session('anno_riferimento', now()->year);
         $idAnno = self::resolveIdAnno($anno);
 
         $sql = "
@@ -34,6 +36,7 @@ class AziendaSanitaria {
             a.Indirizzo,
             a.provincia,
             a.citta,
+            a.cap,
             a.mail,
             cg.Convenzioni,
             lg.Lotti
@@ -71,7 +74,7 @@ class AziendaSanitaria {
                 WHERE ac2.idAziendaSanitaria = a.idAziendaSanitaria
                   AND ac2.idConvenzione IN ($placeholders)
             )
-        ";
+            ";
 
             foreach ($ids as $id) {
                 $bindings[] = (int) $id;
@@ -83,9 +86,9 @@ class AziendaSanitaria {
         $rows = DB::select($sql, $bindings);
 
         return collect($rows)->map(function ($a) {
-            $a->Convenzioni = strlen(trim((string)($a->Convenzioni ?? '')))
+            $a->Convenzioni = strlen(trim((string) ($a->Convenzioni ?? '')))
                 ? explode(', ', $a->Convenzioni) : [];
-            $a->Lotti = strlen(trim((string)($a->Lotti ?? '')))
+            $a->Lotti = strlen(trim((string) ($a->Lotti ?? '')))
                 ? explode(', ', $a->Lotti) : [];
             return $a;
         });
@@ -109,21 +112,23 @@ class AziendaSanitaria {
         return DB::table(self::$table)->where('idAnno', $idAnno)->exists();
     }
 
-    public static function getById(int $id): ?\stdClass {
+    public static function getById(int $id): ?\stdClass
+    {
         $sql = "SELECT * FROM " . self::$table . " WHERE idAziendaSanitaria = ? LIMIT 1";
         $row = DB::select($sql, [$id]);
         return $row[0] ?? null;
     }
 
-    public static function createSanitaria(array $data): int {
-        $anno = (int) ($data['anno_riferimento'] ?? session('anno_riferimento', now()->year));
+    public static function createSanitaria(array $data): int
+    {
+        $anno  = (int) ($data['anno_riferimento'] ?? session('anno_riferimento', now()->year));
         $idAnno = self::resolveIdAnno($anno);
 
         $sql = "
             INSERT INTO " . self::$table . "
-                (idAnno, Nome, Indirizzo, provincia, citta, mail, note, created_at, updated_at)
+                (idAnno, Nome, Indirizzo, provincia, citta, cap, mail, note, created_at, updated_at)
             VALUES
-                (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+                (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
         ";
 
         DB::insert($sql, [
@@ -132,6 +137,7 @@ class AziendaSanitaria {
             $data['Indirizzo'] ?? null,
             $data['provincia'] ?? null,
             $data['citta'] ?? null,
+            $data['cap'] ?? null,
             $data['mail'] ?? null,
             $data['note'] ?? null,
         ]);
@@ -144,11 +150,12 @@ class AziendaSanitaria {
         return $id;
     }
 
-    public static function updateSanitaria(int $id, array $data): void {
+    public static function updateSanitaria(int $id, array $data): void
+    {
         // NB: non si cambia idAnno in update (anagrafica appartiene ad un anno)
         $sql = "
             UPDATE " . self::$table . "
-            SET Nome = ?, Indirizzo = ?, provincia = ?, citta = ?, mail = ?, note = ?, updated_at = NOW()
+            SET Nome = ?, Indirizzo = ?, provincia = ?, citta = ?, cap = ?, mail = ?, note = ?, updated_at = NOW()
             WHERE idAziendaSanitaria = ?
         ";
 
@@ -157,6 +164,7 @@ class AziendaSanitaria {
             $data['Indirizzo'] ?? null,
             $data['provincia'] ?? null,
             $data['citta'] ?? null,
+            $data['cap'] ?? null,
             $data['mail'] ?? null,
             $data['note'] ?? null,
             $id,
@@ -168,16 +176,15 @@ class AziendaSanitaria {
         }
     }
 
-    public static function deleteSanitaria(int $id): void {
-        // pivot
+    public static function deleteSanitaria(int $id): void
+    {
         DB::delete("DELETE FROM azienda_sanitaria_convenzione WHERE idAziendaSanitaria = ?", [$id]);
-        // lotti
-        DB::delete("DELETE FROM aziende_sanitarie_lotti WHERE idAziendaSanitaria = ?", [$id]);
-        // azienda
-        DB::delete("DELETE FROM " . self::$table . " WHERE idAziendaSanitaria = ?", [$id]);
+        DB::delete("DELETE FROM aziende_sanitarie_lotti        WHERE idAziendaSanitaria = ?", [$id]);
+        DB::delete("DELETE FROM " . self::$table . "           WHERE idAziendaSanitaria = ?", [$id]);
     }
 
-    public static function getConvenzioni(int $id): array {
+    public static function getConvenzioni(int $id): array
+    {
         $rows = DB::select(
             "SELECT idConvenzione FROM azienda_sanitaria_convenzione WHERE idAziendaSanitaria = ?",
             [$id]
@@ -185,7 +192,8 @@ class AziendaSanitaria {
         return array_map(fn($r) => (int) $r->idConvenzione, $rows);
     }
 
-    public static function syncConvenzioni(int $idAzienda, array $convenzioni): void {
+    public static function syncConvenzioni(int $idAzienda, array $convenzioni): void
+    {
         DB::delete("DELETE FROM azienda_sanitaria_convenzione WHERE idAziendaSanitaria = ?", [$idAzienda]);
 
         if (empty($convenzioni)) return;
@@ -206,8 +214,9 @@ class AziendaSanitaria {
         DB::insert($sql, $bindings);
     }
 
-    public static function getAll(): Collection {
-        $anno = (int) session('anno_riferimento', now()->year);
+    public static function getAll(): Collection
+    {
+        $anno  = (int) session('anno_riferimento', now()->year);
         $idAnno = self::resolveIdAnno($anno);
 
         $rows = DB::select("

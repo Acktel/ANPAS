@@ -6,13 +6,13 @@
   <h1 class="container-title mb-4">Nuova Azienda Sanitaria</h1>
 
   @if($errors->any())
-  <div class="alert alert-danger">
-    <ul class="mb-0">
-      @foreach($errors->all() as $error)
-      <li>{{ $error }}</li>
-      @endforeach
-    </ul>
-  </div>
+    <div class="alert alert-danger">
+      <ul class="mb-0">
+        @foreach($errors->all() as $error)
+          <li>{{ $error }}</li>
+        @endforeach
+      </ul>
+    </div>
   @endif
 
   <form action="{{ route('aziende-sanitarie.store') }}" method="POST" id="aziendaWizardForm">
@@ -30,15 +30,7 @@
             <button class="nav-link" id="tab-lotti" data-bs-toggle="tab" data-bs-target="#pane-lotti" type="button" role="tab">Lotti</button>
           </li>
           <li class="nav-item" role="presentation">
-            <button
-              class="nav-link disabled"
-              id="tab-conv"
-              data-bs-toggle="tab"
-              data-bs-target="#pane-conv"
-              type="button"
-              role="tab"
-              disabled
-              aria-disabled="true">
+            <button class="nav-link disabled" id="tab-conv" data-bs-toggle="tab" data-bs-target="#pane-conv" type="button" role="tab" disabled aria-disabled="true">
               Convenzioni
             </button>
           </li>
@@ -48,26 +40,23 @@
 
           {{-- PANE 1: ANAGRAFICA --}}
           <div class="tab-pane fade show active" id="pane-anagrafica" role="tabpanel" aria-labelledby="tab-anagrafica">
+
             {{-- Nome --}}
             <div class="mb-3">
               <label for="Nome" class="form-label">Nome Azienda</label>
               <input type="text" name="Nome" id="Nome" class="form-control" required value="{{ old('Nome') }}">
             </div>
 
-            {{-- Indirizzo (Provincia + Città SOLO qui) --}}
+            {{-- Indirizzo (Provincia + Città + CAP SOLO qui) --}}
             <div class="row">
-              <div class="col-md-6 mb-3">
+              <div class="col-md-4 mb-3">
                 <label for="provincia" class="form-label">Provincia</label>
                 <select class="form-control" id="provincia" name="provincia">
                   <option value="" disabled {{ old('provincia') ? '' : 'selected' }}>-- Seleziona provincia --</option>
                   @php
-                    $allowedProvinces = ['VC', 'AL', 'AT', 'BI', 'CN', 'NO', 'TO', 'VB'];
-                    $provinceUniche = collect($cities)
-                      ->pluck('sigla_provincia')
-                      ->unique()
-                      ->filter(fn($sigla) => in_array($sigla, $allowedProvinces))
-                      ->sort()
-                      ->values();
+                    $allowedProvinces = ['VC','AL','AT','BI','CN','NO','TO','VB'];
+                    $provinceUniche = collect($cities)->pluck('sigla_provincia')->unique()
+                      ->filter(fn($sigla) => in_array($sigla, $allowedProvinces))->sort()->values();
                   @endphp
                   @foreach($provinceUniche as $sigla)
                     <option value="{{ $sigla }}" {{ old('provincia') == $sigla ? 'selected' : '' }}>
@@ -77,7 +66,7 @@
                 </select>
               </div>
 
-              <div class="col-md-6 mb-3">
+              <div class="col-md-4 mb-3">
                 <label for="citta_combo" class="form-label">Città</label>
                 <div class="position-relative">
                   <input type="text" id="citta_combo" name="citta" class="form-control"
@@ -88,12 +77,20 @@
                     @foreach($cities as $city)
                       <li class="list-group-item list-group-item-action"
                           data-provincia="{{ $city->sigla_provincia }}"
-                          {{ old('citta') == trim($city->denominazione_ita) ? 'data-selected="true"' : '' }}>
+                          {{ old('citta') == trim($city->denominazione_ita) ? 'data-selected=true' : '' }}>
                         {{ ucfirst(trim($city->denominazione_ita)) }}
                       </li>
                     @endforeach
                   </ul>
                 </div>
+              </div>
+
+              {{-- NEW: CAP --}}
+              <div class="col-md-4 mb-3">
+                <label for="cap_select" class="form-label">CAP</label>
+                <select id="cap_select" name="cap" class="form-select" {{ old('citta') ? '' : 'disabled' }}>
+                  <option value="">-- Seleziona CAP --</option>
+                </select>
               </div>
             </div>
 
@@ -116,14 +113,14 @@
               <a href="{{ route('aziende-sanitarie.index') }}" class="btn btn-secondary me-2">
                 <i class="fas fa-times me-1"></i> Annulla
               </a>
-              <button type="button" class="btn btn-anpas-green" id="goToLotti"><i class="fas fa-check me-1"></i> Avanti</button>
+              <button type="button" class="btn btn-anpas-green" id="goToLotti">
+                <i class="fas fa-check me-1"></i> Avanti
+              </button>
             </div>
           </div>
 
           {{-- PANE 2: LOTTI --}}
           <div class="tab-pane fade" id="pane-lotti" role="tabpanel" aria-labelledby="tab-lotti">
-
-            {{-- Switch Lotti presenti Sì/No --}}
             @php $oldLottiPresenti = old('lotti_presenti','1'); @endphp
             <div class="p-3 border-bottom">
               <label class="form-label me-3">Lotti presenti?</label>
@@ -136,18 +133,15 @@
                 <label class="form-check-label" for="lottiNo">No</label>
               </div>
               <small class="text-muted d-block mt-1">
-                Se imposti “No”, non inserirai lotti: useremo internamente <b>“LOTTI NON PRESENTI”</b> e potrai comunque creare convenzioni (il nome sarà solo quello dell’azienda).
+                Se imposti “No”, non inserirai lotti: useremo internamente <b>“LOTTI NON PRESENTI”</b> e potrai comunque creare convenzioni.
               </small>
             </div>
 
-            {{-- Editor lotti: visibile solo se lotti_presenti = Sì --}}
             <div id="lottiEditor">
-              {{-- Header coerente --}}
               <div class="card-header bg-anpas-primary">
                 <label class="form-label">Inserire qui di seguito i lotti per l’azienda</label>
               </div>
 
-              {{-- Form aggiunta lotto (inline, no wrap) --}}
               <div class="card-body bg-anpas-white p-0">
                 <div class="d-flex p-3 border-bottom align-items-start flex-nowrap gap-2 overflow-auto">
                   <input type="text" id="newLottoNome" class="form-control me-2 flex-shrink-0" style="width:280px" placeholder="Nome lotto">
@@ -158,35 +152,33 @@
                 </div>
               </div>
 
-              {{-- Tabella Lotti --}}
               <table id="lottiTable" class="common-css-dataTable table table-hover table-striped table-bordered dt-responsive nowrap mb-0">
                 <thead class="thead-anpas">
                   <tr>
-                    <th style="width: 70px">#</th>
+                    <th style="width:70px">#</th>
                     <th>Nome Lotto</th>
                     <th>Descrizione</th>
-                    <th style="width: 90px">Azioni</th>
+                    <th style="width:90px">Azioni</th>
                   </tr>
                 </thead>
                 <tbody>
                   @php $oldLotti = array_values(old('lotti', [])); @endphp
                   @foreach($oldLotti as $i => $lotto)
-                  <tr data-row-index="{{ $i }}">
-                    <td class="text-muted">{{ $i + 1 }}</td>
-                    <td><input type="text" name="lotti[{{ $i }}][nomeLotto]" class="form-control" value="{{ $lotto['nomeLotto'] ?? '' }}"></td>
-                    <td><input type="text" name="lotti[{{ $i }}][descrizione]" class="form-control" value="{{ $lotto['descrizione'] ?? '' }}"></td>
-                    <td class="text-center">
-                      <button type="button" class="btn btn-sm btn-anpas-delete js-remove-row" title="Elimina">
-                        <i class="fas fa-trash-alt"></i>
-                      </button>
-                    </td>
-                  </tr>
+                    <tr data-row-index="{{ $i }}">
+                      <td class="text-muted">{{ $i + 1 }}</td>
+                      <td><input type="text" name="lotti[{{ $i }}][nomeLotto]" class="form-control" value="{{ $lotto['nomeLotto'] ?? '' }}"></td>
+                      <td><input type="text" name="lotti[{{ $i }}][descrizione]" class="form-control" value="{{ $lotto['descrizione'] ?? '' }}"></td>
+                      <td class="text-center">
+                        <button type="button" class="btn btn-sm btn-anpas-delete js-remove-row" title="Elimina">
+                          <i class="fas fa-trash-alt"></i>
+                        </button>
+                      </td>
+                    </tr>
                   @endforeach
                 </tbody>
               </table>
             </div>
 
-            {{-- Bottoni: Annulla / Indietro + Avanti --}}
             <div class="d-flex justify-content-center mt-5">
               <a href="{{ route('aziende-sanitarie.index') }}" class="btn btn-secondary me-2">
                 <i class="fas fa-times me-1"></i> Annulla
@@ -200,23 +192,20 @@
 
           {{-- PANE 3: CONVENZIONI --}}
           <div class="tab-pane fade" id="pane-conv" role="tabpanel" aria-labelledby="tab-conv">
-
             <div class="alert alert-info">
-              <div><b>Modalità con lotti (Sì):</b> per ogni lotto verranno create una o più convenzioni chiamate <code>&lt;Nome Azienda&gt; – &lt;Nome Lotto&gt;</code>.</div>
-              <div class="mt-1"><b>Modalità senza lotti (No):</b> verranno create convenzioni con il solo nome azienda.</div>
+              <div><b>Con lotti (Sì):</b> per ogni lotto verranno create convenzioni <code>&lt;Nome Azienda&gt; – &lt;Nome Lotto&gt;</code>.</div>
+              <div class="mt-1"><b>Senza lotti (No):</b> convenzioni con il solo nome azienda.</div>
             </div>
 
             <table id="convTable" class="common-css-dataTable table table-hover table-striped table-bordered dt-responsive nowrap mb-0">
               <thead class="thead-anpas">
                 <tr>
-                  <th style="width: 70px">#</th>
+                  <th style="width:70px">#</th>
                   <th>Convenzione (anteprima)</th>
                   <th>Associazioni da collegare</th>
                 </tr>
               </thead>
-              <tbody>
-                {{-- righe generate via JS --}}
-              </tbody>
+              <tbody></tbody>
             </table>
 
             <div class="d-flex justify-content-between mt-3">
@@ -238,341 +227,449 @@
   </form>
 </div>
 @endsection
-
 @push('scripts')
 <script>
-(function() {
-  // ======= ELEMENTI =======
-  const tabAnag  = document.getElementById('tab-anagrafica');
-  const tabLotti = document.getElementById('tab-lotti');
-  const tabConv  = document.getElementById('tab-conv');
+(function () {
+  'use strict';
+  try {
+    // ===== Wizard refs
+    var tabAnag  = document.getElementById('tab-anagrafica');
+    var tabLotti = document.getElementById('tab-lotti');
+    var tabConv  = document.getElementById('tab-conv');
 
-  const btnGoLotti   = document.getElementById('goToLotti');
-  const btnBackAnag  = document.getElementById('backToAnagrafica');
-  const btnGoConv    = document.getElementById('goToConvenzioni');
-  const btnBackLotti = document.getElementById('backToLotti');
+    var btnGoLotti   = document.getElementById('goToLotti');
+    var btnBackAnag  = document.getElementById('backToAnagrafica');
+    var btnGoConv    = document.getElementById('goToConvenzioni');
+    var btnBackLotti = document.getElementById('backToLotti');
 
-  const nomeAziendaInput = document.getElementById('Nome');
+    var nomeAziendaInput = document.getElementById('Nome');
 
-  // Radio lotti presenti
-  const radioYes = document.getElementById('lottiYes');
-  const radioNo  = document.getElementById('lottiNo');
+    // Lotti
+    var radioYes = document.getElementById('lottiYes');
+    var radioNo  = document.getElementById('lottiNo');
+    var lottiEditor = document.getElementById('lottiEditor');
+    var tableBody   = document.querySelector('#lottiTable tbody');
+    var addBtn      = document.getElementById('addLottoBtn');
+    var inputNome   = document.getElementById('newLottoNome');
+    var inputDesc   = document.getElementById('newLottoDesc');
 
-  // LOTTI editor
-  const lottiEditor = document.getElementById('lottiEditor');
-  const tableBody   = document.querySelector('#lottiTable tbody');
-  const addBtn      = document.getElementById('addLottoBtn');
-  const inputNome   = document.getElementById('newLottoNome');
-  const inputDesc   = document.getElementById('newLottoDesc');
+    // Convenzioni
+    var convTbody = document.querySelector('#convTable tbody');
+    var ASSOCS = @json($associazioni->map(function($a){ return ['id'=>$a->idAssociazione,'text'=>$a->Associazione]; }));
+    var OLD_CONV_ASSOC = @json(old('conv_assoc', []));
 
-  // CONVENZIONI
-  const convTbody = document.querySelector('#convTable tbody');
+    function escapeHtml(s){
+      s = (s || '').toString();
+      return s.replace(/&/g,'&amp;')
+              .replace(/</g,'&lt;')
+              .replace(/>/g,'&gt;')
+              .replace(/"/g,'&quot;')
+              .replace(/'/g,'&#039;');
+    }
 
-  // Dati server
-  const ASSOCS = @json($associazioni->map(function($a) { return ['id' => $a->idAssociazione, 'text' => $a->Associazione]; }));
-  const OLD_CONV_ASSOC = @json(old('conv_assoc', []));
+    function setDisabledIn(container, disabled){
+      if (!container) return;
+      var nodes = container.querySelectorAll('input,select,textarea,button');
+      for (var i=0;i<nodes.length;i++) nodes[i].disabled = !!disabled;
+    }
 
-  // ======= UTILS =======
-  function escapeHtml(s) {
-    return (s ?? '').toString()
-      .replaceAll('&', '&amp;').replaceAll('<', '&lt;')
-      .replaceAll('>', '&gt;').replaceAll('"', '&quot;')
-      .replaceAll("'", '&#039;');
-  }
+    function getRows(){
+      return Array.prototype.slice.call(tableBody ? tableBody.querySelectorAll('tr[data-row-index]') : []);
+    }
 
-  function setDisabledIn(container, disabled) {
-    container.querySelectorAll('input, select, textarea, button').forEach(el => {
-      el.disabled = !!disabled;
-    });
-  }
+    function getRealLottiCount(){
+      var rows = getRows();
+      var count = 0;
+      for (var i=0;i<rows.length;i++){
+        var tr = rows[i];
+        var idx = parseInt(tr.getAttribute('data-row-index'), 10);
+        if (isNaN(idx)) continue;
+        var sel = 'input[name="lotti['+idx+'][nomeLotto]"]';
+        var inp = tr.querySelector(sel);
+        var v = inp ? inp.value : '';
+        if (v && v.trim() !== '') count++;
+      }
+      return count;
+    }
 
-  function getRows() {
-    return Array.from(tableBody.querySelectorAll('tr[data-row-index]'));
-  }
+    var nextIndex = (function(){
+      var m = -1;
+      var rows = getRows();
+      for (var i=0;i<rows.length;i++){
+        var n = parseInt(rows[i].getAttribute('data-row-index'), 10);
+        if (!isNaN(n) && n > m) m = n;
+      }
+      return m + 1;
+    })();
 
-  function getRealLottiCount() {
-    return getRows().filter(tr => {
-      const idx = parseInt(tr.getAttribute('data-row-index'), 10);
-      const v = tr.querySelector(`input[name="lotti[${idx}][nomeLotto]"]`)?.value || '';
-      return v.trim() !== '';
-    }).length;
-  }
+    function renumberRows(){
+      var trs = getRows();
+      for (var i=0;i<trs.length;i++){
+        var tr = trs[i];
+        tr.setAttribute('data-row-index', i);
+        var td = tr.querySelector('td');
+        if (td) td.textContent = (i + 1);
+        var nome = tr.querySelector('input[name^="lotti["][name$="[nomeLotto]"]');
+        var desc = tr.querySelector('input[name^="lotti["][name$="[descrizione]"]');
+        if (nome) nome.name = 'lotti['+i+'][nomeLotto]';
+        if (desc) desc.name = 'lotti['+i+'][descrizione]';
+      }
+      nextIndex = trs.length;
+    }
 
-  let nextIndex = (function() {
-    let max = -1;
-    getRows().forEach(tr => {
-      const i = parseInt(tr.getAttribute('data-row-index'), 10);
-      if (!isNaN(i) && i > max) max = i;
-    });
-    return max + 1;
-  })();
-
-  function renumberRows() {
-    const trs = getRows();
-    trs.forEach((tr, idx) => {
-      tr.setAttribute('data-row-index', idx);
-      tr.querySelector('td').textContent = idx + 1;
-      const nome = tr.querySelector('input[name^="lotti["][name$="[nomeLotto]"]');
-      const desc = tr.querySelector('input[name^="lotti["][name$="[descrizione]"]');
-      if (nome) nome.name = `lotti[${idx}][nomeLotto]`;
-      if (desc) desc.name = `lotti[${idx}][descrizione]`;
-    });
-    nextIndex = trs.length;
-  }
-
-  function addRow(nomeVal = '', descVal = '') {
-    const i = nextIndex++;
-    const tr = document.createElement('tr');
-    tr.setAttribute('data-row-index', i);
-    tr.innerHTML = `
-      <td class="text-muted">${i + 1}</td>
-      <td><input type="text" name="lotti[${i}][nomeLotto]" class="form-control" value="${escapeHtml(nomeVal)}"></td>
-      <td><input type="text" name="lotti[${i}][descrizione]" class="form-control" value="${escapeHtml(descVal)}"></td>
-      <td class="text-center">
-        <button type="button" class="btn btn-sm btn-anpas-delete js-remove-row" title="Elimina">
-          <i class="fas fa-trash-alt"></i>
-        </button>
-      </td>
-    `;
-    tableBody.appendChild(tr);
-    updateConvTabState();
-  }
-
-  // ======= Eventi LOTTI =======
-  addBtn?.addEventListener('click', function() {
-    const nome = (inputNome.value || '').trim();
-    const desc = (inputDesc.value || '').trim();
-    if (!nome) { inputNome.focus(); return; }
-    addRow(nome, desc);
-    inputNome.value = ''; inputDesc.value = '';
-  });
-
-  tableBody.addEventListener('click', function(e) {
-    const btn = e.target.closest('.js-remove-row');
-    if (!btn) return;
-    btn.closest('tr').remove();
-    renumberRows();
-    updateConvTabState();
-  });
-
-  // Quando scrivo nei campi nome lotto aggiorno lo stato della tab
-  tableBody.addEventListener('input', function(e) {
-    if (e.target && e.target.name && e.target.name.endsWith('[nomeLotto]')) {
+    function addRow(nomeVal, descVal){
+      nomeVal = nomeVal || '';
+      descVal = descVal || '';
+      var i = nextIndex++;
+      var tr = document.createElement('tr');
+      tr.setAttribute('data-row-index', i);
+      tr.innerHTML =
+        '<td class="text-muted">'+(i+1)+'</td>'+
+        '<td><input type="text" name="lotti['+i+'][nomeLotto]" class="form-control" value="'+escapeHtml(nomeVal)+'"></td>'+
+        '<td><input type="text" name="lotti['+i+'][descrizione]" class="form-control" value="'+escapeHtml(descVal)+'"></td>'+
+        '<td class="text-center">'+
+          '<button type="button" class="btn btn-sm btn-anpas-delete js-remove-row" title="Elimina">'+
+            '<i class="fas fa-trash-alt"></i>'+
+          '</button>'+
+        '</td>';
+      if (tableBody) tableBody.appendChild(tr);
       updateConvTabState();
     }
-  });
 
-  // ======= Modalità lotti Sì/No =======
-  function isNoMode() { return radioNo?.checked; }
-
-  function applyLottiModeUI() {
-    if (isNoMode()) {
-      // Nascondi & disabilita editor lotti
-      lottiEditor.style.opacity = '0.5';
-      lottiEditor.style.pointerEvents = 'none';
-      setDisabledIn(lottiEditor, true);
-    } else {
-      lottiEditor.style.opacity = '1';
-      lottiEditor.style.pointerEvents = 'auto';
-      setDisabledIn(lottiEditor, false);
-    }
-  }
-
-  radioYes?.addEventListener('change', () => { applyLottiModeUI(); updateConvTabState(); });
-  radioNo ?.addEventListener('change', () => { applyLottiModeUI(); updateConvTabState(); });
-
-  // ======= Wizard nav =======
-  function activateTab(btnEl) { if (btnEl) new bootstrap.Tab(btnEl).show(); }
-
-  btnGoLotti?.addEventListener('click', function() {
-    if (!(nomeAziendaInput.value || '').trim()) { nomeAziendaInput.focus(); return; }
-    activateTab(tabLotti);
-  });
-
-  btnBackAnag?.addEventListener('click', function() { activateTab(tabAnag); });
-
-  btnGoConv?.addEventListener('click', function() {
-    if (!(nomeAziendaInput.value || '').trim()) { nomeAziendaInput.focus(); return; }
-
-    // Se No -> vai sempre; Se Sì -> serve almeno 1 lotto con nome
-    if (!isNoMode() && getRealLottiCount() === 0) {
-      // niente blocchi strani: resta in lotti e mostra un hint
-      inputNome?.focus();
-      return;
-    }
-    buildConvenzioniPreview();
-    activateTab(tabConv);
-  });
-
-  btnBackLotti?.addEventListener('click', function() { activateTab(tabLotti); });
-
-  // ======= Convenzioni (anteprima) =======
-  function buildConvenzioniPreview() {
-    convTbody.innerHTML = '';
-    const azienda = (nomeAziendaInput.value || '').trim();
-
-    if (isNoMode()) {
-      // Modalità senza lotti: una riga unica, conv name = <Azienda>
-      const selectedIds = (OLD_CONV_ASSOC['0'] || []).map(String);
-      const row = document.createElement('tr');
-      row.innerHTML = `
-        <td class="text-muted">1</td>
-        <td>
-          <input type="text" class="form-control" value="${escapeHtml(azienda)}" readonly>
-          <div class="form-text">Modalità senza lotti (LOTTI NON PRESENTI)</div>
-        </td>
-        <td>
-          <select name="conv_assoc[0][]" class="form-select" multiple size="6">
-            ${ASSOCS.map(a => {
-              const sel = selectedIds.includes(String(a.id)) ? 'selected' : '';
-              return `<option value="${a.id}" ${sel}>${escapeHtml(a.text)}</option>`;
-            }).join('')}
-          </select>
-        </td>
-      `;
-      convTbody.appendChild(row);
-      return;
+    if (addBtn){
+      addBtn.addEventListener('click', function(){
+        var n = (inputNome && inputNome.value) ? inputNome.value.trim() : '';
+        var d = (inputDesc && inputDesc.value) ? inputDesc.value.trim() : '';
+        if (!n) { if (inputNome) inputNome.focus(); return; }
+        addRow(n,d);
+        if (inputNome) inputNome.value = '';
+        if (inputDesc) inputDesc.value = '';
+      });
     }
 
-    // Modalità con lotti: una riga per ogni lotto con nome valorizzato
-    const rows = getRows().filter(tr => {
-      const idx = parseInt(tr.getAttribute('data-row-index'), 10);
-      const v = tr.querySelector(`input[name="lotti[${idx}][nomeLotto]"]`)?.value || '';
-      return v.trim() !== '';
-    });
+    if (tableBody){
+      tableBody.addEventListener('click', function(e){
+        var t = e.target;
+        var btn = t && t.closest ? t.closest('.js-remove-row') : null;
+        if (!btn) return;
+        var tr = btn.closest('tr');
+        if (tr && tr.parentNode) tr.parentNode.removeChild(tr);
+        renumberRows();
+        updateConvTabState();
+      });
 
-    rows.forEach((tr, i) => {
-      const idx = parseInt(tr.getAttribute('data-row-index'), 10);
-      const nomeL = tr.querySelector(`input[name="lotti[${idx}][nomeLotto]"]`)?.value || '';
-      const convName = `${azienda} – ${nomeL}`;
+      tableBody.addEventListener('input', function(e){
+        var target = e.target || e.srcElement;
+        if (!target || !target.name) return;
+        if (/\[nomeLotto\]$/.test(target.name)) updateConvTabState();
+      });
+    }
 
-      let selectedIds = [];
-      if (Object.prototype.hasOwnProperty.call(OLD_CONV_ASSOC, String(idx))) {
-        selectedIds = (OLD_CONV_ASSOC[String(idx)] || []).map(x => String(x));
+    function isNoMode(){
+      return !!(radioNo && radioNo.checked);
+    }
+
+    function applyLottiModeUI(){
+      if (!lottiEditor) return;
+      if (isNoMode()){
+        lottiEditor.style.opacity = '0.5';
+        lottiEditor.style.pointerEvents = 'none';
+        setDisabledIn(lottiEditor, true);
+      } else {
+        lottiEditor.style.opacity = '1';
+        lottiEditor.style.pointerEvents = 'auto';
+        setDisabledIn(lottiEditor, false);
+      }
+    }
+
+    if (radioYes) radioYes.addEventListener('change', function(){ applyLottiModeUI(); updateConvTabState(); });
+    if (radioNo ) radioNo .addEventListener('change', function(){ applyLottiModeUI(); updateConvTabState(); });
+
+    function activateTab(btnEl){
+      if (!btnEl) return;
+      try {
+        if (window.bootstrap && bootstrap.Tab){
+          new bootstrap.Tab(btnEl).show();
+          return;
+        }
+      } catch(_){}
+      // Fallback senza Bootstrap JS
+      btnEl.click();
+      var target = btnEl.getAttribute('data-bs-target');
+      if (!target) return;
+      var panes = document.querySelectorAll('.tab-pane');
+      for (var i=0;i<panes.length;i++){
+        panes[i].classList.remove('show');
+        panes[i].classList.remove('active');
+      }
+      var pane = document.querySelector(target);
+      if (pane){
+        pane.classList.add('show');
+        pane.classList.add('active');
+      }
+    }
+
+    var goLottiBtn = document.getElementById('goToLotti');
+    if (goLottiBtn){
+      goLottiBtn.addEventListener('click', function(){
+        if (!nomeAziendaInput || !(nomeAziendaInput.value || '').trim()){
+          if (nomeAziendaInput) nomeAziendaInput.focus();
+          return;
+        }
+        activateTab(tabLotti);
+      });
+    }
+
+    var backToAnag = document.getElementById('backToAnagrafica');
+    if (backToAnag){
+      backToAnag.addEventListener('click', function(){ activateTab(tabAnag); });
+    }
+
+    var goConvBtn = document.getElementById('goToConvenzioni');
+    if (goConvBtn){
+      goConvBtn.addEventListener('click', function(){
+        if (!nomeAziendaInput || !(nomeAziendaInput.value || '').trim()){
+          if (nomeAziendaInput) nomeAziendaInput.focus();
+          return;
+        }
+        if (!isNoMode() && getRealLottiCount() === 0){
+          if (inputNome) inputNome.focus();
+          return;
+        }
+        buildConvenzioniPreview();
+        activateTab(tabConv);
+      });
+    }
+
+    var backToLottiBtn = document.getElementById('backToLotti');
+    if (backToLottiBtn){
+      backToLottiBtn.addEventListener('click', function(){ activateTab(tabLotti); });
+    }
+
+    function buildConvenzioniPreview(){
+      if (!convTbody) return;
+      convTbody.innerHTML = '';
+      var azienda = (nomeAziendaInput && nomeAziendaInput.value) ? nomeAziendaInput.value.trim() : '';
+
+      if (isNoMode()){
+        var selected0 = (OLD_CONV_ASSOC && OLD_CONV_ASSOC['0']) ? OLD_CONV_ASSOC['0'].map(String) : [];
+        var row = document.createElement('tr');
+        var opts = '';
+        for (var i=0;i<ASSOCS.length;i++){
+          var a = ASSOCS[i];
+          var sel = selected0.indexOf(String(a.id)) !== -1 ? ' selected' : '';
+          opts += '<option value="'+a.id+'"'+sel+'>'+escapeHtml(a.text)+'</option>';
+        }
+        row.innerHTML =
+          '<td class="text-muted">1</td>'+
+          '<td><input type="text" class="form-control" value="'+escapeHtml(azienda)+'" readonly>'+
+          '<div class="form-text">Modalità senza lotti</div></td>'+
+          '<td><select name="conv_assoc[0][]" class="form-select" multiple size="6">'+opts+'</select></td>';
+        convTbody.appendChild(row);
+        return;
       }
 
-      const row = document.createElement('tr');
-      row.innerHTML = `
-        <td class="text-muted">${i + 1}</td>
-        <td><input type="text" class="form-control" value="${escapeHtml(convName)}" readonly></td>
-        <td>
-          <select name="conv_assoc[${idx}][]" class="form-select" multiple size="6">
-            ${ASSOCS.map(a => {
-              const sel = selectedIds.includes(String(a.id)) ? 'selected' : '';
-              return `<option value="${a.id}" ${sel}>${escapeHtml(a.text)}</option>`;
-            }).join('')}
-          </select>
-          <div class="form-text">Seleziona una o più associazioni per questo lotto</div>
-        </td>
-      `;
-      convTbody.appendChild(row);
-    });
-  }
+      var rows = getRows();
+      var showRows = [];
+      for (var r=0;r<rows.length;r++){
+        var tr = rows[r];
+        var idx = parseInt(tr.getAttribute('data-row-index'), 10);
+        if (isNaN(idx)) continue;
+        var nameInp = tr.querySelector('input[name="lotti['+idx+'][nomeLotto]"]');
+        var v = nameInp ? nameInp.value : '';
+        if (v && v.trim() !== '') showRows.push({tr: tr, idx: idx, nome: v});
+      }
 
-  // ======= Abilita/Disabilita tab Convenzioni =======
-  function updateConvTabState() {
-    const enable = isNoMode() || getRealLottiCount() > 0;
-    if (tabConv) {
+      for (var j=0;j<showRows.length;j++){
+        var rec = showRows[j];
+        var convName = azienda + ' - ' + rec.nome;
+        var selected = (OLD_CONV_ASSOC && OLD_CONV_ASSOC[String(rec.idx)]) ? OLD_CONV_ASSOC[String(rec.idx)].map(String) : [];
+        var opts2 = '';
+        for (var k=0;k<ASSOCS.length;k++){
+          var a2 = ASSOCS[k];
+          var sel2 = selected.indexOf(String(a2.id)) !== -1 ? ' selected' : '';
+          opts2 += '<option value="'+a2.id+'"'+sel2+'>'+escapeHtml(a2.text)+'</option>';
+        }
+        var rEl = document.createElement('tr');
+        rEl.innerHTML =
+          '<td class="text-muted">'+(j+1)+'</td>'+
+          '<td><input type="text" class="form-control" value="'+escapeHtml(convName)+'" readonly></td>'+
+          '<td><select name="conv_assoc['+rec.idx+'][]" class="form-select" multiple size="6">'+opts2+
+          '</select><div class="form-text">Associazioni per questo lotto</div></td>';
+        convTbody.appendChild(rEl);
+      }
+    }
+
+    function updateConvTabState(){
+      var enable = isNoMode() || getRealLottiCount() > 0;
+      if (!tabConv) return;
       tabConv.disabled = !enable;
-      tabConv.classList.toggle('disabled', !enable);
-      tabConv.setAttribute('aria-disabled', String(!enable));
+      if (enable) {
+        tabConv.classList.remove('disabled');
+        tabConv.setAttribute('aria-disabled', 'false');
+      } else {
+        tabConv.classList.add('disabled');
+        tabConv.setAttribute('aria-disabled', 'true');
+      }
     }
+
+    if (tabConv){
+      tabConv.addEventListener('show.bs.tab', function(e){
+        if (!(isNoMode() || getRealLottiCount() > 0)){
+          if (e && e.preventDefault) e.preventDefault();
+          return;
+        }
+        buildConvenzioniPreview();
+      });
+    }
+
+    applyLottiModeUI();
+    updateConvTabState();
+  } catch (err) {
+    console.error('Errore init wizard azienda:', err);
   }
-
-  tabConv?.addEventListener('show.bs.tab', function (e) {
-    if (!(isNoMode() || getRealLottiCount() > 0)) {
-      e.preventDefault();
-      return;
-    }
-    buildConvenzioniPreview();
-  });
-
-  // ======= Init =======
-  applyLottiModeUI();
-  updateConvTabState();
-
 })();
 </script>
 @endpush
 
 @push('scripts')
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-  const input = document.getElementById('citta_combo');
-  const list = document.getElementById('citta_list');
-  const provinciaSelect = document.getElementById('provincia');
+document.addEventListener('DOMContentLoaded', function(){
+  'use strict';
 
-  function filterList(options = {}) {
-    const provincia = provinciaSelect.value;
-    const text = (input.value || '').toLowerCase();
+  var input = document.getElementById('citta_combo');
+  var list  = document.getElementById('citta_list');
+  var provinciaSelect = document.getElementById('provincia');
 
-    if (!provincia) { list.style.display = 'none'; return; }
+  // ===== CAP handling =====
+  var capSelect = document.getElementById('cap_select');
+  var OLD_CAP   = @json(old('cap', ''));
+  var CAPS_RAW  = @json($caps); // [{cap, denominazione_ita, sigla_provincia, ...}]
 
-    let hasVisible = false;
-    Array.from(list.children).forEach(li => {
-      const matchProvincia = li.dataset.provincia === provincia;
-      const matchText = li.textContent.toLowerCase().includes(text);
-      if (matchProvincia && matchText) {
-        li.style.display = 'block'; hasVisible = true;
-      } else {
-        li.style.display = 'none';
-      }
-    });
-
-    list.style.display = hasVisible ? 'block' : 'none';
-
-    const selectedLi = list.querySelector('[data-selected="true"]');
-    if (selectedLi && selectedLi.style.display === 'none') {
-      input.value = '';
-      selectedLi.removeAttribute('data-selected');
+  // Build map { "PROV|città lower" : [cap,...] }
+  var CAP_MAP = {};
+  if (Array.isArray(CAPS_RAW)) {
+    for (var i=0;i<CAPS_RAW.length;i++){
+      var r = CAPS_RAW[i] || {};
+      var key = String(r.sigla_provincia || '') + '|' + String(r.denominazione_ita || '').trim().toLowerCase();
+      if (!CAP_MAP[key]) CAP_MAP[key] = [];
+      CAP_MAP[key].push(String(r.cap));
     }
   }
 
-  input.addEventListener('focus', () => filterList());
-  input.addEventListener('input', () => { 
-    Array.from(list.children).forEach(li => li.removeAttribute('data-selected'));
-    filterList();
-  });
+  function resetCap(){
+    if (!capSelect) return;
+    capSelect.innerHTML = '<option value="">-- Seleziona CAP --</option>';
+    capSelect.disabled = true;
+  }
 
-  input.addEventListener('keydown', function(e) {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      if (input.value.trim() !== '') {
-        input.value = input.value.trim();
-        input.value = input.value.charAt(0).toUpperCase() + input.value.slice(1);
-      }
-      list.style.display = 'none';
+  function populateCaps(){
+    if (!capSelect) return;
+    var prov = (provinciaSelect && provinciaSelect.value) ? provinciaSelect.value.trim() : '';
+    var city = (input && input.value) ? input.value.trim().toLowerCase() : '';
+    if (!prov || !city){ resetCap(); return; }
+    var key = prov + '|' + city;
+    var caps = CAP_MAP[key] || [];
+    var html = '<option value="">-- Seleziona CAP --</option>';
+    for (var i=0;i<caps.length;i++){
+      html += '<option value="'+caps[i]+'">'+caps[i]+'</option>';
     }
-  });
+    capSelect.innerHTML = html;
+    capSelect.disabled = caps.length === 0;
+    if (OLD_CAP && caps.indexOf(String(OLD_CAP)) !== -1){
+      capSelect.value = String(OLD_CAP);
+    }
+  }
+  // ===== /CAP handling =====
 
-  provinciaSelect.addEventListener('change', function() {
-    const selectedLi = list.querySelector('[data-selected="true"]');
-    if (selectedLi && selectedLi.dataset.provincia !== provinciaSelect.value) {
+  function filterList(){
+    if (!list) return;
+    var provincia = provinciaSelect ? provinciaSelect.value : '';
+    var text = (input && input.value) ? input.value.toLowerCase() : '';
+    if (!provincia){ list.style.display='none'; resetCap(); return; }
+
+    var items = Array.prototype.slice.call(list.children || []);
+    var hasVisible = false;
+    for (var i=0;i<items.length;i++){
+      var li = items[i];
+      var matchProvincia = (li.getAttribute('data-provincia') === provincia);
+      var matchText = (li.textContent || '').toLowerCase().indexOf(text) !== -1;
+      li.style.display = (matchProvincia && matchText) ? 'block' : 'none';
+      if (li.style.display === 'block') hasVisible = true;
+    }
+    list.style.display = hasVisible ? 'block' : 'none';
+
+    var selectedLi = list.querySelector('[data-selected="true"]');
+    if (selectedLi && selectedLi.style.display === 'none') {
+      if (input) input.value = '';
       selectedLi.removeAttribute('data-selected');
-      input.value = '';
+      resetCap();
     }
-    filterList();
-  });
+  }
 
-  Array.from(list.children).forEach(li => {
-    li.addEventListener('click', () => {
-      input.value = li.textContent.trim();
-      input.value = input.value.charAt(0).toUpperCase() + input.value.slice(1);
-      Array.from(list.children).forEach(i => i.removeAttribute('data-selected'));
-      li.setAttribute('data-selected', 'true');
-      list.style.display = 'none';
+  if (input){
+    input.addEventListener('focus', filterList);
+    input.addEventListener('input',  function(){
+      var items = Array.prototype.slice.call((list && list.children) || []);
+      for (var i=0;i<items.length;i++){ items[i].removeAttribute('data-selected'); }
+      filterList();
+      resetCap();
     });
-  });
+    input.addEventListener('keydown', function(e){
+      if (e.key === 'Enter'){
+        e.preventDefault();
+        if (input.value.trim() !== '') {
+          var v = input.value.trim();
+          input.value = v.charAt(0).toUpperCase() + v.slice(1);
+        }
+        if (list) list.style.display = 'none';
+        populateCaps(); // confermata la città -> popola CAP
+      }
+    });
+  }
 
-  document.addEventListener('click', (e) => {
-    if (!e.target.closest('.position-relative')) {
-      list.style.display = 'none';
+  if (provinciaSelect){
+    provinciaSelect.addEventListener('change', function(){
+      var selectedLi = list ? list.querySelector('[data-selected="true"]') : null;
+      if (selectedLi && selectedLi.getAttribute('data-provincia') !== provinciaSelect.value) {
+        selectedLi.removeAttribute('data-selected');
+        if (input) input.value = '';
+      }
+      filterList();
+      resetCap();
+    });
+  }
+
+  if (list){
+    var items = Array.prototype.slice.call(list.children || []);
+    for (var i=0;i<items.length;i++){
+      (function(li){
+        li.addEventListener('click', function(){
+          var txt = (li.textContent || '').trim();
+          if (input){
+            input.value = txt.charAt(0).toUpperCase() + txt.slice(1);
+          }
+          var items2 = Array.prototype.slice.call(list.children || []);
+          for (var j=0;j<items2.length;j++){ items2[j].removeAttribute('data-selected'); }
+          li.setAttribute('data-selected','true');
+          list.style.display = 'none';
+          populateCaps();
+        });
+      })(items[i]);
     }
+  }
+
+  document.addEventListener('click', function(e){
+    if (!list) return;
+    var pr = document.querySelector('.position-relative');
+    if (!pr) { list.style.display = 'none'; return; }
+    if (!pr.contains(e.target)) list.style.display = 'none';
   });
 
   // init
   filterList();
-  list.style.display = 'none';
+  if (list) list.style.display = 'none';
+  populateCaps(); // se old() aveva già valori
 });
 </script>
 @endpush
