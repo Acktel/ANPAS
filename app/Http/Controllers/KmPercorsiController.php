@@ -51,7 +51,7 @@ class KmPercorsiController extends Controller {
             ->where('idAssociazione', $idAssociazione)
             ->sortBy('idConvenzione')
             ->values();
-        $kmData = AutomezzoKm::getGroupedByAutomezzoAndConvenzione($anno, $user)
+        $kmData = AutomezzoKm::getGroupedByAutomezzoAndConvenzione($anno, $user, $idAssociazione)
             ->filter(function ($group, $key) use ($automezzi) {
                 // filtro i dati per i soli automezzi validi (in caso di dati sporchi)
                 [$idAutomezzo,] = explode('-', $key);

@@ -82,8 +82,8 @@
             <div class="row w-100 text-start gx-2">
               <div class="col-5 fw-bold">{{ $id-1 }} - {{ $titolo }}</div>
               <div class="col-2" id="summary-prev-{{ $id }}">Preventivo: -</div>
-              <div class="col-2" id="summary-cons-{{ $id }}">Cosnuntivo: -</div>
-              <div class="col-2" id="summary-scos-{{ $id }}">Scosatmento: -</div>
+              <div class="col-2" id="summary-cons-{{ $id }}">Consuntivo: -</div>
+              <div class="col-2" id="summary-scos-{{ $id }}">Scostamento: -</div>
             </div>
           </button>
         </h2>

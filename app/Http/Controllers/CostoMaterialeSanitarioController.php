@@ -93,12 +93,11 @@ class CostoMaterialeSanitarioController extends Controller {
         $convFlagYesSet = array_flip($convFlagYes); // set O(1)
 
         // KM percorsi per (automezzo, convenzione) nell’anno (filtrati sugli automezzi dell’associazione)
-        $kmData = AutomezzoKm::getGroupedByAutomezzoAndConvenzione($anno, $user)
+        $kmData = AutomezzoKm::getGroupedByAutomezzoAndConvenzione($anno, $user, $idAssociazione)
             ->filter(function ($group, $key) use ($automezzi) {
                 [$idAutomezzo,] = explode('-', $key);
                 return $automezzi->pluck('idAutomezzo')->contains((int) $idAutomezzo);
             });
-
         $righeOut = [];
 
         // 1) somma adjusted totale per gli inclusi
@@ -116,15 +115,17 @@ class CostoMaterialeSanitarioController extends Controller {
             if ($incluso) {
                 foreach ($valori as $idConv => $numServizi) {
                     $numServizi = (int) $numServizi;
-
                     // se la convenzione ha materiale fornito da ASL, sottraggo i KM percorsi
+                     
                     if (isset($convFlagYesSet[(int)$idConv])) {
                         $lookup = $idAuto . '-' . $idConv;
                         $kmPercorsi = 0;
+                     
                         if ($kmData->has($lookup)) {
                             $first = $kmData->get($lookup)->first();
                             $kmPercorsi = (float) ($first->KMPercorsi ?? 0);
                         }
+                      
                         $numServizi = max(0, $numServizi - $kmPercorsi); // clamp a 0
                     }
 
@@ -133,7 +134,7 @@ class CostoMaterialeSanitarioController extends Controller {
 
                 $totaleInclusiAdj += $adjustedSum;
             }
-
+//dd($r,$convFlagYesSet[$idConv], $kmPercorsi, $numServizi, $lookup, $totaleInclusiAdj);
             // la riga singola la completiamo dopo (quando conosciamo il totale)
             $righeOut[] = [
                 'Targa'       => $r['Targa'] ?? '',

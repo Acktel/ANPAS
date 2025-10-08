@@ -45,12 +45,12 @@ class AutomezzoKm {
     /**
      * Recupera i km percorsi raggruppati per automezzo-convenzione.
      */
-    public static function getGroupedByAutomezzoAndConvenzione(int $anno, ?User $user): Collection {
+    public static function getGroupedByAutomezzoAndConvenzione(int $anno, ?User $user, $idAssociazione): Collection {
         $query = DB::table(self::TABLE . ' as k')
             ->join('automezzi as a', 'a.idAutomezzo', '=', 'k.idAutomezzo')
             ->join('convenzioni as c', 'c.idConvenzione', '=', 'k.idConvenzione')
             ->where('a.idAnno', $anno)
-            ->where('c.idAnno', $anno)
+            ->where('a.idAssociazione', $idAssociazione)
             ->orderBy('a.CodiceIdentificativo')
             ->select('k.*');
 
