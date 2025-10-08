@@ -11,7 +11,7 @@ return new class extends Migration
     {
         // Aggiunge la colonna se non esiste già
         if (!Schema::hasColumn('automezzi', 'Automezzo')) {
-            Schema::table('Automezzi', function (Blueprint $table) {
+            Schema::table('automezzi', function (Blueprint $table) {
                 $table->string('Automezzo', 255)
                     ->nullable()
                     ->after('CodiceIdentificativo')
