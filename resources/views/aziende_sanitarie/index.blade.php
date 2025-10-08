@@ -94,7 +94,7 @@
               <td>{{ $a->Indirizzo }}</td>
               <td>{{ $a->provincia }}</td>
               <td>{{ $a->citta }}</td>
-              <td>{{ $a->mail }}</td>
+              <td>{{ $a->mail }}</td>              
               <td>
                 @if (!empty($a->Lotti))
                   {{ implode(', ', $a->Lotti) }}
@@ -152,13 +152,6 @@ document.addEventListener('DOMContentLoaded', function () {
       { data: 'provincia' },
       { data: 'citta' },
       { data: 'mail' },
-      {
-        data: 'Convenzioni',
-        render: function(data) {
-          if (Array.isArray(data)) return data.length ? data.join(', ') : '<span class="text-muted">—</span>';
-          return '<span class="text-muted">—</span>';
-        }
-      },
       {
         data: 'Lotti',
         render: function(data) {
