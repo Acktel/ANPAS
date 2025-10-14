@@ -85,7 +85,7 @@
           </div>
           <div class="col-md-6">
             <label for="AnnoPrimaImmatricolazione" class="form-label">Anno Prima Immatricolazione</label>
-            <input type="number" name="AnnoPrimaImmatricolazione" id="AnnoPrimaImmatricolazione" class="form-control" min="1900" max="{{ date('Y') }}" value="{{ old('AnnoPrimaImmatricolazione') }}" required>
+            <input type="number" name="AnnoPrimaImmatricolazione" id="AnnoPrimaImmatricolazione" class="form-control" min="1900" max="{{ date('Y') }}" value="{{ old('AnnoPrimaImmatricolazione') }}">
           </div>
         </div>
 
@@ -97,7 +97,7 @@
           </div>
           <div class="col-md-6">
             <label for="Modello" class="form-label">Modello</label>
-            <input type="text" name="Modello" id="Modello" class="form-control" value="{{ old('Modello') }}" required>
+            <input type="text" name="Modello" id="Modello" class="form-control" value="{{ old('Modello') }}">
           </div>
         </div>
 
@@ -105,7 +105,7 @@
         <div class="row mb-3">
           <div class="col-md-6">
             <label for="idTipoVeicolo" class="form-label">Tipo Veicolo</label>
-            <select name="idTipoVeicolo" id="idTipoVeicolo" class="form-select" required>
+            <select name="idTipoVeicolo" id="idTipoVeicolo" class="form-select">
               <option value="">-- Seleziona Tipo Veicolo --</option>
               @foreach($vehicleTypes as $tipo)
               <option value="{{ $tipo->id }}" {{ old('idTipoVeicolo') == $tipo->id ? 'selected' : '' }}>
@@ -117,27 +117,26 @@
 
           <div class="col-md-6">
             <label for="KmRiferimento" class="form-label">Km di Riferimento</label>
-            <input type="number" name="KmRiferimento" id="KmRiferimento" class="form-control" min="0" step="0.01" value="{{ old('KmRiferimento') }}" required>
+            <input type="number" name="KmRiferimento" id="KmRiferimento" class="form-control" min="0" step="0.01" value="{{ old('KmRiferimento') }}">
           </div>
         </div>
 
         {{-- RIGA 6: Km Totali | Tipo Carburante --}}
         <div class="row mb-4">
-          {{-- <div class="col-md-6">
-            <label for="KmTotali" class="form-label">Km Totali</label>
-            <input type="number" name="KmTotali" id="KmTotali" class="form-control" min="0" step="0.01" value="{{ old('KmTotali') }}" required>
-          </div> --}}
-          <div class="col-md-6">
-            <label for="idTipoCarburante" class="form-label">Tipo Carburante</label>
-            <select name="idTipoCarburante" id="idTipoCarburante" class="form-select" required>
-              <option value="">-- Seleziona Tipo Carburante --</option>
-              @foreach($fuelTypes as $carb)
-              <option value="{{ $carb->id }}" {{ old('idTipoCarburante') == $carb->id ? 'selected' : '' }}>
-                {{ $carb->nome }}
-              </option>
-              @endforeach
-            </select>
-          </div>
+        <div class="col-md-6">
+          <label for="KmTotali" class="form-label">Km Totali</label>
+          <input
+            type="number"
+            name="KmTotali"
+            id="KmTotali"
+            class="form-control js-int-only"
+            min="0"
+            step="1"
+            inputmode="numeric"
+            pattern="\d*"
+            value="{{ old('KmTotali') }}"
+          >
+        </div>
         </div>
 
 

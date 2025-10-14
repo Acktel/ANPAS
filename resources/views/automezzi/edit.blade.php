@@ -80,7 +80,7 @@
             <label for="AnnoPrimaImmatricolazione" class="form-label">Anno Prima Immatricolazione</label>
             <input type="number" name="AnnoPrimaImmatricolazione" id="AnnoPrimaImmatricolazione"
                    class="form-control" min="1900" max="{{ date('Y') }}"
-                   value="{{ old('AnnoPrimaImmatricolazione', $automezzo->AnnoPrimaImmatricolazione) }}" required>
+                   value="{{ old('AnnoPrimaImmatricolazione', $automezzo->AnnoPrimaImmatricolazione) }}">
           </div>
         </div>
 
@@ -95,7 +95,7 @@
           <div class="col-md-6">
             <label for="Modello" class="form-label">Modello</label>
             <input type="text" name="Modello" id="Modello" class="form-control" style="text-transform: uppercase;"
-                   value="{{ old('Modello', $automezzo->Modello) }}" required>
+                   value="{{ old('Modello', $automezzo->Modello) }}">
           </div>
         </div>
 
@@ -103,7 +103,7 @@
         <div class="row mb-3">
           <div class="col-md-6">
             <label for="idTipoVeicolo" class="form-label">Tipo Veicolo</label>
-            <select name="idTipoVeicolo" id="idTipoVeicolo" class="form-select" required>
+            <select name="idTipoVeicolo" id="idTipoVeicolo" class="form-select">
               <option value="">-- Seleziona Tipo Veicolo --</option>
               @foreach($vehicleTypes as $tipo)
                 <option value="{{ $tipo->id }}" {{ old('idTipoVeicolo', $automezzo->idTipoVeicolo) == $tipo->id ? 'selected' : '' }}>
@@ -117,10 +117,12 @@
             <input type="number"
                    name="KmRiferimento"
                    id="KmRiferimento"
-                   class="form-control"
-                   step="0.01"
-                   value="{{ old('KmRiferimento', $automezzo->KmRiferimento) }}"
-                   required
+                   class="form-control js-int-only"
+                   min="0"
+                   step="1"
+                   inputmode="numeric"
+                   pattern="\d*"
+                   value="{{ old('KmRiferimento', $automezzo->KmRiferimento) }}"                   
                    inputmode="numeric">
           </div>
         </div>
@@ -129,13 +131,16 @@
         <div class="row mb-3">
           <div class="col-md-6">
             <label for="KmTotali" class="form-label">Km Totali</label>
-            <input type="number" name="KmTotali" id="KmTotali" class="form-control"
-                   min="0" step="0.01"
-                   value="{{ old('KmTotali', $automezzo->KmTotali) }}" required readonly>
+            <input type="number" name="KmTotali" id="KmTotali" class="form-control js-int-only"
+                   min="0"
+                   step="1"
+                   inputmode="numeric"
+                   pattern="\d*"
+                   value="{{ old('KmTotali', $automezzo->KmTotali) }}" readonly>
           </div>
           <div class="col-md-6">
             <label for="idTipoCarburante" class="form-label">Tipo Carburante</label>
-            <select name="idTipoCarburante" id="idTipoCarburante" class="form-select" required>
+            <select name="idTipoCarburante" id="idTipoCarburante" class="form-select">
               <option value="">-- Seleziona Tipo Carburante --</option>
               @foreach($fuelTypes as $carb)
                 <option value="{{ $carb->id }}" {{ old('idTipoCarburante', $automezzo->idTipoCarburante) == $carb->id ? 'selected' : '' }}>

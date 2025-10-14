@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Auth;
 
 class Convenzione {
     protected const TABLE = 'convenzioni';
@@ -35,7 +36,8 @@ class Convenzione {
     /**
      * Convenzioni per anno e (opzionalmente) filtro utente.
      */
-    public static function getByAnno(int $anno, ?\App\Models\User $user = null): Collection {
+    public static function getByAnno(int $anno, $idAssociazione = null): Collection {
+        $user = Auth::user();
         $sql = "
             SELECT
                 c.idConvenzione,
@@ -46,15 +48,15 @@ class Convenzione {
                 c.created_at
             FROM " . self::TABLE . " AS c
             WHERE c.idAnno = :anno
+            AND c.idAssociazione = :idAssociazione
+            ORDER BY c.Convenzione
         ";
-
-        $params = ['anno' => $anno];
-        if ($user && !$user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])) {
-            $sql .= " AND c.idAssociazione = :idAssociazione";
-            $params['idAssociazione'] = $user->IdAssociazione;
-        }
-
-        $sql .= " ORDER BY c.Convenzione";
+        
+        $params = [
+            'anno' => $anno,
+            'idAssociazione' => $idAssociazione
+            ]; 
+            
         return collect(DB::select($sql, $params));
     }
 

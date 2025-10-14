@@ -74,56 +74,56 @@ class AutomezziController extends Controller {
         return view('automezzi.create', compact('associazioni', 'anni', 'vehicleTypes', 'fuelTypes', 'selectedAssociazione', 'annoCorr'));
     }
 
-public function store(Request $request) {
-    $rules = [
-        'idAssociazione' => 'required|exists:associazioni,idAssociazione',
-        'idAnno' => 'required|integer|min:2000|max:' . (date('Y') + 5),
-        'Targa' => 'required|string|max:50',
-        'CodiceIdentificativo' => 'required|string|max:100',
-        'AnnoPrimaImmatricolazione' => 'required|integer|min:1900|max:' . date('Y'),
-        'AnnoAcquisto' => 'nullable|integer|min:1900|max:' . date('Y'),
-        'Modello' => 'required|string|max:255',
-        'idTipoVeicolo' => 'required|exists:vehicle_types,id',
-        'KmRiferimento' => 'required|numeric|min:0',
-        'KmTotali' => 'nullable|numeric|min:0',
-        'idTipoCarburante' => 'required|exists:fuel_types,id',
-        'DataUltimaAutorizzazioneSanitaria' => 'nullable|date',
-        'DataUltimoCollaudo' => 'nullable|date',
-        'incluso_riparto' => 'boolean',
-        'note' => 'nullable|string',
-        'informazioniAggiuntive' => 'nullable|string'
-    ];
+    public function store(Request $request) {
+        $rules = [
+            'idAssociazione' => 'required|exists:associazioni,idAssociazione',
+            'idAnno' => 'required|integer|min:2000|max:' . (date('Y') + 5),
+            'Targa' => 'required|string|max:50',
+            'CodiceIdentificativo' => 'required|string|max:100',
+            'AnnoPrimaImmatricolazione' => 'integer|min:1900|max:' . date('Y'),
+            'AnnoAcquisto' => 'nullable|integer|min:1900|max:' . date('Y'),
+            'Modello' => 'string|max:255',
+            'idTipoVeicolo' => 'exists:vehicle_types,id',
+            'KmRiferimento' => 'integer|min:0',
+            'KmTotali' => 'nullable|integer|min:0',
+            'idTipoCarburante' => 'exists:fuel_types,id',
+            'DataUltimaAutorizzazioneSanitaria' => 'nullable|date',
+            'DataUltimoCollaudo' => 'nullable|date',
+            'incluso_riparto' => 'boolean',
+            'note' => 'nullable|string',
+            'informazioniAggiuntive' => 'nullable|string'
+        ];
 
-    $validated = $request->validate($rules);
-    DB::beginTransaction();
+        $validated = $request->validate($rules);
+        DB::beginTransaction();
 
-    try {
-        $newId = Automezzo::createAutomezzo($validated);
+        try {
+            $newId = Automezzo::createAutomezzo($validated);
 
-        AutomezzoKmRiferimento::insertKmRiferimento([
-            'idAutomezzo' => $newId,
-            'idAnno' => $validated['idAnno'],
-            'KmRiferimento' => $validated['KmRiferimento'],
-        ]);
+            AutomezzoKmRiferimento::insertKmRiferimento([
+                'idAutomezzo' => $newId,
+                'idAnno' => $validated['idAnno'],
+                'KmRiferimento' => $validated['KmRiferimento'],
+            ]);
 
-        DB::commit();
-        return redirect()->route('automezzi.index')->with('success', 'Automezzo creato correttamente.');
-    } catch (\Exception $e) {
-        // log completo con stack trace
-        Log::error('Errore durante creazione automezzo', [
-            'exception' => $e,
-            'request' => $request->all()
-        ]);
+            DB::commit();
+            return redirect()->route('automezzi.index')->with('success', 'Automezzo creato correttamente.');
+        } catch (\Exception $e) {
+            // log completo con stack trace
+            Log::error('Errore durante creazione automezzo', [
+                'exception' => $e,
+                'request' => $request->all()
+            ]);
 
-        // opzionale: rilancia per vedere errore completo sul browser in debug
-        if (config('app.debug')) {
-            throw $e;
+            // opzionale: rilancia per vedere errore completo sul browser in debug
+            if (config('app.debug')) {
+                throw $e;
+            }
+
+            // messaggio custom per l'utente
+            return back()->with('error', 'Errore interno durante la creazione.');
         }
-
-        // messaggio custom per l'utente
-        return back()->with('error', 'Errore interno durante la creazione.');
     }
-}
 
     public function show(int $idAutomezzo) {
         $anno = session('anno_riferimento', now()->year);
@@ -156,46 +156,45 @@ public function store(Request $request) {
         return view('automezzi.edit', compact('automezzo', 'associazioni', 'anni', 'vehicleTypes', 'fuelTypes', 'selectedAssociazione', 'annoCorr'));
     }
 
-public function update(Request $request, int $idAutomezzo) {
-    $rules = [
-        'idAssociazione' => 'required|exists:associazioni,idAssociazione',
-        'idAnno' => 'required|integer|min:2000|max:' . (date('Y') + 5),        
-        'Targa' => 'required|string|max:50',
-        'CodiceIdentificativo' => 'required|string|max:100',
-        'AnnoPrimaImmatricolazione' => 'required|integer|min:1900|max:' . date('Y'),
-        'AnnoAcquisto' => 'nullable|integer|min:1900|max:' . date('Y'),
-        'Modello' => 'required|string|max:255',
-        'idTipoVeicolo' => 'required|exists:vehicle_types,id',
-        'KmRiferimento' => 'required|numeric|min:0',
-        'KmTotali' => 'nullable|numeric|min:0',
-        'idTipoCarburante' => 'required|exists:fuel_types,id',
-        'DataUltimaAutorizzazioneSanitaria' => 'nullable|date',
-        'DataUltimoCollaudo' => 'nullable|date',
-        'incluso_riparto' => 'boolean',
-        'note' => 'nullable|string',
-        'informazioniAggiuntive' => 'nullable|string'
-    ];
+    public function update(Request $request, int $idAutomezzo) {
+        $rules = [
+            'idAssociazione' => 'required|exists:associazioni,idAssociazione',
+            'idAnno' => 'required|integer|min:2000|max:' . (date('Y') + 5),
+            'Targa' => 'required|string|max:50',
+            'CodiceIdentificativo' => 'required|string|max:100',
+            'AnnoPrimaImmatricolazione' => 'integer|min:1900|max:' . date('Y'),
+            'AnnoAcquisto' => 'nullable|integer|min:1900|max:' . date('Y'),
+            'Modello' => 'string|max:255',
+            'idTipoVeicolo' => 'exists:vehicle_types,id',
+            'KmRiferimento' => 'integer|min:0',
+            'KmTotali' => 'nullable|integer|min:0',
+            'idTipoCarburante' => 'exists:fuel_types,id',
+            'DataUltimaAutorizzazioneSanitaria' => 'nullable|date',
+            'DataUltimoCollaudo' => 'nullable|date',
+            'incluso_riparto' => 'boolean',
+            'note' => 'nullable|string',
+            'informazioniAggiuntive' => 'nullable|string'
+        ];
 
-    $validated = $request->validate($rules);
+        $validated = $request->validate($rules);
 
-    DB::beginTransaction();
+        DB::beginTransaction();
 
-    try {
-        Automezzo::updateAutomezzo($idAutomezzo, $validated);
+        try {
+            Automezzo::updateAutomezzo($idAutomezzo, $validated);
 
-        AutomezzoKmRiferimento::updateOrCreate(
-            ['idAutomezzo' => $idAutomezzo, 'idAnno' => $validated['idAnno']],
-            ['KmRiferimento' => $validated['KmRiferimento']]
-        );
+            AutomezzoKmRiferimento::updateOrCreate(
+                ['idAutomezzo' => (int)$idAutomezzo, 'idAnno' => $validated['idAnno']],
+                ['KmRiferimento' => (int)$validated['KmRiferimento']]
+            );
 
-        DB::commit();
-        return redirect()->route('automezzi.index')->with('success', 'Automezzo aggiornato.');
-    } catch (\Throwable $e) {
-        DB::rollBack();
-        return back()->withInput()->withErrors(['error' => 'Errore interno durante l’aggiornamento.']);
+            DB::commit();
+            return redirect()->route('automezzi.index')->with('success', 'Automezzo aggiornato.');
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            return back()->withInput()->withErrors(['error' => 'Errore interno durante l’aggiornamento.']);
+        }
     }
-}
-
 
     public function destroy(int $idAutomezzo) {
         $automezzo = Automezzo::getById($idAutomezzo, session('anno_riferimento', now()->year));
@@ -234,78 +233,79 @@ public function update(Request $request, int $idAutomezzo) {
         ]);
     }
 
-public function duplicaAnnoPrecedente(Request $request): JsonResponse {
-    $anno = session('anno_riferimento', now()->year);
-    $annoPrec = $anno - 1;
-    $user = Auth::user();
+    public function duplicaAnnoPrecedente(Request $request): JsonResponse {
+        $anno = session('anno_riferimento', now()->year);
+        $annoPrec = $anno - 1;
+        $user = Auth::user();
 
-    DB::beginTransaction();
-    $associazioni = collect();
-    try {
-        if ($user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])) {
-            $associazioni = DB::table('associazioni')
-                ->select('IdAssociazione', 'Associazione')
-                ->whereNull('deleted_at')
-                ->where('IdAssociazione', '!=', 1)
-                ->orderBy('Associazione')
-                ->get();
-            $selectedAssoc = session('associazione_selezionata') ?? $request->get('idAssociazione')
-                ?? ($associazioni->first()->IdAssociazione ?? null);
-        } else {
-            $selectedAssoc = $user->IdAssociazione;
-        }
-        
-        $automezzi = Automezzo::getByAssociazione($selectedAssoc, $annoPrec);
+        DB::beginTransaction();
+        $associazioni = collect();
+        try {
+            if ($user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])) {
+                $associazioni = DB::table('associazioni')
+                    ->select('IdAssociazione', 'Associazione')
+                    ->whereNull('deleted_at')
+                    ->where('IdAssociazione', '!=', 1)
+                    ->orderBy('Associazione')
+                    ->get();
+                $selectedAssoc = session('associazione_selezionata') ?? $request->get('idAssociazione')
+                    ?? ($associazioni->first()->IdAssociazione ?? null);
+            } else {
+                $selectedAssoc = $user->IdAssociazione;
+            }
 
-      
-        if ($automezzi->isEmpty()) {
-            return response()->json(['message' => 'Nessun automezzo da duplicare'], 404);
-        }
+            $automezzi = Automezzo::getByAssociazione($selectedAssoc, $annoPrec);
 
-        foreach ($automezzi as $auto) {
-           
-            $newId = DB::table('automezzi')->insertGetId([
-                'idAssociazione' => $selectedAssoc,
-                'idAnno' => $anno,
-                'Targa' => $auto->Targa,
-                'CodiceIdentificativo' => $auto->CodiceIdentificativo,
-                'AnnoPrimaImmatricolazione' => $auto->AnnoPrimaImmatricolazione,
-                'AnnoAcquisto' => $auto->AnnoAcquisto,
-                'Modello' => $auto->Modello,
-                'idTipoVeicolo' => $auto->idTipoVeicolo ?? 1,
-                'KmTotali' => $auto->KmTotali,
-                'idTipoCarburante' => $auto->idTipoCarburante ?? 1,
-                'DataUltimaAutorizzazioneSanitaria' => $auto->DataUltimaAutorizzazioneSanitaria,
-                'DataUltimoCollaudo' => $auto->DataUltimoCollaudo,
-                'note' => $auto->note,
-                'created_at' => now(),
-                'updated_at' => now(),
+
+            if ($automezzi->isEmpty()) {
+                return response()->json(['message' => 'Nessun automezzo da duplicare'], 404);
+            }
+
+            foreach ($automezzi as $auto) {
+
+                $newId = DB::table('automezzi')->insertGetId([
+                    'idAssociazione' => $selectedAssoc,
+                    'idAnno' => $anno,
+                    'Targa' => $auto->Targa,
+                    'CodiceIdentificativo' => $auto->CodiceIdentificativo,
+                    'AnnoPrimaImmatricolazione' => $auto->AnnoPrimaImmatricolazione,
+                    'AnnoAcquisto' => $auto->AnnoAcquisto,
+                    'Modello' => $auto->Modello,
+                    'idTipoVeicolo' => $auto->idTipoVeicolo ?? 1,
+                    'KmTotali' => $auto->KmTotali,
+                    'idTipoCarburante' => $auto->idTipoCarburante ?? 1,
+                    'DataUltimaAutorizzazioneSanitaria' => $auto->DataUltimaAutorizzazioneSanitaria,
+                    'DataUltimoCollaudo' => $auto->DataUltimoCollaudo,
+                    'note' => $auto->note,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+
+                $kmPrec = DB::table('automezzi_km_riferimento')
+                    ->where('idAutomezzo', $auto->idAutomezzo)
+                    ->where('idAnno', $annoPrec)
+                    ->value('KmRiferimento');
+
+                if (!is_null($kmPrec)) {
+                    AutomezzoKmRiferimento::create([
+                        'idAutomezzo' => $newId,
+                        'idAnno' => $anno,
+                        'KmRiferimento' => $kmPrec,
+                    ]);
+                }
+            }
+
+            DB::commit();
+            return response()->json(['message' => 'Automezzi duplicati con successo.']);
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            Log::error('Errore durante duplicazione automezzi', [
+                'exception' => $e
             ]);
 
-            $kmPrec = DB::table('automezzi_km_riferimento')
-                ->where('idAutomezzo', $auto->idAutomezzo)
-                ->where('idAnno', $annoPrec)
-                ->value('KmRiferimento');
-
-            if (!is_null($kmPrec)) {
-                AutomezzoKmRiferimento::create([
-                    'idAutomezzo' => $newId,
-                    'idAnno' => $anno,
-                    'KmRiferimento' => $kmPrec,
-                ]);
-            }
+            return response()->json(['message' => 'Errore durante duplicazione'], 500);
         }
-
-        DB::commit();
-        return response()->json(['message' => 'Automezzi duplicati con successo.']);
-    } catch (\Throwable $e) {
-        DB::rollBack();
-        Log::error('Errore durante duplicazione automezzi', [
-            'exception' => $e]);
-
-        return response()->json(['message' => 'Errore durante duplicazione'], 500);
     }
-}
 
 
     /**

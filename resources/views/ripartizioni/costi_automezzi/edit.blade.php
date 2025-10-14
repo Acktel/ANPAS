@@ -7,6 +7,17 @@
         @csrf
         @method('PUT')
         <input type="hidden" name="idAutomezzo" value="{{ $record->idAutomezzo }}">
+        <div class="row g-3 mb-2">
+            <div class="col-md-6">
+                <label class="form-label">Targa</label>
+                <input type="text" class="form-control" value="{{ $automezzo->Targa ?? '-' }}" readonly>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Codice Identificativo</label>
+                <input type="text" class="form-control " value="{{ $automezzo->CodiceIdentificativo ?? '-' }}" readonly>
+            </div>
+        </div>
+        <br>
 
         @foreach ([
             'LeasingNoleggio', 'Assicurazione', 'ManutenzioneOrdinaria', 'ManutenzioneStraordinaria',
@@ -16,7 +27,7 @@
         ] as $campo)
             <div class="mb-3">
                 <label class="form-label">{{ $campo }}</label>
-                <input type="number" step="0.01" name="{{ $campo }}" value="{{ $record->$campo ?? 0 }}" class="form-control">
+                <input type="number" step="0.01" lang="it" inputmode="decimal" name="{{ $campo }}" value="{{ $record->$campo ?? 0 }}" class="form-control">
             </div>
         @endforeach
 

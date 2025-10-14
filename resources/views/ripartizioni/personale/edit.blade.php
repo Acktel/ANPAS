@@ -1,10 +1,14 @@
 {{-- resources/views/ripartizioni/personale/edit.blade.php --}}
 @extends('layouts.app')
 
+<?php
+$nomeCompleto = $dipendente->DipendenteNome . ' ' . $dipendente->DipendenteCognome;
+?>
+
 @section('content')
 <div class="container">
   <h1 class="container-title mb-4">
-    Modifica Ripartizione – Dipendente #{{ $idDipendente }} – Anno {{ $anno }}
+    Modifica Ripartizione – Dipendente: {{ $nomeCompleto }} – Anno {{ $anno }}
   </h1>
 
   <form method="POST" action="{{ route('ripartizioni.personale.update', $idDipendente) }}">

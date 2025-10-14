@@ -208,6 +208,10 @@ class RipartizioneCostiService {
         $tabella = [];
 
         // ---------- PRE-CALCOLI PER L'AUTOMEZZO ----------
+        $costi = DB::table('costi_automezzi')
+            ->where('idAutomezzo', $idAutomezzo)
+            ->where('idAnno', $anno)
+            ->first();
         // KM per convenzione
         $kmPerConv = DB::table('automezzi_km')
             ->where('idAutomezzo', $idAutomezzo)
@@ -224,13 +228,32 @@ class RipartizioneCostiService {
 
         // ---------- SEZIONE MEZZI (KM) ----------
         foreach ($vociKm as $voceLabel => $colDB) {
-            $valore = (float) (DB::table('costi_automezzi')
+            // Calcolo valore della voce (con "netti" dove richiesto)
+            if ($costi) {
+                switch ($voceLabel) {
+                    case 'MANUTENZIONE STRAORDINARIA AL NETTO RIMBORSI ASSICURATIVI':
+                        $valore = ((float)($costi->ManutenzioneStraordinaria ?? 0))
+                            - ((float)($costi->RimborsiAssicurazione ?? 0));
+                        break;
+
+                    case 'CARBURANTI AL NETTO RIMBORSI UTIF':
+                        $valore = ((float)($costi->Carburanti ?? 0))
+                            - ((float)($costi->RimborsiUTF ?? 0));
+                        break;
+
+                    default:
+                        $valore = (float)($costi->$colDB ?? 0);
+                }
+            } else {
+                $valore = 0.0;
+            }
+            /*$valore = (float) (DB::table('costi_automezzi')
                 ->where('idAutomezzo', $idAutomezzo)
                 ->where('idAnno', $anno)
-                ->value($colDB) ?? 0);
+                ->value($colDB) ?? 0);*/
+            $valore = round(max(0.0, $valore), 2);
 
-            $riga = ['voce' => $voceLabel, 'totale' => round($valore, 2)];
-
+            $riga = ['voce' => $voceLabel, 'totale' => $valore];
             $somma = 0.0;
             $lastNome = null;
             foreach ($convenzioni as $idConv => $nomeConv) {
@@ -867,20 +890,29 @@ class RipartizioneCostiService {
         $conv = self::convenzioni($idAssociazione, $anno);
 
         // Usa la distinta già calcolata
-        $dist = self::distintaImputazioneData($idAssociazione, $anno);
+        $dist  = self::distintaImputazioneData($idAssociazione, $anno);
         $righe = $dist['data'] ?? [];
 
-        $out = []; // [idVoceConfig][idConv] => importo_indiretti
+        $out = []; // [idVoceConfig][idConv] => importo_totale (diretti + indiretti)
         foreach ($righe as $riga) {
             $idVoce = (int)($riga['idVoceConfig'] ?? 0);
             if ($idVoce <= 0) continue;
 
             foreach ($conv as $idConv => $nomeConv) {
-                // In distinta le colonne per conv sono per nome: $riga[$nomeConv] = ['diretti','indiretti']
-                $ind = (float)($riga[$nomeConv]['indiretti'] ?? 0.0);
-                $out[$idVoce][$idConv] = $ind;
+              
+                // In distinta le colonne per conv sono per nome:
+                // $riga[$nomeConv] = ['diretti' => x, 'ammortamento' => y, 'indiretti' => z]
+                $dir = (float)($riga[$nomeConv]['diretti']     ?? 0.0);
+                $ind = (float)($riga[$nomeConv]['indiretti']   ?? 0.0);
+                $sconto = (float)($riga[$nomeConv]['ammortamento']   ?? 0.0);
+                // Se desideri includere anche l'ammortamento diretto, aggiungi anche questa riga:
+                // $amm = (float)($riga[$nomeConv]['ammortamento'] ?? 0.0);
+                // $out[$idVoce][$idConv] = round($dir + $amm + $ind, 2);
+
+                $out[$idVoce][$idConv] = round($dir - $sconto + $ind, 2); // ← diretti + indiretti
             }
         }
+        
         return $out;
     }
 
@@ -1050,9 +1082,13 @@ class RipartizioneCostiService {
         }
 
         // Riparto 6002..6006 per % ricavi (fallback: quote uguali)
-        $quote = self::quoteRicaviByConvenzione($idAssociazione, $anno, $convIds);
+        $quote = self::percentualiServiziByConvenzione($idAssociazione, $anno, $convIds);
         $sumW = 0.0;
         foreach ($convIds as $id) $sumW += (float)($quote[$id] ?? 0.0);
+        if ($sumW <= 0) {
+            $weights = array_fill_keys($convIds, 1.0);
+            $sumW = (float) count($convIds);
+        }
         $weights = $sumW > 0 ? $quote : array_fill_keys($convIds, 1.0);
         if ($sumW <= 0) $sumW = (float) count($convIds);
 

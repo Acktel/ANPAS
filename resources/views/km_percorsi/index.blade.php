@@ -65,7 +65,7 @@
 @push('scripts')
 <script>
     $(async function() {
-    const selectedAssoc = document.getElementById('assocSelect')?.value || null;
+    const selectedAssoc = document.getElementById('assocId')?.value || null;
 
     const res = await fetch("{{ route('km-percorsi.datatable') }}");
         const { data: rawData, labels } = await res.json();

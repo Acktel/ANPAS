@@ -180,8 +180,11 @@ class RipartizionePersonaleController extends Controller {
         $record = RipartizionePersonale::getByDipendente($idDipendente, $anno)
             ->keyBy('idConvenzione');
 
+        $dipendente = Dipendente::getOne($idDipendente);
+   
         return view('ripartizioni.personale.edit', compact(
             'idDipendente',
+            'dipendente',
             'convenzioni',
             'record',
             'anno',

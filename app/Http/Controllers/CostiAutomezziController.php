@@ -115,35 +115,60 @@ class CostiAutomezziController extends Controller {
     public function edit($idAutomezzo) {
         $anno = session('anno_riferimento', now()->year);
         $record = CostiAutomezzi::getOrEmpty($idAutomezzo, $anno);
-
-        return view('ripartizioni.costi_automezzi.edit', compact('record', 'anno'));
+        $automezzo = Automezzo::getById($idAutomezzo, $anno);
+        return view('ripartizioni.costi_automezzi.edit', compact('record', 'anno', 'automezzo'));
     }
 
 
     public function update(Request $request, $idAutomezzo) {
-        $data = $request->validate([
-            'LeasingNoleggio' => 'required|numeric',
-            'Assicurazione' => 'required|numeric',
-            'ManutenzioneOrdinaria' => 'required|numeric',
-            'ManutenzioneStraordinaria' => 'required|numeric',
-            'RimborsiAssicurazione' => 'required|numeric',
-            'PuliziaDisinfezione' => 'required|numeric',
-            'Carburanti' => 'required|numeric',
-            'Additivi' => 'required|numeric',
-            'RimborsiUTF' => 'required|numeric',
-            'InteressiPassivi' => 'required|numeric',
-            'AltriCostiMezzi' => 'required|numeric',
-            'ManutenzioneSanitaria' => 'required|numeric',
-            'LeasingSanitaria' => 'required|numeric',
-            'AmmortamentoMezzi' => 'required|numeric',
-            'AmmortamentoSanitaria' => 'required|numeric',
-        ]);
+        $fields = [
+            'LeasingNoleggio',
+            'Assicurazione',
+            'ManutenzioneOrdinaria',
+            'ManutenzioneStraordinaria',
+            'RimborsiAssicurazione',
+            'PuliziaDisinfezione',
+            'Carburanti',
+            'Additivi',
+            'RimborsiUTF',
+            'InteressiPassivi',
+            'AltriCostiMezzi',
+            'ManutenzioneSanitaria',
+            'LeasingSanitaria',
+            'AmmortamentoMezzi',
+            'AmmortamentoSanitaria',
+        ];
 
-        $data['idAutomezzo'] = $idAutomezzo;
-        $data['idAnno'] = session('anno_riferimento', now()->year);
+        // 1) Valida ma consenti vuoto (che poi mettiamo a 0)
+        $rules = array_fill_keys($fields, 'nullable|numeric');
+        $data  = $request->validate($rules);
+
+        // 2) Vuoto -> 0 (e preserva i decimali se presenti)
+        foreach ($fields as $f) {
+            $v = $data[$f] ?? null;
+            if ($v === null || $v === '') {
+                $data[$f] = 0;
+            } else {
+                // accetta anche "1.234,56"
+                $s = (string)$v;
+                if (preg_match('/,\d+$/', $s)) {
+                    $s = str_replace('.', '', $s);
+                    $s = str_replace(',', '.', $s);
+                } else {
+                    $s = str_replace(',', '', $s);
+                }
+                $data[$f] = round((float)$s, 2);
+            }
+        }
+
+        // 3) Chiavi
+        $data['idAutomezzo'] = (int)$idAutomezzo;
+        $data['idAnno'] = (int) session('anno_riferimento', now()->year);
 
         CostiAutomezzi::updateOrInsert($data);
 
-        return redirect()->route('ripartizioni.costi_automezzi.index',  ['idAssociazione' => $request->input('idAssociazione')])->with('success', 'Dati aggiornati.');
+        return redirect()
+            ->route('ripartizioni.costi_automezzi.index', ['idAssociazione' => $request->input('idAssociazione')])
+            ->with('success', 'Dati aggiornati.');
     }
 }

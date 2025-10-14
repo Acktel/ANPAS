@@ -122,8 +122,7 @@ class CostoMaterialeSanitarioController extends Controller {
                         $kmPercorsi = 0;
                      
                         if ($kmData->has($lookup)) {
-                            $first = $kmData->get($lookup)->first();
-                            $kmPercorsi = (float) ($first->KMPercorsi ?? 0);
+                            $kmPercorsi = (float) $kmData->get($lookup)->sum('KMPercorsi');
                         }
                       
                         $numServizi = max(0, $numServizi - $kmPercorsi); // clamp a 0

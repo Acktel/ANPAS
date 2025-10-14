@@ -157,7 +157,10 @@ class CostiPersonaleController extends Controller {
             // nomi qualifica per riga
             $idsQ = $qualifichePivot[$id] ?? [];
             $nomiQ = collect($idsQ)->map(fn($iq) => $nomiQualifiche[$iq] ?? null)->filter()->values()->implode(', ');
-
+            if($d->ContrattoApplicato == 1){
+                $d->ContrattoApplicato = "CCNL ANPAS";
+            } 
+            
             $r = [
                 'idDipendente'      => $id,
                 'Dipendente'        => trim("{$d->DipendenteCognome} {$d->DipendenteNome}"),

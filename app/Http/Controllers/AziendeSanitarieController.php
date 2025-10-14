@@ -45,7 +45,7 @@ class AziendeSanitarieController extends Controller
 
         // carico le aziende per l'anno corrente
         $aziende = AziendaSanitaria::getAllWithConvenzioni($selectedConvenzione);
-
+        
         return view('aziende_sanitarie.index', compact(
             'anno',
             'convenzioni',

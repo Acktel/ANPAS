@@ -62,7 +62,7 @@ class AziendaSanitaria
         ";
 
         $bindings = [$idAnno, $idAnno];
-
+/*
         if (!empty($idConvenzione)) {
             $ids = is_array($idConvenzione) ? array_values($idConvenzione) : [$idConvenzione];
             $placeholders = implode(',', array_fill(0, count($ids), '?'));
@@ -80,7 +80,7 @@ class AziendaSanitaria
                 $bindings[] = (int) $id;
             }
         }
-
+*/
         $sql .= " ORDER BY a.Nome";
 
         $rows = DB::select($sql, $bindings);

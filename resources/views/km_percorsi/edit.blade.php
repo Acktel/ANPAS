@@ -28,8 +28,9 @@
                         <td>
                             <input
                                 type="number"
-                                step="0.01"
                                 min="0"
+                                step="1"
+                                inputmode="numeric"
                                 name="km[{{ $conv->idConvenzione }}]"
                                 class="form-control text-end"
                                 pattern="^\d+(,\d{0,2})?$"

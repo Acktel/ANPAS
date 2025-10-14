@@ -18,14 +18,14 @@ Route::middleware(['auth'])->prefix('riepilogo-costi')->group(function () {
     Route::get('/ensure-edit', [RiepilogoCostiController::class, 'ensureAndEditByKeys'])
         ->name('riepilogo.costi.ensureEdit');
 
-    // Edit singola voce (by idVoceConfig)
+    // Edit singola voce (by rigaId)
     Route::get('/voce/{id}/edit', [RiepilogoCostiController::class, 'edit'])
         ->whereNumber('id')
         ->name('riepilogo.costi.edit');
 
-    // Update singola voce
-    Route::put('/voce/{id}', [RiepilogoCostiController::class, 'update'])
-        ->whereNumber('id')
+    // Update singola voce (by voceId)
+    Route::put('/voce/{voceId}', [RiepilogoCostiController::class, 'update'])
+        ->whereNumber('voceId')
         ->name('riepilogo.costi.update');
 
     // Inline save preventivo (AJAX)
@@ -35,4 +35,20 @@ Route::middleware(['auth'])->prefix('riepilogo-costi')->group(function () {
     // (opzionale) check duplicazione dall’anno precedente
     Route::get('/check-duplicazione', [RiepilogoCostiController::class, 'checkDuplicazione'])
         ->name('riepilogo.costi.checkDuplicazione');
+
+    // Edit/Update unificato per “UTENZE TELEFONICHE”
+    Route::get('/edit-telefonia', [RiepilogoCostiController::class, 'editTelefonia'])
+        ->name('riepilogo.costi.edit.telefonia');
+
+    Route::post('/update-telefonia', [RiepilogoCostiController::class, 'updateTelefonia'])
+        ->name('riepilogo.costi.update.telefonia');
+
+    // Bulk: edit + update preventivi per sezione
+    Route::get('/sezione/{sezione}/edit-preventivi', [RiepilogoCostiController::class, 'editPreventiviSezione'])
+        ->whereNumber('sezione')
+        ->name('riepilogo.costi.editPreventiviSezione');
+
+    Route::post('/sezione/{sezione}/update-preventivi', [RiepilogoCostiController::class, 'updatePreventiviSezione'])
+        ->whereNumber('sezione')
+        ->name('riepilogo.costi.updatePreventiviSezione');
 });

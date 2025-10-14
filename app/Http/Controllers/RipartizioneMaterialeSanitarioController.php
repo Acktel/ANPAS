@@ -71,7 +71,7 @@ public function index(Request $request)
             $selectedAssoc = $user->IdAssociazione;
         }
         $dati = RipartizioneMaterialeSanitario::getRipartizione($selectedAssoc, $anno);
-     
+        
         return response()->json($dati);
     }
 
