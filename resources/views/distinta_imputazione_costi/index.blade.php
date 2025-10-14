@@ -7,8 +7,8 @@
 
   // $selectedAssoc arriva dal controller; fallback d’emergenza
   $selectedAssoc = $selectedAssoc
-    ?? request('idAssociazione')
     ?? session('associazione_selezionata')
+    ?? request('idAssociazione')
     ?? ($user?->IdAssociazione ?? null);
 @endphp
 

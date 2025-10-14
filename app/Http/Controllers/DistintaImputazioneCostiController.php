@@ -394,27 +394,29 @@ class DistintaImputazioneCostiController extends Controller {
        ========================= */
     private function resolveAssociazione(Request $request): ?int {
         $user      = Auth::user();
-        $isElevato = $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor']) || session()->has('impersonate');
+        $isImpersonating = session()->has('impersonate');
 
-        // priorità: query -> sessione -> utente (se non elevato) -> prima disponibile (se elevato)
-        $id = $request->integer('idAssociazione')
-            ?? session('associazione_selezionata')
-            ?? (!$isElevato ? $user->IdAssociazione : null);
-
-        if ($isElevato && empty($id)) {
-            $id = DB::table('associazioni')
+        $associazioni = collect();
+        if ($user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])) {
+            $associazioni = DB::table('associazioni')
+                ->select('IdAssociazione', 'Associazione')
                 ->whereNull('deleted_at')
-                ->where('idAssociazione', '!=', 1)
+                ->where('IdAssociazione', '!=', 1)
                 ->orderBy('Associazione')
-                ->value('idAssociazione');
+                ->get();
+            $selectedAssoc = $request->get('idAssociazione')
+                ?? ($associazioni->first()->IdAssociazione ?? null);
+        } else {
+            $selectedAssoc = $user->IdAssociazione;
         }
 
-        if (!empty($id)) {
-            session(['associazione_selezionata' => (int) $id]);
-            return (int) $id;
+        if ($request->has('idAssociazione')) {
+            session(['associazione_selezionata' => $request->idAssociazione]);
         }
+        $selectedAssoc = session('associazione_selezionata') ?? $user->IdAssociazione;
 
-        return null;
+
+        return $selectedAssoc;
     }
 
     public function storeBulk(Request $request) {

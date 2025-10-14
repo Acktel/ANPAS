@@ -133,8 +133,7 @@ class CostoMaterialeSanitarioController extends Controller {
 
                 $totaleInclusiAdj += $adjustedSum;
             }
-//dd($r,$convFlagYesSet[$idConv], $kmPercorsi, $numServizi, $lookup, $totaleInclusiAdj);
-            // la riga singola la completiamo dopo (quando conosciamo il totale)
+
             $righeOut[] = [
                 'Targa'       => $r['Targa'] ?? '',
                 'n_servizi'   => $adjustedSum,

@@ -138,7 +138,7 @@ class RiepilogoCosti {
             $mergedRow = (object)[
                 'idVoceConfig' => 'TEL_MERGE',               // marcatore speciale per il frontend
                 'codice'       => '',                        // ricalcolato sotto
-                'descrizione'  => 'UTENZE TELEFONICHE',
+                'descrizione'  => 'utenze telefoniche',
                 'preventivo'   => round($telPrev, 2),
                 'consuntivo'   => round($telCons, 2),
                 'scostamento'  => number_format($scostPercTel, 2) . '%',
