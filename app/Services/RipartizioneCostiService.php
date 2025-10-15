@@ -174,192 +174,203 @@ class RipartizioneCostiService {
     }
 
     public static function calcolaRipartizioneTabellaFinale(int $idAssociazione, int $anno, int $idAutomezzo): array {
-        // Voci ripartite per KM (Materiali e Ossigeno gestite a parte)
-        $vociKm = [
-            'LEASING/NOLEGGIO A LUNGO TERMINE'                          => 'LeasingNoleggio',
-            'ASSICURAZIONI'                                             => 'Assicurazione',
-            'MANUTENZIONE ORDINARIA'                                    => 'ManutenzioneOrdinaria',
-            'MANUTENZIONE STRAORDINARIA AL NETTO RIMBORSI ASSICURATIVI' => 'ManutenzioneStraordinaria',
-            'RIMBORSI ASSICURAZIONE'                                    => 'RimborsiAssicurazione',
-            'PULIZIA E DISINFEZIONE'                                    => 'PuliziaDisinfezione',
-            'CARBURANTI AL NETTO RIMBORSI UTIF'                         => 'Carburanti',
-            'ADDITIVI'                                                  => 'Additivi',
-            'INTERESSI PASS. F.TO, LEASING, NOL.'                       => 'InteressiPassivi',
-            'MANUTENZIONE ATTREZZATURA SANITARIA'                       => 'ManutenzioneSanitaria',
-            'LEASING ATTREZZATURA SANITARIA'                            => 'LeasingSanitaria',
-            'AMMORTAMENTO AUTOMEZZI'                                    => 'AmmortamentoMezzi',
-            'AMMORTAMENTO ATTREZZATURA SANITARIA'                       => 'AmmortamentoSanitaria',
-            'ALTRI COSTI MEZZI'                                         => 'AltriCostiMezzi',
-        ];
+    // Voci ripartite per KM (Materiali e Ossigeno gestite a parte)
+    $vociKm = [
+        'LEASING/NOLEGGIO A LUNGO TERMINE'                          => 'LeasingNoleggio',
+        'ASSICURAZIONI'                                             => 'Assicurazione',
+        'MANUTENZIONE ORDINARIA'                                    => 'ManutenzioneOrdinaria',
+        'MANUTENZIONE STRAORDINARIA AL NETTO RIMBORSI ASSICURATIVI' => 'ManutenzioneStraordinaria',
+        'RIMBORSI ASSICURAZIONE'                                    => 'RimborsiAssicurazione',
+        'PULIZIA E DISINFEZIONE'                                    => 'PuliziaDisinfezione',
+        'CARBURANTI AL NETTO RIMBORSI UTIF'                         => 'Carburanti',
+        'ADDITIVI'                                                  => 'Additivi',
+        'INTERESSI PASS. F.TO, LEASING, NOL.'                       => 'InteressiPassivi',
+        'MANUTENZIONE ATTREZZATURA SANITARIA'                       => 'ManutenzioneSanitaria',
+        'LEASING ATTREZZATURA SANITARIA'                            => 'LeasingSanitaria',
+        'AMMORTAMENTO AUTOMEZZI'                                    => 'AmmortamentoMezzi',
+        'AMMORTAMENTO ATTREZZATURA SANITARIA'                       => 'AmmortamentoSanitaria',
+        'ALTRI COSTI MEZZI'                                         => 'AltriCostiMezzi',
+    ];
 
-        // Convenzioni (ordine stabile)
-        $convenzioni = DB::table('convenzioni')
-            ->where('idAssociazione', $idAssociazione)
-            ->where('idAnno', $anno)
-            ->orderBy('ordinamento')
-            ->orderBy('idConvenzione')
-            ->pluck('Convenzione', 'idConvenzione')
-            ->toArray();
+    // Convenzioni (ordine stabile)
+    $convenzioni = DB::table('convenzioni')
+        ->where('idAssociazione', $idAssociazione)
+        ->where('idAnno', $anno)
+        ->orderBy('ordinamento')
+        ->orderBy('idConvenzione')
+        ->pluck('Convenzione', 'idConvenzione')
+        ->toArray();
 
-        if (empty($convenzioni)) {
-            return [];
+    if (empty($convenzioni)) {
+        return [];
+    }
+
+    $tabella = [];
+
+    // ---------- PRE-CALCOLI PER L'AUTOMEZZO ----------
+    $costi = DB::table('costi_automezzi')
+        ->where('idAutomezzo', $idAutomezzo)
+        ->where('idAnno', $anno)
+        ->first();
+
+    // KM per convenzione
+    $kmPerConv = DB::table('automezzi_km')
+        ->where('idAutomezzo', $idAutomezzo)
+        ->pluck('KMPercorsi', 'idConvenzione')
+        ->toArray();
+    $totaleKM = array_sum(array_map('floatval', $kmPerConv));
+
+    // SERVIZI per convenzione
+    $serviziPerConv = DB::table('automezzi_servizi')
+        ->where('idAutomezzo', $idAutomezzo)
+        ->pluck('NumeroServizi', 'idConvenzione')
+        ->toArray();
+    $totaleServizi = array_sum(array_map('floatval', $serviziPerConv));
+
+    // ---------- SEZIONE MEZZI (KM salvo eccezioni) ----------
+    foreach ($vociKm as $voceLabel => $colDB) {
+        // Calcolo valore della voce (con "netti" dove richiesto)
+        if ($costi) {
+            switch ($voceLabel) {
+                case 'MANUTENZIONE STRAORDINARIA AL NETTO RIMBORSI ASSICURATIVI':
+                    $valore = ((float)($costi->ManutenzioneStraordinaria ?? 0))
+                            - ((float)($costi->RimborsiAssicurazione ?? 0));
+                    break;
+
+                case 'CARBURANTI AL NETTO RIMBORSI UTIF':
+                    $valore = ((float)($costi->Carburanti ?? 0))
+                            - ((float)($costi->RimborsiUTF ?? 0));
+                    break;
+
+                default:
+                    $valore = (float)($costi->$colDB ?? 0);
+            }
+        } else {
+            $valore = 0.0;
         }
 
-        $tabella = [];
+        $valore = round(max(0.0, $valore), 2);
 
-        // ---------- PRE-CALCOLI PER L'AUTOMEZZO ----------
-        $costi = DB::table('costi_automezzi')
-            ->where('idAutomezzo', $idAutomezzo)
-            ->where('idAnno', $anno)
-            ->first();
-        // KM per convenzione
-        $kmPerConv = DB::table('automezzi_km')
-            ->where('idAutomezzo', $idAutomezzo)
-            ->pluck('KMPercorsi', 'idConvenzione')
-            ->toArray();
-        $totaleKM = array_sum(array_map('floatval', $kmPerConv));
+        $riga = ['voce' => $voceLabel, 'totale' => $valore];
+        $somma = 0.0;
+        $lastNome = null;
 
-        // SERVIZI per convenzione
-        $serviziPerConv = DB::table('automezzi_servizi')
-            ->where('idAutomezzo', $idAutomezzo)
-            ->pluck('NumeroServizi', 'idConvenzione')
-            ->toArray();
-        $totaleServizi = array_sum(array_map('floatval', $serviziPerConv));
-
-        // ---------- SEZIONE MEZZI (KM) ----------
-        foreach ($vociKm as $voceLabel => $colDB) {
-            // Calcolo valore della voce (con "netti" dove richiesto)
-            if ($costi) {
-                switch ($voceLabel) {
-                    case 'MANUTENZIONE STRAORDINARIA AL NETTO RIMBORSI ASSICURATIVI':
-                        $valore = ((float)($costi->ManutenzioneStraordinaria ?? 0))
-                            - ((float)($costi->RimborsiAssicurazione ?? 0));
-                        break;
-
-                    case 'CARBURANTI AL NETTO RIMBORSI UTIF':
-                        $valore = ((float)($costi->Carburanti ?? 0))
-                            - ((float)($costi->RimborsiUTF ?? 0));
-                        break;
-
-                    default:
-                        $valore = (float)($costi->$colDB ?? 0);
-                }
+        foreach ($convenzioni as $idConv => $nomeConv) {
+            // 👇 eccezione: AMMORTAMENTO ATTREZZATURA SANITARIA a % SERVIZI (mezzo)
+            if ($voceLabel === 'AMMORTAMENTO ATTREZZATURA SANITARIA') {
+                $numeratore   = (float)($serviziPerConv[$idConv] ?? 0.0);
+                $denominatore = (float)$totaleServizi;
             } else {
-                $valore = 0.0;
+                // default: a % KM (mezzo)
+                $numeratore   = (float)($kmPerConv[$idConv] ?? 0.0);
+                $denominatore = (float)$totaleKM;
             }
-            /*$valore = (float) (DB::table('costi_automezzi')
-                ->where('idAutomezzo', $idAutomezzo)
-                ->where('idAnno', $anno)
-                ->value($colDB) ?? 0);*/
-            $valore = round(max(0.0, $valore), 2);
 
-            $riga = ['voce' => $voceLabel, 'totale' => $valore];
-            $somma = 0.0;
+            $importo = ($denominatore > 0)
+                ? round(($numeratore / $denominatore) * $valore, 2)
+                : 0.0;
+
+            $riga[$nomeConv] = $importo;
+            $somma += $importo;
+            $lastNome = $nomeConv;
+        }
+
+        // riallineo centesimi
+        $delta = round($riga['totale'] - $somma, 2);
+        if (abs($delta) >= 0.01 && $lastNome !== null) {
+            $riga[$lastNome] += $delta;
+        }
+
+        $tabella[] = $riga;
+    }
+
+    // ---------- MATERIALI SANITARI DI CONSUMO (SERVIZI) ----------
+    $valoreMSC = self::getMaterialiSanitariConsumo($idAssociazione, $anno, $idAutomezzo);
+
+    $riga = ['voce' => 'MATERIALI SANITARI DI CONSUMO', 'totale' => round($valoreMSC, 2)];
+    $somma = 0.0;
+    $lastNome = null;
+
+    foreach ($convenzioni as $idConv => $nomeConv) {
+        $n = (float)($serviziPerConv[$idConv] ?? 0);
+        $importo = ($totaleServizi > 0) ? round(($n / $totaleServizi) * $valoreMSC, 2) : 0.0;
+        $riga[$nomeConv] = $importo;
+        $somma += $importo;
+        $lastNome = $nomeConv;
+    }
+    $delta = round($riga['totale'] - $somma, 2);
+    if (abs($delta) >= 0.01 && $lastNome !== null) {
+        $riga[$lastNome] += $delta;
+    }
+    $tabella[] = $riga;
+
+    // ---------- OSSIGENO (SERVIZI) ----------
+    $valoreOss = self::getOssigenoConsumo($idAssociazione, $anno, $idAutomezzo);
+
+    $riga = ['voce' => 'OSSIGENO', 'totale' => round($valoreOss, 2)];
+    $somma = 0.0;
+    $lastNome = null;
+
+    foreach ($convenzioni as $idConv => $nomeConv) {
+        $n = (float)($serviziPerConv[$idConv] ?? 0);
+        $importo = ($totaleServizi > 0) ? round(($n / $totaleServizi) * $valoreOss, 2) : 0.0;
+        $riga[$nomeConv] = $importo;
+        $somma += $importo;
+        $lastNome = $nomeConv;
+    }
+    $delta = round($riga['totale'] - $somma, 2);
+    if (abs($delta) >= 0.01 && $lastNome !== null) {
+        $riga[$lastNome] += $delta;
+    }
+    $tabella[] = $riga;
+
+    // ---------- SEZIONE RADIO (ripartizione per % KM dell’automezzo) ----------
+    $costiRadio = DB::table('costi_radio')
+        ->where('idAssociazione', $idAssociazione)
+        ->where('idAnno', $anno)
+        ->first();
+
+    if ($costiRadio) {
+        $vociRadio = [
+            'MANUTENZIONE APPARATI RADIO'    => 'ManutenzioneApparatiRadio',
+            'MONTAGGIO/SMONTAGGIO RADIO 118' => 'MontaggioSmontaggioRadio118',
+            'LOCAZIONE PONTE RADIO'          => 'LocazionePonteRadio',
+            'AMMORTAMENTO IMPIANTI RADIO'    => 'AmmortamentoImpiantiRadio',
+        ];
+
+        $automezzi = Automezzo::getByAssociazione($idAssociazione, $anno);
+        $numAutomezzi = max(count($automezzi), 1);
+
+        foreach ($vociRadio as $voceLabel => $campoDB) {
+            $importoBase = (float)($costiRadio->$campoDB ?? 0);
+            // Importo “per automezzo”, poi ripartito tra le sue convenzioni
+            $importoPerAutomezzo = ($numAutomezzi > 0) ? ($importoBase / $numAutomezzi) : 0.0;
+
+            $riga   = ['voce' => $voceLabel, 'totale' => round($importoPerAutomezzo, 2)];
+            $somma  = 0.0;
             $lastNome = null;
+
             foreach ($convenzioni as $idConv => $nomeConv) {
-                $km = (float) ($kmPerConv[$idConv] ?? 0);
-                $importo = ($totaleKM > 0) ? round(($km / $totaleKM) * $valore, 2) : 0.0;
+                $km = (float)($kmPerConv[$idConv] ?? 0.0);
+                $quota = ($totaleKM > 0) ? ($km / $totaleKM) : 0.0; // % km dell’automezzo
+                $importo = round($importoPerAutomezzo * $quota, 2);
                 $riga[$nomeConv] = $importo;
                 $somma += $importo;
                 $lastNome = $nomeConv;
             }
+
             // riallineo centesimi
-            $delta = round($riga['totale'] - $somma, 2);
+            $delta = round(round($importoPerAutomezzo, 2) - $somma, 2);
             if (abs($delta) >= 0.01 && $lastNome !== null) {
                 $riga[$lastNome] += $delta;
             }
 
             $tabella[] = $riga;
         }
-
-        // ---------- MATERIALI SANITARI DI CONSUMO (SERVIZI) ----------
-        $valoreMSC = self::getMaterialiSanitariConsumo($idAssociazione, $anno, $idAutomezzo);
-
-        $riga = ['voce' => 'MATERIALI SANITARI DI CONSUMO', 'totale' => round($valoreMSC, 2)];
-        $somma = 0.0;
-        $lastNome = null;
-
-        foreach ($convenzioni as $idConv => $nomeConv) {
-            $n = (float) ($serviziPerConv[$idConv] ?? 0);
-            $importo = ($totaleServizi > 0) ? round(($n / $totaleServizi) * $valoreMSC, 2) : 0.0;
-            $riga[$nomeConv] = $importo;
-            $somma += $importo;
-            $lastNome = $nomeConv;
-        }
-        $delta = round($riga['totale'] - $somma, 2);
-        if (abs($delta) >= 0.01 && $lastNome !== null) {
-            $riga[$lastNome] += $delta;
-        }
-        $tabella[] = $riga;
-
-        // ---------- OSSIGENO (SERVIZI) ----------
-        $valoreOss = self::getOssigenoConsumo($idAssociazione, $anno, $idAutomezzo);
-
-        $riga = ['voce' => 'OSSIGENO', 'totale' => round($valoreOss, 2)];
-        $somma = 0.0;
-        $lastNome = null;
-
-        foreach ($convenzioni as $idConv => $nomeConv) {
-            $n = (float) ($serviziPerConv[$idConv] ?? 0);
-            $importo = ($totaleServizi > 0) ? round(($n / $totaleServizi) * $valoreOss, 2) : 0.0;
-            $riga[$nomeConv] = $importo;
-            $somma += $importo;
-            $lastNome = $nomeConv;
-        }
-        $delta = round($riga['totale'] - $somma, 2);
-        if (abs($delta) >= 0.01 && $lastNome !== null) {
-            $riga[$lastNome] += $delta;
-        }
-        $tabella[] = $riga;
-
-        // ---------- SEZIONE RADIO (RIPARTIZIONE PER % KM DELL'AUTOMEZZO) ----------
-        $costiRadio = DB::table('costi_radio')
-            ->where('idAssociazione', $idAssociazione)
-            ->where('idAnno', $anno)
-            ->first();
-
-        if ($costiRadio) {
-            $vociRadio = [
-                'MANUTENZIONE APPARATI RADIO'    => 'ManutenzioneApparatiRadio',
-                'MONTAGGIO/SMONTAGGIO RADIO 118' => 'MontaggioSmontaggioRadio118',
-                'LOCAZIONE PONTE RADIO'          => 'LocazionePonteRadio',
-                'AMMORTAMENTO IMPIANTI RADIO'    => 'AmmortamentoImpiantiRadio',
-            ];
-
-            $automezzi = Automezzo::getByAssociazione($idAssociazione, $anno);
-            $numAutomezzi = max(count($automezzi), 1);
-
-            foreach ($vociRadio as $voceLabel => $campoDB) {
-                $importoBase = (float) ($costiRadio->$campoDB ?? 0);
-
-                // Importo “per automezzo”, poi ripartito tra le sue convenzioni
-                $importoPerAutomezzo = ($numAutomezzi > 0) ? ($importoBase / $numAutomezzi) : 0.0;
-
-                $riga   = ['voce' => $voceLabel, 'totale' => round($importoPerAutomezzo, 2)];
-                $somma  = 0.0;
-                $lastNome = null;
-
-                foreach ($convenzioni as $idConv => $nomeConv) {
-                    $km = (float) ($kmPerConv[$idConv] ?? 0.0);
-                    $quota = ($totaleKM > 0) ? ($km / $totaleKM) : 0.0;     // % km dell’automezzo per quella convenzione
-                    $importo = round($importoPerAutomezzo * $quota, 2);
-                    $riga[$nomeConv] = $importo;
-                    $somma += $importo;
-                    $lastNome = $nomeConv;
-                }
-
-                // Riallineo centesimi sulla somma per farla combaciare con il “totale” per automezzo
-                $delta = round(round($importoPerAutomezzo, 2) - $somma, 2);
-                if (abs($delta) >= 0.01 && $lastNome !== null) {
-                    $riga[$lastNome] += $delta;
-                }
-
-                $tabella[] = $riga;
-            }
-        }
-
-        return $tabella;
     }
+
+    return $tabella;
+}
 
 
     public static function calcolaTabellaTotale(int $idAssociazione, int $anno): array {

@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use App\Models\Convenzione;
 use App\Models\RipartizioneVolontario;
+use App\Models\User;
 use Illuminate\Support\Facades\DB;
 
 class RipartizioneVolontarioController extends Controller {
@@ -34,7 +35,7 @@ class RipartizioneVolontarioController extends Controller {
     public function getData(Request $request) {
         // utente effettivo (gestisce impersonate come in RapportiRicavi)
         $user = session()->has('impersonate')
-            ? \App\Models\User::find(session('impersonate'))
+            ? User::find(session('impersonate'))
             : auth()->user();
 
         $anno = (int) session('anno_riferimento', now()->year);

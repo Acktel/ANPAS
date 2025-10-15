@@ -58,14 +58,14 @@
                 data-type="REGISTRI (XLS)">
                 <i class="fas fa-file-excel me-1"></i> Genera REGISTRI – XLS
               </button>
-              <!--<button type="button" class="btn btn-anpas-green"
+              <button type="button" class="btn btn-anpas-green"
                 data-endpoint="{{ route('documenti.schede_riparto_costi.xls') }}"
                 data-type="SCHEDE DI RIPARTO DEI COSTI (XLS)">
                 <i class="fas fa-file-excel me-1"></i> SCHEDE DI RIPARTO DEI COSTI (XLS)
-              </button>-->
+              </button>
             </div>
           </form>
-
+          
           <small class="text-muted d-block mt-2">
             I file vengono generati in coda; quando pronti comparirà il link di download qui sotto.
           </small>

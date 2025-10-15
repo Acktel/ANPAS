@@ -21,6 +21,7 @@ use PhpOffice\PhpSpreadsheet\Cell\DataType;
 use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 use PhpOffice\PhpSpreadsheet\Style\NumberFormat;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
 
 use App\Services\RipartizioneCostiService;
 use App\Models\Automezzo;
@@ -30,8 +31,8 @@ use App\Models\RapportoRicavo;
 class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels, Batchable;
 
-    public $tries = 1;
-    public $backoff = 0;
+    public $tries   = 5;
+    public $backoff = 15;
 
     public function __construct(
         public int $documentoId,
@@ -43,11 +44,15 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
     }
 
     public function middleware(): array {
-        $key = "xls-schede-riparto-{$this->idAssociazione}-{$this->anno}";
-        return [(new WithoutOverlapping($key))->expireAfter(300)];
+        $key = "xls-schede-riparto-{$this->idAssociazione}-{$this->anno}-doc{$this->documentoId}";
+        return [
+            (new WithoutOverlapping($key))
+                ->expireAfter(300)
+                ->releaseAfter(15),
+        ];
     }
 
-    /* ============ Helpers ============ */
+    /* ===================== Helpers ===================== */
 
     private function slugify(string $s): string {
         $s = preg_replace('/[^\pL\d]+/u', '_', $s);
@@ -56,8 +61,9 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
         return strtolower($s ?: 'export');
     }
 
-    private function findHeaderRowKm(Worksheet $sheet): int {
-        for ($r = 1; $r <= 200; $r++) {
+    private function findHeaderRowKm(Worksheet $sheet, int $startFromRow = 1, int $stopRow = null): int {
+        $stopRow = $stopRow ?: ($startFromRow + 400);
+        for ($r = max(1, $startFromRow); $r <= $stopRow; $r++) {
             $hasT = $hasC = $hasK = false;
             for ($c = 1; $c <= 60; $c++) {
                 $t = mb_strtoupper(trim((string)$sheet->getCellByColumnAndRow($c, $r)->getValue()));
@@ -67,11 +73,12 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
             }
             if ($hasT && $hasC && $hasK) return $r;
         }
-        return 8;
+        return $startFromRow + 8;
     }
 
-    private function findHeaderRowServizi(Worksheet $sheet, int $startFromRow = 1): int {
-        for ($r = max(1, $startFromRow); $r <= $startFromRow + 300; $r++) {
+    private function findHeaderRowServizi(Worksheet $sheet, int $startFromRow, int $stopRow = null): int {
+        $stopRow = $stopRow ?: ($startFromRow + 400);
+        for ($r = $startFromRow; $r <= $stopRow; $r++) {
             $hasT = $hasC = $hasTot = false;
             for ($c = 1; $c <= 60; $c++) {
                 $t = mb_strtoupper(trim((string)$sheet->getCellByColumnAndRow($c, $r)->getValue()));
@@ -84,9 +91,9 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
         return $startFromRow + 30;
     }
 
-    /** Header della tabella PERSONALE: “COGNOME DEL DIPENDENTE / ORE TOTALI ANNUE ...” */
-    private function findHeaderRowPersonale(Worksheet $sheet, int $startFromRow = 1): int {
-        for ($r = max(1, $startFromRow); $r <= $startFromRow + 400; $r++) {
+    private function findHeaderRowPersonale(Worksheet $sheet, int $startFromRow, int $stopRow = null): int {
+        $stopRow = $stopRow ?: ($startFromRow + 500);
+        for ($r = $startFromRow; $r <= $stopRow; $r++) {
             $hasName = $hasTot = false;
             for ($c = 1; $c <= 80; $c++) {
                 $t = mb_strtoupper(trim((string)$sheet->getCellByColumnAndRow($c, $r)->getValue()));
@@ -95,41 +102,20 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
             }
             if ($hasName && $hasTot) return $r;
         }
-        return $startFromRow + 60; // fallback prudente
+        return $startFromRow + 60;
     }
 
-    /** Trova righe e colonna etichetta di PREV / CONSU sopra la tabella Personale. */
-    private function findPrevConsuRows(Worksheet $sheet, int $convTitleRow): array {
-        $prevRow = null;
-        $consuRow = null;
-        $labelColPrev = 1;
-        $labelColConsu = 1;
-
-        $from = max(1, $convTitleRow - 40);
-        for ($r = $convTitleRow - 1; $r >= $from; $r--) {
-            for ($c = 1; $c <= 30; $c++) {
+    private function findHeaderRowRicavi(Worksheet $sheet, int $startFromRow, int $stopRow = null): int {
+        $stopRow = $stopRow ?: ($startFromRow + 300);
+        for ($r = $startFromRow; $r <= $stopRow; $r++) {
+            for ($c = 1; $c <= 80; $c++) {
                 $t = mb_strtoupper(trim((string)$sheet->getCellByColumnAndRow($c, $r)->getValue()));
-                if (!$prevRow && ($t === 'PREV' || $t === 'PREVENTIVO')) {
-                    $prevRow = $r;
-                    $labelColPrev = $c;
-                }
-                if (!$consuRow && ($t === 'CONSU' || $t === 'CONSUNTIVO')) {
-                    $consuRow = $r;
-                    $labelColConsu = $c;
-                }
+                if ($t !== '' && str_starts_with($t, 'TOTALE RICAVI')) return $r;
             }
-            if ($prevRow && $consuRow) break;
         }
-
-        if (!$consuRow) { $consuRow = max(1, $convTitleRow - 2); $labelColConsu = 1; }
-        if (!$prevRow)  { $prevRow  = max(1, $consuRow - 1);     $labelColPrev  = 1; }
-
-        if ($prevRow > $consuRow) { [$prevRow, $consuRow] = [$consuRow, $prevRow]; }
-
-        return [$prevRow, $consuRow, $labelColPrev, $labelColConsu];
+        return $startFromRow + 20;
     }
 
-    /** Individua header della 3ª tabella a partire dal testo “RIMBORSO”. */
     private function locateRicaviHeader(Worksheet $sheet, int $startRow): array {
         for ($r = $startRow; $r <= $startRow + 200; $r++) {
             $firstPairCol = null;
@@ -149,65 +135,34 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                 ];
             }
         }
-        // fallback: usa “TOTALE RICAVI”
         $hr = $this->findHeaderRowRicavi($sheet, $startRow);
         $tot = 4;
         for ($c = 1; $c <= 80; $c++) {
             $t = mb_strtoupper(trim((string)$sheet->getCellByColumnAndRow($c, $hr)->getValue()));
-            if ($t !== '' && str_starts_with($t, 'TOTALE RICAVI')) { $tot = $c; break; }
+            if ($t !== '' && str_starts_with($t, 'TOTALE RICAVI')) {
+                $tot = $c;
+                break;
+            }
         }
         return [
-            'headerRow' => $hr,
+            'headerRow'    => $hr,
             'convTitleRow' => max(1, $hr - 1),
-            'dataRow' => $hr + 1,
+            'dataRow'      => $hr + 1,
             'firstPairCol' => $tot + 1,
-            'totCol' => $tot,
+            'totCol'       => $tot,
         ];
     }
 
-    private function findHeaderRowRicavi(Worksheet $sheet, int $startFromRow = 1): int {
-        for ($r = max(1, $startFromRow); $r <= $startFromRow + 300; $r++) {
-            for ($c = 1; $c <= 80; $c++) {
-                $t = mb_strtoupper(trim((string)$sheet->getCellByColumnAndRow($c, $r)->getValue()));
-                if ($t !== '' && str_starts_with($t, 'TOTALE RICAVI')) return $r;
-            }
-        }
-        return $startFromRow + 20;
-    }
-
-    /** Sostituisce i segnaposto sull’intero foglio. */
-    private function replacePlaceholdersEverywhere(Worksheet $sheet, array $map): void {
-        $src = ['{{nome_associazione}}', '{{ nome_associazione }}', '{{anno_riferimento}}', '{{ anno_riferimento }}'];
-        $dst = [
-            (string)($map['nome_associazione'] ?? ''),
-            (string)($map['nome_associazione'] ?? ''),
-            (string)($map['anno_riferimento'] ?? ''),
-            (string)($map['anno_riferimento'] ?? ''),
-        ];
-        $maxRow = $sheet->getHighestRow();
+    private function getPairLeftCols(Worksheet $sheet, int $headerRowPers): array {
+        $cols = [];
         $maxCol = Coordinate::columnIndexFromString($sheet->getHighestColumn());
-        for ($r = 1; $r <= $maxRow; $r++) {
-            for ($c = 1; $c <= $maxCol; $c++) {
-                $cell = $sheet->getCellByColumnAndRow($c, $r);
-                $val  = $cell->getValue();
-                if (!is_string($val) || $val === '') continue;
-                $new = str_replace($src, $dst, $val);
-                if ($new !== $val) $cell->setValueExplicit($new, DataType::TYPE_STRING);
-            }
+        for ($c = 1; $c <= $maxCol; $c++) {
+            $t = mb_strtoupper(trim((string)$sheet->getCellByColumnAndRow($c, $headerRowPers)->getValue()));
+            if ($t === 'ORE DI SERVIZIO') $cols[] = $c;
         }
+        return $cols;
     }
 
-    /** Nasconde colonne convenzioni in eccesso. */
-    private function hideUnusedConvColumns(Worksheet $sheet, int $firstPairCol, int $usedPairs, int $maxPairs): void {
-        $startHide = $firstPairCol + ($usedPairs * 2);
-        $endHide   = $firstPairCol + ($maxPairs * 2) - 1;
-        for ($c = $startHide; $c <= $endHide; $c++) {
-            $letter = Coordinate::stringFromColumnIndex($c);
-            $sheet->getColumnDimension($letter)->setVisible(false);
-        }
-    }
-
-    /** Nasconde solo le righe completamente vuote tra due blocchi. */
     private function hideEmptyRowsBetween(Worksheet $sheet, int $fromRow, int $toRow, int $keepTop = 2, int $keepBottom = 2): void {
         if ($toRow <= $fromRow) return;
         $maxCol = Coordinate::columnIndexFromString($sheet->getHighestColumn());
@@ -220,13 +175,15 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
             $empty = true;
             for ($c = 1; $c <= $maxCol; $c++) {
                 $v = $sheet->getCellByColumnAndRow($c, $r)->getValue();
-                if ($v !== null && $v !== '' && $v !== 0 && $v !== '0') { $empty = false; break; }
+                if ($v !== null && $v !== '' && $v !== 0 && $v !== '0') {
+                    $empty = false;
+                    break;
+                }
             }
             $sheet->getRowDimension($r)->setVisible($empty ? false : true);
         }
     }
 
-    /** Dopo la riga totale del personale nasconde tutte le righe successive vuote/filler. */
     private function cutAfterTotalRow(Worksheet $sheet, int $totalRow, int $maxScan = 400): void {
         $last = min($sheet->getHighestRow(), $totalRow + $maxScan);
         for ($r = $totalRow + 1; $r <= $last; $r++) {
@@ -234,81 +191,37 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
         }
     }
 
-    /** Prima cella "slot totale" dopo l'etichetta e prima delle coppie convenzioni. */
-    private function pickTotalSlotCol(Worksheet $sheet, int $row, int $labelCol, int $firstPairCol): int {
-        for ($c = $labelCol + 1; $c < $firstPairCol; $c++) {
-            $v = (string)$sheet->getCellByColumnAndRow($c, $row)->getValue();
-            if ($v === '' || $v === '-' || $v === '0') return $c;
-        }
-        return max($labelCol + 1, $firstPairCol - 2);
-    }
-
-    /** Colonne sinistre delle coppie (ORE/%), rilevate dalla riga header ("ORE DI SERVIZIO"). */
-    private function getPairLeftCols(Worksheet $sheet, int $headerRowPers): array {
-        $cols = [];
-        $maxCol = Coordinate::columnIndexFromString($sheet->getHighestColumn());
-        for ($c = 1; $c <= $maxCol; $c++) {
-            $t = mb_strtoupper(trim((string)$sheet->getCellByColumnAndRow($c, $headerRowPers)->getValue()));
-            if ($t === 'ORE DI SERVIZIO') $cols[] = $c;
-        }
-        return $cols;
-    }
-
-    /**
-     * Salvataggio sicuro: scrive su file temporaneo e poi rinomina in /public/documenti.
-     * Se il nome finale è bloccato o esiste, tenta retry e infine aggiunge suffisso.
-     * Ritorna [destRel, finalFilename].
-     */
-    private function safeSaveSpreadsheet(\PhpOffice\PhpSpreadsheet\Spreadsheet $spreadsheet, string $baseFilename, string $dirRel = 'documenti', int $retries = 3, int $sleepMs = 300): array
-    {
+    private function safeSaveSpreadsheet(\PhpOffice\PhpSpreadsheet\Spreadsheet $spreadsheet, string $baseFilename, string $dirRel = 'documenti', int $retries = 3, int $sleepMs = 300): array {
         $disk = Storage::disk('public');
+        if (!$disk->exists($dirRel)) $disk->makeDirectory($dirRel);
 
-        if (!$disk->exists($dirRel)) {
-            $disk->makeDirectory($dirRel);
-        }
-
-        // 1) Scrivi su file temporaneo (fuori da public)
         $tmpDir = storage_path('app/tmp');
         if (!is_dir($tmpDir)) @mkdir($tmpDir, 0775, true);
 
         $tmpPath = $tmpDir . DIRECTORY_SEPARATOR . uniqid('riparto_', true) . '.xlsx';
-        $writer = IOFactory::createWriter($spreadsheet, 'Xlsx');
+        $writer  = IOFactory::createWriter($spreadsheet, 'Xlsx');
         $writer->setPreCalculateFormulas(false);
         $writer->save($tmpPath);
 
-        // 2) Prova a spostare sul nome definitivo, con retry su Windows/lock
         $finalRel  = $dirRel . '/' . $baseFilename;
         $finalAbs  = $disk->path($finalRel);
 
         for ($i = 0; $i <= $retries; $i++) {
             try {
-                // se esiste ed è sbloccabile, prova a cancellare
-                if (file_exists($finalAbs)) {
-                    @unlink($finalAbs); // può fallire se locked
-                }
-                // usa rename per non rileggere in memoria
-                if (@rename($tmpPath, $finalAbs)) {
-                    return [$finalRel, $baseFilename];
-                }
+                if (file_exists($finalAbs)) @unlink($finalAbs);
+                if (@rename($tmpPath, $finalAbs)) return [$finalRel, $baseFilename];
             } catch (\Throwable $e) {
-                // ignora e ritenta
+                Log::warning('safeSaveSpreadsheet retry', ['target' => $finalAbs, 'try' => $i, 'error' => $e->getMessage()]);
             }
-            // ultima iterazione: cambia nome
             if ($i === $retries) {
-                $altName = pathinfo($baseFilename, PATHINFO_FILENAME)
-                         . '_' . now()->format('Ymd_His')
-                         . '.' . pathinfo($baseFilename, PATHINFO_EXTENSION);
+                $altName = pathinfo($baseFilename, PATHINFO_FILENAME) . '_' . now()->format('Ymd_His') . '.' . pathinfo($baseFilename, PATHINFO_EXTENSION);
                 $altRel = $dirRel . '/' . $altName;
                 $altAbs = $disk->path($altRel);
-                if (@rename($tmpPath, $altAbs)) {
-                    return [$altRel, $altName];
-                }
+                if (@rename($tmpPath, $altAbs)) return [$altRel, $altName];
             } else {
                 usleep($sleepMs * 1000);
             }
         }
-
-        // se siamo qui, il rename è fallito; come fallback carica via Storage::put
         $stream = fopen($tmpPath, 'rb');
         if ($stream !== false) {
             $ok = $disk->put($finalRel, $stream);
@@ -321,101 +234,142 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
     }
 
     /**
-     * Elimina i file Excel generati più vecchi di 7 giorni e rimuove i record
-     * da documenti_generati. Include sia 'ready' sia 'error'.
+     * Incolla un template XLSX nello sheet di destinazione, preservando stili/merge/drawings.
+     * Ritorna [startRow, endRow].
      */
-    private function cleanupOldGeneratedFiles(): void {
-        try {
-            $cutoff = now()->subDays(7);
-            $disk   = Storage::disk('public');
+    private function appendTemplateSheet(Worksheet $dst, string $templateAbs, int $rowCursor): array {
+        $reader = IOFactory::createReader('Xlsx');
+        $reader->setReadDataOnly(false);
+        $tpl = $reader->load($templateAbs);
+        $src = $tpl->getActiveSheet();
 
-            $oldDocs = DB::table('documenti_generati')
-                ->whereIn('stato', ['ready', 'error'])
-                ->where(function ($q) use ($cutoff) {
-                    $q->where(function ($q) use ($cutoff) {
-                        $q->where('stato', 'ready')
-                          ->whereNotNull('generato_il')
-                          ->where('generato_il', '<', $cutoff);
-                    })->orWhere(function ($q) use ($cutoff) {
-                        $q->where('stato', 'error')
-                          ->whereNotNull('updated_at')
-                          ->where('updated_at', '<', $cutoff);
-                    });
-                })
-                ->get(['id', 'percorso_file', 'stato']);
+        $maxRow = $src->getHighestRow();
+        $maxCol = Coordinate::columnIndexFromString($src->getHighestColumn());
 
-            $deletedFiles = 0;
-            foreach ($oldDocs as $doc) {
-                if (!empty($doc->percorso_file) && $disk->exists($doc->percorso_file)) {
-                    if ($disk->delete($doc->percorso_file)) $deletedFiles++;
-                }
-                DB::table('documenti_generati')->where('id', $doc->id)->delete();
-            }
-
-            Log::info('Cleanup documenti generati (7 giorni) completato', [
-                'cutoff'           => $cutoff->toDateTimeString(),
-                'rimossi_db'       => $oldDocs->count(),
-                'file_cancellati'  => $deletedFiles,
-            ]);
-        } catch (\Throwable $e) {
-            Log::warning('Errore cleanup vecchi documenti: ' . $e->getMessage());
+        // colonne
+        for ($c = 1; $c <= $maxCol; $c++) {
+            $colL = Coordinate::stringFromColumnIndex($c);
+            $dst->getColumnDimension($colL)->setWidth($src->getColumnDimension($colL)->getWidth());
+            $dst->getColumnDimension($colL)->setVisible($src->getColumnDimension($colL)->getVisible());
+            $dst->getColumnDimension($colL)->setAutoSize(false);
         }
+
+        // celle + stile
+        for ($r = 1; $r <= $maxRow; $r++) {
+            $dstR = $rowCursor + $r - 1;
+            $dst->getRowDimension($dstR)->setRowHeight($src->getRowDimension($r)->getRowHeight());
+            $dst->getRowDimension($dstR)->setVisible($src->getRowDimension($r)->getVisible());
+
+            for ($c = 1; $c <= $maxCol; $c++) {
+                $srcCell = $src->getCellByColumnAndRow($c, $r);
+                $dstCell = $dst->getCellByColumnAndRow($c, $dstR);
+                $dstCell->setValueExplicit($srcCell->getValue(), $srcCell->getDataType());
+                $dst->duplicateStyle($src->getStyleByColumnAndRow($c, $r), $dstCell->getCoordinate());
+            }
+        }
+
+        // merge
+        foreach ($src->getMergeCells() as $merge) {
+            [$c1, $r1, $c2, $r2] = Coordinate::rangeBoundaries($merge);
+            $dst->mergeCellsByColumnAndRow($c1, $r1 + $rowCursor - 1, $c2, $r2 + $rowCursor - 1);
+        }
+
+        // drawings (loghi)
+        foreach ($src->getDrawingCollection() as $drawing) {
+            $clone = clone $drawing;
+            $clone->setWorksheet(null);
+            [$colL, $r] = Coordinate::coordinateFromString($drawing->getCoordinates());
+            $clone->setCoordinates($colL . ($r + $rowCursor - 1));
+            $clone->setWorksheet($dst);
+        }
+
+        $start = $rowCursor;
+        $end   = $rowCursor + $maxRow - 1;
+
+        $tpl->disconnectWorksheets();
+        unset($tpl);
+
+        return [$start, $end];
     }
 
-    /* ============ Handle ============ */
+    private function findVolontariHeader(Worksheet $sheet, int $startFromRow): array {
+        $maxRow = min($sheet->getHighestRow(), $startFromRow + 400);
+        $maxCol = Coordinate::columnIndexFromString($sheet->getHighestColumn());
+        for ($r = max(1, $startFromRow); $r <= $maxRow; $r++) {
+            $cntOre = 0;
+            $cntPerc = 0;
+            for ($c = 1; $c <= $maxCol; $c++) {
+                $t = mb_strtoupper(trim((string)$sheet->getCellByColumnAndRow($c, $r)->getValue()));
+                if ($t === 'ORE DI SERVIZIO') $cntOre++;
+                if ($t === '%') $cntPerc++;
+            }
+            if ($cntOre >= 2 && $cntPerc >= 2) return ['headerRow' => $r, 'convTitleRow' => max(1, $r - 1)];
+        }
+        return ['headerRow' => $startFromRow + 10, 'convTitleRow' => $startFromRow + 9];
+    }
+
+    /* ===================== Handle ===================== */
     public function handle(): void {
+        Log::info('SchedeRipartoCosti: handle START', [
+            'documentoId' => $this->documentoId,
+            'idAss'       => $this->idAssociazione,
+            'anno'        => $this->anno,
+        ]);
+
         try {
-            // pulizia file vecchi
             $this->cleanupOldGeneratedFiles();
 
             DB::table('documenti_generati')->where('id', $this->documentoId)
                 ->update(['stato' => 'processing', 'updated_at' => now()]);
 
-            $templateRel = 'documenti/template_excel/DISTINTAIMPUTAZIONE.xlsx';
-            if (!Storage::disk('public')->exists($templateRel)) {
-                throw new \RuntimeException('Manca DISTINTAIMPUTAZIONE.xlsx (usa XLSX).');
-            }
-            $templateAbs = Storage::disk('public')->path($templateRel);
-
             $anno  = $this->anno;
             $idAss = $this->idAssociazione;
 
-            $automezzi   = Automezzo::getByAssociazione($idAss, $anno)->sortBy('idAutomezzo')->values();
-            $convenzioni = DB::table('convenzioni')->select('idConvenzione', 'Convenzione')
+            // dati base
+            $associazione = (string) DB::table('associazioni')->where('idAssociazione', $idAss)->value('Associazione') ?? '';
+            $automezzi    = Automezzo::getByAssociazione($idAss, $anno)->sortBy('idAutomezzo')->values();
+            $convenzioni  = DB::table('convenzioni')->select('idConvenzione', 'Convenzione')
                 ->where('idAssociazione', $idAss)->where('idAnno', $anno)
                 ->orderBy('ordinamento')->orderBy('idConvenzione')->get()->values();
             $numConv = $convenzioni->count();
+            $colL = fn(int $i) => Coordinate::stringFromColumnIndex($i);
 
-            // Reader (con stili/merge)
-            $firstFixedCols = 4;
-            $maxColIdx = max(120, $firstFixedCols + ($numConv * 2) + 20);
-            $maxRow    = 1200;
-            $filter = new class($maxRow, $maxColIdx) implements IReadFilter {
-                public function __construct(private int $maxRow, private int $maxColIdx) {}
-                public function readCell($columnAddress, $row, $worksheetName = '') {
-                    if ($row < 1 || $row > $this->maxRow) return false;
-                    $colIdx = Coordinate::columnIndexFromString($columnAddress);
-                    return $colIdx >= 1 && $colIdx <= $this->maxColIdx;
-                }
-            };
+            // === workbook vuoto + foglio unico
+            $spreadsheet = new Spreadsheet();
+            $sheet = $spreadsheet->getActiveSheet();
+            $sheet->setTitle('SCHEDE DI RIPARTO DEI COSTI');
 
-            $reader = IOFactory::createReader('Xlsx');
-            $reader->setReadDataOnly(false);
-            $reader->setLoadSheetsOnly(['SCHEDE DI RIPARTO DEI COSTI']);
-            $reader->setReadFilter($filter);
+            // === append templates così come sono ===
+            $disk = Storage::disk('public');
+            $paths = [
+                'km'        => 'documenti/template_excel/KmPercorsi.xlsx',
+                'servizi'   => 'documenti/template_excel/ServiziSvolti.xlsx',
+                'ricavi'    => 'documenti/template_excel/Costi_Ricavi.xlsx',
+                'autisti'   => 'documenti/template_excel/CostiPersonale_autisti.xlsx',
+                'volontari' => 'documenti/template_excel/CostiPersonale_volontari.xlsx',
+            ];
+            foreach ($paths as $rel) if (!$disk->exists($rel)) throw new \RuntimeException("Manca template: $rel");
 
-            $spreadsheet = $reader->load($templateAbs);
-            $sheet       = $spreadsheet->getActiveSheet();
+            $rowCursor = 1;
+            [$kmStart, $kmEnd]             = $this->appendTemplateSheet($sheet, $disk->path($paths['km']),        $rowCursor);
+            $rowCursor = $kmEnd + 2;
+            [$srvStart, $srvEnd]           = $this->appendTemplateSheet($sheet, $disk->path($paths['servizi']),   $rowCursor);
+            $rowCursor = $srvEnd + 2;
+            [$ricStart, $ricEnd]           = $this->appendTemplateSheet($sheet, $disk->path($paths['ricavi']),    $rowCursor);
+            $rowCursor = $ricEnd + 2;
+            [$autStart, $autEnd]           = $this->appendTemplateSheet($sheet, $disk->path($paths['autisti']),   $rowCursor);
+            $rowCursor = $autEnd + 2;
+            [$volStart, $volEnd]           = $this->appendTemplateSheet($sheet, $disk->path($paths['volontari']), $rowCursor);
+            $rowCursor = $volEnd + 2;
 
-            /* Segnaposto OVUNQUE */
-            $associazione = (string) DB::table('associazioni')->where('idAssociazione', $idAss)->value('Associazione') ?? '';
+            // segnaposto su tutto il foglio
             $this->replacePlaceholdersEverywhere($sheet, [
                 'nome_associazione' => $associazione,
                 'anno_riferimento'  => $anno,
             ]);
 
-            /* ===================== 1) KM ===================== */
-            $headerRowKm = $this->findHeaderRowKm($sheet);
+            /* ===================== 1) KM (dentro blocco copincolla) ===================== */
+            $headerRowKm = $this->findHeaderRowKm($sheet, $kmStart, $kmEnd);
             $colKm = ['PROGR' => 1, 'TARGA' => 2, 'CODICE' => 3, 'KMTOT' => 4];
             for ($c = 1; $c <= 60; $c++) {
                 $t = mb_strtoupper(trim((string)$sheet->getCellByColumnAndRow($c, $headerRowKm)->getValue()));
@@ -424,8 +378,9 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                 if (str_starts_with($t, 'KM. TOTALI')) $colKm['KMTOT'] = $c;
             }
             $firstPairColKm = $colKm['KMTOT'] + 1;
-            $convTitleRowKm = max(1, $headerRowKm - 1);
+            $convTitleRowKm = max($kmStart, $headerRowKm - 1);
 
+            // quante coppie presenti nel template
             $maxPairsKm = 0;
             for ($c = $firstPairColKm; $c <= $firstPairColKm + 200; $c += 2) {
                 $l = (string)$sheet->getCellByColumnAndRow($c, $headerRowKm)->getValue();
@@ -435,26 +390,19 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
             }
             $usedPairsKm = min($numConv, $maxPairsKm);
 
+            // intestazioni convenzioni
             for ($i = 0; $i < $usedPairsKm; $i++) {
                 $kmCol = $firstPairColKm + ($i * 2);
                 $sheet->setCellValueByColumnAndRow($kmCol, $convTitleRowKm, (string)$convenzioni[$i]->Convenzione);
-                if (trim((string)$sheet->getCellByColumnAndRow($kmCol, $headerRowKm)->getValue()) === '') {
-                    $sheet->setCellValueByColumnAndRow($kmCol, $headerRowKm, 'KM. PERCORSI');
-                }
-                if (trim((string)$sheet->getCellByColumnAndRow($kmCol + 1, $headerRowKm)->getValue()) === '') {
-                    $sheet->setCellValueByColumnAndRow($kmCol + 1, $headerRowKm, '%');
-                }
             }
+            // nascondo colonne non usate
             for ($i = $usedPairsKm; $i < $maxPairsKm; $i++) {
                 $kmCol = $firstPairColKm + ($i * 2);
-                $sheet->setCellValueExplicitByColumnAndRow($kmCol, $convTitleRowKm, '', DataType::TYPE_STRING);
-                $sheet->setCellValueExplicitByColumnAndRow($kmCol + 1, $convTitleRowKm, '', DataType::TYPE_STRING);
-                $sheet->setCellValueExplicitByColumnAndRow($kmCol, $headerRowKm, '', DataType::TYPE_STRING);
-                $sheet->setCellValueExplicitByColumnAndRow($kmCol + 1, $headerRowKm, '', DataType::TYPE_STRING);
+                $sheet->getColumnDimension($colL($kmCol))->setVisible(false);
+                $sheet->getColumnDimension($colL($kmCol + 1))->setVisible(false);
             }
-            $this->hideUnusedConvColumns($sheet, $firstPairColKm, $usedPairsKm, $maxPairsKm);
 
-            // Dati KM
+            // dati
             $kmGrouped = DB::table('automezzi_km as k')
                 ->join('automezzi as a', 'a.idAutomezzo', '=', 'k.idAutomezzo')
                 ->join('convenzioni as c', 'c.idConvenzione', '=', 'k.idConvenzione')
@@ -492,23 +440,21 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                     $key = $a->idAutomezzo . '-' . $c->idConvenzione;
                     $km = $kmGrouped->has($key) ? (float)$kmGrouped->get($key)->first()->KMPercorsi : 0.0;
                     $p  = $kmTot > 0 ? ($km / $kmTot) : 0.0;
-
                     $sheet->setCellValueByColumnAndRow($kmCol, $row, $km);
                     $sheet->getStyleByColumnAndRow($kmCol, $row)->getNumberFormat()->setFormatCode(NumberFormat::FORMAT_NUMBER_COMMA_SEPARATED1);
-                    $pcCell = $sheet->getCellByColumnAndRow($pcCol, $row);
-                    $cur = (string)$pcCell->getValue();
-                    if ($cur === '' || $cur[0] !== '=') { $pcCell->setValue($p); }
+                    $sheet->setCellValueByColumnAndRow($pcCol, $row, $p);
                     $sheet->getStyleByColumnAndRow($pcCol, $row)->getNumberFormat()->setFormatCode('0.00%');
                     $sheet->getStyleByColumnAndRow($pcCol, $row)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-
                     $totKmByConv['c' . $c->idConvenzione] += $km;
                 }
             }
-            // Totali riga KM
+
+            // TOTALE + compatta/occulta righe inutilizzate del template
             $totalRowKm = $startKm + $rowIdxKm;
             $sheet->setCellValueByColumnAndRow($colKm['PROGR'], $totalRowKm, 'TOTALE');
             $sheet->setCellValueByColumnAndRow($colKm['KMTOT'], $totalRowKm, $totKmAll);
             $sheet->getStyleByColumnAndRow($colKm['KMTOT'], $totalRowKm)->getNumberFormat()->setFormatCode(NumberFormat::FORMAT_NUMBER_COMMA_SEPARATED1);
+
             $pair = 0;
             $sum = 0.0;
             $last = max(0, $numConv - 1);
@@ -522,19 +468,18 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                 $sheet->getStyleByColumnAndRow($kmCol, $totalRowKm)->getNumberFormat()->setFormatCode(NumberFormat::FORMAT_NUMBER_COMMA_SEPARATED1);
                 $p = ($i < $last && $totKmAll > 0) ? ($v / $totKmAll) : max(0.0, 1.0 - $sum);
                 if ($i < $last) $sum += $p;
-                $pcCell = $sheet->getCellByColumnAndRow($pcCol, $totalRowKm);
-                if (!is_string($pcCell->getValue()) || $pcCell->getValue()[0] !== '=') { $pcCell->setValue($p); }
+                $sheet->setCellValueByColumnAndRow($pcCol, $totalRowKm, $p);
                 $sheet->getStyleByColumnAndRow($pcCol, $totalRowKm)->getNumberFormat()->setFormatCode('0.00%');
                 $sheet->getStyleByColumnAndRow($pcCol, $totalRowKm)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
             }
             $lastUsedColKm = max($colKm['KMTOT'], $firstPairColKm + ($usedPairsKm * 2) - 1);
-            $sheet->getStyle('A' . $totalRowKm . ':' . Coordinate::stringFromColumnIndex($lastUsedColKm) . $totalRowKm)->getFont()->setBold(true);
+            $sheet->getStyle('A' . $totalRowKm . ':' . $colL($lastUsedColKm) . $totalRowKm)->getFont()->setBold(true);
 
-            /* Spazio tra KM e SERVIZI */
-            $headerRowServ = $this->findHeaderRowServizi($sheet, $totalRowKm + 2);
-            $this->hideEmptyRowsBetween($sheet, $totalRowKm + 1, $headerRowServ - 1, 2, 2);
+            // nascondo l’avanzo tra ultima riga dati e riga “TOTALE”, mantenendo bordi/stili del template
+            $this->hideEmptyRowsBetween($sheet, $startKm + $rowIdxKm, $kmEnd - 1, 0, max(0, ($kmEnd - $totalRowKm)));
 
             /* ===================== 2) SERVIZI ===================== */
+            $headerRowServ = $this->findHeaderRowServizi($sheet, $srvStart, $srvEnd);
             $colSrv = ['PROGR' => 1, 'TARGA' => 2, 'CODICE' => 3, 'TOTSRV' => 4];
             for ($c = 1; $c <= 60; $c++) {
                 $t = mb_strtoupper(trim((string)$sheet->getCellByColumnAndRow($c, $headerRowServ)->getValue()));
@@ -543,8 +488,7 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                 if (str_starts_with($t, 'TOTALI NUMERO SERVIZI')) $colSrv['TOTSRV'] = $c;
             }
             $firstPairColSrv = $colSrv['TOTSRV'] + 1;
-            $convTitleRowSrv = max(1, $headerRowServ - 1);
-
+            $convTitleRowSrv = max($srvStart, $headerRowServ - 1);
             $maxPairsSrv = 0;
             for ($c = $firstPairColSrv; $c <= $firstPairColSrv + 200; $c += 2) {
                 $l = (string)$sheet->getCellByColumnAndRow($c, $headerRowServ)->getValue();
@@ -553,26 +497,17 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                 $maxPairsSrv++;
             }
             $usedPairsSrv = min($numConv, $maxPairsSrv);
-
             for ($i = 0; $i < $usedPairsSrv; $i++) {
-                $nCol = $firstPairColSrv + ($i * 2);
-                $sheet->setCellValueByColumnAndRow($nCol, $convTitleRowSrv, (string)$convenzioni[$i]->Convenzione);
-                if (trim((string)$sheet->getCellByColumnAndRow($nCol, $headerRowServ)->getValue()) === '')
-                    $sheet->setCellValueByColumnAndRow($nCol, $headerRowServ, 'N. SERVIZI SVOLTI');
-                if (trim((string)$sheet->getCellByColumnAndRow($nCol + 1, $headerRowServ)->getValue()) === '')
-                    $sheet->setCellValueByColumnAndRow($nCol + 1, $headerRowServ, '%');
+                $col = $firstPairColSrv + ($i * 2);
+                $sheet->setCellValueByColumnAndRow($col, $convTitleRowSrv, (string)$convenzioni[$i]->Convenzione);
             }
             for ($i = $usedPairsSrv; $i < $maxPairsSrv; $i++) {
-                $nCol = $firstPairColSrv + ($i * 2);
-                $sheet->setCellValueExplicitByColumnAndRow($nCol, $convTitleRowSrv, '', DataType::TYPE_STRING);
-                $sheet->setCellValueExplicitByColumnAndRow($nCol + 1, $convTitleRowSrv, '', DataType::TYPE_STRING);
-                $sheet->setCellValueExplicitByColumnAndRow($nCol, $headerRowServ, '', DataType::TYPE_STRING);
-                $sheet->setCellValueExplicitByColumnAndRow($nCol + 1, $headerRowServ, '', DataType::TYPE_STRING);
+                $col = $firstPairColSrv + ($i * 2);
+                $sheet->getColumnDimension($colL($col))->setVisible(false);
+                $sheet->getColumnDimension($colL($col + 1))->setVisible(false);
             }
-            $this->hideUnusedConvColumns($sheet, $firstPairColSrv, $usedPairsSrv, $maxPairsSrv);
 
             $serviziGrouped = AutomezzoServiziSvolti::getGroupedByAutomezzoAndConvenzione($anno, $idAss);
-
             $startSrv = $headerRowServ + 1;
             $rowSrvIdx = 0;
             $totSrvAll = 0;
@@ -590,8 +525,8 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                 $totSrvAll += $totVeicolo;
 
                 $sheet->setCellValueByColumnAndRow($colSrv['PROGR'], $row, 'AUTO ' . $rowSrvIdx);
-                $sheet->setCellValueExplicitByColumnAndRow($colSrv['TARGA'], $row, (string)$a->Targa, DataType::TYPE_STRING);
-                $sheet->setCellValueExplicitByColumnAndRow($colSrv['CODICE'], $row, (string)($a->CodiceIdentificativo ?? ''), DataType::TYPE_STRING);
+                $sheet->setCellValueByColumnAndRow($colSrv['TARGA'], $row, (string)$a->Targa);
+                $sheet->setCellValueByColumnAndRow($colSrv['CODICE'], $row, (string)($a->CodiceIdentificativo ?? ''));
                 $sheet->setCellValueByColumnAndRow($colSrv['TOTSRV'], $row, $totVeicolo);
                 $sheet->getStyleByColumnAndRow($colSrv['TOTSRV'], $row)->getNumberFormat()->setFormatCode(NumberFormat::FORMAT_NUMBER);
 
@@ -608,9 +543,7 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
 
                     $sheet->setCellValueByColumnAndRow($nCol, $row, $n);
                     $sheet->getStyleByColumnAndRow($nCol, $row)->getNumberFormat()->setFormatCode(NumberFormat::FORMAT_NUMBER);
-                    $pcCell = $sheet->getCellByColumnAndRow($pcCol, $row);
-                    $cur = (string)$pcCell->getValue();
-                    if ($cur === '' || $cur[0] !== '=') $pcCell->setValue($p);
+                    $sheet->setCellValueByColumnAndRow($pcCol, $row, $p);
                     $sheet->getStyleByColumnAndRow($pcCol, $row)->getNumberFormat()->setFormatCode('0.00%');
                     $sheet->getStyleByColumnAndRow($pcCol, $row)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
 
@@ -633,22 +566,19 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                 $pair++;
                 $v = (int)($totSrvByConv['c' . $c->idConvenzione] ?? 0);
                 $sheet->setCellValueByColumnAndRow($nCol, $totalRowSrv, $v);
-                $sheet->getStyleByColumnAndRow($nCol, $totalRowSrv)->getNumberFormat()->setFormatCode(NumberFormat::FORMAT_NUMBER);
                 $p = ($i < $last && $totSrvAll > 0) ? ($v / $totSrvAll) : max(0.0, 1.0 - $sum);
                 if ($i < $last) $sum += $p;
-                $pcCell = $sheet->getCellByColumnAndRow($pcCol, $totalRowSrv);
-                if (!is_string($pcCell->getValue()) || $pcCell->getValue()[0] !== '=') $pcCell->setValue($p);
+                $sheet->setCellValueByColumnAndRow($pcCol, $totalRowSrv, $p);
                 $sheet->getStyleByColumnAndRow($pcCol, $totalRowSrv)->getNumberFormat()->setFormatCode('0.00%');
                 $sheet->getStyleByColumnAndRow($pcCol, $totalRowSrv)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
             }
             $lastUsedColSrv = max($colSrv['TOTSRV'], $firstPairColSrv + ($usedPairsSrv * 2) - 1);
-            $sheet->getStyle('A' . $totalRowSrv . ':' . Coordinate::stringFromColumnIndex($lastUsedColSrv) . $totalRowSrv)->getFont()->setBold(true);
+            $sheet->getStyle('A' . $totalRowSrv . ':' . $colL($lastUsedColSrv) . $totalRowSrv)->getFont()->setBold(true);
 
-            /* Spazio tra SERVIZI e RICAVI */
-            $ricHead = $this->locateRicaviHeader($sheet, $totalRowSrv + 2);
-            $this->hideEmptyRowsBetween($sheet, $totalRowSrv + 1, $ricHead['headerRow'] - 1, 2, 2);
+            $this->hideEmptyRowsBetween($sheet, $startSrv + $rowSrvIdx, $srvEnd - 1, 0, max(0, ($srvEnd - $totalRowSrv)));
 
-            /* ===================== 3) IMPUTAZIONE RICAVI ===================== */
+            /* ===================== 3) RICAVI ===================== */
+            $ricHead = $this->locateRicaviHeader($sheet, $ricStart);
             $headerRowRic    = $ricHead['headerRow'];
             $convTitleRowRic = $ricHead['convTitleRow'];
             $dataRowRic      = $ricHead['dataRow'];
@@ -669,17 +599,12 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
             for ($i = 0; $i < $usedPairsRic; $i++) {
                 $rCol = $firstPairColRic + ($i * 2);
                 $sheet->setCellValueByColumnAndRow($rCol, $convTitleRowRic, (string)$convenzioni[$i]->Convenzione);
-                if (trim((string)$sheet->getCellByColumnAndRow($rCol, $headerRowRic)->getValue()) === '') $sheet->setCellValueByColumnAndRow($rCol, $headerRowRic, 'RIMBORSO');
-                if (trim((string)$sheet->getCellByColumnAndRow($rCol + 1, $headerRowRic)->getValue()) === '') $sheet->setCellValueByColumnAndRow($rCol + 1, $headerRowRic, '%');
             }
             for ($i = $usedPairsRic; $i < $maxPairsRic; $i++) {
                 $rCol = $firstPairColRic + ($i * 2);
-                $sheet->setCellValueExplicitByColumnAndRow($rCol, $convTitleRowRic, '', DataType::TYPE_STRING);
-                $sheet->setCellValueExplicitByColumnAndRow($rCol + 1, $convTitleRowRic, '', DataType::TYPE_STRING);
-                $sheet->setCellValueExplicitByColumnAndRow($rCol, $headerRowRic, '', DataType::TYPE_STRING);
-                $sheet->setCellValueExplicitByColumnAndRow($rCol + 1, $headerRowRic, '', DataType::TYPE_STRING);
+                $sheet->getColumnDimension($colL($rCol))->setVisible(false);
+                $sheet->getColumnDimension($colL($rCol + 1))->setVisible(false);
             }
-            $this->hideUnusedConvColumns($sheet, $firstPairColRic, $usedPairsRic, $maxPairsRic);
 
             $ricaviMap = RapportoRicavo::mapByAssociazione($anno, $idAss);
             $totRicavi = array_sum(array_map('floatval', $ricaviMap));
@@ -700,16 +625,15 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
 
                 $p = ($i < $last && $totRicavi > 0) ? ($rimborso / $totRicavi) : max(0.0, 1.0 - $sum);
                 if ($i < $last) $sum += $p;
-                $pcCell = $sheet->getCellByColumnAndRow($pCol, $dataRowRic);
-                if (!is_string($pcCell->getValue()) || $pcCell->getValue()[0] !== '=') $pcCell->setValue($p);
+                $sheet->setCellValueByColumnAndRow($pCol, $dataRowRic, $p);
                 $sheet->getStyleByColumnAndRow($pCol, $dataRowRic)->getNumberFormat()->setFormatCode('0.00%');
                 $sheet->getStyleByColumnAndRow($pCol, $dataRowRic)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
             }
 
-            /* ===================== 4) PERSONALE DIPENDENTE ===================== */
-            $headerRowPers = $this->findHeaderRowPersonale($sheet, ($dataRowRic ?? 1) + 4);
+            $this->cutAfterTotalRow($sheet, $dataRowRic, 50); // compatta fine blocco ricavi
 
-            // colonne fisse
+            /* ===================== 4) PERSONALE AUTISTI (6001) ===================== */
+            $headerRowPers = $this->findHeaderRowPersonale($sheet, $autStart, $autEnd);
             $colP = ['PROGR' => 1, 'NOME' => 2, 'TOT' => 3];
             for ($c = 1; $c <= 100; $c++) {
                 $t = mb_strtoupper(trim((string)$sheet->getCellByColumnAndRow($c, $headerRowPers)->getValue()));
@@ -717,34 +641,25 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                 if (str_starts_with($t, 'ORE TOTALI ANNUE')) $colP['TOT'] = $c;
             }
             $colP['PROGR'] = max(1, $colP['NOME'] - 1);
-
-            // coppie reali ORE/% lette dal template
             $pairColsPers  = $this->getPairLeftCols($sheet, $headerRowPers);
             $usedPairsPers = min($convenzioni->count(), count($pairColsPers));
-            $convTitleRowPers = max(1, $headerRowPers - 1);
+            $convTitleRowPers = max($autStart, $headerRowPers - 1);
 
-            // intestazioni convenzioni e (se serve) ORE/% su header
             for ($i = 0; $i < $usedPairsPers; $i++) {
                 $col = $pairColsPers[$i];
                 $sheet->setCellValueByColumnAndRow($col, $convTitleRowPers, (string)$convenzioni[$i]->Convenzione);
-                $h1 = mb_strtoupper(trim((string)$sheet->getCellByColumnAndRow($col,     $headerRowPers)->getValue()));
-                $h2 = mb_strtoupper(trim((string)$sheet->getCellByColumnAndRow($col + 1, $headerRowPers)->getValue()));
-                if ($h1 === '') $sheet->setCellValueByColumnAndRow($col,     $headerRowPers, 'ORE DI SERVIZIO');
-                if ($h2 === '') $sheet->setCellValueByColumnAndRow($col + 1, $headerRowPers, '%');
             }
             for ($i = $usedPairsPers; $i < count($pairColsPers); $i++) {
                 $col = $pairColsPers[$i];
-                $sheet->setCellValueExplicitByColumnAndRow($col,     $convTitleRowPers, '', DataType::TYPE_STRING);
-                $sheet->setCellValueExplicitByColumnAndRow($col + 1, $convTitleRowPers, '', DataType::TYPE_STRING);
-                $sheet->setCellValueExplicitByColumnAndRow($col,     $headerRowPers,    '', DataType::TYPE_STRING);
-                $sheet->setCellValueExplicitByColumnAndRow($col + 1, $headerRowPers,    '', DataType::TYPE_STRING);
+                $sheet->getColumnDimension($colL($col))->setVisible(false);
+                $sheet->getColumnDimension($colL($col + 1))->setVisible(false);
             }
 
-            // === PREVENTIVO (riga 4) / CONSUNTIVO (riga 5) allineati alle coppie reali ===
-            $prevRow  = 4;
-            $consuRow = 5;
+            // PREV/CONS
+            $prevRow  = $headerRowPers + 1;
+            $consuRow = $prevRow + 1;
+            $startRow = $consuRow + 2;
 
-            // Consuntivo per convenzione (diretti+indiretti) da Distinta Imputazione (voce 6001)
             $dist = RipartizioneCostiService::distintaImputazioneData($idAss, $anno);
             $consuPerConv = [];
             if (!empty($dist['data'])) {
@@ -760,8 +675,6 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                     }
                 }
             }
-
-            // Preventivo per convenzione (bilancio_consuntivo)
             $prevPerConv = DB::table('costi_diretti')
                 ->select('idConvenzione', DB::raw('SUM(COALESCE(bilancio_consuntivo,0)) as prev'))
                 ->where('idAssociazione', $idAss)->where('idAnno', $anno)->where('idVoceConfig', 6001)
@@ -770,36 +683,20 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
             for ($i = 0; $i < $usedPairsPers; $i++) {
                 $cId = (int)$convenzioni[$i]->idConvenzione;
                 $col = $pairColsPers[$i];
-                // PREVENTIVO (riga 4)
-                $sheet->setCellValueByColumnAndRow($col, $prevRow, (float)($prevPerConv[$cId] ?? 0));
+                $sheet->setCellValueByColumnAndRow($col, $prevRow,  (float)($prevPerConv[$cId]  ?? 0));
                 $sheet->getStyleByColumnAndRow($col, $prevRow)->getNumberFormat()->setFormatCode('#,##0.00');
-                // CONSUNTIVO (riga 5)
                 $sheet->setCellValueByColumnAndRow($col, $consuRow, (float)($consuPerConv[$cId] ?? 0));
                 $sheet->getStyleByColumnAndRow($col, $consuRow)->getNumberFormat()->setFormatCode('#,##0.00');
             }
 
-            // Svuota slot extra e rimuove placeholder {{ COSTO PERSONALE }} in riga 5
-            $maxScanCols = max(100, ($pairColsPers[$usedPairsPers - 1] ?? ($colP['TOT'] + 1)) + 4);
-            for ($i = $usedPairsPers; $i < count($pairColsPers); $i++) {
-                $col = $pairColsPers[$i];
-                $sheet->setCellValueExplicitByColumnAndRow($col, $prevRow,  '', DataType::TYPE_STRING);
-                $sheet->setCellValueExplicitByColumnAndRow($col, $consuRow, '', DataType::TYPE_STRING);
-            }
-            for ($c = 1; $c <= $maxScanCols; $c++) {
-                $v = (string)$sheet->getCellByColumnAndRow($c, $consuRow)->getValue();
-                if ($v !== '' && preg_match('/\{\{\s*COSTO\s+PERSONALE\s*\}\}/ui', $v)) {
-                    $sheet->setCellValueExplicitByColumnAndRow($c, $consuRow, '', DataType::TYPE_STRING);
-                }
-            }
-
-            /* Tabella grande: dipendenti × (ORE,%) */
+            // dati dipendenti
             $dip = DB::table('dipendenti as d')
                 ->join('dipendenti_qualifiche as dq', 'dq.idDipendente', '=', 'd.idDipendente')
                 ->join('qualifiche as q', 'q.id', '=', 'dq.idQualifica')
                 ->where('d.idAssociazione', $idAss)->where('d.idAnno', $anno)
                 ->where(function ($w) {
                     $w->whereRaw('LOWER(q.nome) LIKE ?', ['%autist%'])
-                      ->orWhereRaw('LOWER(q.nome) LIKE ?', ['%barell%']);
+                        ->orWhereRaw('LOWER(q.nome) LIKE ?', ['%barell%']);
                 })
                 ->select('d.idDipendente', 'd.DipendenteCognome as Cognome', 'd.DipendenteNome as Nome')
                 ->distinct()->orderBy('d.idDipendente')->get();
@@ -810,8 +707,7 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                 ->select('ds.idDipendente', 'ds.idConvenzione', DB::raw('SUM(ds.OreServizio) as ore'))
                 ->groupBy('ds.idDipendente', 'ds.idConvenzione')->get()->groupBy('idDipendente');
 
-            $startRow  = $headerRowPers + 1;
-            $rowIdx    = 0;
+            $rowIdx = 0;
             $totOreAll = 0;
             $totPerConv = array_fill_keys($convenzioni->pluck('idConvenzione')->map(fn($x) => (int)$x)->all(), 0);
 
@@ -820,7 +716,6 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                 $ore = $oreRaw->get($dRow->idDipendente, collect());
                 $map = [];
                 $sum = 0;
-
                 foreach ($convenzioni as $conv) {
                     $idc = (int)$conv->idConvenzione;
                     $val = (float)($ore->firstWhere('idConvenzione', $idc)->ore ?? 0);
@@ -830,62 +725,97 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                 }
                 $totOreAll += $sum;
 
-                $sheet->setCellValueByColumnAndRow($colP['PROGR'], $r, 'DIPENDENTE N. ' . $rowIdx);
-                $sheet->setCellValueExplicitByColumnAndRow($colP['NOME'], $r, (string)($dRow->Cognome), DataType::TYPE_STRING);
-                $sheet->setCellValueByColumnAndRow($colP['TOT'],  $r, $sum);
-                $sheet->getStyleByColumnAndRow($colP['TOT'], $r)->getNumberFormat()->setFormatCode(NumberFormat::FORMAT_NUMBER);
+                $sheet->setCellValueByColumnAndRow($colP['PROGR'], $r, 'DIPENDENTE N. ' . ($rowIdx));
+                $sheet->setCellValueByColumnAndRow($colP['NOME'],  $r, (string)$dRow->Cognome);
+                $sheet->setCellValueByColumnAndRow($colP['TOT'],   $r, $sum);
 
                 for ($i = 0; $i < $usedPairsPers; $i++) {
                     $nCol = $pairColsPers[$i];
                     $pCol = $nCol + 1;
-
                     $v = (float)$map[(int)$convenzioni[$i]->idConvenzione];
                     $p = $sum > 0 ? ($v / $sum) : 0.0;
-
                     $sheet->setCellValueByColumnAndRow($nCol, $r, $v);
-                    $sheet->getStyleByColumnAndRow($nCol, $r)->getNumberFormat()->setFormatCode(NumberFormat::FORMAT_NUMBER);
-
-                    $pcCell = $sheet->getCellByColumnAndRow($pCol, $r);
-                    $cur = (string)$pcCell->getValue();
-                    if ($cur === '' || $cur[0] !== '=') $pcCell->setValue($p);
+                    $sheet->setCellValueByColumnAndRow($pCol, $r, $p);
                     $sheet->getStyleByColumnAndRow($pCol, $r)->getNumberFormat()->setFormatCode('0.00%');
-                    $sheet->getStyleByColumnAndRow($pCol, $r)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
                 }
             }
-
-            // riga Totale personale
             $totalRowPers = $startRow + $rowIdx;
             $sheet->setCellValueByColumnAndRow($colP['PROGR'], $totalRowPers, 'Totale');
             $sheet->setCellValueByColumnAndRow($colP['NOME'],  $totalRowPers, '');
             $sheet->setCellValueByColumnAndRow($colP['TOT'],   $totalRowPers, $totOreAll);
-            $sheet->getStyleByColumnAndRow($colP['TOT'], $totalRowPers)->getNumberFormat()->setFormatCode(NumberFormat::FORMAT_NUMBER);
 
             $percSum = 0.0;
-            $lastIdx = max(0, $convenzioni->count() - 1);
+            $lastIdx = max(0, $usedPairsPers - 1);
             for ($i = 0; $i < $usedPairsPers; $i++) {
                 $nCol = $pairColsPers[$i];
                 $pCol = $nCol + 1;
-
                 $v = (float)$totPerConv[(int)$convenzioni[$i]->idConvenzione];
                 $sheet->setCellValueByColumnAndRow($nCol, $totalRowPers, $v);
-                $sheet->getStyleByColumnAndRow($nCol, $totalRowPers)->getNumberFormat()->setFormatCode(NumberFormat::FORMAT_NUMBER);
-
                 $p = ($i < $lastIdx && $totOreAll > 0) ? ($v / $totOreAll) : max(0.0, 1.0 - $percSum);
                 if ($i < $lastIdx) $percSum += $p;
-                $pcCell = $sheet->getCellByColumnAndRow($pCol, $totalRowPers);
-                if (!is_string($pcCell->getValue()) || $pcCell->getValue()[0] !== '=') $pcCell->setValue($p);
+                $sheet->setCellValueByColumnAndRow($pCol, $totalRowPers, $p);
                 $sheet->getStyleByColumnAndRow($pCol, $totalRowPers)->getNumberFormat()->setFormatCode('0.00%');
-                $sheet->getStyleByColumnAndRow($pCol, $totalRowPers)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+            }
+            $lastUsedColPers = max($colP['TOT'], ($pairColsPers[$usedPairsPers - 1] ?? $colP['TOT']) + 1);
+            $sheet->getStyle('A' . $totalRowPers . ':' . $colL($lastUsedColPers) . $totalRowPers)->getFont()->setBold(true);
+
+            $this->hideEmptyRowsBetween($sheet, $startRow + $rowIdx, $autEnd - 1, 0, max(0, ($autEnd - $totalRowPers)));
+
+            /* ===================== 5) PERSONALE VOLONTARI ===================== */
+            $found = $this->findVolontariHeader($sheet, $volStart);
+            $headerRowVol    = $found['headerRow'];
+            $convTitleRowVol = $found['convTitleRow'];
+            $pairColsVol     = $this->getPairLeftCols($sheet, $headerRowVol);
+            $usedPairsVol    = min($convenzioni->count(), count($pairColsVol));
+
+            for ($i = 0; $i < $usedPairsVol; $i++) {
+                $col = $pairColsVol[$i];
+                $sheet->setCellValueByColumnAndRow($col, $convTitleRowVol, (string)$convenzioni[$i]->Convenzione);
+            }
+            for ($i = $usedPairsVol; $i < count($pairColsVol); $i++) {
+                $col = $pairColsVol[$i];
+                $sheet->getColumnDimension($colL($col))->setVisible(false);
+                $sheet->getColumnDimension($colL($col + 1))->setVisible(false);
             }
 
-            $lastUsedColPers = max($colP['TOT'], ($pairColsPers[$usedPairsPers - 1] ?? $colP['TOT']) + 1);
-            $lastColLetterPers = Coordinate::stringFromColumnIndex($lastUsedColPers);
-            $sheet->getStyle("A{$totalRowPers}:{$lastColLetterPers}{$totalRowPers}")->getFont()->setBold(true);
+            $dataRowVol  = $headerRowVol + 1;
+            $totalRowVol = $dataRowVol + 1;
+            $sheet->setCellValueByColumnAndRow(1, $dataRowVol, 'SERVIZIO VOLONTARIO');
 
-            // Taglia righe di troppo dopo il totale
-            $this->cutAfterTotalRow($sheet, $totalRowPers, 600);
+            $serviziByConv = DB::table('automezzi_servizi as s')
+                ->join('automezzi as a', 'a.idAutomezzo', '=', 's.idAutomezzo')
+                ->where('a.idAssociazione', $idAss)->where('a.idAnno', $anno)
+                ->whereIn('s.idConvenzione', $convenzioni->pluck('idConvenzione'))
+                ->select('s.idConvenzione', DB::raw('SUM(s.NumeroServizi) AS n'))
+                ->groupBy('s.idConvenzione')
+                ->pluck('n', 's.idConvenzione')
+                ->toArray();
 
-            /* ===== Salvataggio sicuro ===== */
+            $totServiziAss = 0.0;
+            foreach ($convenzioni as $c) $totServiziAss += (float)($serviziByConv[$c->idConvenzione] ?? 0);
+
+            $sumPerc = 0.0;
+            $lastIdx = max(0, $usedPairsVol - 1);
+            for ($i = 0; $i < $usedPairsVol; $i++) {
+                $col = $pairColsVol[$i];
+                $idC = (int)$convenzioni[$i]->idConvenzione;
+                $ore = (float)($serviziByConv[$idC] ?? 0.0);
+                $sheet->setCellValueByColumnAndRow($col, $dataRowVol, $ore);
+                $p = ($i < $lastIdx && $totServiziAss > 0) ? ($ore / $totServiziAss) : max(0.0, 1.0 - $sumPerc);
+                if ($i < $lastIdx) $sumPerc += $p;
+                $sheet->setCellValueByColumnAndRow($col + 1, $dataRowVol, $p);
+                $sheet->getStyleByColumnAndRow($col + 1, $dataRowVol)->getNumberFormat()->setFormatCode('0.00%');
+
+                // riga totale
+                $sheet->setCellValueByColumnAndRow($col,     $totalRowVol, $ore);
+                $sheet->setCellValueByColumnAndRow($col + 1, $totalRowVol, $p);
+                $sheet->getStyleByColumnAndRow($col + 1, $totalRowVol)->getNumberFormat()->setFormatCode('0.00%');
+            }
+            $lastUsedColVol = max(($pairColsVol[$usedPairsVol - 1] ?? 1) + 1, 2);
+            $sheet->getStyle('A' . $totalRowVol . ':' . $colL($lastUsedColVol) . $totalRowVol)->getFont()->setBold(true);
+            $this->cutAfterTotalRow($sheet, $totalRowVol, 600);
+
+            /* ===== SALVATAGGIO ===== */
             $slug = $this->slugify($associazione);
             $baseFilename = sprintf('SCHEDE_RIPARTO_COSTI_%s_%d.xlsx', $slug, $anno);
             [$destRel, $finalFilename] = $this->safeSaveSpreadsheet($spreadsheet, $baseFilename, 'documenti');
@@ -907,18 +837,48 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                 'idAssociazione'  => $this->idAssociazione,
                 'anno'            => $this->anno,
                 'msg'             => $e->getMessage(),
+                'file'            => $e->getFile(),
+                'line'            => $e->getLine(),
+                'trace'           => $e->getTraceAsString(),
             ]);
             throw $e;
         }
     }
 
+    private function cleanupOldGeneratedFiles(): void {
+        try {
+            $cutoff = now()->subDays(7);
+            $disk = Storage::disk('public');
+            $oldDocs = DB::table('documenti_generati')->whereIn('stato', ['ready', 'error'])->where(function ($q) use ($cutoff) {
+                $q->where(function ($q) use ($cutoff) {
+                    $q->where('stato', 'ready')->whereNotNull('generato_il')->where('generato_il', '<', $cutoff);
+                })->orWhere(function ($q) use ($cutoff) {
+                    $q->where('stato', 'error')->whereNotNull('updated_at')->where('updated_at', '<', $cutoff);
+                });
+            })->get(['id', 'percorso_file', 'stato']);
+            $deletedFiles = 0;
+            foreach ($oldDocs as $doc) {
+                if (!empty($doc->percorso_file) && $disk->exists($doc->percorso_file)) {
+                    if ($disk->delete($doc->percorso_file)) $deletedFiles++;
+                }
+                DB::table('documenti_generati')->where('id', $doc->id)->delete();
+            }
+            Log::info('Cleanup documenti generati (7 giorni) completato', ['cutoff' => $cutoff->toDateTimeString(), 'rimossi_db' => $oldDocs->count(), 'file_cancellati' => $deletedFiles,]);
+        } catch (\Throwable $e) {
+            Log::warning('Errore cleanup vecchi documenti: ' . $e->getMessage());
+        }
+    }
     public function failed(Throwable $e): void {
         Log::error('GeneraSchedeRipartoCostiXlsJob failed', [
-            'documentoId' => $this->documentoId,
+            'documentoId'    => $this->documentoId,
             'idAssociazione' => $this->idAssociazione,
-            'anno' => $this->anno,
-            'error' => $e->getMessage(),
+            'anno'           => $this->anno,
+            'error'          => $e->getMessage(),
+            'file'           => $e->getFile(),
+            'line'           => $e->getLine(),
+            'trace'          => $e->getTraceAsString(),
         ]);
+
         DB::table('documenti_generati')->where('id', $this->documentoId)
             ->update(['stato' => 'error', 'updated_at' => now()]);
     }
