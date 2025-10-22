@@ -108,8 +108,8 @@ async function loadTableData() {
 
   convenzioni.forEach(key => {
     hMain += `<th colspan="2">${labels[key]}</th>`;
-    hSub  += `<th>Ore</th><th>%</th>`;
-    cols.push({ data:`${key}_ore`, defaultContent:0 });
+    hSub  += `<th>personale</th><th>%</th>`;
+    cols.push({ data:`${key}_personale`, defaultContent:0 });
     cols.push({ data:`${key}_percent`, defaultContent:0 });
   });
 
