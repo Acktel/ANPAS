@@ -116,7 +116,8 @@ class CostoMaterialeSanitarioController extends Controller {
                 foreach ($valori as $idConv => $numServizi) {
                     $numServizi = (int) $numServizi;
                     // se la convenzione ha materiale fornito da ASL, sottraggo i KM percorsi
-                     
+                    //In realtà è un refuso di alessandra! stiamo sottraendo i servizi non i km
+
                     if (isset($convFlagYesSet[(int)$idConv])) {
                         $lookup = $idAuto . '-' . $idConv;
                         $kmPercorsi = 0;

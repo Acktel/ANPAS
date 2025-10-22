@@ -70,7 +70,7 @@ class CostiAutomezziController extends Controller {
 
         foreach ($automezzi as $a) {
             $c = $costi->get($a->idAutomezzo);
-
+            
             $row = [
                 'idAutomezzo' => $a->idAutomezzo,
                 'Targa' => $a->Targa,
@@ -140,25 +140,22 @@ class CostiAutomezziController extends Controller {
         ];
 
         // 1) Valida ma consenti vuoto (che poi mettiamo a 0)
-        $rules = array_fill_keys($fields, 'nullable|numeric');
+        $rules = array_fill_keys($fields, 'nullable|string');
         $data  = $request->validate($rules);
 
-        // 2) Vuoto -> 0 (e preserva i decimali se presenti)
+        // normalizza PRIMA di salvare
         foreach ($fields as $f) {
-            $v = $data[$f] ?? null;
-            if ($v === null || $v === '') {
-                $data[$f] = 0;
+            $s = trim((string)($data[$f] ?? ''));
+            if ($s === '') { $data[$f] = 0; continue; }
+
+            // accetta "1.234,56" e "1,234.56"
+            if (preg_match('/,\d{1,2}$/', $s)) {
+                $s = str_replace('.', '', $s);
+                $s = str_replace(',', '.', $s);
             } else {
-                // accetta anche "1.234,56"
-                $s = (string)$v;
-                if (preg_match('/,\d+$/', $s)) {
-                    $s = str_replace('.', '', $s);
-                    $s = str_replace(',', '.', $s);
-                } else {
-                    $s = str_replace(',', '', $s);
-                }
-                $data[$f] = round((float)$s, 2);
+                $s = str_replace(',', '', $s);
             }
+            $data[$f] = round((float)$s, 2);
         }
 
         // 3) Chiavi

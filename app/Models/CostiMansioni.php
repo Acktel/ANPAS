@@ -13,7 +13,7 @@ class CostiMansioni
     {
         return DB::table(self::TABLE)
             ->where('idDipendente', $idDipendente)
-            ->where('idAnno', $anno)
+            ->where('idAnno', $anno) // <-- FIX: rimuovi "operator:"
             ->pluck('percentuale', 'idQualifica')
             ->map(fn($v) => (float)$v)
             ->toArray();

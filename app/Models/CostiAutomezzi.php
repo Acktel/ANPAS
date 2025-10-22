@@ -13,10 +13,10 @@ class CostiAutomezzi {
             ->where('idAnno', $anno)
             ->first();
     }
-
+    
     public static function getAllByAnno(int $anno): \Illuminate\Support\Collection {
         return DB::table(self::TABLE)
-            ->where('idAnno', $anno)
+            ->where('idAnno',  $anno)
             ->get();
     }
 

@@ -249,4 +249,5 @@ class AssociazioniController extends Controller
             ->route('associazioni.index')
             ->with('success', 'Associazione aggiornata con successo.');
     }
+  
 }
