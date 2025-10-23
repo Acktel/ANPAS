@@ -38,7 +38,7 @@ class Convenzione {
      * Convenzioni per anno e (opzionalmente) filtro utente.
      */
     public static function getByAnno(int $anno, $idAssociazione = null): Collection {
-        $user = Auth::user();
+       
         $sql = "
             SELECT
                 c.idConvenzione,
