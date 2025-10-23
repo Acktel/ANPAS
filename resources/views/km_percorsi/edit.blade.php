@@ -16,29 +16,46 @@
                     <tr>
                         <th>Convenzione</th>
                         <th>KM Percorsi</th>
+                        <th style="width:160px;">Titolare</th>
                     </tr>
                 </thead>
                 <tbody>
                     @foreach($convenzioni as $conv)
-                    @php
-                        $km = $kmEsistenti->get($conv->idConvenzione)?->KMPercorsi ?? 0;
-                    @endphp
-                    <tr>
-                        <td>{{ $conv->Convenzione }}</td>
-                        <td>
-                            <input
-                                type="number"
-                                min="0"
-                                step="1"
-                                inputmode="numeric"
-                                name="km[{{ $conv->idConvenzione }}]"
-                                class="form-control text-end"
-                                pattern="^\d+(,\d{0,2})?$"
-                                inputmode="decimal"
-                                onkeydown="if(event.key === '.') event.preventDefault();"
-                                value="{{ $km }}">
-                        </td>
-                    </tr>
+                        @php
+                            $rec         = $kmEsistenti->get($conv->idConvenzione); // contiene KMPercorsi + is_titolare
+                            $km          = $rec->KMPercorsi ?? 0;
+                            $isTitolare  = (int)($rec->is_titolare ?? 0) === 1;
+                            $abilitato   = (int)($conv->abilita_rot_sost ?? 0) === 1; // mostra la checkbox solo se abilitato
+                        @endphp
+                        <tr>
+                            <td class="text-start">{{ $conv->Convenzione }}</td>
+                            <td style="max-width:180px;">
+                                <input
+                                    type="number"
+                                    min="0"
+                                    step="1"
+                                    name="km[{{ $conv->idConvenzione }}]"
+                                    class="form-control text-end"
+                                    value="{{ $km }}">
+                            </td>
+                            <td>
+                                @if($abilitato)
+                                    <div class="form-check d-flex align-items-center justify-content-center gap-2">
+                                        <input class="form-check-input" type="checkbox"
+                                               id="tit_{{ $conv->idConvenzione }}"
+                                               name="titolare[]"
+                                               value="{{ $conv->idConvenzione }}"
+                                               {{ $isTitolare ? 'checked' : '' }}>
+                                        <label for="tit_{{ $conv->idConvenzione }}" class="form-check-label">
+                                            Mezzo titolare
+                                        </label>
+                                    </div>
+                                    <small class="text-muted d-block">Un solo titolare per convenzione.</small>
+                                @else
+                                    <span class="text-muted">—</span>
+                                @endif
+                            </td>
+                        </tr>
                     @endforeach
                 </tbody>
             </table>
@@ -48,7 +65,9 @@
             <button type="submit" class="btn btn-anpas-green">
                 <i class="fas fa-check me-1"></i> Salva
             </button>
-            <a href="{{ route('km-percorsi.index') }}" class="btn btn-secondary"><i class="fas fa-times me-1"></i>Annulla</a>
+            <a href="{{ route('km-percorsi.index') }}" class="btn btn-secondary">
+                <i class="fas fa-times me-1"></i> Annulla
+            </a>
         </div>
     </form>
 </div>

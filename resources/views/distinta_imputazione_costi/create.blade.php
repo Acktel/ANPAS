@@ -18,7 +18,6 @@
     8 => 'Costi amministrativi',
     9 => 'Quote di ammortamento',
     10 => 'Beni Strumentali < 516,00 €',
-    11 => 'Altri costi',
   ];
   $sezioneLabel = $sezioniMap[$sezione] ?? "Sezione $sezione";
 @endphp

@@ -13,7 +13,6 @@
       8  => 'COSTI AMMINISTRATIVI',
       9  => 'QUOTE DI AMMORTAMENTO',
       10 => 'BENI STRUMENTALI > €516',
-      11 => 'ALTRI COSTI',
   ];
 
   // Totali globali delle prime 3 colonne numeriche

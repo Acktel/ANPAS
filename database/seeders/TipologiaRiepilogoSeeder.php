@@ -23,7 +23,6 @@ class TipologiaRiepilogoSeeder extends Seeder
             ['descrizione' => 'Costi amministrativi', 'created_at' => $now, 'updated_at' => $now],
             ['descrizione' => 'Quote di ammortamento', 'created_at' => $now, 'updated_at' => $now],
             ['descrizione' => 'Beni Strumentali inferiori a 516,00 euro', 'created_at' => $now, 'updated_at' => $now],
-            ['descrizione' => 'Altri costi', 'created_at' => $now, 'updated_at' => $now],
             ['descrizione' => 'Totale generale', 'created_at' => $now, 'updated_at' => $now],
         ]);
     }

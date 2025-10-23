@@ -83,7 +83,6 @@ class GeneraRiepilogoCostiPdfJob implements ShouldQueue
                 8  => 'Costi amministrativi',
                 9  => 'Quote di ammortamento',
                 10 => 'Beni Strumentali < 516€',
-                11 => 'Altri costi',
             ];
             $tipologieIds = array_keys($sezioniTitoli);
 

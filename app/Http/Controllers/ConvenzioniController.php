@@ -98,7 +98,8 @@ class ConvenzioniController extends Controller {
             'note'                  => 'nullable|string',
             'aziende_sanitarie'     => 'nullable|array',
             'aziende_sanitarie.*'   => 'exists:aziende_sanitarie,idAziendaSanitaria',
-            'materiale_fornito_asl' => 'required|boolean', // <— nuovo flag
+            'materiale_fornito_asl' => 'required|boolean',
+            'abilita_rot_sost'      => 'required|boolean',
         ]);
 
         $idConv = DB::table('convenzioni')->insertGetId([
@@ -107,6 +108,7 @@ class ConvenzioniController extends Controller {
             'Convenzione'           => strtoupper(trim($validated['Convenzione'])),
             'note'                  => $validated['note'] ?? null,
             'materiale_fornito_asl' => (int) (bool) $validated['materiale_fornito_asl'],
+            'abilita_rot_sost'      => (int) (bool) $validated['abilita_rot_sost'],
             'created_at'            => now(),
             'updated_at'            => now(),
         ]);
@@ -154,6 +156,8 @@ class ConvenzioniController extends Controller {
         $selectedAssoc = session('associazione_selezionata') ?? $conv->idAssociazione;
         $selectedAnno  = session('selectedAnno') ?? $conv->idAnno;
 
+        $titolare = Convenzione::getMezzoTitolare($conv->idConvenzione);
+
         return view('convenzioni.edit', compact(
             'conv',
             'associazioni',
@@ -161,7 +165,8 @@ class ConvenzioniController extends Controller {
             'aziendeSanitarie',
             'aziendeSelezionate',
             'selectedAssoc',
-            'selectedAnno'
+            'selectedAnno',
+            'titolare'
         ));
     }
 
@@ -176,7 +181,8 @@ class ConvenzioniController extends Controller {
             'note'                  => 'nullable|string',
             'aziende_sanitarie'     => 'nullable|array',
             'aziende_sanitarie.*'   => 'exists:aziende_sanitarie,idAziendaSanitaria',
-            'materiale_fornito_asl' => 'required|boolean', // <— nuovo flag
+            'materiale_fornito_asl' => 'required|boolean',
+            'abilita_rot_sost'      => 'required|boolean',
         ]);
 
         DB::table('convenzioni')
@@ -187,6 +193,7 @@ class ConvenzioniController extends Controller {
                 'Convenzione'           => strtoupper(trim($validated['Convenzione'])),
                 'note'                  => $validated['note'] ?? null,
                 'materiale_fornito_asl' => (int) (bool) $validated['materiale_fornito_asl'],
+                'abilita_rot_sost'      => (int) (bool) $validated['abilita_rot_sost'],
                 'updated_at'            => now(),
             ]);
 
@@ -257,6 +264,7 @@ class ConvenzioniController extends Controller {
                     'note'                  => $c->note,
                     'ordinamento'           => $c->ordinamento,
                     'materiale_fornito_asl' => (int) ($c->materiale_fornito_asl ?? 0),
+                    'abilita_rot_sost'      => (int) ($c->abilita_rot_sost ?? 0),
                     'lettera_identificativa' => $c->lettera_identificativa ?? null, // se presente in schema
                     'created_at'            => now(),
                     'updated_at'            => now(),
@@ -310,5 +318,10 @@ class ConvenzioniController extends Controller {
 
             DB::table('azienda_sanitaria_convenzione')->insert($rows);
         }
-    }  
+    }
+
+    public function setRotSost(int $id): JsonResponse {
+        DB::update('UPDATE convenzioni SET abilita_rot_sost = 1, updated_at = NOW() WHERE idConvenzione = ?', [$id]);
+        return response()->json(['success' => true]);
+    }
 }

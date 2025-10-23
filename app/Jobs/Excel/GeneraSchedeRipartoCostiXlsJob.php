@@ -3030,7 +3030,6 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
             8  => 'Costi amministrativi',
             9  => 'Quote di ammortamento',
             10 => 'Beni strumentali < 516 €',
-            11 => 'Altri costi',
         ];
 
         // 3) Crea foglio in coda
@@ -3602,7 +3601,6 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
             8 => 'Costi amministrativi',
             9 => 'Quote di ammortamento',
             10 => 'Beni strumentali < 516,00 €',
-            11 => 'Altri costi',
         ];
 
         for ($tip = 2; $tip <= 11; $tip++) {
@@ -4102,7 +4100,6 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
             8  => 'Costi amministrativi',
             9  => 'Quote di ammortamento',
             10 => 'Beni Strumentali < 516,00 €',
-            11 => 'Altri costi',
         ];
 
         foreach (range(2, 11) as $tipologia) {

@@ -153,7 +153,6 @@ class RiepilogoVociConfigSeeder extends Seeder {
             // 11 — altri costi
             11 => [
                 'oneri bancari',
-                'altri costi',
             ],
         ];
 

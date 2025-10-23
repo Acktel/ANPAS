@@ -67,7 +67,6 @@
     8 => 'Costi amministrativi',
     9 => 'Quote di ammortamento',
     10 => 'Beni Strumentali inferiori a 516,00 euro',
-    11 => 'Altri costi'
   ];
   @endphp
 

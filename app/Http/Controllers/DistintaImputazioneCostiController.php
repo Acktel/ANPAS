@@ -382,8 +382,7 @@ class DistintaImputazioneCostiController extends Controller
         $nomiSez = [
             5  => 'Costi gestione struttura',
             8  => 'Costi amministrativi',
-            10 => 'Beni strumentali < 516 €',
-            11 => 'Altri costi',
+            10 => 'Beni strumentali < 516 €'
         ];
 
         return view('distinta_imputazione_costi.edit_bilancio', [

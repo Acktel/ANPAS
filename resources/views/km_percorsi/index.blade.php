@@ -118,18 +118,34 @@
         });
 
         convenzioni.forEach(conv => {
-            headerMain += `<th colspan="2">${labels[conv]}</th>`;
-            headerSub += `<th class="kmTh">Km Percorsi</th><th>%</th>`;
-            columns.push({
-                data: `${conv}_km`
-            });
-            kmColumnIndexes.push(visibleIndex);
-            visibleIndex++;
-            columns.push({
-                data: `${conv}_percent`
-            });
-            visibleIndex++;
+        headerMain += `<th colspan="2">${labels[conv]}</th>`;
+        headerSub  += `<th class="kmTh">Km Percorsi</th><th>%</th>`;
+
+        // Colonna KM con stellina (se titolare)
+        columns.push({
+            data: null,
+            render: function (row) {
+            const km   = row[`${conv}_km`] ?? 0;
+            const tit  = Number(row[`${conv}_is_titolare`] ?? 0) === 1;
+
+            const star = tit
+                ? `<i class="fas fa-star ms-1" title="Titolare"></i>`
+                : '';
+
+            const badgeClass = tit ? 'badge-tit' : 'badge-km';
+            return `<span class="badge ${badgeClass}">${km.toLocaleString('it-IT')}</span>${star}`;
+            }
         });
+
+        // memorizza per eventuali stilizzazioni (se ti serve)
+        kmColumnIndexes.push(visibleIndex);
+        visibleIndex++;
+
+        // Colonna percentuale invariata
+        columns.push({ data: `${conv}_percent` });
+        visibleIndex++;
+        });
+
 
         headerMain += `<th rowspan="2">Azioni</th>`;
         columns.push({
@@ -293,8 +309,4 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 </script>
-
-
-
-
 @endpush

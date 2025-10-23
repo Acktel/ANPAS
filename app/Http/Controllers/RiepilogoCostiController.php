@@ -490,7 +490,6 @@ class RiepilogoCostiController extends Controller {
             8 => 'Costi amministrativi',
             9 => 'Quote di ammortamento',
             10 => 'Beni Strumentali < 516,00 €',
-            11 => 'Altri costi',
         ];
 
         return view('riepilogo_costi.edit_preventivi_sezione', [

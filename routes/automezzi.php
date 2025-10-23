@@ -20,22 +20,28 @@ Route::middleware(['auth'])->group(function () {
 
      // 📦 Rotte complete per gestione km-percorsi
      Route::prefix('km-percorsi')->name('km-percorsi.')->group(function () {
-          Route::get('/', [KmPercorsiController::class, 'index'])->name('index');
-          Route::get('/datatable', [KmPercorsiController::class, 'getData'])->name('datatable');
-          Route::get('/create', [KmPercorsiController::class, 'create'])->name('create');
-          Route::post('/', [KmPercorsiController::class, 'store'])->name('store');
+     Route::get('/', [KmPercorsiController::class, 'index'])->name('index');
+     Route::get('/datatable', [KmPercorsiController::class, 'getData'])->name('datatable');
+     Route::get('/create', [KmPercorsiController::class, 'create'])->name('create');
+     Route::post('/', [KmPercorsiController::class, 'store'])->name('store');
 
-          Route::get('/{id}', [KmPercorsiController::class, 'show'])
-               ->whereNumber('id')->name('show');
+     // ✅ NUOVA — nomina/rinomina il mezzo TITOLARE per una convenzione (SQL atomico)
+     Route::post('/{idConvenzione}/titolare', [KmPercorsiController::class, 'setTitolare'])
+          ->whereNumber('idConvenzione')
+          ->name('setTitolare');
 
-          Route::get('/{id}/edit', [KmPercorsiController::class, 'edit'])
-               ->whereNumber('id')->name('edit');
+     // esistenti (DEVONO stare dopo, per evitare conflitti con {id})
+     Route::get('/{id}', [KmPercorsiController::class, 'show'])
+          ->whereNumber('id')->name('show');
 
-          Route::put('/{id}', [KmPercorsiController::class, 'update'])
-               ->whereNumber('id')->name('update');
+     Route::get('/{id}/edit', [KmPercorsiController::class, 'edit'])
+          ->whereNumber('id')->name('edit');
 
-          Route::delete('/{id}', [KmPercorsiController::class, 'destroy'])
-               ->whereNumber('id')->name('destroy');
+     Route::put('/{id}', [KmPercorsiController::class, 'update'])
+          ->whereNumber('id')->name('update');
+
+     Route::delete('/{id}', [KmPercorsiController::class, 'destroy'])
+          ->whereNumber('id')->name('destroy');
      });
 
      // 📦 Rotte complete per gestione servizi svolti per convenzione

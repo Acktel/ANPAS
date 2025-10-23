@@ -623,3 +623,15 @@ tbody tr.dragging {
     cursor: pointer;
     background-color: #ffffff; /* stesso hover di bootstrap */
 }
+
+/* Rotazione mezzi*/
+  .badge-km {
+    display:inline-block; padding:.35rem .5rem; border-radius:.5rem;
+    background:#eef3f0; border:1px solid #d5e6df;
+  }
+  .badge-tit {
+    display:inline-block; padding:.35rem .5rem; border-radius:.5rem;
+    background:#fff3cd; border:1px solid #ffe69c; /* giallo tenue */
+    font-weight:600;
+  }
+  .fa-star { color:#d39e00; } /* giallo bronzato */

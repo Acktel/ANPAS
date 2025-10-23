@@ -23,6 +23,7 @@ class Convenzione {
                 c.idAnno,
                 c.Convenzione,
                 c.materiale_fornito_asl,
+                c.abilita_rot_sost,
                 c.created_at
             FROM " . self::TABLE . " AS c
             JOIN associazioni AS s ON c.idAssociazione = s.idAssociazione
@@ -45,18 +46,19 @@ class Convenzione {
                 c.idAnno,
                 c.Convenzione,
                 c.materiale_fornito_asl,
+                c.abilita_rot_sost,
                 c.created_at
             FROM " . self::TABLE . " AS c
             WHERE c.idAnno = :anno
             AND c.idAssociazione = :idAssociazione
             ORDER BY c.Convenzione
         ";
-        
+
         $params = [
             'anno' => $anno,
             'idAssociazione' => $idAssociazione
-            ]; 
-            
+        ];
+
         return collect(DB::select($sql, $params));
     }
 
@@ -73,6 +75,7 @@ class Convenzione {
                 c.idAnno,
                 c.Convenzione,
                 c.materiale_fornito_asl,
+                
                 c.created_at
             FROM " . self::TABLE . " AS c
             WHERE c.idAssociazione = :idAssociazione
@@ -140,6 +143,7 @@ class Convenzione {
                 lettera_identificativa = :lettera_identificativa,
                 note                   = :note,
                 materiale_fornito_asl  = :materiale_fornito_asl,
+                abilita_rot_sost       = :abilita_rot_sost,
                 updated_at             = :updated_at
             WHERE idConvenzione = :id", [
             'idAssociazione'         => $data['idAssociazione'],
@@ -148,6 +152,7 @@ class Convenzione {
             'lettera_identificativa' => $data['lettera_identificativa'] ?? null,
             'note'                   => $data['note'] ?? null,
             'materiale_fornito_asl'  => (int) ($data['materiale_fornito_asl'] ?? 0),
+            'abilita_rot_sost'       => (int) ($data['abilita_rot_sost'] ?? 0),
             'updated_at'             => $now,
             'id'                     => $id,
         ]);
@@ -216,5 +221,39 @@ class Convenzione {
         }
 
         return $query->orderBy('Convenzione')->get();
+    }
+
+    public static function getMezzoTitolare(int $idConvenzione): ?object {
+        // Mezzo titolare
+        $sql = "
+        SELECT a.idAutomezzo, a.Targa, a.CodiceIdentificativo, ak.KMPercorsi AS km_titolare
+        FROM automezzi_km AS ak
+        JOIN automezzi AS a ON a.idAutomezzo = ak.idAutomezzo
+        WHERE ak.idConvenzione = :idConvenzione
+          AND ak.is_titolare = 1
+        LIMIT 1";
+        $titolare = DB::selectOne($sql, ['idConvenzione' => $idConvenzione]);
+
+        if (!$titolare) {
+            return null;
+        }
+
+        // Km totali per convenzione
+        $tot = DB::selectOne("
+        SELECT COALESCE(SUM(KMPercorsi),0) AS km_totali
+        FROM automezzi_km
+        WHERE idConvenzione = :idConvenzione", ['idConvenzione' => $idConvenzione]);
+
+        $kmTotali = (float) ($tot->km_totali ?? 0);
+        $perc = $kmTotali > 0 ? round(($titolare->km_titolare / $kmTotali) * 100, 2) : 0;
+
+        return (object) [
+            'idAutomezzo'          => $titolare->idAutomezzo,
+            'Targa'                => $titolare->Targa,
+            'CodiceIdentificativo' => $titolare->CodiceIdentificativo,
+            'km_titolare'          => $titolare->km_titolare,
+            'km_totali'            => $kmTotali,
+            'percentuale'          => $perc,
+        ];
     }
 }

@@ -115,7 +115,7 @@ async function loadTableDataServizioCivile() {
 
   convenzioni.forEach(key => {
     hMain += `<th colspan="2">${labels[key]}</th>`;
-    hSub  += `<th>Ore</th><th>%</th>`;
+    hSub  += `<th>Unità</th><th>%</th>`;
     cols.push({ data:`${key}_ore`,     defaultContent: 0 });
     cols.push({ data:`${key}_percent`, defaultContent: 0 });
   });
