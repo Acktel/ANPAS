@@ -3,7 +3,7 @@
 
 @section('content')
 <div class="container-fluid">
-  <h1 class="mb-3 container-title">Esporta REGISTRI (Excel) – anno {{ session('anno_riferimento', now()->year) }}</h1>
+  <h1 class="mb-3 container-title">Esporta file excel – anno {{ session('anno_riferimento', now()->year) }}</h1>
 
   @php
   $user = auth()->user();

@@ -245,25 +245,29 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                 $this->creaFoglioImputazioneSanitario(
                     $spreadsheet,
                     public_path('storage/documenti/template_excel/ImputazioneCosti_Sanitario.xlsx'),
-                    $nomeAss, $this->idAssociazione, $this->anno
+                    $nomeAss,
+                    $this->idAssociazione,
+                    $this->anno
                 );
             } catch (Throwable $e) {
-                Log::warning('Foglio Imputazione MS: errore non bloccante', ['msg'=>$e->getMessage(),'file'=>$e->getFile(),'line'=>$e->getLine()]);
+                Log::warning('Foglio Imputazione MS: errore non bloccante', ['msg' => $e->getMessage(), 'file' => $e->getFile(), 'line' => $e->getLine()]);
             }
 
             try {
                 $this->creaFoglioImputazioneOssigeno($spreadsheet, $this->idAssociazione, $this->anno);
             } catch (Throwable $e) {
-                Log::warning('Foglio Imputazione OSSIGENO: errore non bloccante', ['msg'=>$e->getMessage(),'file'=>$e->getFile(),'line'=>$e->getLine()]);
+                Log::warning('Foglio Imputazione OSSIGENO: errore non bloccante', ['msg' => $e->getMessage(), 'file' => $e->getFile(), 'line' => $e->getLine()]);
             }
 
             try {
                 $this->creaFoglioRiepilogoAutoRadioSan(
-                    $spreadsheet, $this->idAssociazione, $this->anno,
+                    $spreadsheet,
+                    $this->idAssociazione,
+                    $this->anno,
                     public_path('storage/documenti/template_excel/RiepilogoAutomezzi_Sanitaria_Radio.xlsx')
                 );
             } catch (Throwable $e) {
-                Log::warning('Foglio RIEPILOGO COSTI AUTO-RADIO-SAN.: errore non bloccante', ['msg'=>$e->getMessage(),'file'=>$e->getFile(),'line'=>$e->getLine()]);
+                Log::warning('Foglio RIEPILOGO COSTI AUTO-RADIO-SAN.: errore non bloccante', ['msg' => $e->getMessage(), 'file' => $e->getFile(), 'line' => $e->getLine()]);
             }
 
             try {
@@ -277,13 +281,13 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                     $this->creaFoglioCostiPerAutomezzo($spreadsheet, $tplAutoPath, $nomeAss, $this->idAssociazione, $this->anno, $auto);
                 }
             } catch (Throwable $e) {
-                Log::warning('Fogli per singolo automezzo: errore non bloccante', ['msg'=>$e->getMessage(),'file'=>$e->getFile(),'line'=>$e->getLine()]);
+                Log::warning('Fogli per singolo automezzo: errore non bloccante', ['msg' => $e->getMessage(), 'file' => $e->getFile(), 'line' => $e->getLine()]);
             }
 
             try {
                 $this->addDistintaImputazioneCostiSheet($spreadsheet, $this->idAssociazione, $this->anno);
             } catch (Throwable $e) {
-                Log::warning('Foglio RIEPILOGO COSTI AUTO-RADIO-SAN.: errore non bloccante', ['msg'=>$e->getMessage(),'file'=>$e->getFile(),'line'=>$e->getLine()]);
+                Log::warning('Foglio RIEPILOGO COSTI AUTO-RADIO-SAN.: errore non bloccante', ['msg' => $e->getMessage(), 'file' => $e->getFile(), 'line' => $e->getLine()]);
             }
 
             // Fogli per convenzione (TAB.1 + TAB.2)
@@ -295,9 +299,9 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                     $insertAt = $anchor ? ($spreadsheet->getIndex($anchor) + 1) : $spreadsheet->getSheetCount();
 
                     $convenzioni = DB::table('convenzioni')
-                        ->select('idConvenzione','Convenzione')
-                        ->where('idAssociazione',$this->idAssociazione)
-                        ->where('idAnno',$this->anno)
+                        ->select('idConvenzione', 'Convenzione')
+                        ->where('idAssociazione', $this->idAssociazione)
+                        ->where('idAnno', $this->anno)
                         ->orderBy('ordinamento')->orderBy('idConvenzione')->get();
 
                     foreach ($convenzioni as $conv) {
@@ -318,15 +322,22 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                             ]);
 
                             $this->fillTabellaRiepilogoDatiSequential(
-                                $ws, (int)$this->idAssociazione, (int)$this->anno, (int)$conv->idConvenzione
+                                $ws,
+                                (int)$this->idAssociazione,
+                                (int)$this->anno,
+                                (int)$conv->idConvenzione
                             );
 
                             $this->fillRiepilogoCostiSottoPrimaTabella(
-                                $ws, (int)$this->idAssociazione, (int)$this->anno, (int)$conv->idConvenzione
+                                $ws,
+                                (int)$this->idAssociazione,
+                                (int)$this->anno,
+                                (int)$conv->idConvenzione
                             );
                         } catch (Throwable $e) {
                             Log::warning('Foglio convenzione (Tabella 1+2) saltato', [
-                                'conv' => (string)$conv->Convenzione, 'err' => $e->getMessage(),
+                                'conv' => (string)$conv->Convenzione,
+                                'err' => $e->getMessage(),
                             ]);
                             continue;
                         }
@@ -335,7 +346,7 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                     Log::warning('Template RiepilogoDati.xlsx non trovato', ['path' => $tplConvenzionePath]);
                 }
             } catch (Throwable $e) {
-                Log::warning('Errore blocco “fogli per convenzione”', ['msg'=>$e->getMessage(),'file'=>$e->getFile(),'line'=>$e->getLine()]);
+                Log::warning('Errore blocco “fogli per convenzione”', ['msg' => $e->getMessage(), 'file' => $e->getFile(), 'line' => $e->getLine()]);
             }
 
             /* ===================== SALVATAGGIO ===================== */
@@ -357,7 +368,6 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
             $spreadsheet->disconnectWorksheets();
             unset($spreadsheet);
             gc_collect_cycles();
-
         } catch (Throwable $e) {
             Log::error('SchedeRipartoCosti V3: exception', [
                 'documentoId' => $this->documentoId,
@@ -559,163 +569,215 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
     }
 
     /** RICAVI (ritorna [endRow, ricaviMap]) */
+    /** RICAVI (una sola riga dati nel template, niente riga “Totale ricavi” da creare/spostare) */
     private function blockRicavi(Worksheet $sheet, array $tpl, $convenzioni, array $logos): array {
+        // locateRicaviHeader deve restituire:
+        // ['headerRow','convTitleRow','dataRow','firstPairCol','totCol']
         $meta = $this->locateRicaviHeader($sheet, $tpl['startRow']);
-        $usedPairs = max(1, $convenzioni->count());
+
+        $usedPairs   = max(1, $convenzioni->count());
         $lastUsedCol = max($meta['totCol'], $meta['firstPairCol'] + ($usedPairs * 2) - 1);
 
+        // Loghi
         $this->insertLogosAtRow($sheet, $logos, $tpl['startRow'] + 1, $lastUsedCol);
 
+        // Dati ricavi
         $ricaviMap = RapportoRicavo::mapByAssociazione($this->anno, $this->idAssociazione);
         $totRicavi = array_sum(array_map('floatval', $ricaviMap));
 
-        // titoli convenzioni
+        // Titoli convenzioni (sopra banda fucsia)
         foreach ($convenzioni as $i => $c) {
             $col = $meta['firstPairCol'] + ($i * 2);
             $sheet->setCellValueByColumnAndRow($col, $meta['convTitleRow'], (string)$c->Convenzione);
         }
 
-        // riga dati da inserire prima del totale (la riga predisposta è meta['dataRow'])
-        $rowData = [];
+        // Riga DATI (quella già presente nel template)
         $pairSum = 0.0;
         foreach ($convenzioni as $i => $c) {
-            $rCol = $meta['firstPairCol'] + ($i * 2);
-            $pCol = $rCol + 1;
-            $imp  = (float)($ricaviMap[(int)$c->idConvenzione] ?? 0.0);
-            $p    = ($i < ($usedPairs - 1) && $totRicavi > 0) ? ($imp / $totRicavi) : max(0.0, 1.0 - $pairSum);
-            if ($i < ($usedPairs - 1)) $pairSum += $p;
+            $rimCol = $meta['firstPairCol'] + ($i * 2);   // colonna “RIMBORSO”
+            $pctCol = $rimCol + 1;                        // colonna “%”
+            $val    = (float)($ricaviMap[(int)$c->idConvenzione] ?? 0.0);
 
-            $rowData[] = ['col' => $rCol, 'val' => $imp, 'fmt' => '#,##0.00'];
-            $rowData[] = ['col' => $pCol, 'val' => $p,   'fmt' => '0.00%', 'align' => Alignment::HORIZONTAL_CENTER];
+            // percentuale: ultima colonna prende l’eventuale delta per evitare errori di arrotondamento
+            $pct = ($i < ($usedPairs - 1) && $totRicavi > 0)
+                ? ($val / $totRicavi)
+                : max(0.0, 1.0 - $pairSum);
+            if ($i < ($usedPairs - 1)) $pairSum += $pct;
+
+            // Scritture + formati
+            $sheet->setCellValueByColumnAndRow($rimCol, $meta['dataRow'], $val);
+            $sheet->getStyleByColumnAndRow($rimCol, $meta['dataRow'])
+                ->getNumberFormat()->setFormatCode('#,##0.00');
+
+            $sheet->setCellValueByColumnAndRow($pctCol, $meta['dataRow'], $pct);
+            $sheet->getStyleByColumnAndRow($pctCol, $meta['dataRow'])
+                ->getNumberFormat()->setFormatCode('0.00%');
+            $sheet->getStyleByColumnAndRow($pctCol, $meta['dataRow'])
+                ->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
         }
-        $rowData[] = ['col' => $meta['totCol'], 'val' => $totRicavi, 'fmt' => '#,##0.00'];
 
-        $styleRange = 'A' . $meta['dataRow'] . ':' . Coordinate::stringFromColumnIndex($lastUsedCol) . $meta['dataRow'];
-        $this->insertRowsBeforeTotal($sheet, $meta['dataRow'], [$rowData], $styleRange);
+        // Totale esercizio nella colonna del template
+        $sheet->setCellValueByColumnAndRow($meta['totCol'], $meta['dataRow'], $totRicavi);
+        $sheet->getStyleByColumnAndRow($meta['totCol'], $meta['dataRow'])
+            ->getNumberFormat()->setFormatCode('#,##0.00');
 
-        // riga “TOTALE RICAVI” scende di 1
-        $totRowNew = $meta['dataRow'] + 1;
-        $this->mergeTotalAB($sheet, $totRowNew, 'TOTALE RICAVI');
-
+        // Stili: header + riga dati in grassetto, senza toccare altre righe
         $this->thickBorderRow($sheet, $meta['headerRow'], $lastUsedCol);
-        $this->thickBorderRow($sheet, $totRowNew,         $lastUsedCol);
-        $sheet->getStyle('A' . ($meta['dataRow']) . ':' . Coordinate::stringFromColumnIndex($lastUsedCol) . ($meta['dataRow']))->getFont()->setBold(true);
-        $this->thickOutline($sheet, $meta['headerRow'], $totRowNew, $lastUsedCol);
+        $sheet->getStyle('A' . $meta['dataRow'] . ':' . Coordinate::stringFromColumnIndex($lastUsedCol) . $meta['dataRow'])
+            ->getFont()->setBold(true);
+        $this->thickOutline($sheet, $meta['headerRow'], $meta['dataRow'], $lastUsedCol);
+
+        // Qualità vita: autosize e nascondi coppie non usate
         $this->autosizeUsedColumns($sheet, 1, $lastUsedCol);
-        // pulizia orizzontale
         $this->hideUnusedConventionColumns($sheet, $meta['headerRow'], $meta['firstPairCol'], $usedPairs);
 
-        return [max($totRowNew, $tpl['endRow'] + 1), $ricaviMap];
+        // Non esiste riga “Totale ricavi” separata: ritorno la fine del blocco e la mappa
+        return [max($meta['dataRow'], $tpl['endRow']), $ricaviMap];
     }
 
-    /** AUTISTI & BARELLIERI (tabella ore + prev/cons) */
+
+
+    /** AUTISTI & BARELLIERI (tabellina costi + tabella ore) */
     private function blockAutistiBarellieri(Worksheet $sheet, array $tpl, $convenzioni, array $logos): int {
         [$headerRow, $cols] = $this->detectABHeaderAndCols($sheet, $tpl);
-        $firstPairCol = $cols['TOTORE'] + 1;
-        $usedPairs = max(1, $convenzioni->count());
 
-        $lastUsedCol = max($cols['TOTORE'], $firstPairCol + ($usedPairs * 2) - 1);
+        // Coppie (VALORE | %) per convenzione: subito dopo "TOT ORE"
+        $firstPairCol = $cols['TOTORE'] + 1;
+        $usedPairs    = max(1, $convenzioni->count());
+        $lastUsedCol  = max($cols['TOTORE'], $firstPairCol + ($usedPairs * 2) - 1);
+
+        // Loghi
         $this->insertLogosAtRow($sheet, $logos, $tpl['startRow'] + 1, $lastUsedCol);
 
-        // intestazioni convenzioni
+        // Intestazioni convenzioni (riga sopra la fucsia)
         foreach ($convenzioni as $i => $c) {
             $col = $firstPairCol + ($i * 2);
             $sheet->setCellValueByColumnAndRow($col, $headerRow - 1, (string)$c->Convenzione);
         }
 
-        // PREVENTIVO/CONSUNTIVO subito sotto header
-        $prevCons = RipartizioneCostiService::personalePrevConsPerConvenzione($this->idAssociazione, $this->anno);
-        $prevByConv = $prevCons['preventivo'] ?? [];
-        $consByConv = $prevCons['consuntivo'] ?? [];
-        $totPrev = array_sum(array_map('floatval', $prevByConv));
-        $totCons = array_sum(array_map('floatval', $consByConv));
+        /* ---------------- TABELLINA IN ALTO: COSTI PERSONALE (A&B) ---------------- */
 
-        $styleRow = 'A' . ($headerRow + 1) . ':' . Coordinate::stringFromColumnIndex($lastUsedCol) . ($headerRow + 1);
-        $rowsPC = [];
+        // Individua le righe "PREVENTIVO" e "CONSUNTIVO" già presenti nel template
+        $scanFrom = max(1, $headerRow - 6);
+        $scanTo   = $headerRow - 1;
+        $prevRow  = $this->findRowByLabel($sheet, 'PREVENTIVO',  $scanFrom, $scanTo) ?? ($headerRow - 2);
+        $consRow  = $this->findRowByLabel($sheet, 'CONSUNTIVO', $scanFrom, $scanTo) ?? ($headerRow - 1);
 
-        // PREVENTIVO
-        $rPrev = [['col' => max(1, $cols['NOME'] ?? 1), 'val' => 'PREVENTIVO ' . $this->anno . ' - COSTO PERSONALE']];
-        $pairSum = 0.0;
+        // Convenzioni nell’ordine corrente
+        $convIds = $convenzioni->pluck('idConvenzione')->map(fn($v) => (int)$v)->all();
+
+        // CONSUNTIVO (voce 6001 dalla distinta)
+        $consByVoce   = RipartizioneCostiService::consuntiviPerVoceByConvenzione($this->idAssociazione, $this->anno);
+        $consByConvAB = array_fill_keys($convIds, 0.0);
+        if (!empty($consByVoce[6001])) {
+            foreach ($convIds as $cid) $consByConvAB[$cid] = round((float)($consByVoce[6001][$cid] ?? 0.0), 2);
+        }
+
+        // PREVENTIVO (voce 6001 da riepilogo_dati)
+        $prevByConvAB = array_fill_keys($convIds, 0.0);
+        $idRiepilogo  = DB::table('riepiloghi')
+            ->where('idAssociazione', $this->idAssociazione)
+            ->where('idAnno', $this->anno)
+            ->value('idRiepilogo');
+
+        if ($idRiepilogo) {
+            $rowsPrev = DB::table('riepilogo_dati')
+                ->where('idRiepilogo', $idRiepilogo)
+                ->where('idVoceConfig', 6001)
+                ->whereIn('idConvenzione', $convIds)
+                ->select('idConvenzione', DB::raw('SUM(preventivo) AS prev'))
+                ->groupBy('idConvenzione')
+                ->get();
+
+            foreach ($rowsPrev as $r) $prevByConvAB[(int)$r->idConvenzione] = round((float)$r->prev, 2);
+        }
+
+        // Scrittura nella tabellina: SOLO importi nelle colonne "valore"; colonna "%" svuotata.
         foreach ($convenzioni as $i => $c) {
             $impCol = $firstPairCol + ($i * 2);
-            $pcCol  = $impCol + 1;
-            $imp    = (float)($prevByConv[(int)$c->idConvenzione] ?? 0.0);
-            $p      = ($i < ($usedPairs - 1) && $totPrev > 0) ? ($imp / $totPrev) : max(0.0, 1.0 - $pairSum);
-            if ($i < ($usedPairs - 1)) $pairSum += $p;
+            $pcCol  = $impCol + 1; // percentuale: la lasciamo vuota
+            $cid    = (int)$c->idConvenzione;
 
-            $rPrev[] = ['col' => $impCol, 'val' => $imp, 'fmt' => '#,##0.00'];
-            $rPrev[] = ['col' => $pcCol,  'val' => $p,   'fmt' => '0.00%', 'align' => Alignment::HORIZONTAL_CENTER];
+            // PREVENTIVO
+            $sheet->setCellValueByColumnAndRow($impCol, $prevRow, $prevByConvAB[$cid] ?? 0.0);
+            $sheet->getStyleByColumnAndRow($impCol, $prevRow)->getNumberFormat()->setFormatCode('#,##0.00');
+            $sheet->setCellValueByColumnAndRow($pcCol,  $prevRow, null);
+
+            // CONSUNTIVO
+            $sheet->setCellValueByColumnAndRow($impCol, $consRow, $consByConvAB[$cid] ?? 0.0);
+            $sheet->getStyleByColumnAndRow($impCol, $consRow)->getNumberFormat()->setFormatCode('#,##0.00');
+            $sheet->setCellValueByColumnAndRow($pcCol,  $consRow, null);
         }
-        $rowsPC[] = $rPrev;
 
-        // CONSUNTIVO
-        $rCons = [['col' => max(1, $cols['NOME'] ?? 1), 'val' => 'CONSUNTIVO ' . $this->anno . ' - COSTO PERSONALE']];
-        $pairSum = 0.0;
-        foreach ($convenzioni as $i => $c) {
-            $impCol = $firstPairCol + ($i * 2);
-            $pcCol  = $impCol + 1;
-            $imp    = (float)($consByConv[(int)$c->idConvenzione] ?? 0.0);
-            $p      = ($i < ($usedPairs - 1) && $totCons > 0) ? ($imp / $totCons) : max(0.0, 1.0 - $pairSum);
-            if ($i < ($usedPairs - 1)) $pairSum += $p;
+        // Grassetto uniforme sui due “nastri” di PREVENTIVO/CONSUNTIVO (stile coerente al template)
+        $boldPrev = Coordinate::stringFromColumnIndex($firstPairCol) . $prevRow . ':' .
+            Coordinate::stringFromColumnIndex($lastUsedCol)  . $prevRow;
+        $boldCons = Coordinate::stringFromColumnIndex($firstPairCol) . $consRow . ':' .
+            Coordinate::stringFromColumnIndex($lastUsedCol)  . $consRow;
+        $sheet->getStyle($boldPrev)->getFont()->setBold(true);
+        $sheet->getStyle($boldCons)->getFont()->setBold(true);
 
-            $rCons[] = ['col' => $impCol, 'val' => $imp, 'fmt' => '#,##0.00'];
-            $rCons[] = ['col' => $pcCol,  'val' => $p,   'fmt' => '0.00%', 'align' => Alignment::HORIZONTAL_CENTER];
-        }
-        $rowsPC[] = $rCons;
-        $anchorRow = $headerRow + 1;
-        $this->insertRowsBeforeTotal($sheet, $anchorRow, $rowsPC, $styleRow);
-        $this->thickBorderRow($sheet, $anchorRow,     $lastUsedCol);
-        $this->thickBorderRow($sheet, $anchorRow + 1, $lastUsedCol);
-        $sheet->getStyle('A' . $anchorRow . ':' . Coordinate::stringFromColumnIndex($lastUsedCol) . ($anchorRow + 1))->getFont()->setBold(true);
+        /* ---------------- TABELLA GRANDE: ORE PER DIPENDENTE (invariata) ---------------- */
 
-        // ORE per dipendente
         $dip = Dipendente::getAutistiEBarellieri($this->anno, $this->idAssociazione);
         $rip = RipartizionePersonale::getAll($this->anno, null, $this->idAssociazione)->groupBy('idDipendente');
 
-        $totalRow = $this->findRowByLabel($sheet, 'TOTALE', $headerRow + 1, $tpl['endRow']) ?? $tpl['endRow'];
-        $sampleRow = $headerRow + 1;
+        // NB: NON rimuoviamo righe della tabella principale
+        $totalRow   = $this->findRowByLabel($sheet, 'TOTALE', $headerRow + 1, $tpl['endRow']) ?? $tpl['endRow'];
+        $sampleRow  = $headerRow + 1;
         $styleRange = 'A' . $sampleRow . ':' . Coordinate::stringFromColumnIndex($lastUsedCol) . $sampleRow;
 
-        $rows = [];
+        $rows      = [];
         $totOreAll = 0.0;
         $totByConv = [];
         foreach ($convenzioni as $c) $totByConv[(int)$c->idConvenzione] = 0.0;
 
         foreach ($dip as $i => $d) {
-            $serv = $rip->get($d->idDipendente) ?? collect();
+            $serv   = $rip->get($d->idDipendente) ?? collect();
             $oreTot = (float)$serv->sum('OreServizio');
             $totOreAll += $oreTot;
 
             $r = [
-                ['col' => $cols['IDX'],  'val' => 'DIPENDENTE N. ' . ($i + 1)],
+                ['col' => $cols['IDX'],       'val' => 'DIPENDENTE N. ' . ($i + 1)],
                 ['col' => $cols['NOME'] ?? 2, 'val' => trim(($d->DipendenteCognome ?? '') . ' ' . ($d->DipendenteNome ?? ''))],
-                ['col' => $cols['TOTORE'], 'val' => $oreTot, 'fmt' => NumberFormat::FORMAT_NUMBER],
+                ['col' => $cols['TOTORE'],    'val' => $oreTot, 'fmt' => NumberFormat::FORMAT_NUMBER],
             ];
 
             foreach ($convenzioni as $j => $c) {
                 $impCol = $firstPairCol + ($j * 2);
                 $pcCol  = $impCol + 1;
-                $ore    = (float)($serv->firstWhere('idConvenzione', $c->idConvenzione)->OreServizio ?? 0);
-                $p      = $oreTot > 0 ? ($ore / $oreTot) : 0.0;
+
+                $ore = (float)($serv->firstWhere('idConvenzione', $c->idConvenzione)->OreServizio ?? 0);
+                $p   = $oreTot > 0 ? ($ore / $oreTot) : 0.0;
 
                 $r[] = ['col' => $impCol, 'val' => $ore, 'fmt' => NumberFormat::FORMAT_NUMBER];
                 $r[] = ['col' => $pcCol,  'val' => $p,   'fmt' => '0.00%', 'align' => Alignment::HORIZONTAL_CENTER];
 
                 $totByConv[(int)$c->idConvenzione] += $ore;
             }
+
             $rows[] = $r;
         }
 
         $this->insertRowsBeforeTotal($sheet, $totalRow, $rows, $styleRange);
-        $off = count($rows);
+        $off       = count($rows);
         $totRowNew = $totalRow + $off;
 
-        // totale + merge A:B
-        $sheet->setCellValueByColumnAndRow($cols['NOME'] ?? 1, $totRowNew, 'TOTALE'); // label prima del merge
+        // --- GRIGLIA sulla tabella ORE (seconda tabella)
+        $gridLeftCol = $cols['IDX'];                // colonna iniziale della tabella ore (indice)
+        $gridTopRow  = $headerRow;                  // includo anche l'header della tabella
+        $gridRange   = $this->col($gridLeftCol) . $gridTopRow . ':' .
+            Coordinate::stringFromColumnIndex($lastUsedCol) . $totRowNew;
+
+        $this->applyGridWithOuterBorder($sheet, $gridRange);
+
+        // Riga TOTALE (merge A:B)
+        $sheet->setCellValueByColumnAndRow($cols['NOME'] ?? 1, $totRowNew, 'TOTALE');
         $this->mergeTotalAB($sheet, $totRowNew, 'TOTALE');
 
         $sheet->setCellValueByColumnAndRow($cols['TOTORE'], $totRowNew, $totOreAll);
         $pairSum = 0.0;
+
         foreach ($convenzioni as $i => $c) {
             $impCol = $firstPairCol + ($i * 2);
             $pcCol  = $impCol + 1;
@@ -732,9 +794,11 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
             $sheet->getStyleByColumnAndRow($pcCol, $totRowNew)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
         }
 
+        // Bordi/layout come da template
         $this->thickBorderRow($sheet, $headerRow, $lastUsedCol);
         $this->thickBorderRow($sheet, $totRowNew,  $lastUsedCol);
-        $sheet->getStyle('A' . $totRowNew . ':' . Coordinate::stringFromColumnIndex($lastUsedCol) . $totRowNew)->getFont()->setBold(true);
+        $sheet->getStyle('A' . $totRowNew . ':' . Coordinate::stringFromColumnIndex($lastUsedCol) . $totRowNew)
+            ->getFont()->setBold(true);
         $this->thickOutline($sheet, $headerRow, $totRowNew, $lastUsedCol);
         $this->autosizeUsedColumns($sheet, 1, $lastUsedCol);
         $this->hideUnusedConventionColumns($sheet, $headerRow, $firstPairCol, $usedPairs);
@@ -743,116 +807,137 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
     }
 
     /** VOLONTARI */
+    /** VOLONTARI */
     private function blockVolontari(Worksheet $sheet, array $tpl, $convenzioni, array $ricaviMap, array $logos): int {
-        [$headerRow, $firstPairCol] = $this->detectVolontariHeader($sheet, $tpl);
-        $usedPairs = max(1, $convenzioni->count());
-        $lastUsedCol = $firstPairCol + ($usedPairs * 2) - 1;
+        // detectVolontariHeader deve restituire: [headerRow, firstPairCol, labelCol]
+        [$headerRow, $firstPairCol, $labelCol] = $this->detectVolontariHeader($sheet, $tpl);
 
-        $this->insertLogosAtRow($sheet, $logos, $tpl['startRow'] + 1, $lastUsedCol);
-
-        foreach ($convenzioni as $i => $c) {
-            $base = $firstPairCol + ($i * 2);
-            $sheet->setCellValueByColumnAndRow($base, $headerRow - 1, (string)$c->Convenzione);
-        }
-
-        $totRicavi = array_sum(array_map('floatval', $ricaviMap));
-        $rowData = [['col' => 1, 'val' => 'Totale volontari']];
-        $pairSum = 0.0;
-        foreach ($convenzioni as $i => $c) {
-            $base = $firstPairCol + ($i * 2);
-            $val  = (float)($ricaviMap[(int)$c->idConvenzione] ?? 0.0);
-            $p    = ($i < ($usedPairs - 1) && $totRicavi > 0) ? ($val / $totRicavi) : max(0.0, 1.0 - $pairSum);
-            if ($i < ($usedPairs - 1)) $pairSum += $p;
-
-            $rowData[] = ['col' => $base,     'val' => $val, 'fmt' => '#,##0.00'];
-            $rowData[] = ['col' => $base + 1, 'val' => $p,   'fmt' => '0.00%', 'align' => Alignment::HORIZONTAL_CENTER];
-        }
-
-        $sampleRow  = $headerRow + 1;
-        $styleRange = 'A' . $sampleRow . ':' . Coordinate::stringFromColumnIndex($lastUsedCol) . $sampleRow;
-
-        // nel template la riga sample è placeholder: uso insertRowsBeforeTotal con 1 riga
-        $this->insertRowsBeforeTotal($sheet, $sampleRow, [$rowData], $styleRange);
-
-        $this->thickBorderRow($sheet, $headerRow, $lastUsedCol);
-        $this->thickBorderRow($sheet, $sampleRow,  $lastUsedCol);
-        $sheet->getStyle('A' . $sampleRow . ':' . Coordinate::stringFromColumnIndex($lastUsedCol) . $sampleRow)->getFont()->setBold(true);
-        $this->thickOutline($sheet, $headerRow, $sampleRow, $lastUsedCol);
-        $this->autosizeUsedColumns($sheet, 1, $lastUsedCol);
-        // pulizia orizzontale
-        $this->hideUnusedConventionColumns($sheet, $headerRow, $firstPairCol, $usedPairs);
-
-        return max($sampleRow, $tpl['endRow'] + 1);
-    }
-
-    /** SERVIZIO CIVILE */
-    private function blockServizioCivile(Worksheet $sheet, array $tpl, $convenzioni, array $logos): int {
-        [$headerRow, $firstPairCol, $labelCol] = $this->detectServizioCivileHeader($sheet, $tpl);
-        $usedPairs  = max(1, $convenzioni->count());
+        $usedPairs   = max(1, $convenzioni->count());
         $lastUsedCol = $firstPairCol + ($usedPairs * 2) - 1;
 
         // loghi
         $this->insertLogosAtRow($sheet, $logos, $tpl['startRow'] + 1, $lastUsedCol);
 
-        // intestazioni convenzioni (riga sopra l’header delle coppie)
+        // intestazioni convenzioni (sopra l’header fucsia)
         foreach ($convenzioni as $i => $c) {
             $base = $firstPairCol + ($i * 2);
             $sheet->setCellValueByColumnAndRow($base, $headerRow - 1, (string)$c->Convenzione);
         }
 
-        // ore per convenzione (id fittizio servizio civile)
+        // base dati: ricavi per conv e totale esercizio
+        $totRicavi = array_sum(array_map('floatval', $ricaviMap));
+
+        // riga dati della tabella (subito sotto l’header)
+        $dataRow    = $headerRow + 1;
+        $styleRange = 'A' . $dataRow . ':' . Coordinate::stringFromColumnIndex($lastUsedCol) . $dataRow;
+
+        // 1) totale nella PRIMA COLONNA ("SERVIZIO VOLONTARIO")
+        $rowData = [[
+            'col' => $labelCol,
+            'val' => $totRicavi,
+            'fmt' => '#,##0.00'
+        ]];
+
+        // 2) coppie RIMBORSO/% per ciascuna convenzione
+        $pairSum = 0.0;
+        foreach ($convenzioni as $i => $c) {
+            $base = $firstPairCol + ($i * 2);
+            $imp  = (float)($ricaviMap[(int)$c->idConvenzione] ?? 0.0);
+            $p    = ($i < ($usedPairs - 1) && $totRicavi > 0) ? ($imp / $totRicavi) : max(0.0, 1.0 - $pairSum);
+            if ($i < ($usedPairs - 1)) $pairSum += $p;
+
+            $rowData[] = ['col' => $base,     'val' => $imp, 'fmt' => '#,##0.00'];
+            $rowData[] = ['col' => $base + 1, 'val' => $p,   'fmt' => '0.00%', 'align' => Alignment::HORIZONTAL_CENTER];
+        }
+
+        // scrittura mantenendo la riga placeholder
+        $this->insertRowsBeforeTotal($sheet, $dataRow, [$rowData], $styleRange);
+
+        // stile & griglia
+        $this->thickBorderRow($sheet, $headerRow, $lastUsedCol);
+        $this->thickBorderRow($sheet, $dataRow,    $lastUsedCol);
+        $sheet->getStyle('A' . $dataRow . ':' . Coordinate::stringFromColumnIndex($lastUsedCol) . $dataRow)->getFont()->setBold(true);
+        $this->thickOutline($sheet, $headerRow, $dataRow, $lastUsedCol);
+        $this->autosizeUsedColumns($sheet, 1, $lastUsedCol);
+        $this->hideUnusedConventionColumns($sheet, $headerRow, $firstPairCol, $usedPairs);
+
+        return max($dataRow, $tpl['endRow'] + 1);
+    }
+
+
+    /** SERVIZIO CIVILE */
+    private function blockServizioCivile(Worksheet $sheet, array $tpl, $convenzioni, array $logos): int {
+        // detectServizioCivileHeader deve restituire: [headerRow, firstPairCol, labelCol]
+        [$headerRow, $firstPairCol, $labelCol] = $this->detectServizioCivileHeader($sheet, $tpl);
+
+        $usedPairs   = max(1, $convenzioni->count());
+        $lastUsedCol = $firstPairCol + ($usedPairs * 2) - 1;
+
+        // loghi
+        $this->insertLogosAtRow($sheet, $logos, $tpl['startRow'] + 1, $lastUsedCol);
+
+        // intestazioni convenzioni
+        foreach ($convenzioni as $i => $c) {
+            $base = $firstPairCol + ($i * 2);
+            $sheet->setCellValueByColumnAndRow($base, $headerRow - 1, (string)$c->Convenzione);
+        }
+
+        // ore SC per convenzione
+        $idsConv = $convenzioni->pluck('idConvenzione')->map(fn($v) => (int)$v)->all();
         $rowsSC = DB::table('dipendenti_servizi as ds')
             ->join('convenzioni as c', 'c.idConvenzione', '=', 'ds.idConvenzione')
             ->where('c.idAssociazione', $this->idAssociazione)
             ->where('c.idAnno', $this->anno)
             ->where('ds.idDipendente', RipartizioneServizioCivile::ID_SERVIZIO_CIVILE)
-            ->whereIn('ds.idConvenzione', $convenzioni->pluck('idConvenzione')->all())
+            ->whereIn('ds.idConvenzione', $idsConv)
             ->select('ds.idConvenzione', DB::raw('SUM(ds.OreServizio) as ore'))
             ->groupBy('ds.idConvenzione')
             ->get();
 
-        $oreByConv = array_fill_keys($convenzioni->pluck('idConvenzione')->map(fn($v) => (int)$v)->all(), 0.0);
-        $totOre = 0.0;
+        $oreByConv = array_fill_keys($idsConv, 0.0);
+        $totOre    = 0.0;
         foreach ($rowsSC as $r) {
             $oreByConv[(int)$r->idConvenzione] = (float)$r->ore;
             $totOre += (float)$r->ore;
         }
 
-        // riga dati (sotto l’header)
-        $dataRow   = $headerRow + 1;
-        $lastColL  = Coordinate::stringFromColumnIndex($lastUsedCol);
-        $styleRange = 'A' . $dataRow . ':' . $lastColL . $dataRow;
+        // riga dati (subito sotto l’header)
+        $dataRow    = $headerRow + 1;
+        $styleRange = 'A' . $dataRow . ':' . Coordinate::stringFromColumnIndex($lastUsedCol) . $dataRow;
 
-        // scrivo la label nella colonna di "PERSONALE" (non in A fissa!)
-        $rowData = [['col' => $labelCol, 'val' => 'Totale servizio civile']];
+        // 1) totale nella PRIMA COLONNA ("UNITA' SERVIZIO CIVILE UNIVERSALE")
+        $rowData = [[
+            'col' => $labelCol,
+            'val' => $totOre,
+            'fmt' => NumberFormat::FORMAT_NUMBER
+        ]];
 
-        // coppie UNITA’ / %
+        // 2) coppie UNITA'/%
         $pairSum = 0.0;
         foreach ($convenzioni as $i => $c) {
             $base = $firstPairCol + ($i * 2);
-            $ore  = (float)$oreByConv[(int)$c->idConvenzione];
+            $ore  = (float)($oreByConv[(int)$c->idConvenzione] ?? 0.0);
             $p    = ($i < ($usedPairs - 1) && $totOre > 0) ? ($ore / $totOre) : max(0.0, 1.0 - $pairSum);
             if ($i < ($usedPairs - 1)) $pairSum += $p;
 
-            $rowData[] = ['col' => $base,     'val' => $ore, 'fmt' => NumberFormat::FORMAT_NUMBER];  // UNITA'
-            $rowData[] = ['col' => $base + 1, 'val' => $p,   'fmt' => '0.00%', 'align' => Alignment::HORIZONTAL_CENTER]; // %
+            $rowData[] = ['col' => $base,     'val' => $ore, 'fmt' => NumberFormat::FORMAT_NUMBER];
+            $rowData[] = ['col' => $base + 1, 'val' => $p,   'fmt' => '0.00%', 'align' => Alignment::HORIZONTAL_CENTER];
         }
 
-        // nel template la riga dataRow è il placeholder → duplica stile e scrivi
         $this->insertRowsBeforeTotal($sheet, $dataRow, [$rowData], $styleRange);
 
-        // enfasi + bordo spesso a tutto il blocco + autosize anti-######
+        // stile & griglia
         $this->thickBorderRow($sheet, $headerRow, $lastUsedCol);
         $this->thickBorderRow($sheet, $dataRow,    $lastUsedCol);
-        $sheet->getStyle('A' . $dataRow . ':' . $lastColL . $dataRow)->getFont()->setBold(true);
+        $sheet->getStyle('A' . $dataRow . ':' . Coordinate::stringFromColumnIndex($lastUsedCol) . $dataRow)->getFont()->setBold(true);
         $this->thickOutline($sheet, $headerRow, $dataRow, $lastUsedCol);
         $this->autosizeUsedColumns($sheet, 1, $lastUsedCol);
-
-        // nascondi coppie non utilizzate dal template
         $this->hideUnusedConventionColumns($sheet, $headerRow, $firstPairCol, $usedPairs);
 
         return max($dataRow, $tpl['endRow'] + 1);
     }
+
+
 
     /** DISTINTA SERVIZI (Materiale Sanitario)*/
     private function blockDistintaServizi(Worksheet $sheet, array $tpl, $automezzi, $convenzioni, array $logos): int {
@@ -3391,7 +3476,7 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                 $insertAt++;
 
                 // 3.d) Placeholder header
-                $this->replacePlaceholdersEverywhere($ws, [
+                $this->replacePlaceholdersEverywhere($newSheet, [
                     'nome_associazione' => $nomeAssociazione,
                     'anno_riferimento'  => (string)$anno,
                     'nome_convenzione'  => (string)$conv->Convenzione,
@@ -3988,10 +4073,10 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
         $ws->setCellValue("D{$startRow}", 'SCOSTAMENTO');
         $ws->getStyle("A{$startRow}:D{$startRow}")->getFont()->setBold(true);
         $ws->getStyle("A{$startRow}:D{$startRow}")
-        ->getBorders()->getBottom()->setBorderStyle(Border::BORDER_MEDIUM);
+            ->getBorders()->getBottom()->setBorderStyle(Border::BORDER_MEDIUM);
 
         // <<< AGGIUNGI QUESTO BLOCCO
-        foreach (['A','B','C','D'] as $col) {
+        foreach (['A', 'B', 'C', 'D'] as $col) {
             $dim = $ws->getColumnDimension($col);
             $dim->setVisible(true);
             // se la larghezza è 0 / non definita, metti una larghezza minima decente

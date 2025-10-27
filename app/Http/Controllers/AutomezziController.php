@@ -201,14 +201,18 @@ class AutomezziController extends Controller {
         abort_if(!$automezzo, 404);
 
         DB::beginTransaction();
-
         try {
-            Automezzo::deleteAutomezzo($idAutomezzo);
+            Automezzo::deleteAutomezzo($idAutomezzo); // opzionale passare $anno
             DB::commit();
             return redirect()->route('automezzi.index')->with('success', 'Automezzo eliminato.');
         } catch (\Throwable $e) {
             DB::rollBack();
-            return back()->withErrors(['error' => 'Errore durante l’eliminazione.']);
+            Log::error('AutomezziController@destroy: delete failed', [
+                'idAutomezzo' => $idAutomezzo,
+                'msg' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+            return back()->withErrors(['error' => 'Eliminazione fallita: '.$e->getMessage()]);
         }
     }
 

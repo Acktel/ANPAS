@@ -288,9 +288,22 @@ class Automezzo
             ]);
     }
 
-    public static function deleteAutomezzo(int $idAutomezzo): void
+    public static function deleteAutomezzo(int $idAutomezzo, ?int $anno = null): void
     {
-        AutomezzoKmRiferimento::deleteByAutomezzo($idAutomezzo);
+        // 1) figli diretti gestiti a codice
+        AutomezzoKmRiferimento::deleteByAutomezzo($idAutomezzo, $anno);
+
+        // automezzi_km (se esiste e magari ha idAnno)
+        if (Schema::hasTable('automezzi_km')) {
+            $q = DB::table('automezzi_km')->where('idAutomezzo', $idAutomezzo);
+            if ($anno && Schema::hasColumn('automezzi_km', 'idAnno')) $q->where('idAnno', $anno);
+            $q->delete();
+        }
+
+        // TODO: qui elimina eventuali altre tabelle figlie che referenziano idAutomezzo
+        // es.: ripartizioni, costi_automezzi, servizi_svolti, ecc.
+
+        // 2) infine il padre
         DB::table('automezzi')->where('idAutomezzo', $idAutomezzo)->delete();
     }
 
