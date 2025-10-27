@@ -54,9 +54,6 @@ class RiepilogoCostiController extends Controller {
             }
         }
 
-        // dd($associazioni, $convenzioni, $selectedAssoc, $selectedConv);
-
-
         return view('riepilogo_costi.index', compact(
             'anno',
             'isElevato',
@@ -73,8 +70,8 @@ class RiepilogoCostiController extends Controller {
      * Ritorna: [{ idVoceConfig, descrizione, ordinamento?, preventivo, consuntivo, scostamento }]
      */
     public function getSezione(Request $request, int $idTipologia) {
-        $anno = (int) session('anno_riferimento', now()->year);
-        $user = Auth::user();
+        $anno      = (int) session('anno_riferimento', now()->year);
+        $user      = Auth::user();
         $isElevato = $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor']);
 
         $idAssociazione = $isElevato
@@ -85,8 +82,9 @@ class RiepilogoCostiController extends Controller {
             return response()->json(['data' => []]);
         }
 
-        $idConvenzione = $request->input('idConvenzione'); // 'TOT' | int
+        $idConvenzione = $request->input('idConvenzione'); // 'TOT' | int | null
 
+        // 1) Proviamo la logica attuale del Model
         $rows = RiepilogoCosti::getByTipologia(
             $idTipologia,
             $anno,
@@ -94,9 +92,99 @@ class RiepilogoCostiController extends Controller {
             $idConvenzione
         );
 
-        // dd($rows);
+        // 2) Se NON TOT e tutti i preventivi risultano a 0 -> fallback ai preventivi di TOTALE
+        if ($idConvenzione !== 'TOT' && $this->allPreventiviZero($rows)) {
+            $rows = $this->buildSezioneWithPrevFromTotale(
+                $idTipologia,
+                $anno,
+                $idAssociazione,
+                (int) $idConvenzione
+            );
+        }
 
         return response()->json(['data' => $rows]);
+    }
+
+    /**
+     * Costruisce le righe della sezione usando:
+     * - PREVENTIVI presi da 'TOT'
+     * - CONSUNTIVI presi dalla convenzione specifica
+     * - scostamento calcolato su questi due
+     */
+    private function buildSezioneWithPrevFromTotale(
+        int $idTipologia,
+        int $anno,
+        int $idAssociazione,
+        int $idConvenzione
+    ): array {
+        // Voci della tipologia
+        $voci = DB::table('riepilogo_voci_config')
+            ->select('id', 'descrizione', 'ordinamento')
+            ->where('idTipologiaRiepilogo', $idTipologia)
+            ->where('attivo', 1)
+            ->orderBy('ordinamento')
+            ->orderBy('id')
+            ->get();
+
+        // idRiepilogo pivot (crea se manca)
+        $riep = DB::table('riepiloghi')
+            ->where('idAssociazione', $idAssociazione)
+            ->where('idAnno', $anno)
+            ->first();
+
+        $idRiepilogo = $riep
+            ? (int)$riep->idRiepilogo
+            : DB::table('riepiloghi')->insertGetId([
+                'idAssociazione' => $idAssociazione,
+                'idAnno'         => $anno,
+                'created_at'     => now(),
+                'updated_at'     => now(),
+            ], 'idRiepilogo');
+
+        // PREVENTIVI da TOTALE
+        $prevTot = DB::table('riepilogo_dati')
+            ->select('idVoceConfig', DB::raw('COALESCE(SUM(preventivo),0) AS preventivo'))
+            ->where('idRiepilogo', $idRiepilogo)
+            ->where('idConvenzione', 'TOT')
+            ->whereIn('idVoceConfig', $voci->pluck('id'))
+            ->groupBy('idVoceConfig')
+            ->get()
+            ->keyBy('idVoceConfig');
+
+        // CONSUNTIVI per la convenzione specifica (via servizio)
+        $mapCons = RipartizioneCostiService::consuntiviPerVoceByConvenzione($idAssociazione, $anno);
+
+        // Compose righe
+        $out = [];
+        foreach ($voci as $v) {
+            $idVoce = (int)$v->id;
+
+            $prev = (float)($prevTot[$idVoce]->preventivo ?? 0);
+            $cons = (float)($mapCons[$idVoce][$idConvenzione] ?? 0);
+
+            $scost = $prev != 0.0 ? (($cons - $prev) / $prev) * 100 : 0.0;
+
+            $out[] = [
+                'idVoceConfig' => $idVoce,
+                'descrizione'  => $v->descrizione,
+                'preventivo'   => round($prev, 2),
+                'consuntivo'   => round($cons, 2),
+                'scostamento'  => number_format($scost, 2, ',', '.') . '%',
+            ];
+        }
+
+        return $out;
+    }
+
+    /**
+     * true se non ci sono righe o tutti i preventivi sono 0
+     */
+    private function allPreventiviZero($rows): bool {
+        if (empty($rows)) return true;
+        foreach ($rows as $r) {
+            if ((float)($r->preventivo ?? $r['preventivo'] ?? 0) > 0) return false;
+        }
+        return true;
     }
 
     /**

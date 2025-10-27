@@ -1,9 +1,18 @@
 @extends('layouts.app')
+<?php
+  use Illuminate\Support\Facades\DB;
+  $annoCorr = session('anno_riferimento', now()->year);
 
+  $nomeAssociazione = DB::table('associazioni')
+    ->where('idAssociazione', $convenzioni->first()->idAssociazione)
+    ->value('Associazione');
+?>
 @section('content')
 <div class="container">
-  <h1 class="mb-4 container-title">Modifica rimborsi Servizio Civile – Anno {{ $anno }}</h1>
-
+  <h1 class="mb-4 container-title">Modifica rimborsi Servizio Civile </h1>
+  <p class="text-muted mb-4">
+    Associazione: {{ $nomeAssociazione }} – Anno {{ $anno }}
+  </p>
   <form method="POST" action="{{ route('ripartizioni.servizio_civile.update') }}">
     @csrf
     @method('PUT')

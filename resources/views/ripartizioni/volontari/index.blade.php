@@ -70,11 +70,10 @@ async function loadTableData() {
   const table = $('#table-rip-volontari');
   const selectedAssoc = (document.getElementById('assocSelectHidden')?.value || '').trim();
 
-    // distruggi tabella esistente
+  // distruggi tabella esistente
   if ($.fn.DataTable.isDataTable(table)) {
     table.DataTable().clear().destroy();
   }
-
 
   // fetch dati filtrati
   let payload;
@@ -89,7 +88,25 @@ async function loadTableData() {
 
   let data = payload?.data || [];
   let labels = payload?.labels || {};
-  if (!data.length) table.DataTable().clear().destroy();
+
+  // se non ho dati, esco pulito
+  if (!data.length) {
+    table.DataTable({
+      data: [],
+      columns: [],
+      paging: false,
+      searching: false,
+      info: false
+    });
+    return;
+  }
+
+  // Sposta la riga totale in fondo, se presente (FullName === 'Totale volontari' o is_totale === -1)
+  const totIdx = data.findIndex(r => r.is_totale === -1 || r.FullName === 'Totale volontari');
+  if (totIdx !== -1) {
+    const [tot] = data.splice(totIdx, 1);
+    data.push(tot);
+  }
 
   const staticCols = [
     { key:'Associazione', label:'Associazione' },
@@ -101,30 +118,42 @@ async function loadTableData() {
 
   let hMain = '', hSub = '', cols = [];
 
+  // colonne statiche
   staticCols.forEach(c => {
     hMain += `<th rowspan="2">${c.label}</th>`;
     cols.push({ data: c.key });
   });
 
+  // colonne dinamiche per convenzione
   convenzioni.forEach(key => {
     hMain += `<th colspan="2">${labels[key]}</th>`;
     hSub  += `<th>personale</th><th>%</th>`;
     cols.push({ data:`${key}_personale`, defaultContent:0 });
-    cols.push({ data:`${key}_percent`, defaultContent:0 });
+    cols.push({ data:`${key}_percent`,   defaultContent:0 });
   });
 
+  // **Aggiungi colonna Azioni** (come nel template Servizio Civile)
+  hMain += `<th rowspan="2">Azioni</th>`;
+  cols.push({
+    data: null,
+    orderable: false,
+    searchable: false,
+    className: 'col-azioni',
+    render: () => `
+      <a href="{{ route('ripartizioni.volontari.edit') }}" class="btn btn-warning btn-icon" title="Modifica">
+        <i class="fas fa-edit"></i>
+      </a>`
+  });
 
-
+  // render header
   $('#header-main').html(hMain);
   $('#header-main th[colspan]').addClass('border-bottom-special');
   $('#header-sub').html(hSub);
 
-
-
-  console.log('Dati ricevuti:', data);
+  // init DataTable
   table.DataTable({
     stateDuration: -1,
-    stateSave: true, 
+    stateSave: true,
     data,
     columns: cols,
     paging: false,
@@ -135,59 +164,14 @@ async function loadTableData() {
     stripeClasses: ['table-white','table-striped-anpas'],
     rowCallback: function(row, data, index) {
       $(row).removeClass('even odd').addClass(index % 2 === 0 ? 'even' : 'odd');
-      if (data.FullName === 'Totale volontari') $(row).addClass('fw-bold');
+      if (data.FullName === 'Totale volontari' || data.is_totale === -1) {
+        $(row).addClass('fw-bold');
+      }
     }
   });
 }
 
 // carica la tabella al caricamento pagina
 $(document).ready(() => loadTableData());
-</script>
-
-
-<script>
-function setupCustomSelect(formId, inputId, dropdownId, toggleBtnId, hiddenId) {
-  const form = document.getElementById(formId);
-  const input = document.getElementById(inputId);
-  const dropdown = document.getElementById(dropdownId);
-  const toggleBtn = document.getElementById(toggleBtnId);
-  const hidden = document.getElementById(hiddenId);
-  if (!form || !input || !dropdown || !hidden) return;
-
-  function showDropdown() { dropdown.style.display = 'block'; toggleBtn.setAttribute('aria-expanded','true'); }
-  function hideDropdown() { dropdown.style.display = 'none'; toggleBtn.setAttribute('aria-expanded','false'); }
-
-  function filterDropdown(term) {
-    term = (term || '').toLowerCase();
-    dropdown.querySelectorAll('.assoc-item').forEach(li => {
-      li.style.display = (li.textContent || '').toLowerCase().includes(term) ? '' : 'none';
-    });
-  }
-
-  function setSelection(id, name) {
-    hidden.value = id ?? '';
-    input.value = name ?? '';
-    loadTableData(); // ricarica tabella filtrata
-    hideDropdown();
-  }
-
-  dropdown.querySelectorAll('.assoc-item').forEach(li => {
-    li.style.cursor = 'pointer';
-    li.addEventListener('click', () => setSelection(li.dataset.id, li.textContent.trim()));
-  });
-
-  input.addEventListener('input', () => filterDropdown(input.value));
-  toggleBtn.addEventListener('click', () => dropdown.style.display==='block'?hideDropdown():showDropdown());
-  document.addEventListener('click', e => { if (!form.contains(e.target)) hideDropdown(); });
-}
-
-// attiva la select
-setupCustomSelect(
-  "assocSelectForm",
-  "assocSelect",
-  "assocSelectDropdown",
-  "assocSelectToggleBtn",
-  "assocSelectHidden"
-);
 </script>
 @endpush

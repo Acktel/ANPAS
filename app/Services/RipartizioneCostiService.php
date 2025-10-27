@@ -26,19 +26,31 @@ class RipartizioneCostiService {
     ];
     private const IDS_VOLONTARI_RICAVI = [6007, 6008, 6010, 6011, 6012, 6013, 6014];
     // voci a cui applicare la regola Rotazione/Sostitutivi (quelle “azzurre”)
-    private const VOCI_ROT_SOST = [
+    private const VOCI_MEZZI_SOSTITUTIVI = [
         'LEASING/NOLEGGIO A LUNGO TERMINE',
         'ASSICURAZIONI',
         'MANUTENZIONE ORDINARIA',
         'MANUTENZIONE STRAORDINARIA AL NETTO RIMBORSI ASSICURATIVI',
         'PULIZIA E DISINFEZIONE',
-        'CARBURANTI AL NETTO RIMBORSI UTIF',
-        'ADDITIVI',
         'INTERESSI PASS. F.TO, LEASING, NOL.',
         'MANUTENZIONE ATTREZZATURA SANITARIA',
         'LEASING ATTREZZATURA SANITARIA',
         'AMMORTAMENTO AUTOMEZZI',
+        'AMMORTAMENTO ATTREZZATURA SANITARIA',
+        'ALTRI COSTI MEZZI',
     ];
+
+    private const VOCI_ROTAZIONE_MEZZI = [
+        'LEASING/NOLEGGIO A LUNGO TERMINE',
+        'ASSICURAZIONI',
+        'MANUTENZIONE ORDINARIA',
+        'MANUTENZIONE STRAORDINARIA AL NETTO RIMBORSI ASSICURATIVI',
+        'PULIZIA E DISINFEZIONE',
+        'INTERESSI PASS. F.TO, LEASING, NOL.',
+        'AMMORTAMENTO AUTOMEZZI',
+        'ALTRI COSTI MEZZI',
+    ];
+
 
 
     /* ========================= MATERIALE SANITARIO / AUTOMEZZI / RADIO ========================= */
@@ -320,11 +332,11 @@ class RipartizioneCostiService {
                     // 1️⃣ Ammortamento attrezzatura sanitaria → % Servizi
                     $numeratore   = (float)($serviziPerConv[$idConv] ?? 0.0);
                     $denominatore = (float)$totaleServizi;
-                } elseif (in_array($voceLabel, self::VOCI_ROT_SOST, true) && ($rotazioneAttiva[$idConv] ?? false)) {
+                } elseif (in_array($voceLabel, self::VOCI_ROTAZIONE_MEZZI, true) && ($rotazioneAttiva[$idConv] ?? false)) {
                     // 2️⃣ Rotazione attiva → % KM del mezzo sulla convenzione rispetto ai KM totali della convenzione
                     $numeratore   = (float)($kmPerConv[$idConv] ?? 0.0);
-                    $denominatore = (float)($kmTotConvMap[$idConv] ?? 0.0);          
-               //  dd($idAutomezzo ,$numeratore,$denominatore, $kmPerConv,$kmTotConvMap,);
+                    $denominatore = (float)($kmTotConvMap[$idConv] ?? 0.0);
+                    //  dd($idAutomezzo ,$numeratore,$denominatore, $kmPerConv,$kmTotConvMap,);
                 } else {
                     // 3️⃣ Default → % KM del mezzo su tutto l’anno
                     $numeratore   = (float)($kmPerConv[$idConv] ?? 0.0);
@@ -1379,5 +1391,110 @@ class RipartizioneCostiService {
         }
 
         return $riga;
+    }
+
+    /** true se per la convenzione vale il regime “mezzi sostitutivi”:
+     *  - flag abilita_rot_sost = 1
+     *  - è impostato un mezzo titolare
+     *  - %KM del titolare >= 98
+     */
+    private static function isRegimeMezziSostitutivi(int $idConv): bool {
+        $conv = DB::table('convenzioni')
+            ->where('idConvenzione', $idConv)
+            ->where('abilita_rot_sost', 1)
+            ->first();
+        if (!$conv) return false;
+
+        $tit = DB::table('automezzi_km')
+            ->select(DB::raw('idAutomezzo, SUM(KMPercorsi) as km'))
+            ->where('idConvenzione', $idConv)
+            ->groupBy('idAutomezzo')
+            ->orderByDesc('km')
+            ->limit(1)
+            ->first();
+
+        if (!$tit) return false;
+
+        $totConv = DB::table('automezzi_km')
+            ->where('idConvenzione', $idConv)
+            ->sum('KMPercorsi');
+
+        $perc = $totConv > 0 ? ($tit->km / $totConv) * 100 : 0;
+        return $perc >= 98.0;
+    }
+
+    /** true se per la convenzione vale il regime “rotazione mezzi” */
+    private static function isRegimeRotazione(int $idConv): bool {
+        $conv = DB::table('convenzioni')
+            ->where('idConvenzione', $idConv)
+            ->where('abilita_rot_sost', 1)
+            ->first();
+        if (!$conv) return false;
+
+        $tit = DB::table('automezzi_km')
+            ->select(DB::raw('idAutomezzo, SUM(KMPercorsi) as km'))
+            ->where('idConvenzione', $idConv)
+            ->groupBy('idAutomezzo')
+            ->orderByDesc('km')
+            ->limit(1)
+            ->first();
+
+        if (!$tit) return false;
+
+        $totConv = DB::table('automezzi_km')
+            ->where('idConvenzione', $idConv)
+            ->sum('KMPercorsi');
+
+        $perc = $totConv > 0 ? ($tit->km / $totConv) * 100 : 0;
+        return $perc < 98.0;
+    }
+
+    /**
+     * Calcola il COSTO NETTO MEZZI SOSTITUTIVI per ciascuna convenzione:
+     * somma, per convenzione, delle voci in VOCI_MEZZI_SOSTITUTIVI così come ripartite
+     * dalla tabella finale (regole già applicate: km, servizi, rotazione…).
+     *
+     * Ritorna: [ idConvenzione => importo_netto, ... ]
+     * NB: viene considerata SOLO la convenzione in regime “mezzi sostitutivi”.
+     */
+    public static function costoNettoMezziSostitutiviByConvenzione(
+        int $idAssociazione,
+        int $anno
+    ): array {
+        // 1) Convenzioni ordinate
+        $conv = self::convenzioni($idAssociazione, $anno);
+        if (empty($conv)) return [];
+
+        // 2) Tabella totale legacy (somma di tutti i mezzi) già con riparti corretti
+        $tabellaTot = self::calcolaTabellaTotale($idAssociazione, $anno); // array di righe: ['voce', 'totale', '<nomeConv>' => importo]
+
+        // 3) Normalizza descrizioni per il match con le voci sostitutive
+        $target = array_map(fn($s) => self::norm($s), self::VOCI_MEZZI_SOSTITUTIVI);
+
+        // 4) Mappa nome convenzione per lookup rapido
+        $nomeById = $conv;                 // [id => nome]
+        $idsByNome = array_flip($nomeById); // [nome => id]
+
+        // 5) Inizializza output a zero
+        $out = array_fill_keys(array_keys($conv), 0.0);
+
+        // 6) Somma solo le righe target, e solo per convenzioni in regime “mezzi sostitutivi”
+        foreach ($tabellaTot as $riga) {
+            if (empty($riga['voce'])) continue;
+            if (!in_array(self::norm($riga['voce']), $target, true)) continue;
+
+            foreach ($nomeById as $idConv => $nomeConv) {
+                if (!self::isRegimeMezziSostitutivi($idConv)) continue; // mostra/valuta solo se in regime MS
+
+                $val = (float)($riga[$nomeConv] ?? 0.0);
+                if ($val !== 0.0) $out[$idConv] += $val;
+            }
+        }
+
+        // Arrotonda
+        foreach ($out as $k => $v) $out[$k] = round($v, 2);
+
+        // Filtra eventuali convenzioni NON in regime MS (teniamo solo quelle attive)
+        return array_filter($out, fn($cid) => self::isRegimeMezziSostitutivi($cid), ARRAY_FILTER_USE_KEY);
     }
 }

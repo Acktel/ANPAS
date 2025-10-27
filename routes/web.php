@@ -70,4 +70,5 @@ Route::middleware('auth')->group(function () {
     require __DIR__ . '/ripartizioni.php';
     require __DIR__ . '/aziendeSanitarie.php';
     require __DIR__ . '/distintaImputazioneCosti.php';
+    require __DIR__ . '/mezziSostitutivi.php';
 });

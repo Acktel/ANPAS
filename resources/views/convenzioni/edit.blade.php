@@ -5,13 +5,17 @@
   $isImpersonating = session()->has('impersonate');
   $annoCorr = session('anno_riferimento', now()->year);
   $assoCorr = $associazioni->firstWhere('idAssociazione', $conv->idAssociazione);
+
 @endphp
 
 @section('content')
 <div class="container-fluid">
   <h1 class="container-title mb-4">
-    Modifica Convenzione #{{ $conv->idConvenzione }}
+    Modifica Convenzione
   </h1>
+  <p class="text-muted mb-4">
+    Associazione #{{ $assoCorr->Associazione }} — Anno {{ $conv->idAnno }}
+  </p>
 
   {{-- Errori validazione --}}
   @if($errors->any())
@@ -30,34 +34,9 @@
         @csrf
         @method('PUT')
 
+       <input type="hidden" name="idAssociazione" value="{{ $assoCorr->idAssociazione ?? $conv->idAssociazione }}">
+       <input type="hidden" name="idAnno" value="{{ $conv->idAnno }}">
         {{-- Associazione e Anno --}}
-        <div class="row">
-          <div class="col-md-6 mb-3">
-            <label class="form-label">Associazione</label>
-            <input type="text" class="form-control" value="{{ $assoCorr->Associazione ?? '' }}" readonly>
-            <input type="hidden" name="idAssociazione" value="{{ $assoCorr->idAssociazione ?? $conv->idAssociazione }}">
-          </div>
-
-          @if (!$isImpersonating && $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor']))
-            <div class="col-md-6 mb-3">
-              <label for="idAnno" class="form-label">Anno</label>
-              <select name="idAnno" id="idAnno" class="form-select" required>
-                @foreach($anni as $annoRec)
-                  <option value="{{ $annoRec->idAnno }}"
-                    {{ old('idAnno', $conv->idAnno) == $annoRec->idAnno ? 'selected' : '' }}>
-                    {{ $annoRec->idAnno }}
-                  </option>
-                @endforeach
-              </select>
-            </div>
-          @else
-            <div class="col-md-6 mb-3">
-              <label class="form-label">Anno</label>
-              <input type="text" class="form-control" value="{{ $conv->idAnno }}" readonly>
-              <input type="hidden" name="idAnno" value="{{ $conv->idAnno }}">
-            </div>
-          @endif
-        </div>
 
         {{-- Descrizione --}}
         <div class="row">

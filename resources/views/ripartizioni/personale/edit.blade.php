@@ -8,8 +8,11 @@ $nomeCompleto = $dipendente->DipendenteNome . ' ' . $dipendente->DipendenteCogno
 @section('content')
 <div class="container">
   <h1 class="container-title mb-4">
-    Modifica Ripartizione – Dipendente: {{ $nomeCompleto }} – Anno {{ $anno }}
+    Modifica Ripartizione  
   </h1>
+  <p class="text-muted mb-4">
+    Dipendente: {{ $nomeCompleto }} – Anno {{ $anno }}
+  </p>
 
   <form method="POST" action="{{ route('ripartizioni.personale.update', $idDipendente) }}">
     @csrf
