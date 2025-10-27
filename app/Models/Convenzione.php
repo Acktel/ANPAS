@@ -37,30 +37,47 @@ class Convenzione {
     /**
      * Convenzioni per anno e (opzionalmente) filtro utente.
      */
-    public static function getByAnno(int $anno, $idAssociazione = null): Collection {
-       
-        $sql = "
-            SELECT
-                c.idConvenzione,
-                c.idAssociazione,
-                c.idAnno,
-                c.Convenzione,
-                c.materiale_fornito_asl,
-                c.abilita_rot_sost,
-                c.created_at
-            FROM " . self::TABLE . " AS c
-            WHERE c.idAnno = :anno
-            AND c.idAssociazione = :idAssociazione
-            ORDER BY c.Convenzione
-        ";
+    public static function getByAnno(int $anno, $userOrIdAssociazione = null): Collection {
+        // Determina l'id associazione in modo flessibile
+        $idAssociazione = null;
 
-        $params = [
-            'anno' => $anno,
-            'idAssociazione' => $idAssociazione
-        ];
+        if (is_int($userOrIdAssociazione)) {
+            $idAssociazione = $userOrIdAssociazione;
+        } elseif (is_object($userOrIdAssociazione) && method_exists($userOrIdAssociazione, 'hasAnyRole')) {
+            // era la vecchia firma: User|null
+            /** @var \App\Models\User $user */
+            $user = $userOrIdAssociazione;
+            if (!$user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])) {
+                $idAssociazione = (int) $user->IdAssociazione;
+            }
+        }
 
-        return collect(DB::select($sql, $params));
+        // Costruisci SQL con filtro opzionale su idAssociazione
+        $baseSql = "
+        SELECT
+            c.idConvenzione,
+            c.idAssociazione,
+            c.idAnno,
+            c.Convenzione,
+            c.materiale_fornito_asl,
+            c.abilita_rot_sost,
+            c.created_at
+        FROM " . self::TABLE . " AS c
+        WHERE c.idAnno = :anno
+    ";
+
+        $params = ['anno' => $anno];
+
+        if (!is_null($idAssociazione)) {
+            $baseSql .= " AND c.idAssociazione = :idAssociazione";
+            $params['idAssociazione'] = $idAssociazione;
+        }
+
+        $baseSql .= " ORDER BY c.Convenzione";
+
+        return collect(DB::select($baseSql, $params));
     }
+
 
     /**
      * Convenzioni per specifica associazione (e anno).

@@ -63,7 +63,6 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
         $this->onQueue('excel');
     }
 
-    /* ===================== HANDLE ===================== */
     public function middleware(): array {
         $key = "xls-schede-riparto-{$this->idAssociazione}-{$this->anno}-doc{$this->documentoId}";
         return [(new WithoutOverlapping($key))->expireAfter(300)->releaseAfter(15)];
@@ -71,6 +70,7 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
 
     /* ===================== HANDLE ===================== */
     public function handle(): void {
+        $this->setupSpreadsheetCaching();
         Log::info('SchedeRipartoCosti V3: START', [
             'documentoId' => $this->documentoId,
             'idAss' => $this->idAssociazione,
@@ -807,11 +807,11 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
     }
 
     /** VOLONTARI */
-    /** VOLONTARI */
     private function blockVolontari(Worksheet $sheet, array $tpl, $convenzioni, array $ricaviMap, array $logos): int {
         // detectVolontariHeader deve restituire: [headerRow, firstPairCol, labelCol]
         [$headerRow, $firstPairCol, $labelCol] = $this->detectVolontariHeader($sheet, $tpl);
-
+        $labelCol = $labelCol ?: 1;
+        $firstPairCol = max($firstPairCol, $labelCol + 1);
         $usedPairs   = max(1, $convenzioni->count());
         $lastUsedCol = $firstPairCol + ($usedPairs * 2) - 1;
 
@@ -1711,6 +1711,7 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
     }
 
     private function detectVolontariHeader(Worksheet $sheet, array $tpl): array {
+        // 1) Trova la riga header (dove compaiono PERSONALE o %)
         $headerRow = $tpl['startRow'] + 1;
         for ($r = $tpl['startRow']; $r <= min($tpl['startRow'] + 60, $tpl['endRow']); $r++) {
             for ($c = 1; $c <= 80; $c++) {
@@ -1721,18 +1722,31 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                 }
             }
         }
-        // prima coppia disponibile
-        $firstPairCol = 2;
-        for ($c = 2; $c <= 80; $c++) {
-            $v  = (string)$sheet->getCellByColumnAndRow($c, $headerRow)->getValue();
-            $v2 = (string)$sheet->getCellByColumnAndRow($c + 1, $headerRow)->getValue();
-            if ($v !== '' || $v2 !== '') {
+
+        // 2) Colonna etichetta (PERSONALE) se presente
+        $labelCol = 1;
+        for ($c = 1; $c <= 120; $c++) {
+            $t = mb_strtoupper(trim((string)$sheet->getCellByColumnAndRow($c, $headerRow)->getValue()));
+            if ($t === 'PERSONALE') {
+                $labelCol = $c;
+                break;
+            }
+        }
+
+        // 3) Prima coppia disponibile (UNITÀ / %) subito a destra della label
+        $firstPairCol = $labelCol + 1;
+        for ($c = $firstPairCol; $c <= 80; $c++) {
+            $vL = (string)$sheet->getCellByColumnAndRow($c,     $headerRow)->getValue();
+            $vR = (string)$sheet->getCellByColumnAndRow($c + 1, $headerRow)->getValue();
+            if ($vL !== '' || $vR !== '') {
                 $firstPairCol = $c;
                 break;
             }
         }
-        return [$headerRow, $firstPairCol];
+
+        return [$headerRow, $firstPairCol, $labelCol];
     }
+
 
     private function detectServizioCivileHeader(Worksheet $sheet, array $tpl): array {
         // trova la riga header (quella dove compaiono PERSONALE | UNITA' DI SERVIZIO | %)
@@ -1975,15 +1989,6 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
         Log::debug('Mappa colonne COSTI AUTOMEZZI (senza TOTALE-colonna)', $cols);
         return [$headerRow, $cols];
     }
-
-
-
-
-
-
-
-
-
 
     /** Trova header e colonne fisse del blocco A&B con INPS/INAIL separati */
     private function detectRipartoABHeaderAndCols(Worksheet $sheet, array $tpl): array {
@@ -3195,11 +3200,14 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
     }
 
 
-    private function formatAsCurrency(Worksheet $s, int $r1, int $r2, int $col): void {
-        $range = Coordinate::stringFromColumnIndex($col) . $r1 . ':' .
-            Coordinate::stringFromColumnIndex($col) . $r2;
-        // formato € italiano (puoi cambiarlo)
-        $s->getStyle($range)->getNumberFormat()->setFormatCode('#,##0.00');
+    /** Formatta come valuta una o più colonne (col singolo o range colStart..colEnd) tra le righe r1..r2. */
+    private function formatAsCurrency(Worksheet $s, int $r1, int $r2, int $colStart, ?int $colEnd = null): void {
+        $colEnd ??= $colStart;
+        for ($c = $colStart; $c <= $colEnd; $c++) {
+            $range = Coordinate::stringFromColumnIndex($c) . $r1 . ':' .
+                Coordinate::stringFromColumnIndex($c) . $r2;
+            $s->getStyle($range)->getNumberFormat()->setFormatCode('#,##0.00');
+        }
     }
 
     private function addSheetAfter(
@@ -3338,8 +3346,8 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
         $this->replacePlaceholdersEverywhere($newSheet, [
             'nome_associazione' => $nomeAssociazione,
             'anno_riferimento'  => (string)$anno,
-            'nome_convenzione'  => (string)$conv->Convenzione,
-            'convenzione'       => (string)$conv->Convenzione,
+            'nome_convenzione'  => (string)$nomeConvenzione,
+            'convenzione'       => (string)$nomeConvenzione,
         ]);
 
         // Scrivi SOLO la Tabella 1 (Tipologia 1) sotto l’header PREVENTIVO/CONSUNTIVO
@@ -3376,6 +3384,9 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
     /** Trova la riga header “Voce / Preventivo / Consuntivo” e relative colonne.
      * Ritorna: headerRow, firstDataRow, colVoce, colPrev, colCons.
      */
+    /** Trova la riga header “Voce / Preventivo / Consuntivo” e relative colonne.
+     * Ritorna: headerRow, firstDataRow, colVoce, colPrev, colCons, colScost (opz.), lastHeaderCol
+     */
     private function detectPrevConsHeader(Worksheet $ws): array {
         $maxR = $ws->getHighestRow();
         $maxC = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::columnIndexFromString($ws->getHighestColumn());
@@ -3386,16 +3397,28 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
         };
 
         for ($r = 1; $r <= $maxR; $r++) {
-            $colVoce = $colPrev = $colCons = 0;
+            $colVoce = $colPrev = $colCons = $colScost = 0;
+            $lastHeaderCol = 0;
+
             for ($c = 1; $c <= $maxC; $c++) {
                 $t = $norm($ws->getCellByColumnAndRow($c, $r)->getValue());
-                if ($t === 'VOCE'       && !$colVoce) $colVoce = $c;
-                if ($t === 'PREVENTIVO' && !$colPrev) $colPrev = $c;
-                if ($t === 'CONSUNTIVO' && !$colCons) $colCons = $c;
+                if ($t === '') continue;
+
+                // campi principali
+                if (!$colVoce && ($t === 'VOCE')) $colVoce = $c;
+                if (!$colPrev && (str_starts_with($t, 'PREVENTIVO'))) $colPrev = $c;
+                if (!$colCons && (str_starts_with($t, 'CONSUNTIVO'))) $colCons = $c;
+
+                // campo opzionale: “% SCOSTAMENTO”, “SCOSTAMENTO %”, “SCOSTAMENTO”
+                if (!$colScost && (str_contains($t, 'SCOST') || str_contains($t, '%'))) $colScost = $c;
+
+                $lastHeaderCol = max($lastHeaderCol, $c);
             }
+
+            // header valido se ho almeno prev+cons
             if ($colPrev && $colCons) {
                 if (!$colVoce) {
-                    // prima non-vuota a sinistra dei numerici
+                    // prima colonna non vuota a sinistra dei numerici
                     for ($c = min($colPrev, $colCons) - 1; $c >= 1; $c--) {
                         $v = $ws->getCellByColumnAndRow($c, $r)->getValue();
                         if ($v !== null && $v !== '') {
@@ -3403,20 +3426,36 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                             break;
                         }
                     }
-                    if (!$colVoce) $colVoce = 3; // fallback: C
+                    if (!$colVoce) $colVoce = 3; // fallback
                 }
+
+                // se l’header ha celle oltre i tre campi, tienine conto
+                $lastHeaderCol = max($lastHeaderCol, $colVoce, $colPrev, $colCons, $colScost ?: 0);
+
                 return [
-                    'headerRow'    => $r,
-                    'firstDataRow' => $r + 1,
-                    'colVoce'      => $colVoce,
-                    'colPrev'      => $colPrev,
-                    'colCons'      => $colCons,
+                    'headerRow'     => $r,
+                    'firstDataRow'  => $r + 1,
+                    'colVoce'       => $colVoce,
+                    'colPrev'       => $colPrev,
+                    'colCons'       => $colCons,
+                    'colScost'      => $colScost ?: null, // opzionale
+                    'lastHeaderCol' => $lastHeaderCol,
                 ];
             }
         }
-        // Fallback coerente col tuo template: C/E/F
-        return ['headerRow' => 6, 'firstDataRow' => 7, 'colVoce' => 3, 'colPrev' => 5, 'colCons' => 6];
+
+        // Fallback coerente col template classico
+        return [
+            'headerRow'     => 6,
+            'firstDataRow'  => 7,
+            'colVoce'       => 3,
+            'colPrev'       => 5,
+            'colCons'       => 6,
+            'colScost'      => null,
+            'lastHeaderCol' => 6,
+        ];
     }
+
 
 
     /**
@@ -4200,5 +4239,28 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
         ];
         $ws->getStyle($range)->applyFromArray($all);
         $ws->getStyle($range)->applyFromArray($outer);
+    }
+
+    private function setupSpreadsheetCaching(): void {
+        try {
+            // Vecchie versioni (< 2.x): usa CachedObjectStorageFactory + Settings
+            if (
+                class_exists(\PhpOffice\PhpSpreadsheet\CachedObjectStorageFactory::class)
+                && class_exists(\PhpOffice\PhpSpreadsheet\Settings::class)
+            ) {
+
+                \PhpOffice\PhpSpreadsheet\Settings::setCacheStorageMethod(
+                    \PhpOffice\PhpSpreadsheet\CachedObjectStorageFactory::cache_to_phpTemp,
+                    ['memoryCacheSize' => '256MB']
+                );
+                \Log::info('PhpSpreadsheet: cache_to_phpTemp attivata (legacy API).');
+                return;
+            }
+
+            // Versioni nuove (>= 2.x): le classi di cache legacy non esistono -> non fare nulla.
+            Log::info('PhpSpreadsheet: nessun caching legacy disponibile; continuo senza setup esplicito.');
+        } catch (\Throwable $e) {
+            Log::warning('PhpSpreadsheet: setup caching fallito (ignorabile).', ['err' => $e->getMessage()]);
+        }
     }
 }
