@@ -19,18 +19,33 @@
           <!-- TITOLO -->
           <h2 class="h3 text-center mb-3">Login to your account</h2>
 
+          <!-- ALERT GLOBALE ERRORI / STATUS -->
+          @if ($errors->has('email') || $errors->has('password') || session('status') || session('error'))
+            <div class="alert alert-danger">
+              {{ $errors->first('email') ?? $errors->first('password') ?? session('error') ?? session('status') }}
+            </div>
+          @endif
+
           <!-- FORM -->
-          <form method="POST" action="{{ route('login') }}" autocomplete="off" novalidate>
+          <form method="POST" action="{{ route('login') }}" autocomplete="on">
             @csrf
 
             <!-- EMAIL -->
             <div class="mb-3">
               <label class="form-label" for="email">Email address</label>
-              <input id="email" type="email"
-                     class="form-control @error('email') is-invalid @enderror"
-                     name="email" value="{{ old('email') }}"
-                     required autocomplete="email" autofocus
-                     placeholder="you@example.com">
+              <input
+                id="email"
+                type="email"
+                name="email"
+                class="form-control @error('email') is-invalid @enderror"
+                value="{{ old('email') }}"
+                required
+                inputmode="email"
+                autocomplete="username"
+                autocapitalize="none"
+                spellcheck="false"
+                placeholder="you@example.com"
+              >
               @error('email')
                 <div class="invalid-feedback">{{ $message }}</div>
               @enderror
@@ -46,23 +61,32 @@
                   @endif
                 </span>
               </label>
+
               <div class="input-group input-group-flat">
-                <input id="password" type="password"
-                       class="form-control @error('password') is-invalid @enderror"
-                       name="password" required autocomplete="current-password"
-                       placeholder="Your password">
+                <input
+                  id="password"
+                  type="password"
+                  name="password"
+                  class="form-control @error('password') is-invalid @enderror"
+                  required
+                  autocomplete="current-password"
+                  placeholder="Your password"
+                >
                 <span class="input-group-text">
-                  <a href="#" id="togglePassword" class="link-secondary" data-bs-toggle="tooltip" title="Show password">
+                  <a href="#" id="togglePassword" class="link-secondary" role="button"
+                     aria-pressed="false" data-bs-toggle="tooltip" title="Show password">
                     <!-- icona “occhio” -->
                     <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24"
                          viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"
-                         fill="none" stroke-linecap="round" stroke-linejoin="round">
+                         fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                       <path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0"></path>
                       <path d="M21 12c-2.4 4 -5.4 6 -9 6c-3.6 0 -6.6 -2 -9 -6c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6"></path>
                     </svg>
+                    <span class="visually-hidden">Toggle password visibility</span>
                   </a>
                 </span>
               </div>
+
               @error('password')
                 <div class="invalid-feedback d-block">{{ $message }}</div>
               @enderror
@@ -71,9 +95,12 @@
             <!-- REMEMBER -->
             <div class="mb-3">
               <label class="form-check">
-                <input type="checkbox" name="remember"
-                       class="form-check-input"
-                       {{ old('remember') ? 'checked' : '' }}>
+                <input
+                  type="checkbox"
+                  name="remember"
+                  class="form-check-input"
+                  {{ old('remember') ? 'checked' : '' }}
+                >
                 <span class="form-check-label">Remember me on this device</span>
               </label>
             </div>
@@ -99,27 +126,22 @@
 </div>
 @endsection
 
-
-
-
-
-
-
-
-
-
-
 @push('scripts')
 <script>
 document.addEventListener('DOMContentLoaded', () => {
   const togglePassword = document.getElementById('togglePassword');
-  const passwordInput = document.getElementById('password');
+  const passwordInput  = document.getElementById('password');
 
-  togglePassword.addEventListener('click', function(e) {
-    e.preventDefault();
-    const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
-    passwordInput.setAttribute('type', type);
-  });
+  if (togglePassword && passwordInput) {
+    togglePassword.addEventListener('click', function(e) {
+      e.preventDefault();
+      const isPw = passwordInput.getAttribute('type') === 'password';
+      passwordInput.setAttribute('type', isPw ? 'text' : 'password');
+      this.setAttribute('aria-pressed', String(isPw));
+      // opzionale: cambia title tooltip
+      this.setAttribute('title', isPw ? 'Hide password' : 'Show password');
+    });
+  }
 });
 </script>
 @endpush

@@ -14,7 +14,7 @@
     </div>
   @endif
 
-  <form action="{{ route('all-users.store') }}" method="POST">
+  <form action="{{ route('all-users.store') }}" method="POST" novalidate>
     @csrf
 
     <div class="card-anpas">
@@ -31,23 +31,33 @@
         </div>
 
         <div class="col-md-6">
-          <label for="username" class="form-label">Username</label>
-          <input type="text" class="form-control" name="username" value="{{ old('username') }}" required>
-        </div>
-
-        <div class="col-md-6">
           <label for="email" class="form-label">Email</label>
-          <input type="email" class="form-control" name="email" value="{{ old('email') }}" required>
+          <input
+            type="text" inputmode="email"
+            class="form-control"
+            name="email" value="{{ old('email') }}"
+            required autocomplete="off" spellcheck="false">
         </div>
 
+        {{-- Password con occhietto --}}
         <div class="col-md-6">
           <label for="password" class="form-label">Password</label>
-          <input type="password" class="form-control" name="password" required>
+          <div class="input-group input-group-flat">
+            <input type="password" class="form-control" name="password" id="password" required autocomplete="new-password">
+            <button class="btn btn-outline-secondary" type="button" id="togglePassword" aria-label="Mostra/Nascondi password" title="Mostra/Nascondi">
+              <i class="fas fa-eye" aria-hidden="true"></i>
+            </button>
+          </div>
         </div>
 
         <div class="col-md-6">
           <label for="password_confirmation" class="form-label">Conferma Password</label>
-          <input type="password" class="form-control" name="password_confirmation" required>
+          <div class="input-group input-group-flat">
+            <input type="password" class="form-control" name="password_confirmation" id="password_confirmation" required autocomplete="new-password">
+            <button class="btn btn-outline-secondary" type="button" id="togglePasswordConfirm" aria-label="Mostra/Nascondi conferma" title="Mostra/Nascondi">
+              <i class="fas fa-eye" aria-hidden="true"></i>
+            </button>
+          </div>
         </div>
 
         @php
@@ -59,7 +69,6 @@
         {{-- Associazione --}}
         <div class="col-md-6">
           <label for="IdAssociazione" class="form-label">Associazione</label>
-
           @if($isElevated)
             <select name="IdAssociazione" class="form-select" required>
               <option value="">-- seleziona --</option>
@@ -95,10 +104,12 @@
         </div>
 
         <div class="col-12 mt-3 text-center">
-          <button type="submit" class="btn btn-anpas-green"><i class="fas fa-check me-1"></i>Salva Modifiche</button>
-        <a href="{{ route('all-users.index', ['idAssociazione' => $selectedAssoc]) }}" class="btn btn-secondary ms-2">
-          <i class="fas fa-times me-1"></i>Annulla
-        </a>
+          <button type="submit" class="btn btn-anpas-green">
+            <i class="fas fa-check me-1"></i>Crea Utente
+          </button>
+          <a href="{{ route('all-users.index', ['idAssociazione' => $selectedAssoc]) }}" class="btn btn-secondary ms-2">
+            <i class="fas fa-times me-1"></i>Annulla
+          </a>
         </div>
 
       </div>
@@ -106,3 +117,28 @@
   </form>
 </div>
 @endsection
+
+@push('scripts')
+<script>
+(function() {
+  function bindToggle(btnId, inputId) {
+    const btn = document.getElementById(btnId);
+    const input = document.getElementById(inputId);
+    if (!btn || !input) return;
+    btn.addEventListener('click', function () {
+      const isPwd = input.getAttribute('type') === 'password';
+      input.setAttribute('type', isPwd ? 'text' : 'password');
+      const icon = this.querySelector('i');
+      if (icon) {
+        icon.classList.toggle('fa-eye');
+        icon.classList.toggle('fa-eye-slash');
+      }
+    });
+  }
+  document.addEventListener('DOMContentLoaded', function() {
+    bindToggle('togglePassword', 'password');
+    bindToggle('togglePasswordConfirm', 'password_confirmation');
+  });
+})();
+</script>
+@endpush

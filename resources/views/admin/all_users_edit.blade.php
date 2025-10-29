@@ -32,11 +32,6 @@
         </div>
 
         <div class="col-md-6">
-          <label for="username" class="form-label">Username</label>
-          <input type="text" class="form-control" name="username" value="{{ old('username', $user->username) }}" required>
-        </div>
-
-        <div class="col-md-6">
           <label for="email" class="form-label">Email</label>
           <input type="email" class="form-control" name="email" value="{{ old('email', $user->email) }}" required>
         </div>
@@ -80,16 +75,26 @@
           </select>
         </div>
 
-        {{-- Password opzionale --}}
-        <div class="col-md-6">
-          <label for="password" class="form-label">Nuova Password (opzionale)</label>
-          <input type="password" class="form-control" name="password">
+      {{-- Password opzionale --}}
+      <div class="col-md-6">
+        <label for="password" class="form-label">Nuova Password (opzionale)</label>
+        <div class="input-group input-group-flat">
+          <input type="password" class="form-control" name="password" id="password" autocomplete="new-password">
+          <button class="btn btn-outline-secondary" type="button" id="togglePassword" aria-label="Mostra/Nascondi password" title="Mostra/Nascondi">
+            <i class="fas fa-eye" aria-hidden="true"></i>
+          </button>
         </div>
+      </div>
 
-        <div class="col-md-6">
-          <label for="password_confirmation" class="form-label">Conferma Password</label>
-          <input type="password" class="form-control" name="password_confirmation">
+      <div class="col-md-6">
+        <label for="password_confirmation" class="form-label">Conferma Password</label>
+        <div class="input-group input-group-flat">
+          <input type="password" class="form-control" name="password_confirmation" id="password_confirmation" autocomplete="new-password">
+          <button class="btn btn-outline-secondary" type="button" id="togglePasswordConfirm" aria-label="Mostra/Nascondi conferma" title="Mostra/Nascondi">
+            <i class="fas fa-eye" aria-hidden="true"></i>
+          </button>
         </div>
+      </div>
 
           <div class="col-md-6">
             <label for="note" class="form-label">Note</label>
@@ -108,3 +113,29 @@
   </form>
 </div>
 @endsection
+@push('scripts')
+<script>
+(function() {
+  function bindToggle(btnId, inputId) {
+    const btn = document.getElementById(btnId);
+    const input = document.getElementById(inputId);
+    if (!btn || !input) return;
+
+    btn.addEventListener('click', function () {
+      const isPwd = input.getAttribute('type') === 'password';
+      input.setAttribute('type', isPwd ? 'text' : 'password');
+      const icon = this.querySelector('i');
+      if (icon) {
+        icon.classList.toggle('fa-eye');
+        icon.classList.toggle('fa-eye-slash');
+      }
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', function() {
+    bindToggle('togglePassword', 'password');
+    bindToggle('togglePasswordConfirm', 'password_confirmation');
+  });
+})();
+</script>
+@endpush

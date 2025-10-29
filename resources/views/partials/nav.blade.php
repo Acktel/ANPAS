@@ -3,9 +3,10 @@
 @auth
 @php
 $assocCorr = \App\Models\Associazione::getById(Auth::user()->IdAssociazione)->Associazione;
-if (!$assocCorr || $assocCorr === 'Anpas Nazionale') {
+if (!$assocCorr || $assocCorr === 'Anpas Nazionale'|| empty($assocCorr)) {
 $assocCorr = 'Anpas Nazionale';
 }
+
 @endphp
 @endauth
 
@@ -22,7 +23,7 @@ $assocCorr = 'Anpas Nazionale';
             {{-- Utente --}}
             <div class="user-section">
                 <small>Utente</small>
-                <div class="fw-bold">{{ $assocCorr }}</div>
+                <div class="fw-bold">{{ $assocCorr ?? 'Anpas' }}</div>
             </div>
             {{-- Separatore verticale --}}
             <div class="vr mx-0"></div>

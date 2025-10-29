@@ -79,35 +79,41 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
         ]);
 
         // ---- PhpSpreadsheet: cache memoria/disk (PRIMA di usare Spreadsheet/IOFactory) ----
-        try {
-            $tmpDir = storage_path('app/tmp');
-            if (!is_dir($tmpDir)) @mkdir($tmpDir, 0775, true);
+        // ---- PhpSpreadsheet: cache memoria/disk (PRIMA di usare Spreadsheet/IOFactory) ----
+try {
+    $tmpDir = storage_path('app/tmp');
+    if (!is_dir($tmpDir)) @mkdir($tmpDir, 0775, true);
 
-            // 1) PhpSpreadsheet >= 1.29 → Settings::setCache(new CachedObjectStorage\PhpTemp(...))
-            if (
-                method_exists(\PhpOffice\PhpSpreadsheet\Settings::class, 'setCache') &&
-                class_exists(\PhpOffice\PhpSpreadsheet\CachedObjectStorage\PhpTemp::class)
-            ) {
-                \PhpOffice\PhpSpreadsheet\Settings::setCache(
-                    new \PhpOffice\PhpSpreadsheet\CachedObjectStorage\PhpTemp([
-                        'memoryCacheSize' => '64MB',
-                    ])
-                );
-
-                // 2) PhpSpreadsheet 1.24–1.28 → factory legacy
-            } elseif (class_exists(\PhpOffice\PhpSpreadsheet\CachedObjectStorageFactory::class)) {
-                \PhpOffice\PhpSpreadsheet\Settings::setCacheStorageMethod(
-                    \PhpOffice\PhpSpreadsheet\CachedObjectStorageFactory::cache_to_phpTemp,
-                    ['memoryCacheSize' => '64MB']
-                );
-            }
-
-            if (defined('LIBXML_COMPACT')) {
-                \PhpOffice\PhpSpreadsheet\Settings::setLibXmlLoaderOptions(LIBXML_COMPACT);
-            }
-        } catch (Throwable $e) {
-            Log::warning('PhpSpreadsheet cache setup failed', ['err' => $e->getMessage()]);
+    // Preferisci API nuove se presenti
+    if (class_exists(\PhpOffice\PhpSpreadsheet\Settings::class)) {
+        // 1) API >= 1.29 con Settings::setCache + PhpTemp (se disponibile)
+        if (
+            method_exists(\PhpOffice\PhpSpreadsheet\Settings::class, 'setCache') &&
+            class_exists(\PhpOffice\PhpSpreadsheet\CachedObjectStorage\PhpTemp::class)
+        ) {
+            \PhpOffice\PhpSpreadsheet\Settings::setCache(
+                new \PhpOffice\PhpSpreadsheet\CachedObjectStorage\PhpTemp([
+                    'memoryCacheSize' => '64MB',
+                ])
+            );
         }
+        // 2) Fallback legacy 1.24–1.28 (factory)
+        elseif (class_exists(\PhpOffice\PhpSpreadsheet\CachedObjectStorageFactory::class)) {
+            \PhpOffice\PhpSpreadsheet\Settings::setCacheStorageMethod(
+                \PhpOffice\PhpSpreadsheet\CachedObjectStorageFactory::cache_to_phpTemp,
+                ['memoryCacheSize' => '64MB']
+            );
+        }
+        // 3) Ultimo fallback: nessun cache custom → ok, prosegui
+        // (non fare nulla)
+        
+        if (defined('LIBXML_COMPACT')) {
+            \PhpOffice\PhpSpreadsheet\Settings::setLibXmlLoaderOptions(LIBXML_COMPACT);
+        }
+    }
+} catch (\Throwable $e) {
+    \Log::warning('PhpSpreadsheet cache setup failed (safe fallback)', ['err' => $e->getMessage()]);
+}
 
         // -------------------------------------------------------------------------------
 
@@ -120,7 +126,7 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
 
             // dati condivisi
             $automezzi   = Automezzo::getByAssociazione($this->idAssociazione, $this->anno)->sortBy('idAutomezzo')->values();
-            $convenzioni = Convenzione::getByAnno($this->anno, $this->idAssociazione);
+            $convenzioni = Convenzione::getByAssociazioneAnno($this->idAssociazione, $this->anno);
             $numConv     = $convenzioni->count();
 
             // workbook
@@ -403,17 +409,28 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
             gc_collect_cycles();
         } catch (Throwable $e) {
             Log::error('SchedeRipartoCosti V3: exception', [
-                'documentoId' => $this->documentoId,
-                'idAssociazione' => $this->idAssociazione,
-                'anno' => $this->anno,
-                'msg' => $e->getMessage(),
-                'file' => $e->getFile(),
-                'line' => $e->getLine(),
+                'documentoId'     => $this->documentoId,
+                'idAssociazione'  => $this->idAssociazione,
+                'anno'            => $this->anno,
+                'msg'             => $e->getMessage(),
+                'file'            => $e->getFile(),
+                'line'            => $e->getLine(),
             ]);
+        
             DB::table('documenti_generati')->where('id', $this->documentoId)
-                ->update(['stato' => 'error', 'updated_at' => now()]);
-            throw $e;
+                ->update([
+                    'stato'       => 'error',
+                    'updated_at'  => now(),
+                    'errore_note' => substr($e->getMessage(), 0, 1900), // opzionale: salva msg breve
+                ]);
+        
+            // NON rilanciare. Segna il job come failed e termina.
+            if (method_exists($this, 'fail')) {
+                $this->fail($e); // InteractsWithQueue
+            }
+            return; // stop
         }
+
     }
 
     /* ===================== BLOCCHI (ritornano SEMPRE l’ultima riga usata) ===================== */
@@ -4278,28 +4295,65 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
         $ws->getStyle($range)->applyFromArray($outer);
     }
 
-    private function setupSpreadsheetCaching(): void {
+    
+    private function setupSpreadsheetCaching(): void
+    {
         try {
-            // Vecchie versioni (< 2.x): usa CachedObjectStorageFactory + Settings
-            if (
-                class_exists(\PhpOffice\PhpSpreadsheet\CachedObjectStorageFactory::class)
-                && class_exists(\PhpOffice\PhpSpreadsheet\Settings::class)
-            ) {
-
-                \PhpOffice\PhpSpreadsheet\Settings::setCacheStorageMethod(
-                    \PhpOffice\PhpSpreadsheet\CachedObjectStorageFactory::cache_to_phpTemp,
-                    ['memoryCacheSize' => '256MB']
-                );
-                \Log::info('PhpSpreadsheet: cache_to_phpTemp attivata (legacy API).');
-                return;
+            $tmpDir = storage_path('app/phpss_cache');
+            if (!is_dir($tmpDir)) @mkdir($tmpDir, 0775, true);
+    
+            // Nuove versioni (>= 1.29): Settings::setCache(new PhpTemp(...)) o FileCache
+            if (method_exists(\PhpOffice\PhpSpreadsheet\Settings::class, 'setCache')) {
+                if (class_exists(\PhpOffice\PhpSpreadsheet\CachedObjectStorage\PhpTemp::class)) {
+                    \PhpOffice\PhpSpreadsheet\Settings::setCache(
+                        new \PhpOffice\PhpSpreadsheet\CachedObjectStorage\PhpTemp([
+                            'memoryCacheSize' => '64MB',
+                        ])
+                    );
+                    \Log::info('PhpSpreadsheet: cache = PhpTemp (64MB).');
+                    return;
+                }
+                if (class_exists(\PhpOffice\PhpSpreadsheet\CachedObjectStorage\File::class)) {
+                    \PhpOffice\PhpSpreadsheet\Settings::setCache(
+                        new \PhpOffice\PhpSpreadsheet\CachedObjectStorage\File([
+                            'dir' => $tmpDir,
+                        ])
+                    );
+                    \Log::info('PhpSpreadsheet: cache = File (dir='.$tmpDir.').');
+                    return;
+                }
             }
-
-            // Versioni nuove (>= 2.x): le classi di cache legacy non esistono -> non fare nulla.
-            Log::info('PhpSpreadsheet: nessun caching legacy disponibile; continuo senza setup esplicito.');
-        } catch (Throwable $e) {
-            Log::warning('PhpSpreadsheet: setup caching fallito (ignorabile).', ['err' => $e->getMessage()]);
+    
+            // Legacy (1.24–1.28): factory
+            if (class_exists(\PhpOffice\PhpSpreadsheet\CachedObjectStorageFactory::class)) {
+                $ok = \PhpOffice\PhpSpreadsheet\CachedObjectStorageFactory::initialize(
+                    \PhpOffice\PhpSpreadsheet\CachedObjectStorageFactory::cache_to_phpTemp,
+                    ['memoryCacheSize' => '64MB']
+                );
+                if (!$ok) {
+                    $ok = \PhpOffice\PhpSpreadsheet\CachedObjectStorageFactory::initialize(
+                        \PhpOffice\PhpSpreadsheet\CachedObjectStorageFactory::cache_to_discISAM,
+                        ['dir' => $tmpDir]
+                    );
+                    if ($ok) {
+                        \Log::info('PhpSpreadsheet (legacy): cache = discISAM (dir='.$tmpDir.').');
+                        return;
+                    }
+                } else {
+                    \Log::info('PhpSpreadsheet (legacy): cache = phpTemp (64MB).');
+                    return;
+                }
+            }
+    
+            \Log::info('PhpSpreadsheet: nessun caching disponibile; continuo senza setup esplicito.');
+        } catch (\Throwable $e) {
+            \Log::warning('PhpSpreadsheet cache setup failed', ['err' => $e->getMessage()]);
         }
     }
+
+    
+    
+    
     /**
      * Appende un template XLSX (primo foglio) in $sheet a partire da $startRow,
      * mantenendo valori, stili, merge e altezze di riga.
@@ -4610,243 +4664,258 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
         return $totRow + 2;
     }
 
-    private function fillRotazioneMezzi(
-        Worksheet $sheet,
-        array $tpl,          // ['startRow'=>int,'endRow'=>int]
-        int $idAssociazione,
-        int $anno
-    ): int {
-        // 0) Convenzioni in ROTAZIONE (abilita_rot_sost=1 e titolare < 98%)
-        $all = \DB::table('convenzioni')
-            ->select('idConvenzione', 'Convenzione', 'ordinamento', 'abilita_rot_sost')
-            ->where('idAssociazione', $idAssociazione)
-            ->where('idAnno', $anno)
-            ->where('abilita_rot_sost', 1)
-            ->orderBy('ordinamento')->orderBy('idConvenzione')
-            ->get();
+   
+   /**
+ * Compila il blocco “Rotazione mezzi” sul range appena appeso dal template.
+ * NON nasconde colonne; rispetta bordi/merge/altezze del template.
+ */
+private function fillRotazioneMezzi(
+    Worksheet $sheet,
+    array $tpl,          // ['startRow'=>int,'endRow'=>int]
+    int $idAssociazione,
+    int $anno
+): int {
+    // ------------------------------------------------------------
+    // 0) Convenzioni in ROTAZIONE (abilita_rot_sost = 1 e titolare < 98%)
+    // ------------------------------------------------------------
+    $all = \DB::table('convenzioni')
+        ->select('idConvenzione', 'Convenzione', 'ordinamento')
+        ->where('idAssociazione', $idAssociazione)
+        ->where('idAnno', $anno)
+        ->where('abilita_rot_sost', 1)
+        ->orderBy('ordinamento')->orderBy('idConvenzione')
+        ->get();
 
-        $convRot = [];
-        foreach ($all as $c) {
-            $tit = \App\Models\Convenzione::getMezzoTitolare((int)$c->idConvenzione);
-            if ($tit && (float)($tit->percentuale ?? 0) < 98.0) $convRot[] = $c;
+    $convRot = [];
+    foreach ($all as $c) {
+        $titolare = \App\Models\Convenzione::getMezzoTitolare((int)$c->idConvenzione);
+        if ($titolare && (float)$titolare->percentuale < 98.0) {
+            $convRot[] = $c;
         }
-        if (empty($convRot)) return $tpl['endRow'] + 2;
-        $convIds = array_map(fn($c) => (int)$c->idConvenzione, $convRot);
+    }
+    if (empty($convRot)) {
+        // nulla da mostrare: lascia il template intatto
+        return $tpl['endRow'] + 2;
+    }
+    $convIds = array_map(fn($c) => (int)$c->idConvenzione, $convRot);
 
-        // 1) Mezzi e KM
-        $automezzi = \DB::table('automezzi')
-            ->select('idAutomezzo', 'Targa', 'CodiceIdentificativo')
-            ->where('idAssociazione', $idAssociazione)
-            ->where('idAnno', $anno)
-            ->orderBy('CodiceIdentificativo')
-            ->get();
+    // ------------------------------------------------------------
+    // 1) Dati mezzi + km
+    // ------------------------------------------------------------
+    $automezzi = \DB::table('automezzi')
+        ->select('idAutomezzo', 'Targa', 'CodiceIdentificativo')
+        ->where('idAssociazione', $idAssociazione)
+        ->where('idAnno', $anno)
+        ->orderBy('CodiceIdentificativo')
+        ->get();
 
-        $kmTotPerMezzo = \DB::table('automezzi_km as ak')
-            ->join('convenzioni as c', 'c.idConvenzione', '=', 'ak.idConvenzione')
-            ->where('c.idAssociazione', $idAssociazione)
-            ->where('c.idAnno', $anno)
-            ->selectRaw('ak.idAutomezzo, SUM(ak.KMPercorsi) AS km')
-            ->groupBy('ak.idAutomezzo')
-            ->pluck('km', 'idAutomezzo')
-            ->map(fn($v) => (float)$v)->all();
+    // KM totali per mezzo (su TUTTE le convenzioni dell’associazione/anno)
+    $kmTotPerMezzo = \DB::table('automezzi_km as ak')
+        ->join('convenzioni as c', 'c.idConvenzione', '=', 'ak.idConvenzione')
+        ->where('c.idAssociazione', $idAssociazione)
+        ->where('c.idAnno', $anno)
+        ->selectRaw('ak.idAutomezzo, SUM(ak.KMPercorsi) AS km')
+        ->groupBy('ak.idAutomezzo')
+        ->pluck('km', 'idAutomezzo')->all();
 
-        $kmTotConv = \DB::table('automezzi_km')
-            ->whereIn('idConvenzione', $convIds)
-            ->selectRaw('idConvenzione, SUM(KMPercorsi) AS km')
-            ->groupBy('idConvenzione')
-            ->pluck('km', 'idConvenzione')
-            ->map(fn($v) => (float)$v)->all();
+    // KM totali per convenzione (SOLO convenzioni in rotazione)
+    $kmTotConv = \DB::table('automezzi_km')
+        ->whereIn('idConvenzione', $convIds)
+        ->selectRaw('idConvenzione, SUM(KMPercorsi) AS km')
+        ->groupBy('idConvenzione')
+        ->pluck('km', 'idConvenzione')->all();
 
-        $kmRows = \DB::table('automezzi_km')
-            ->whereIn('idConvenzione', $convIds)
-            ->selectRaw('idAutomezzo, idConvenzione, SUM(KMPercorsi) AS km')
-            ->groupBy('idAutomezzo', 'idConvenzione')
-            ->get();
+    // KM per (mezzo, convenzione) SOLO convenzioni in rotazione
+    $kmRows = \DB::table('automezzi_km')
+        ->whereIn('idConvenzione', $convIds)
+        ->selectRaw('idAutomezzo, idConvenzione, SUM(KMPercorsi) AS km')
+        ->groupBy('idAutomezzo', 'idConvenzione')
+        ->get();
 
-        $kmPerMezzoConv = [];
-        foreach ($kmRows as $r) {
-            $kmPerMezzoConv[(int)$r->idAutomezzo][(int)$r->idConvenzione] = (float)$r->km;
-        }
+    $kmPerMezzoConv = [];
+    foreach ($kmRows as $r) {
+        $kmPerMezzoConv[(int)$r->idAutomezzo][(int)$r->idConvenzione] = (float)$r->km;
+    }
 
-        // 2) Header dal template
-        $hdr = $this->scanHeaderRotazione($sheet, $tpl['startRow'], 80);
-        $hdr1      = $hdr['hdr1'];
-        $hdr2      = $hdr['hdr2'];
-        $colTarga  = $hdr['colTarga'];
-        $colCodice = $hdr['colCodice'];
-        $colKmTot  = $hdr['colKmTot'];
-        $pairs     = $hdr['pairs']; // [[kmCol, pctCol], ...]
-        if (empty($pairs)) throw new \RuntimeException("Template RotazioneMezzi: nessuna coppia KM/% trovata.");
+    // ------------------------------------------------------------
+    // 2) Header dal template (scan header)
+    //     - colKmTot = colonna "KM PERCORSI" totali riga
+    //     - pairs = array di coppie [kmCol, pctCol] per ciascuna convenzione
+    // ------------------------------------------------------------
+    $hdr = $this->scanHeaderRotazione($sheet, $tpl['startRow'], 80);
+    $hdr1      = $hdr['hdr1'];          // riga superiore intestazioni
+    $hdr2      = $hdr['hdr2'];          // riga "KM PERCORSI | %"
+    $colTarga  = $hdr['colTarga'];
+    $colCodice = $hdr['colCodice'];
+    $colKmTot  = $hdr['colKmTot'];
+    $pairs     = $hdr['pairs'];         // [[kmCol, pctCol], ...]
 
-        $pairsToUse = min(count($pairs), count($convRot));
+    if (empty($pairs)) {
+        // template non valido
+        return $tpl['endRow'] + 2;
+    }
 
-        // Intestazioni convenzioni
-        $convTitleRow = max(1, $hdr1 - 1);
+    $pairsToUse = min(count($pairs), count($convRot));
+
+    // ------------------------------------------------------------
+    // 3) Intestazioni convenzioni (riga sopra la coppia KM/%)
+    // ------------------------------------------------------------
+    $convTitleRow = max(1, $hdr1 - 1);
+    for ($i = 0; $i < $pairsToUse; $i++) {
+        [$kmCol, /*$pctCol*/] = $pairs[$i];
+        $sheet->setCellValueByColumnAndRow($kmCol, $convTitleRow, mb_strtoupper((string)$convRot[$i]->Convenzione, 'UTF-8'));
+    }
+    // NON nascondo colonne: lasciamo tutto visibile
+
+    // ------------------------------------------------------------
+    // 4) Corpo: righe dati e inserimento PRIMA della riga "TOTALE"
+    // ------------------------------------------------------------
+    $firstDataRow = $hdr2 + 1;
+    $totRow = $this->findRowByLabel($sheet, 'TOTALE', $firstDataRow, $tpl['endRow']) ?? $tpl['endRow'];
+
+    $rowsData = [];
+    foreach ($automezzi as $a) {
+        $kmTotMezzo = (float)($kmTotPerMezzo[$a->idAutomezzo] ?? 0);
+
+        $riga = [];
+        $riga[] = ['col' => $colTarga,  'val' => (string)$a->Targa];
+        $riga[] = ['col' => $colCodice, 'val' => (string)$a->CodiceIdentificativo];
+
+        // KM PERCORSI totali riga (numerico, non %)
+        $riga[] = [
+            'col'  => $colKmTot,
+            'val'  => $kmTotMezzo,
+            'type' => \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_NUMERIC,
+            'fmt'  => \PhpOffice\PhpSpreadsheet\Style\NumberFormat::FORMAT_NUMBER_COMMA_SEPARATED1,
+        ];
+
+        // Coppie per convenzione in rotazione: [KM, %]
         for ($i = 0; $i < $pairsToUse; $i++) {
-            [$kmCol/*,$pctCol*/] = $pairs[$i];
-            $sheet->setCellValueByColumnAndRow($kmCol, $convTitleRow, mb_strtoupper((string)$convRot[$i]->Convenzione, 'UTF-8'));
+            $idConv  = (int)$convRot[$i]->idConvenzione;
+            [$colKm, $colPct] = $pairs[$i];
+
+            $kmCell = (float)($kmPerMezzoConv[$a->idAutomezzo][$idConv] ?? 0.0);
+            $den    = (float)($kmTotConv[$idConv] ?? 0.0);
+            $pct    = $den > 0.0 ? ($kmCell / $den) : 0.0;
+
+            // KM (numerico)
+            $riga[] = [
+                'col'  => $colKm,
+                'val'  => $kmCell,
+                'type' => \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_NUMERIC,
+                'fmt'  => \PhpOffice\PhpSpreadsheet\Style\NumberFormat::FORMAT_NUMBER_COMMA_SEPARATED1,
+            ];
+            // %
+            $riga[] = [
+                'col'   => $colPct,
+                'val'   => $pct,
+                'type'  => \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_NUMERIC,
+                'fmt'   => '0.00%',
+                'align' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER,
+            ];
         }
 
-        // PULIZIA colonne extra (non nascondo nulla, solo pulisco)
-        if (count($pairs) > $pairsToUse) {
-            for ($i = $pairsToUse; $i < count($pairs); $i++) {
-                [$colKm, $colPct] = $pairs[$i];
-                // header vuoto
-                $sheet->setCellValueByColumnAndRow($colKm, $convTitleRow, '');
-                // corpo e totale a zero
-                $firstDataRowTmp = $hdr2 + 1;
-                $totRowTmp = $this->findRowByLabel($sheet, 'TOTALE', $firstDataRowTmp, $tpl['endRow']) ?? $tpl['endRow'];
-                if ($totRowTmp >= $firstDataRowTmp) {
-                    for ($r = $firstDataRowTmp; $r <= $totRowTmp; $r++) {
-                        $sheet->setCellValueByColumnAndRow($colKm,  $r, 0);
-                        $sheet->setCellValueByColumnAndRow($colPct, $r, 0);
-                    }
-                    $sheet->getStyleByColumnAndRow($colPct, $totRowTmp)->getNumberFormat()->setFormatCode('0.00%');
-                    $sheet->getStyleByColumnAndRow($colPct, $totRowTmp)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-                }
-            }
-        }
+        $rowsData[] = $riga;
+    }
 
-        // 3) Corpo
-        $firstDataRow = $hdr2 + 1;
-        $totRow = $this->findRowByLabel($sheet, 'TOTALE', $firstDataRow, $tpl['endRow']) ?? ($tpl['endRow']);
+    // Stile di riferimento per insertRowsBeforeTotal (blindato)
+    $leftCol  = max(1, $colTarga - 1);
 
-        $rowsData   = [];
-        $totKmAll   = 0.0;
-        $totKmByConv = array_fill_keys($convIds, 0.0);
+    $rightCol = $colKmTot; // default
+    if ($pairsToUse > 0) {
+        $lastPair = $pairs[$pairsToUse - 1]; // esiste
+        $kmRight  = isset($lastPair[0]) ? (int)$lastPair[0] : $colKmTot;
+        $pctRight = isset($lastPair[1]) ? (int)$lastPair[1] : $kmRight;
+        $rightCol = max($colKmTot, $kmRight, $pctRight);
+    }
 
-        foreach ($automezzi as $a) {
-            // stampo solo i mezzi che toccano almeno una conv in rotazione
-            $kmOnRot = 0.0;
-            foreach ($convRot as $c) $kmOnRot += (float)($kmPerMezzoConv[$a->idAutomezzo][(int)$c->idConvenzione] ?? 0.0);
-            if ($kmOnRot <= 0) continue;
+    $styleRow   = $firstDataRow; // riga “tipo” originale nel template
+    $styleRange = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($leftCol) . $styleRow
+        . ':' .
+        \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($rightCol) . $styleRow;
 
-            $kmTotMezzoAnno = (float)($kmTotPerMezzo[$a->idAutomezzo] ?? 0.0);
-            $totKmAll += $kmTotMezzoAnno;
+    // Inserisci righe e aggiorna totRow
+    $inserted = 0;
+    if (!empty($rowsData)) {
+        $this->insertRowsBeforeTotal($sheet, $totRow, $rowsData, $styleRange);
+        $inserted = count($rowsData);
+        $totRow  += $inserted; // sposta "TOTALE" sotto le righe inserite
+    }
+    $lastDataRow = ($inserted > 0) ? ($totRow - 1) : ($firstDataRow - 1);
 
-            $r = [];
-            $r[] = ['col' => $colTarga,  'val' => (string)$a->Targa,                   'type' => DataType::TYPE_STRING];
-            $r[] = ['col' => $colCodice, 'val' => (string)($a->CodiceIdentificativo ?? ''), 'type' => DataType::TYPE_STRING];
-            $r[] = ['col' => $colKmTot,  'val' => $kmTotMezzoAnno, 'fmt' => NumberFormat::FORMAT_NUMBER_COMMA_SEPARATED1];
+    // ------------------------------------------------------------
+    // 5) Totali: SUM per KM e 100% per le colonne percentuali
+    // ------------------------------------------------------------
+    $LkmTot = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colKmTot);
 
-            for ($i = 0; $i < $pairsToUse; $i++) {
-                [$colKm, $colPct] = $pairs[$i];
-                $idConv = (int)$convRot[$i]->idConvenzione;
+    if ($lastDataRow >= $firstDataRow) {
+        // Totale KM PERCORSI riga
+        $sheet->setCellValue("{$LkmTot}{$totRow}", "=SUM({$LkmTot}{$firstDataRow}:{$LkmTot}{$lastDataRow})");
+        $sheet->getStyle("{$LkmTot}{$totRow}")
+              ->getNumberFormat()->setFormatCode(\PhpOffice\PhpSpreadsheet\Style\NumberFormat::FORMAT_NUMBER_COMMA_SEPARATED1);
 
-                $km  = (float)($kmPerMezzoConv[$a->idAutomezzo][$idConv] ?? 0.0);
-                $den = (float)($kmTotConv[$idConv] ?? 0.0);
-                $pct = $den > 0 ? ($km / $den) : 0.0;
+        for ($i = 0; $i < $pairsToUse; $i++) {
+            // KM tot per convenzione (colonna KM della coppia)
+            if (!isset($pairs[$i][0])) continue;
+            $colKm = (int)$pairs[$i][0];
+            $Lkm   = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colKm);
+            $sheet->setCellValue("{$Lkm}{$totRow}", "=SUM({$Lkm}{$firstDataRow}:{$Lkm}{$lastDataRow})");
+            $sheet->getStyle("{$Lkm}{$totRow}")
+                  ->getNumberFormat()->setFormatCode(\PhpOffice\PhpSpreadsheet\Style\NumberFormat::FORMAT_NUMBER_COMMA_SEPARATED1);
 
-                // KM REALI + %
-                $r[] = ['col' => $colKm,  'val' => $km, 'fmt' => NumberFormat::FORMAT_NUMBER_COMMA_SEPARATED1];
-                $r[] = ['col' => $colPct, 'val' => $pct, 'fmt' => '0.00%', 'align' => Alignment::HORIZONTAL_CENTER];
-
-                $totKmByConv[$idConv] += $km;
-            }
-            $rowsData[] = $r;
-        }
-
-        // Inserisci righe prima del TOTALE
-        $inserted = 0;
-        if (!empty($rowsData)) {
-            $leftCol  = $colTarga;
-            $rightCol = max($colKmTot, $pairs[$pairsToUse - 1][1]);
-            $styleRange = Coordinate::stringFromColumnIndex($leftCol) . ($hdr2 + 1) . ':' .
-                Coordinate::stringFromColumnIndex($rightCol) . ($hdr2 + 1);
-
-            $this->insertRowsBeforeTotal($sheet, $totRow, $rowsData, $styleRange);
-            $inserted = count($rowsData);
-            $totRow  += $inserted;
-
-            // Assicura formati su tutte le righe inserite
-            $firstIns = $firstDataRow;
-            $lastIns  = $totRow - 1;
-
-            // KMTOT formattato
-            $colKmTotL = Coordinate::stringFromColumnIndex($colKmTot);
-            if ($lastDataRow >= $firstDataRow) {
-                $sheet->setCellValue("{$colKmTotL}{$totRow}", "=SUM({$colKmTotL}{$firstDataRow}:{$colKmTotL}{$lastDataRow})");
-                $sheet->getStyle("{$colKmTotL}{$totRow}")
-                    ->getNumberFormat()->setFormatCode(NumberFormat::FORMAT_NUMBER_COMMA_SEPARATED1);
-
-                for ($i = 0; $i < $pairsToUse; $i++) {
-                    [$colKm, $colPct] = $pairs[$i];
-                    $Lkm  = Coordinate::stringFromColumnIndex($colKm);
-                    $Lpct = Coordinate::stringFromColumnIndex($colPct);
-
-                    // KM tot = SUM(...) in formato numero
-                    $sheet->setCellValue("{$Lkm}{$totRow}", "=SUM({$Lkm}{$firstDataRow}:{$Lkm}{$lastDataRow})");
-                    $sheet->getStyle("{$Lkm}{$totRow}")
-                        ->getNumberFormat()->setFormatCode(NumberFormat::FORMAT_NUMBER_COMMA_SEPARATED1);
-
-                    // % tot = 1 (100%) in formato percentuale
-                    $sheet->setCellValue("{$Lpct}{$totRow}", 1);
-                    $sheet->getStyle("{$Lpct}{$totRow}")
-                        ->getNumberFormat()->setFormatCode('0.00%');
-                    $sheet->getStyle("{$Lpct}{$totRow}")
-                        ->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-                }
-            } else {
-                // nessuna riga dati
-                $sheet->setCellValue("{$colKmTotL}{$totRow}", 0);
-                $sheet->getStyle("{$colKmTotL}{$totRow}")
-                    ->getNumberFormat()->setFormatCode(NumberFormat::FORMAT_NUMBER_COMMA_SEPARATED1);
-                for ($i = 0; $i < $pairsToUse; $i++) {
-                    [$colKm, $colPct] = $pairs[$i];
-                    $sheet->setCellValueByColumnAndRow($colKm,  $totRow, 0);
-                    $sheet->getStyleByColumnAndRow($colKm,  $totRow)
-                        ->getNumberFormat()->setFormatCode(NumberFormat::FORMAT_NUMBER_COMMA_SEPARATED1);
-
-                    $sheet->setCellValueByColumnAndRow($colPct, $totRow, 1);
-                    $sheet->getStyleByColumnAndRow($colPct, $totRow)
-                        ->getNumberFormat()->setFormatCode('0.00%');
-                    $sheet->getStyleByColumnAndRow($colPct, $totRow)
-                        ->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-                }
-            }
-
-        }
-
-        $lastDataRow = ($inserted > 0) ? ($totRow - 1) : ($firstDataRow - 1);
-
-        // 4) Totali: SUM KM e 100% sulle %
-        $colKmTotL = Coordinate::stringFromColumnIndex($colKmTot);
-        if ($lastDataRow >= $firstDataRow) {
-            $sheet->setCellValue("{$colKmTotL}{$totRow}", "=SUM({$colKmTotL}{$firstDataRow}:{$colKmTotL}{$lastDataRow})");
-            $sheet->getStyle("{$colKmTotL}{$totRow}")->getNumberFormat()->setFormatCode(NumberFormat::FORMAT_NUMBER_COMMA_SEPARATED1);
-
-            for ($i = 0; $i < $pairsToUse; $i++) {
-                [$colKm, $colPct] = $pairs[$i];
-                $Lkm  = Coordinate::stringFromColumnIndex($colKm);
-                $Lpct = Coordinate::stringFromColumnIndex($colPct);
-
-                $sheet->setCellValue("{$Lkm}{$totRow}", "=SUM({$Lkm}{$firstDataRow}:{$Lkm}{$lastDataRow})");
-                $sheet->getStyle("{$Lkm}{$totRow}")->getNumberFormat()->setFormatCode(NumberFormat::FORMAT_NUMBER_COMMA_SEPARATED1);
-
-                $sheet->setCellValue("{$Lpct}{$totRow}", 1); // 100%
+            // % totale colonna = 100%
+            if (isset($pairs[$i][1])) {
+                $colPct = (int)$pairs[$i][1];
+                $Lpct   = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colPct);
+                $sheet->setCellValue("{$Lpct}{$totRow}", 1);
                 $sheet->getStyle("{$Lpct}{$totRow}")->getNumberFormat()->setFormatCode('0.00%');
-                $sheet->getStyle("{$Lpct}{$totRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                $sheet->getStyle("{$Lpct}{$totRow}")->getAlignment()->setHorizontal(
+                    \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER
+                );
             }
-        } else {
-            // nessuna riga dati
-            $sheet->setCellValue("{$colKmTotL}{$totRow}", 0);
-            for ($i = 0; $i < $pairsToUse; $i++) {
-                [$colKm, $colPct] = $pairs[$i];
-                $sheet->setCellValueByColumnAndRow($colKm,  $totRow, 0);
+        }
+    } else {
+        // nessuna riga dati
+        $sheet->setCellValue("{$LkmTot}{$totRow}", 0);
+        $sheet->getStyle("{$LkmTot}{$totRow}")
+              ->getNumberFormat()->setFormatCode(\PhpOffice\PhpSpreadsheet\Style\NumberFormat::FORMAT_NUMBER_COMMA_SEPARATED1);
+
+        for ($i = 0; $i < $pairsToUse; $i++) {
+            if (isset($pairs[$i][0])) {
+                $colKm = (int)$pairs[$i][0];
+                $sheet->setCellValueByColumnAndRow($colKm, $totRow, 0);
+                $sheet->getStyleByColumnAndRow($colKm, $totRow)
+                      ->getNumberFormat()->setFormatCode(\PhpOffice\PhpSpreadsheet\Style\NumberFormat::FORMAT_NUMBER_COMMA_SEPARATED1);
+            }
+            if (isset($pairs[$i][1])) {
+                $colPct = (int)$pairs[$i][1];
                 $sheet->setCellValueByColumnAndRow($colPct, $totRow, 1);
                 $sheet->getStyleByColumnAndRow($colPct, $totRow)->getNumberFormat()->setFormatCode('0.00%');
-                $sheet->getStyleByColumnAndRow($colPct, $totRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                $sheet->getStyleByColumnAndRow($colPct, $totRow)->getAlignment()->setHorizontal(
+                    \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER
+                );
             }
         }
-
-        // Bordi/outline come blockKm (NIENTE hide columns)
-        $lastUsedCol = max($colKmTot, $pairs[$pairsToUse - 1][1]);
-        $this->thickBorderRow($sheet, $hdr1, $lastUsedCol);
-        $this->thickBorderRow($sheet, $totRow, $lastUsedCol);
-        $sheet->getStyle('A' . $totRow . ':' . Coordinate::stringFromColumnIndex($lastUsedCol) . $totRow)->getFont()->setBold(true);
-        $this->thickOutline($sheet, $hdr1, $totRow, $lastUsedCol);
-        $this->autosizeUsedColumns($sheet, 1, $lastUsedCol);
-
-        return $tpl['endRow'] + $inserted + 2;
     }
+
+    // ------------------------------------------------------------
+    // 6) Bordi & outline (nessun hide colonne)
+    // ------------------------------------------------------------
+    $this->thickBorderRow($sheet, $hdr2, $rightCol);
+    $this->thickBorderRow($sheet, $totRow, $rightCol);
+    $sheet->getStyle(
+        'A' . $totRow . ':' .
+        \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($rightCol) . $totRow
+    )->getFont()->setBold(true);
+    $this->thickOutline($sheet, $hdr2, $totRow, $rightCol);
+    $this->autosizeUsedColumns($sheet, 1, $rightCol);
+
+    // ritorna nuova endRow del blocco (si è spostata di $inserted)
+    return $tpl['endRow'] + $inserted + 2;
 }
+
+   
+   
+
+}
+

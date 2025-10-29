@@ -1424,7 +1424,7 @@ class RipartizioneCostiService {
     }
 
     /** true se per la convenzione vale il regime “rotazione mezzi” */
-    private static function isRegimeRotazione(int $idConv): bool {
+    public static function isRegimeRotazione(int $idConv): bool {
         $conv = DB::table('convenzioni')
             ->where('idConvenzione', $idConv)
             ->where('abilita_rot_sost', 1)

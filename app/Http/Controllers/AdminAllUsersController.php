@@ -18,45 +18,50 @@ class AdminAllUsersController extends Controller
 
     /**
      * GET /all-users
-     * Mostra la lista utenti con filtro per associazione (solo per ruoli elevati).
+     * Lista utenti con filtro per associazione (Admin/Supervisor).
      */
     public function index(Request $request)
     {
-        // Carica tutte le associazioni valide (escludi SuperAdmin)
         $associazioni = DB::table('associazioni')
             ->whereNull('deleted_at')
             ->where('IdAssociazione', '!=', 1)
             ->orderBy('Associazione')
             ->get();
 
-        if ($request->has('idAssociazione')) {
-            // aggiorna la sessione se c’è una nuova selezione
-            session(['selectedAssoc' => $request->get('idAssociazione')]);
+        $sessionKey = 'associazione_selezionata';
+
+        // Se arriva il filtro da query, aggiorno la sessione
+        if ($request->filled('idAssociazione')) {
+            session([$sessionKey => (int) $request->get('idAssociazione')]);
         }
 
-    
-        $selectedAssoc =session('associazione_selezionata') ?? ($associazioni->first()->IdAssociazione ?? null);
-
-        // Prendi il filtro dalla querystring o fallback alla prima
-        // $selectedAssoc = $request->get('idAssociazione')
-        //     ?? ($associazioni->first()->IdAssociazione ?? null);
+        // Selezione: query || sessione || prima disponibile
+        $selectedAssoc = (int) (
+            $request->get('idAssociazione')
+            ?? session($sessionKey)
+            ?? ($associazioni->first()->IdAssociazione ?? 0)
+        );
 
         return view('admin.all_users_index', compact('associazioni', 'selectedAssoc'));
     }
 
     /**
      * GET /all-users/data
-     * Restituisce JSON per DataTables, filtrato lato server.
+     * JSON per DataTables, con fallback al filtro in sessione.
      */
     public function getData(Request $request)
     {
-        // Ritorna direttamente la risposta JSON prodotta dal model
+        $sessionKey = 'associazione_selezionata';
+
+        if (!$request->filled('idAssociazione') && session()->has($sessionKey)) {
+            $request->merge(['idAssociazione' => (int) session($sessionKey)]);
+        }
+
         return User::getDataTableForAdmin($request);
     }
 
     /**
      * GET /all-users/create
-     * Form di creazione utente
      */
     public function create()
     {
@@ -65,44 +70,53 @@ class AdminAllUsersController extends Controller
             ->where('IdAssociazione', '!=', 1)
             ->orderBy('Associazione')
             ->get();
-    
-        $ruoli = Role::select('name')
-            ->orderBy('name')
-            ->get();
-    
-        // Recupera dalla sessione il filtro selezionato
-        $selectedAssoc =session('associazione_selezionata') ?? ($associazioni->first()->IdAssociazione ?? null);
-    
+
+        $ruoli = Role::select('name')->orderBy('name')->get();
+
+        $selectedAssoc = session('associazione_selezionata')
+            ?? ($associazioni->first()->IdAssociazione ?? null);
+
         return view('admin.all_users_create', compact('associazioni', 'ruoli', 'selectedAssoc'));
     }
 
     /**
      * POST /all-users
-     * Salva un nuovo utente
      */
     public function store(Request $request)
     {
+        // Normalizzo PRIMA di validare (evita falsi negativi su unique)
+        $request->merge([
+            'email' => mb_strtolower(trim((string) $request->input('email'))),
+        ]);
+
         $validated = $request->validate([
-            'firstname'      => 'required|string|max:255',
-            'lastname'       => 'nullable|string|max:255',
-            'username'       => 'required|string|max:255|unique:users,username',
-            'email'          => 'required|email|unique:users,email',
-            'password'       => 'required|string|min:8|confirmed',
-            'IdAssociazione' => 'required|integer|exists:associazioni,IdAssociazione',
-            'role'           => 'required|string|exists:roles,name',
-            'note'           => 'nullable|string',
+            'firstname'             => 'required|string|max:255',
+            'lastname'              => 'nullable|string|max:255',
+            // email non-bloccante: accetta qualsiasi stringa unica
+            'email'                 => 'required|string|unique:users,email',
+            'password'              => 'required|string|min:8|confirmed',
+            'password_confirmation' => 'required_with:password|string|min:8',
+            'IdAssociazione'        => 'required|integer|exists:associazioni,IdAssociazione',
+            'role'                  => 'required|string|exists:roles,name',
+            'note'                  => 'nullable|string',
+        ], [
+            'email.unique'          => 'Questa email è già in uso.',
+            'password.confirmed'    => 'La password e la conferma non coincidono.',
+            'password.min'          => 'La password deve avere almeno 8 caratteri.',
         ]);
 
         DB::beginTransaction();
-
         try {
+            // sincronizzo anche role_id con Spatie
+            $roleId = Role::where('name', $validated['role'])->value('id');
+
             $userId = DB::table('users')->insertGetId([
                 'firstname'      => $validated['firstname'],
                 'lastname'       => $validated['lastname'] ?? '',
-                'username'       => $validated['username'],
                 'email'          => $validated['email'],
                 'password'       => Hash::make($validated['password']),
-                'IdAssociazione' => $validated['IdAssociazione'],
+                'IdAssociazione' => (int) $validated['IdAssociazione'],
+                'role_id'        => $roleId ?: null,
                 'note'           => $validated['note'] ?? null,
                 'active'         => true,
                 'created_at'     => now(),
@@ -113,18 +127,16 @@ class AdminAllUsersController extends Controller
             $user->assignRole($validated['role']);
 
             DB::commit();
-
-            return redirect()->route('all-users.index')
-                ->with('success', 'Utente creato con successo!');
+            return redirect()->route('all-users.index')->with('success', 'Utente creato con successo!');
         } catch (\Throwable $e) {
             DB::rollBack();
-            return back()->withErrors(['error' => 'Errore nella creazione: ' . $e->getMessage()]);
+            return back()->withInput()
+                ->withErrors(['error' => 'Errore nella creazione: ' . $e->getMessage()]);
         }
     }
 
     /**
      * GET /all-users/{id}/edit
-     * Form di modifica utente
      */
     public function edit($id)
     {
@@ -136,79 +148,92 @@ class AdminAllUsersController extends Controller
             ->orderBy('Associazione')
             ->get();
 
-        $ruoli = Role::select('name')
-            ->orderBy('name')
-            ->get();
+        $ruoli = Role::select('name')->orderBy('name')->get();
 
-        // Recupera dalla sessione il filtro selezionato
-        $selectedAssoc =session('associazione_selezionata') ?? ($associazioni->first()->IdAssociazione ?? null);
+        $selectedAssoc = session('associazione_selezionata')
+            ?? ($associazioni->first()->IdAssociazione ?? null);
 
         return view('admin.all_users_edit', compact('user', 'associazioni', 'ruoli', 'selectedAssoc'));
     }
 
     /**
      * PUT /all-users/{id}
-     * Aggiorna i dati utente
      */
     public function update(Request $request, $id)
     {
+        // Normalizzo PRIMA di validare (coerenza con unique)
+        $request->merge([
+            'email' => mb_strtolower(trim((string) $request->input('email'))),
+        ]);
+
         $validated = $request->validate([
-            'firstname'      => 'required|string|max:255',
-            'lastname'       => 'nullable|string|max:255',
-            'username'       => "required|string|max:255|unique:users,username,{$id}",
-            'email'          => "required|email|unique:users,email,{$id}",
-            'IdAssociazione' => 'required|integer|exists:associazioni,IdAssociazione',
-            'role'           => 'required|string|exists:roles,name',
-            'note'           => 'nullable|string',
+            'firstname'             => 'required|string|max:255',
+            'lastname'              => 'nullable|string|max:255',
+            // email non-bloccante: accetta qualsiasi stringa unica
+            'email'                 => "required|string|unique:users,email,{$id}",
+            'IdAssociazione'        => 'required|integer|exists:associazioni,IdAssociazione',
+            'role'                  => 'required|string|exists:roles,name',
+            'note'                  => 'nullable|string',
+            'password'              => 'nullable|string|min:8|confirmed',
+            'password_confirmation' => 'required_with:password|string|min:8',
+        ], [
+            'email.unique'          => 'Questa email è già in uso.',
+            'password.confirmed'    => 'La password e la conferma non coincidono.',
+            'password.min'          => 'La password deve avere almeno 8 caratteri.',
         ]);
 
         DB::beginTransaction();
-
         try {
-            DB::table('users')->where('id', $id)->update([
+            $payload = [
                 'firstname'      => $validated['firstname'],
                 'lastname'       => $validated['lastname'] ?? '',
-                'username'       => $validated['username'],
                 'email'          => $validated['email'],
-                'IdAssociazione' => $validated['IdAssociazione'],
+                'IdAssociazione' => (int) $validated['IdAssociazione'],
                 'note'           => $validated['note'] ?? null,
                 'updated_at'     => now(),
-            ]);
+            ];
+
+            if (!empty($validated['password'])) {
+                $payload['password'] = Hash::make($validated['password']);
+            }
+
+            // sync role_id con ruolo scelto
+            $roleId = Role::where('name', $validated['role'])->value('id');
+            $payload['role_id'] = $roleId ?: null;
+
+            DB::table('users')->where('id', $id)->update($payload);
 
             $user = User::findOrFail($id);
             $user->syncRoles([$validated['role']]);
 
             DB::commit();
-
             return redirect()->route('all-users.index')
                 ->with('success', 'Utente aggiornato con successo!');
         } catch (\Throwable $e) {
             DB::rollBack();
-            return back()->withErrors(['error' => 'Errore nell\'aggiornamento: ' . $e->getMessage()]);
+            return back()->withInput()
+                ->withErrors(['error' => 'Errore nell’aggiornamento: ' . $e->getMessage()]);
         }
     }
 
     /**
      * DELETE /all-users/{id}
-     * Elimina un utente
      */
     public function destroy($id)
     {
         DB::beginTransaction();
-
         try {
             $user = User::findOrFail($id);
 
-            // Non puoi eliminare te stesso
+            // Risposta JSON coerente con il fetch del frontend
             if (auth()->id() === $user->id) {
-                return back()->withErrors(['error' => 'Non puoi eliminare te stesso.']);
+                return response()->json(['error' => 'Non puoi eliminare te stesso.'], 422);
             }
 
             $user->syncRoles([]);
             $user->delete();
 
             DB::commit();
-
             return response()->json(['success' => true]);
         } catch (\Throwable $e) {
             DB::rollBack();

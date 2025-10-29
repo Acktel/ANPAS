@@ -9,47 +9,7 @@
 <div class="container-fluid container-margin">
   <h1 class="text-anpas-green mb-4 container-title">Associazioni</h1>
 
-  @if(auth()->user()->hasAnyRole(['SuperAdmin','Admin','Supervisor']))
-    <div class="mb-3" style="max-width: 480px;">
-      <form method="GET" action="{{ route('associazioni.index') }}" id="assocSelectForm" class="w-100">
-        <div class="position-relative">
-          <div class="input-group">
-            <input
-              id="assocSelect"
-              name="assocLabel"
-              class="form-control"
-              autocomplete="off"
-              placeholder="Seleziona associazione"
-              value="{{ optional($associazioni->firstWhere('IdAssociazione', $selectedAssoc))->Associazione ?? '' }}"
-              aria-label="Seleziona associazione"
-            >
-            <button
-              type="button"
-              id="assocSelectToggleBtn"
-              class="btn btn-outline-secondary"
-              aria-haspopup="listbox"
-              aria-expanded="false"
-              title="Mostra elenco"
-            >
-              <i class="fas fa-chevron-down"></i>
-            </button>
-            <input type="hidden" id="assocSelectHidden" name="idAssociazione" value="{{ $selectedAssoc ?? '' }}">
-          </div>
 
-          <!-- Dropdown custom -->
-          <ul id="assocSelectDropdown"
-              class="list-group position-absolute w-100"
-              style="z-index:2000; display:none; max-height:240px; overflow:auto; top:100%; left:0; background:#fff;">
-            @foreach($associazioni as $assoc)
-              <li class="list-group-item assoc-item" data-id="{{ $assoc->IdAssociazione }}">
-                {{ $assoc->Associazione }}
-              </li>
-            @endforeach
-          </ul>
-        </div>
-      </form>
-    </div>
-  @endif
 
   <a href="{{ route('associazioni.create') }}" class="btn btn-anpas-green mb-3 float-end">
     <i class="fas fa-plus me-1"></i> Aggiungi Associazione

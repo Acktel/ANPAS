@@ -60,7 +60,6 @@
           <tr>
             <th>Nome</th>
             <th>Cognome</th>
-            <th>Username</th>
             <th>Email</th>
             <th>Associazione</th>
             <th>Attivo</th>
@@ -97,7 +96,6 @@ document.addEventListener('DOMContentLoaded', function() {
     columns: [
       { data: 'firstname' },
       { data: 'lastname' },
-      { data: 'username' },
       { data: 'email' },
       { data: 'association_name' },
       { data: 'active', render: val => val ? 'Sì' : 'No' },

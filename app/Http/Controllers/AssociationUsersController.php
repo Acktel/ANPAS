@@ -8,39 +8,50 @@ use Illuminate\Support\Facades\Hash;
 use App\Models\User;
 use Spatie\Permission\Models\Role;
 
-class AssociationUsersController extends Controller {
-    public function __construct() {
+class AssociationUsersController extends Controller
+{
+    public function __construct()
+    {
         $this->middleware('auth');
-        // Solo chi è Supervisor o Admin può accedere a queste rotte
+        // Solo Supervisor/Admin/SuperAdmin (come definito nel Gate impersonate-users)
         $this->middleware('can:impersonate-users');
     }
 
-    /** 
-     * GET /my-users 
-     * Mostra la pagina con DataTable degli utenti nella stessa associazione 
+    /**
+     * GET /my-users
+     * Mostra la pagina con DataTable degli utenti nella stessa associazione
      */
-    public function index() {
+    public function index()
+    {
         return view('associazioni.users_index');
     }
 
-    /** 
-     * GET /my-users/data 
-     * Restituisce JSON per DataTables, filtrato solo sugli utenti della stessa associazione 
+    /**
+     * GET /my-users/data
+     * JSON per DataTables, filtrato sugli utenti della stessa associazione
      */
-    public function getData(Request $request) {
+    public function getData(Request $request)
+    {
         $assocId = auth()->user()->IdAssociazione;
 
-        // Base query: prendo solo gli utenti con stesso IdAssociazione e non cancellati
-        $base = DB::table('users')
-            ->select('id', 'firstname', 'lastname', 'username', 'email', 'active', 'created_at')
-            ->where('IdAssociazione', $assocId);
+        $base = DB::table('users as u')
+            ->select([
+                'u.id',
+                'u.firstname',
+                'u.lastname',
+                'u.email',
+                'u.active',
+                'u.created_at',
+            ])
+            ->where('u.IdAssociazione', $assocId);
 
-        // Filtro ricerca
-        if ($val = $request->input('search.value')) {
-            $base->where(function ($q) use ($val) {
-                $q->where('firstname', 'like', "%{$val}%")
-                    ->orWhere('lastname', 'like', "%{$val}%")
-                    ->orWhere('email', 'like', "%{$val}%");
+        // Search (case-insensitive)
+        if ($search = trim((string) $request->input('search.value'))) {
+            $s = mb_strtolower($search);
+            $base->where(function ($q) use ($s) {
+                $q->whereRaw('LOWER(u.firstname) LIKE ?', ["%{$s}%"])
+                  ->orWhereRaw('LOWER(u.lastname)  LIKE ?', ["%{$s}%"])
+                  ->orWhereRaw('LOWER(u.email)     LIKE ?', ["%{$s}%"]);
             });
         }
 
@@ -48,20 +59,41 @@ class AssociationUsersController extends Controller {
         $total    = DB::table('users')->where('IdAssociazione', $assocId)->count();
         $filtered = (clone $base)->count();
 
-        // Ordinamento
-        if ($order = $request->input('order.0')) {
-            $col = $request->input("columns.{$order['column']}.data");
-            $dir = $order['dir'];
-            $base->orderBy($col, $dir);
+        // Ordinamento (whitelist)
+        $orderable = [
+            'firstname'  => 'u.firstname',
+            'lastname'   => 'u.lastname',
+            'email'      => 'u.email',
+            'active'     => 'u.active',
+            'created_at' => 'u.created_at',
+        ];
+        $order = $request->input('order.0');
+        if (is_array($order)) {
+            $colIndex = $order['column'] ?? null;
+            $dir      = strtolower($order['dir'] ?? 'asc') === 'desc' ? 'desc' : 'asc';
+            if ($colIndex !== null) {
+                $colKey = $request->input("columns.$colIndex.data");
+                $dbCol  = $orderable[$colKey] ?? null;
+                if ($dbCol) {
+                    $base->orderBy($dbCol, $dir);
+                } else {
+                    $base->orderBy('u.lastname')->orderBy('u.firstname');
+                }
+            }
+        } else {
+            $base->orderBy('u.lastname')->orderBy('u.firstname');
         }
 
-        // Paginazione
-        $start  = max(0, (int)$request->input('start', 0));
-        $length = max(1, (int)$request->input('length', 10));
-        $data   = $base->skip($start)->take($length)->get();
+        // Paging
+        $start  = max(0, (int) $request->input('start', 0));
+        $length = (int) $request->input('length', 10);
+        if ($length < 1)   $length = 10;
+        if ($length > 500) $length = 500;
+
+        $data = $base->skip($start)->take($length)->get();
 
         return response()->json([
-            'draw'            => (int)$request->input('draw', 1),
+            'draw'            => (int) $request->input('draw', 1),
             'recordsTotal'    => $total,
             'recordsFiltered' => $filtered,
             'data'            => $data,
@@ -72,43 +104,59 @@ class AssociationUsersController extends Controller {
      * GET /my-users/create
      * Mostra il form per creare un nuovo utente nell'associazione
      */
-    public function create() {
+    public function create()
+    {
         return view('associazioni.users_create');
     }
+
     /**
      * POST /my-users
-     * Salva il nuovo utente legato all'associazione corrente
+     * Crea un nuovo utente legato all'associazione corrente (email+password; setta role_id e ruolo Spatie)
      */
-    public function store(Request $request) {
+    public function store(Request $request)
+    {
         $assocId = auth()->user()->IdAssociazione;
+
+        // normalizza email prima della validate
+        $request->merge([
+            'email' => mb_strtolower(trim((string) $request->input('email'))),
+        ]);
 
         $data = $request->validate([
             'firstname' => 'required|string|max:255',
             'lastname'  => 'nullable|string|max:255',
-            'username'  => 'required|string|max:255|unique:users,username',
-            'email'     => 'required|email|unique:users,email',
+            'email'     => 'required|email:rfc,dns|unique:users,email',
             'password'  => 'required|string|min:8|confirmed',
-            // puoi aggiungere altre regole se serve
+            'password_confirmation' => 'required_with:password|string|min:8',
+        ], [
+            'email.unique'       => 'Questa email è già in uso.',
+            'password.confirmed' => 'La password e la conferma non coincidono.',
+            'password.min'       => 'La password deve avere almeno 8 caratteri.',
         ]);
 
-        // Creo l'utente usando Query Builder
         $now = now();
+
+        // ruolo base = User (sia Spatie sia role_id)
+        $roleName = 'User';
+        $roleId   = Role::where('name', $roleName)->value('id');
+
         $userId = DB::table('users')->insertGetId([
             'firstname'       => $data['firstname'],
             'lastname'        => $data['lastname'] ?? '',
-            'username'        => $data['username'],
             'email'           => $data['email'],
             'password'        => Hash::make($data['password']),
-            'role_id'         => Role::where('name', 'User')->first()->id,
-            // o imposta qual è il ruolo “base” per un utente generico
+            'role_id'         => $roleId,           // 👈 allineo role_id
             'active'          => true,
             'IdAssociazione'  => $assocId,
             'created_at'      => $now,
             'updated_at'      => $now,
         ]);
 
-        // Se vuoi assegnare ruoli specifici (ad es “User”),  
-        // puoi fare $userModel = User::find($userId); $userModel->assignRole('User');
+        // assegna anche il ruolo Spatie
+        $userModel = User::find($userId);
+        if ($userModel && $roleId) {
+            $userModel->assignRole($roleName);
+        }
 
         return redirect()
             ->route('my-users.index')
@@ -117,29 +165,36 @@ class AssociationUsersController extends Controller {
 
     /**
      * DELETE /my-users/{id}
-     * Elimina (o soft-delete) un utente dell'associazione (opzionale da implementare)
+     * Elimina un utente della stessa associazione (impedisci self-delete)
      */
-    public function destroy($id) {
-        // Assicurati che l'utente appartenga alla stessa associazione
+    public function destroy($id)
+    {
+        $currentUserId = auth()->id();
+
         $user = DB::table('users')
             ->where('id', $id)
             ->where('IdAssociazione', auth()->user()->IdAssociazione)
             ->first();
 
-        if ($user) {
-            // Per semplicità, facciamo un delete “hard”
-            DB::table('users')->where('id', $id)->delete();
-            return back()->with('success', 'Utente eliminato.');
+        if (! $user) {
+            return back()->withErrors(['error' => 'Operazione non consentita.']);
         }
 
-        return back()->withErrors(['error' => 'Operazione non consentita.']);
+        if ((int) $user->id === (int) $currentUserId) {
+            return back()->withErrors(['error' => 'Non puoi eliminare te stesso.']);
+        }
+
+        DB::table('users')->where('id', $id)->delete();
+
+        return back()->with('success', 'Utente eliminato.');
     }
 
     /**
      * GET /my-users/{id}/edit
-     * Mostra il form di modifica di un utente della stessa associazione
+     * Mostra il form di modifica per un utente della stessa associazione
      */
-    public function edit($id) {
+    public function edit($id)
+    {
         $user = DB::table('users')
             ->where('id', $id)
             ->where('IdAssociazione', auth()->user()->IdAssociazione)
@@ -154,34 +209,48 @@ class AssociationUsersController extends Controller {
 
     /**
      * PUT /my-users/{id}
-     * Aggiorna un utente della propria associazione
+     * Aggiorna un utente della propria associazione (email unica; password opzionale)
      */
-    public function update(Request $request, $id) {
-        $user = DB::table('users')
+    public function update(Request $request, $id)
+    {
+        $exists = DB::table('users')
             ->where('id', $id)
             ->where('IdAssociazione', auth()->user()->IdAssociazione)
-            ->first();
+            ->exists();
 
-        if (! $user) {
+        if (! $exists) {
             abort(403, 'Utente non autorizzato.');
         }
+
+        // normalizza email prima della validate
+        $request->merge([
+            'email' => mb_strtolower(trim((string) $request->input('email'))),
+        ]);
 
         $rules = [
             'firstname' => 'required|string|max:255',
             'lastname'  => 'nullable|string|max:255',
-            'username' => 'required|string|max:255|unique:users,username,' . $id,
-            'email'    => 'required|email|unique:users,email,' . $id,
+            'email'     => 'required|email:rfc,dns|unique:users,email,' . $id,
+            'password'  => 'nullable|string|min:8|confirmed',
+            'password_confirmation' => 'required_with:password|string|min:8',
         ];
 
-        $data = $request->validate($rules);
+        $data = $request->validate($rules, [
+            'email.unique'       => 'Questa email è già in uso.',
+            'password.confirmed' => 'La password e la conferma non coincidono.',
+            'password.min'       => 'La password deve avere almeno 8 caratteri.',
+        ]);
 
         $update = [
             'firstname'  => $data['firstname'],
             'lastname'   => $data['lastname'] ?? '',
-            'username'   => $data['username'],
             'email'      => $data['email'],
             'updated_at' => now(),
         ];
+
+        if (!empty($data['password'])) {
+            $update['password'] = Hash::make($data['password']);
+        }
 
         DB::table('users')->where('id', $id)->update($update);
 
