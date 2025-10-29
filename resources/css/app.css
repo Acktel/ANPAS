@@ -635,3 +635,8 @@ tbody tr.dragging {
     font-weight:600;
   }
   .fa-star { color:#d39e00; } /* giallo bronzato */
+
+/*====DATATABLE====*/  
+  div#docsTable_length {
+    margin-bottom: 25px;
+}
