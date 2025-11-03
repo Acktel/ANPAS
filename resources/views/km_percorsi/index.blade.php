@@ -61,252 +61,227 @@
     </div>
 </div>
 @endsection
-
 @push('scripts')
 <script>
-    $(async function() {
-    const selectedAssoc = document.getElementById('assocId')?.value || null;
+$(async function () {
+  // carico dati
+  const res = await fetch("{{ route('km-percorsi.datatable') }}");
+  const { data: rawData, labels } = await res.json();
+  if (!rawData || !rawData.length) return;
 
-    const res = await fetch("{{ route('km-percorsi.datatable') }}");
-        const { data: rawData, labels } = await res.json();
-        if (!rawData.length) return;
+  const totaleRow = rawData.find(r => r.is_totale === -1) || null;
+  const data = rawData.filter(r => r.is_totale !== -1);
 
-        const totaleRow = rawData.find(r => r.is_totale === -1);
-        let data = rawData.filter(r => r.is_totale !== -1);
+  const tableEl = $('#table-km');
 
-        const table = $('#table-km');
-
-        const staticColumns = [{
-                key: 'is_totale',
-                label: '',
-                hidden: true
-            },
-            {
-                key: 'idAutomezzo',
-                label: 'ID',
-                hidden: true
-            },
-            {
-                key: 'Targa',
-                label: 'Targa'
-            },
-            {
-                key: 'CodiceIdentificativo',
-                label: 'Codice ID'
-            },
-            {
-                key: 'Totale',
-                label: 'KM Totali'
-            },
-        ];
-
-        const convenzioni = Object.keys(labels).sort((a, b) => parseInt(a.slice(1)) - parseInt(b.slice(1)));
-
-        let headerMain = '';
-        let headerSub = '';
-        const columns = [];
-        let visibleIndex = 0;
-        const kmColumnIndexes = [];
-
-        staticColumns.forEach(col => {
-            headerMain += `<th rowspan="2"${col.hidden ? ' style="display:none"' : ''}>${col.label}</th>`;
-            columns.push({
-                data: col.key,
-                visible: !col.hidden
-            });
-            if (!col.hidden) visibleIndex++;
-        });
-
-        convenzioni.forEach(conv => {
-        headerMain += `<th colspan="2">${labels[conv]}</th>`;
-        headerSub  += `<th class="kmTh">Km Percorsi</th><th>%</th>`;
-
-        // Colonna KM con stellina (se titolare)
-        columns.push({
-            data: null,
-            render: function (row) {
-            const km   = row[`${conv}_km`] ?? 0;
-            const tit  = Number(row[`${conv}_is_titolare`] ?? 0) === 1;
-
-            const star = tit
-                ? `<i class="fas fa-star ms-1" title="Titolare"></i>`
-                : '';
-
-            const badgeClass = tit ? 'badge-tit' : 'badge-km';
-            return `<span class="badge ${badgeClass}">${km.toLocaleString('it-IT')}</span>${star}`;
-            }
-        });
-
-        // memorizza per eventuali stilizzazioni (se ti serve)
-        kmColumnIndexes.push(visibleIndex);
-        visibleIndex++;
-
-        // Colonna percentuale invariata
-        columns.push({ data: `${conv}_percent` });
-        visibleIndex++;
-        });
-
-
-        headerMain += `<th rowspan="2">Azioni</th>`;
-        columns.push({
-            data: null,
-            orderable: false,
-            searchable: false,
-            createdCell: function(td) {
-                $(td).addClass('col-azioni');
-            },
-            render: function(row) {
-                if (!row.idAutomezzo || row.Targa === 'TOTALE') return '-';
-                return `
-            <a href="/km-percorsi/${row.idAutomezzo}" class="btn btn-anpas-green me-1 btn-icon" title="Visualizza">
-                <i class="fas fa-eye"></i>
-            </a>
-            <a href="/km-percorsi/${row.idAutomezzo}/edit" class="btn btn-warning me-1 btn-icon" title="Modifica"> 
-                <i class="fas fa-edit"></i>
-            </a>
-            <form method="POST" action="/km-percorsi/${row.idAutomezzo}" class="d-inline-block" onsubmit="return confirm('Confermi eliminazione?')">
-                <input type="hidden" name="_token" value="{{ csrf_token() }}">
-                <input type="hidden" name="_method" value="DELETE">
-                <button type="submit" class="btn btn-danger btn-icon" title="Elimina">
-                    <i class="fas fa-trash-alt"></i>
-                </button>
-            </form>
-        `;
-            }
-        });
-
-
-        $('#header-main').html(headerMain);
-          $('#header-main th').each(function() {
-      if ($(this).attr('colspan')) {
-       $(this).addClass('border-bottom-special');
+  // colonne fisse
+  const staticColumns = [
+    { key: 'is_totale', label: '', hidden: true },
+    { key: 'idAutomezzo', label: 'ID', hidden: true },
+    { key: 'Targa', label: 'Targa' },
+    { key: 'CodiceIdentificativo', label: 'Codice ID' },
+    {
+      key: 'Totale',
+      label: 'KM Totali',
+      // formatta con puntino migliaia anche nel TOTALE (vedi drawCallback sotto)
+      render: (val, type) => {
+        const v = Number(val ?? 0);
+        return (type === 'display' || type === 'print') ? v.toLocaleString('it-IT') : v;
       }
-    });
-        $('#header-sub').html(headerSub);
-
-        table.DataTable({
-            data,
-            columns,
-            columnDefs: [{
-                    targets: 0,
-                    visible: false,
-                    searchable: false
-                }, // is_totale
-                // {
-                //     targets: kmColumnIndexes,
-                //     className: 'kmTh'
-                // }
-            ],
-            stateDuration: -1,
-            stateSave: true, 
-            order: [],// ordina per is_totale (0: normali, -1: totale)
-            responsive: true,
-            language: {
-                url: '/js/i18n/Italian.json',
-                                paginate: {
-            first: '<i class="fas fa-angle-double-left"></i>',
-            last: '<i class="fas fa-angle-double-right"></i>',
-            next: '<i class="fas fa-angle-right"></i>',
-            previous: '<i class="fas fa-angle-left"></i>'
-        },
-            },
-    rowCallback: (rowEl, rowData, index) => {
-      if (rowData.is_totale === -1) {
-        $(rowEl).addClass('table-warning fw-bold');
-      }
-      $(rowEl).removeClass('even odd').addClass(index % 2 === 0 ? 'even' : 'odd');
     },
-            stripeClass: ['table-striped-anpas'],
+  ];
 
+  // ordina chiavi convenzioni c<ID>
+  const convenzioniKeys = Object.keys(labels)
+    .sort((a, b) => parseInt(a.slice(1)) - parseInt(b.slice(1)));
 
-            drawCallback: function(settings) {
-    const api = this.api();
-    const pageRows = api.rows({ page: 'current' }).nodes();
+  // header e colonne
+  let headerMain = '';
+  let headerSub  = '';
+  const columns  = [];
 
-    // Rimuovi eventuali righe "TOTALE" precedenti (evita duplicazioni)
-    $(pageRows).filter('.totale-row').remove();
-
-    // Aggiungi la riga TOTALE alla fine della pagina
-    if (totaleRow) {
-        const columnCount = api.columns().visible().reduce((acc, isVisible) => acc + (isVisible ? 1 : 0), 0);
-        const $lastRow = $('<tr>').addClass('table-warning fw-bold totale-row');
-
-        api.columns().every(function(index) {
-            const col = columns[index];
-            if (col.visible === false) return;
-
-            let cellValue = '';
-            if (typeof col.render === 'function') {
-                cellValue = col.render(totaleRow, 'display', null, { row: -1, col: index, settings });
-            } else if (col.data) {
-                cellValue = totaleRow[col.data] ?? '';
-            }
-
-            $lastRow.append(`<td>${cellValue}</td>`);
-        });
-
-        $(api.table().body()).append($lastRow);
-    }
-},
-
-            
-        });
+  // header + colonne statiche
+  staticColumns.forEach(col => {
+    headerMain += `<th rowspan="2"${col.hidden ? ' style="display:none"' : ''}>${col.label}</th>`;
+    columns.push({
+      data: col.key,
+      visible: !col.hidden,
+      ...(col.render ? { render: col.render } : {})
     });
+  });
+
+  // header + colonne dinamiche per convenzione
+  convenzioniKeys.forEach(convKey => {
+    headerMain += `<th colspan="2">${labels[convKey]}</th>`;
+    headerSub  += `<th class="kmTh">Km Percorsi</th><th>%</th>`;
+
+    // KM badge + stellina titolare
+    columns.push({
+      data: null,
+      render: function (_data, _type, row) {
+        const km  = Number(row[`${convKey}_km`] ?? 0);
+        const tit = Number(row[`${convKey}_is_titolare`] ?? 0) === 1;
+        const star = tit ? `<i class="fas fa-star ms-1" title="Titolare"></i>` : '';
+        const badgeClass = tit ? 'badge-tit' : 'badge-km';
+        return `<span class="badge ${badgeClass}">${km.toLocaleString('it-IT')}</span>${star}`;
+      }
+    });
+
+    // Percentuale (già calcolata server-side)
+    columns.push({
+      data: `${convKey}_percent`,
+      render: (val, type) => {
+        const v = Number(val ?? 0);
+        return (type === 'display' || type === 'print') ? v.toLocaleString('it-IT') : v;
+      }
+    });
+  });
+
+  // colonna azioni
+  headerMain += `<th rowspan="2">Azioni</th>`;
+  columns.push({
+    data: null,
+    orderable: false,
+    searchable: false,
+    createdCell: td => $(td).addClass('col-azioni'),
+    render: function (_d, _t, row) {
+      if (!row.idAutomezzo || row.Targa === 'TOTALE') return '-';
+      return `
+        <a href="/km-percorsi/${row.idAutomezzo}" class="btn btn-anpas-green me-1 btn-icon" title="Visualizza">
+          <i class="fas fa-eye"></i>
+        </a>
+        <a href="/km-percorsi/${row.idAutomezzo}/edit" class="btn btn-warning me-1 btn-icon" title="Modifica">
+          <i class="fas fa-edit"></i>
+        </a>
+        <form method="POST" action="/km-percorsi/${row.idAutomezzo}" class="d-inline-block" onsubmit="return confirm('Confermi eliminazione?')">
+          <input type="hidden" name="_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="_method" value="DELETE">
+          <button type="submit" class="btn btn-danger btn-icon" title="Elimina">
+            <i class="fas fa-trash-alt"></i>
+          </button>
+        </form>
+      `;
+    }
+  });
+
+  // monta header
+  $('#header-main').html(headerMain);
+  $('#header-main th[colspan]').addClass('border-bottom-special');
+  $('#header-sub').html(headerSub);
+
+  // DataTable
+  tableEl.DataTable({
+    data,
+    columns,
+    columnDefs: [
+      { targets: 0, visible: false, searchable: false }, // is_totale
+    ],
+    stateDuration: -1,
+    stateSave: true,
+    order: [],
+    responsive: true,
+    language: {
+      url: '/js/i18n/Italian.json',
+      paginate: {
+        first: '<i class="fas fa-angle-double-left"></i>',
+        last: '<i class="fas fa-angle-double-right"></i>',
+        next: '<i class="fas fa-angle-right"></i>',
+        previous: '<i class="fas fa-angle-left"></i>'
+      },
+    },
+    rowCallback: (rowEl, rowData, idx) => {
+      if (rowData.is_totale === -1) $(rowEl).addClass('table-warning fw-bold');
+      $(rowEl).removeClass('even odd').addClass(idx % 2 === 0 ? 'even' : 'odd');
+    },
+    stripeClass: ['table-striped-anpas'],
+
+    // aggiungi riga TOTALE in coda pagina — niente NaN
+    drawCallback: function (settings) {
+      const api = this.api();
+      const pageRows = api.rows({ page: 'current' }).nodes();
+
+      // pulizia
+      $(pageRows).filter('.totale-row').remove();
+      if (!totaleRow) return;
+
+      const $lastRow = $('<tr>').addClass('table-warning fw-bold totale-row');
+
+      api.columns().every(function (index) {
+        const col = columns[index];
+        if (col.visible === false) return;
+
+        let cellValue = '';
+
+        if (typeof col.render === 'function') {
+          // se la colonna è data-bound (es. 'Totale'), passo il valore; se non lo è (KM badge), passo la riga
+          const srcVal = col.data ? (totaleRow[col.data] ?? 0) : null;
+          try {
+            cellValue = col.render(srcVal, 'display', totaleRow, { row: -1, col: index, settings });
+          } catch {
+            cellValue = '';
+          }
+        } else if (col.data) {
+          // fallback per colonne senza render
+          const raw = totaleRow[col.data];
+          cellValue = (col.data === 'Totale')
+            ? Number(raw ?? 0).toLocaleString('it-IT')
+            : (raw ?? '');
+        }
+
+        $lastRow.append(`<td>${cellValue}</td>`);
+      });
+
+      $(api.table().body()).append($lastRow);
+    },
+  });
+});
 </script>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    const assocInput = document.getElementById('assocInput');
-    const assocId = document.getElementById('assocId');
-    const assocForm = document.getElementById('assocFilterForm');
-    const toggleBtn = document.getElementById('assocFilterToggleBtn');
-    const dropdown = document.getElementById('assocDropdown');
-    const options = Array.from(dropdown.querySelectorAll('li.assoc-item'));
+document.addEventListener('DOMContentLoaded', function () {
+  const assocInput = document.getElementById('assocInput');
+  const assocId = document.getElementById('assocId');
+  const assocForm = document.getElementById('assocFilterForm');
+  const toggleBtn = document.getElementById('assocFilterToggleBtn');
+  const dropdown = document.getElementById('assocDropdown');
+  const options = Array.from(dropdown.querySelectorAll('li.assoc-item'));
 
-    // Funzione per filtrare dropdown
-    function filterDropdown() {
-        const val = assocInput.value.toLowerCase();
-        let anyVisible = false;
-        options.forEach(opt => {
-            if (opt.textContent.toLowerCase().includes(val)) {
-                opt.style.display = '';
-                anyVisible = true;
-            } else {
-                opt.style.display = 'none';
-            }
-        });
-        dropdown.style.display = anyVisible ? 'block' : 'none';
-    }
-
-    // Toggle dropdown con bottone
-    toggleBtn.addEventListener('click', function() {
-        const isVisible = dropdown.style.display === 'block';
-        dropdown.style.display = isVisible ? 'none' : 'block';
-        this.setAttribute('aria-expanded', !isVisible);
-        if (!isVisible) assocInput.focus();
-    });
-
-    // Filtra mentre si scrive
-    assocInput.addEventListener('input', filterDropdown);
-
-    // Seleziona un'opzione
+  function filterDropdown() {
+    const val = assocInput.value.toLowerCase();
+    let anyVisible = false;
     options.forEach(opt => {
-        opt.addEventListener('click', function() {
-            assocInput.value = this.textContent;
-            assocId.value = this.dataset.id;
-            dropdown.style.display = 'none';
-            toggleBtn.setAttribute('aria-expanded', false);
-            assocForm.submit();
-        });
+      const show = opt.textContent.toLowerCase().includes(val);
+      opt.style.display = show ? '' : 'none';
+      if (show) anyVisible = true;
     });
+    dropdown.style.display = anyVisible ? 'block' : 'none';
+  }
 
-    // Chiudi dropdown cliccando fuori
-    document.addEventListener('click', function(e) {
-        if (!assocForm.contains(e.target)) {
-            dropdown.style.display = 'none';
-            toggleBtn.setAttribute('aria-expanded', false);
-        }
+  toggleBtn.addEventListener('click', function () {
+    const isVisible = dropdown.style.display === 'block';
+    dropdown.style.display = isVisible ? 'none' : 'block';
+    this.setAttribute('aria-expanded', (!isVisible).toString());
+    if (!isVisible) assocInput.focus();
+  });
+
+  assocInput.addEventListener('input', filterDropdown);
+
+  options.forEach(opt => {
+    opt.addEventListener('click', function () {
+      assocInput.value = this.textContent;
+      assocId.value = this.dataset.id;
+      dropdown.style.display = 'none';
+      toggleBtn.setAttribute('aria-expanded', 'false');
+      assocForm.submit();
     });
+  });
+
+  document.addEventListener('click', function (e) {
+    if (!assocForm.contains(e.target)) {
+      dropdown.style.display = 'none';
+      toggleBtn.setAttribute('aria-expanded', 'false');
+    }
+  });
 });
 </script>
 @endpush

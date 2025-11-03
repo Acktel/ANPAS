@@ -355,8 +355,13 @@ class RipartizioneCostiService {
                 'AMMORTAMENTO IMPIANTI RADIO'    => 'AmmortamentoImpiantiRadio',
             ];
 
-            $automezzi   = Automezzo::getByAssociazione($idAssociazione, $anno);
-            $numAutomezzi = max(count($automezzi), 1);
+            $numAutomezzi = max(
+                (int) DB::table('automezzi')
+                    ->where('idAssociazione', $idAssociazione)
+                    ->where('idAnno', $anno)
+                    ->count(),
+                1
+            );
 
             foreach ($vociRadio as $voceLabel => $campoDB) {
                 $importoBase        = (float)($costiRadio->$campoDB ?? 0);
@@ -382,10 +387,10 @@ class RipartizioneCostiService {
 
 
     public static function calcolaTabellaTotale(int $idAssociazione, int $anno): array {
+        // *** usa TUTTI i mezzi, non solo incluso_riparto ***
         $automezzi = DB::table('automezzi')
             ->where('idAssociazione', $idAssociazione)
             ->where('idAnno', $anno)
-            ->where('incluso_riparto', 1) // fix
             ->pluck('idAutomezzo');
 
         $convenzioni = DB::table('convenzioni')
@@ -402,15 +407,105 @@ class RipartizioneCostiService {
             foreach ($tabella as $riga) {
                 $voce = $riga['voce'];
                 if (!isset($tot[$voce])) {
-                    $tot[$voce] = ['voce' => $voce, 'totale' => 0];
-                    foreach ($convenzioni as $conv) $tot[$voce][$conv] = 0;
+                    $tot[$voce] = ['voce' => $voce, 'totale' => 0.0];
+                    foreach ($convenzioni as $convName) $tot[$voce][$convName] = 0.0;
                 }
-                $tot[$voce]['totale'] += (float) ($riga['totale'] ?? 0);
-                foreach ($convenzioni as $conv) $tot[$voce][$conv] += (float) ($riga[$conv] ?? 0);
+                // somma convenzioni
+                foreach ($convenzioni as $convName) {
+                    $tot[$voce][$convName] += (float)($riga[$convName] ?? 0.0);
+                }
+                // il totale lo ricalcoliamo dopo per le voci radio, qui va bene sommare
+                $tot[$voce]['totale'] += (float)($riga['totale'] ?? 0.0);
             }
         }
 
+        // *** CORREZIONE VOCI RADIO: una sola ripartizione a livello associazione ***
+        $radioRows = self::ripartoRadioAssoc($idAssociazione, $anno, $convenzioni);
+        foreach ($radioRows as $voce => $row) {
+            // rimpiazzo interamente la riga (importi per conv + totale)
+            $tot[$voce] = $row;
+        }
+
+        // arrotondo tutte le celle a 2 decimali
+        foreach ($tot as &$r) {
+            foreach ($r as $k => $v) {
+                if ($k === 'voce') continue;
+                $r[$k] = round((float)$v, 2);
+            }
+        }
+        unset($r);
+
         return array_values($tot);
+    }
+
+    /**
+     * Ripartizione RADIO a livello associazione in stile Excel:
+     * - totale esatto da tabella costi_radio (nessuna perdita di centesimi)
+     * - pesi = media delle quote km per convenzione sui mezzi (mezzi senza km ignorati)
+     * - un unico splitByWeightsCents per voce.
+     */
+    private static function ripartoRadioAssoc(int $idAssociazione, int $anno, array $convenzioni): array {
+        $costi = DB::table('costi_radio')
+            ->where('idAssociazione', $idAssociazione)
+            ->where('idAnno', $anno)
+            ->first();
+
+        if (!$costi) return [];
+
+        $vociRadio = [
+            'MANUTENZIONE APPARATI RADIO'    => 'ManutenzioneApparatiRadio',
+            'MONTAGGIO/SMONTAGGIO RADIO 118' => 'MontaggioSmontaggioRadio118',
+            'LOCAZIONE PONTE RADIO'          => 'LocazionePonteRadio',
+            'AMMORTAMENTO IMPIANTI RADIO'    => 'AmmortamentoImpiantiRadio',
+        ];
+
+        // raccogli quote km per convenzione per OGNI mezzo
+        $mezzi = DB::table('automezzi')
+            ->where('idAssociazione', $idAssociazione)
+            ->where('idAnno', $anno)
+            ->pluck('idAutomezzo');
+
+        $sumQuote = array_fill_keys(array_keys($convenzioni), 0.0);
+        $nMezziConsiderati = 0;
+
+        foreach ($mezzi as $idAutomezzo) {
+            $km = DB::table('automezzi_km')
+                ->where('idAutomezzo', $idAutomezzo)
+                ->whereIn('idConvenzione', array_keys($convenzioni))
+                ->pluck('KMPercorsi', 'idConvenzione')
+                ->map(fn($v) => (float)$v)
+                ->toArray();
+
+            $totKm = array_sum($km);
+            if ($totKm <= 0) continue; // ignora mezzi senza km
+
+            foreach ($km as $cid => $val) {
+                $sumQuote[(int)$cid] += ($val / $totKm); // quota di questo mezzo su quella convenzione
+            }
+            $nMezziConsiderati++;
+        }
+
+        // media delle quote per convenzione (se nessun mezzo con km, fallback uniforme)
+        $pesiMedi = [];
+        if ($nMezziConsiderati > 0) {
+            foreach ($sumQuote as $cid => $s) $pesiMedi[$cid] = $s / $nMezziConsiderati;
+        } else {
+            foreach ($sumQuote as $cid => $_) $pesiMedi[$cid] = 1.0;
+        }
+
+        $out = [];
+        foreach ($vociRadio as $label => $campo) {
+            $totale = round((float)($costi->$campo ?? 0.0), 2);
+            $quote  = self::splitByWeightsCents($totale, $pesiMedi); // <<< un solo split su 239.36
+
+            $riga = ['voce' => $label, 'totale' => $totale];
+            foreach ($convenzioni as $cid => $nome) {
+                $riga[$nome] = $quote[$cid] ?? 0.0;
+            }
+            $out[$label] = $riga;
+        }
+
+        return $out;
     }
 
     public static function getCostiDiretti(int $idAssociazione, int $anno): array {
@@ -808,10 +903,11 @@ class RipartizioneCostiService {
                 in_array($idV, $IDS_QUOTE_AMMORTAMENTO, true) ||
                 $idV === $BENI_STRUMENTALI_ID || in_array($idV, $IDS_BENI_STRUMENTALI, true)
             ) {
-                // % ricavi
-                $quote = self::splitByWeightsCents($baseIndiretti, $quoteRicavi);
+                // ricavi -> fallback servizi -> uniforme
+                $pesi  = self::weightsRicaviConFallback($idAssociazione, $anno, $convIds, $quoteRicavi);
+                $quote = self::splitByWeightsCents($baseIndiretti, $pesi);
                 foreach ($convIds as $cid) $indPerConv[$cid] = $quote[$cid] ?? 0.0;
-            } elseif (is_array($ripRow)) {
+            } elseif ($ripRow) {
                 // legacy: usa direttamente le quote storiche
                 foreach ($convIds as $cid) {
                     $nome = $convenzioni[$cid];
@@ -827,6 +923,7 @@ class RipartizioneCostiService {
                 $quote = self::splitByWeightsCents($baseIndiretti, $pesi);
                 foreach ($convIds as $cid) $indPerConv[$cid] = $quote[$cid] ?? 0.0;
             }
+
 
             // =============================================================
 
@@ -1502,5 +1599,36 @@ class RipartizioneCostiService {
         $carb = (float)($costi->Carburanti ?? 0);
         $utf  = (float)($costi->RimborsiUTF ?? 0);
         return round($carb - $utf, 2, PHP_ROUND_HALF_UP); // NIENTE max(0), così vedi anche i negativi se ci sono
+    }
+
+    private static function weightsRicaviConFallback(
+        int $idAssociazione,
+        int $anno,
+        array $convIds,
+        array $quoteRicavi
+    ): array {
+        // 1) prova coi ricavi
+        $pesi = array_fill_keys($convIds, 0.0);
+        $sumRic = 0.0;
+        foreach ($convIds as $id) {
+            $w = (float)($quoteRicavi[$id] ?? 0.0);
+            $pesi[$id] = $w;
+            $sumRic += $w;
+        }
+        // se i ricavi sono tutti zero o “praticamente concentrati” (una sola convenzione >0),
+        // fai fallback ai servizi
+        $nonZero = array_sum(array_map(fn($v) => $v > 0 ? 1 : 0, $pesi));
+        if ($sumRic <= 0.0 || $nonZero <= 1) {
+            $serv = self::percentualiServiziByConvenzione($idAssociazione, $anno, $convIds);
+            $sumServ = 0.0;
+            foreach ($convIds as $id) $sumServ += (float)($serv[$id] ?? 0.0);
+            if ($sumServ > 0) {
+                foreach ($convIds as $id) $pesi[$id] = (float)($serv[$id] ?? 0.0);
+            } else {
+                // ultimo fallback: uniforme
+                foreach ($convIds as $id) $pesi[$id] = 1.0;
+            }
+        }
+        return $pesi;
     }
 }
