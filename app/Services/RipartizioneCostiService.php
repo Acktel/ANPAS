@@ -284,7 +284,7 @@ class RipartizioneCostiService {
                         $valore = (float)($costi->ManutenzioneStraordinaria ?? 0) - (float)($costi->RimborsiAssicurazione ?? 0);
                         break;
                     case 'CARBURANTI AL NETTO RIMBORSI UTF':
-                        $valore = (float)($costi->Carburanti ?? 0) - (float)($costi->RimborsiUTF ?? 0);
+                        $valore = self::carburantiNetti($costi);
                         break;
                     default:
                         $valore = (float)($costi->$colDB ?? 0);
@@ -734,7 +734,7 @@ class RipartizioneCostiService {
             'manutenzione ordinaria'              => 'MANUTENZIONE ORDINARIA',
             'manutenzione straordinaria'          => 'MANUTENZIONE STRAORDINARIA AL NETTO RIMBORSI ASSICURATIVI',
             'pulizia e disinfezione automezzi'    => 'PULIZIA E DISINFEZIONE',
-            'carburanti'                          => 'CARBURANTI AL NETTO RIMBORSI UTIF',
+            'carburanti'                          => 'CARBURANTI AL NETTO RIMBORSI UTF',
             'additivi'                            => 'ADDITIVI',
             'interessi pass. f.to, leasing, nol.' => 'INTERESSI PASS. F.TO, LEASING, NOL.',
             'altri costi mezzi'                   => 'ALTRI COSTI MEZZI',
@@ -1495,5 +1495,12 @@ class RipartizioneCostiService {
         $out = [];
         foreach ($floor as $k => $cents) $out[$k] = round($cents / 100, 2, PHP_ROUND_HALF_UP);
         return $out;
+    }
+
+    // in RipartizioneCostiService (o helper condiviso)
+    private static function carburantiNetti(object $costi = null): float {
+        $carb = (float)($costi->Carburanti ?? 0);
+        $utf  = (float)($costi->RimborsiUTF ?? 0);
+        return round($carb - $utf, 2, PHP_ROUND_HALF_UP); // NIENTE max(0), così vedi anche i negativi se ci sono
     }
 }
