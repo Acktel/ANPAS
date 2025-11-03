@@ -55,7 +55,7 @@ $nomeCompleto = $dipendente->DipendenteNome . ' ' . $dipendente->DipendenteCogno
       </table>
     </div>
     <input type="hidden" name="idAssociazione" value="{{ $idAssociazione }}">
-    <div class="mt-4 text-center">
+    <div class="mt-4 text-center myborder-button">
             <button type="submit" class="btn btn-anpas-green">
         <i class="fas fa-check me-1"></i> Salva
       </button>

@@ -10,6 +10,12 @@ $assocCorr = 'Anpas Nazionale';
 @endphp
 @endauth
 
+<!-- LOADER ANPAS -->
+<div id="pageLoader" class="anpas-loader" style="display:none;">
+    <div class="anpas-loader__backdrop"></div>
+    <img src="{{ asset('images/anpas_loader.gif') }}" alt="Caricamento in corso..." class="anpas-loader__img">
+</div>
+
 <nav class="anpas-topbar">
     <div class="topbar-logo">
         <a href="{{ route(name: 'dashboard') }}">
@@ -90,12 +96,12 @@ $assocCorr = 'Anpas Nazionale';
                 <li class="nav-item"><a class="nav-link" href="{{ route('all-users.index') }}">Utenti</a></li>
                 <li class="nav-item"><a class="nav-link" href="{{ route('aziende-sanitarie.index') }}">Aziende Sanitarie</a></li>
                 @endif
-                <li class="nav-item"><a class="nav-link" href="{{ route('convenzioni.index') }}" >Convenzioni</a></li>
+                <li class="nav-item"><a class="nav-link" href="{{ route('convenzioni.index') }}">Convenzioni</a></li>
                 @endcan
                 @can('manage-own-association')
                 <li class="nav-item"><a class="nav-link" href="{{ route('my-users.index') }}">Utenti</a></li>
                 @endcan
-                <li class="nav-item"><a class="nav-link" href="{{ route('automezzi.index') }}">Automezzi</a></li>                 
+                <li class="nav-item"><a class="nav-link" href="{{ route('automezzi.index') }}">Automezzi</a></li>
                 {{-- Dropdown Voci di bilancio --}}
                 <li class="nav-item dropdown dropdown-hover">
                     <a class="nav-link dropdown-toggle" href="#" id="riepiloghiDropdown" data-bs-toggle="dropdown" aria-expanded="false">
@@ -103,7 +109,12 @@ $assocCorr = 'Anpas Nazionale';
                     </a>
                     <ul class="dropdown-menu" aria-labelledby="riepiloghiDropdown">
                         <li><a class="dropdown-item" href="{{ route('riepiloghi.index') }}">Riepilogo dati caratteristici</a></li>
-                        <li><a class="dropdown-item" href="{{ route('riepilogo.costi') }}">Riepilogo Costi</a></li>                      
+                        <li><a class="dropdown-item" href="{{ route('riepilogo.costi') }}">Riepilogo costi</a></li>
+                        <li>
+                            <a class="dropdown-item" href="{{ route('ripartizioni.costi_automezzi_sanitari.index')   }}">
+                                Riepilogo costi automezzi, radio e sanitari
+                            </a>
+                        </li>
                         {{-- Sottomenu Schede di riparto costi --}}
                         <li class="dropdown-submenu">
                             <a class="dropdown-item dropdown-toggle" href="#">Schede di riparto costi</a>
@@ -112,7 +123,7 @@ $assocCorr = 'Anpas Nazionale';
                                 <li><a class="dropdown-item" href="{{ route('ripartizioni.volontari.index') }}">Personale volontario</a></li>
                                 <li><a class="dropdown-item" href="{{ route('ripartizioni.servizio_civile.index') }}">Servizio Civile</a></li>
                                 <li><a class="dropdown-item" href="{{ route('ripartizioni.materiale_sanitario.index') }}">Materiale sanitario</a></li>
-                               <li><a class="dropdown-item" href="{{ route('rapporti-ricavi.index') }}">Rapporto tra ricavi e convenzioni</a></li>
+                                <li><a class="dropdown-item" href="{{ route('rapporti-ricavi.index') }}">Rapporto tra ricavi e convenzioni</a></li>
                             </ul>
                         </li>
                         <li class="dropdown-submenu">
@@ -122,7 +133,7 @@ $assocCorr = 'Anpas Nazionale';
                                 <li><a class="dropdown-item" href="{{ route('servizi-svolti.index') }}">Servizi svolti per convenzione</a></li>
                                 <li>
                                     <a class="dropdown-item" href="{{ route('ripartizioni.personale.costi.index') }}">
-                                       Dipendenti
+                                        Dipendenti
                                     </a>
                                 </li>
                                 <li>
@@ -132,12 +143,7 @@ $assocCorr = 'Anpas Nazionale';
                                 </li>
                                 <li>
                                     <a class="dropdown-item" href="{{ route('ripartizioni.costi_radio.index')   }}">
-                                       Radio
-                                    </a>
-                                </li>
-                                <li>
-                                    <a class="dropdown-item" href="{{ route('ripartizioni.costi_automezzi_sanitari.index')   }}">
-                                        Automezzi - materiale ed attrezzatura sanitaria - costi radio
+                                        Radio
                                     </a>
                                 </li>
                             </ul>
@@ -155,34 +161,36 @@ $assocCorr = 'Anpas Nazionale';
                                         Ossigeno
                                     </a>
                                 </li>
-                            </ul>                        
-                        </li>    
-                        <li><a class="dropdown-item" href="{{ route('distinta.imputazione.index') }}">Distinta imputazione costi</a></li>                         
+                            </ul>
+                        </li>
+                        <li><a class="dropdown-item" href="{{ route('distinta.imputazione.index') }}">Distinta imputazione costi</a></li>
                     </ul>
-                    
-                    
+
+
                 </li>
-               {{-- Dropdown Personale --}}
-@php
-  // Carica le qualifiche (puoi metterlo in View Composer / AppServiceProvider con Cache)
-  $menuQualifiche = DB::table('qualifiche')->orderBy('nome')->get();
-@endphp
+                {{-- Dropdown Personale --}}
+                @php
+                // Carica le qualifiche (puoi metterlo in View Composer / AppServiceProvider con Cache)
+                $menuQualifiche = DB::table('qualifiche')->orderBy('nome')->get();
+                @endphp
 
-<li class="nav-item dropdown">
-  <a class="nav-link dropdown-toggle" href="#" id="personaleDropdown" data-bs-toggle="dropdown">Personale</a>
-  <ul class="dropdown-menu" aria-labelledby="personaleDropdown">
-    <li><a class="dropdown-item" href="{{ route('dipendenti.index') }}">Tutti</a></li>
-    <li><hr class="dropdown-divider"></li>
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" id="personaleDropdown" data-bs-toggle="dropdown">Personale</a>
+                    <ul class="dropdown-menu" aria-labelledby="personaleDropdown">
+                        <li><a class="dropdown-item" href="{{ route('dipendenti.index') }}">Tutti</a></li>
+                        <li>
+                            <hr class="dropdown-divider">
+                        </li>
 
-    @foreach($menuQualifiche as $q)
-      <li>
-        <a class="dropdown-item" href="{{ route('dipendenti.byQualifica', $q->id) }}">
-          {{ strtoupper($q->nome) }}
-        </a>
-      </li>
-    @endforeach
-  </ul>
-</li>
+                        @foreach($menuQualifiche as $q)
+                        <li>
+                            <a class="dropdown-item" href="{{ route('dipendenti.byQualifica', $q->id) }}">
+                                {{ strtoupper($q->nome) }}
+                            </a>
+                        </li>
+                        @endforeach
+                    </ul>
+                </li>
 
 
 
@@ -211,40 +219,41 @@ $assocCorr = 'Anpas Nazionale';
                     <ul class="dropdown-menu dropdown-menu-end">
                         <li><a class="dropdown-item" href="{{ route('configurazioni.veicoli') }}">Veicoli</a></li>
                         <li><a class="dropdown-item" href="{{ route('configurazioni.personale') }}">Personale</a></li>
-                        <li><a class="dropdown-item"  href="{{ route('configurazioni.aziende_sanitarie') }}">Aziende Sanitarie</a></li>
+                        <li><a class="dropdown-item" href="{{ route('configurazioni.aziende_sanitarie') }}">Aziende Sanitarie</a></li>
                         <li><a class="dropdown-item" href="{{ route('configurazioni.riepilogo.index') }}">Riepilogo Costi</a></li>
-                        {{-- <li><a class="dropdown-item" href="{{ route('configurazioni.convenzioni') }}">Convenzioni</a></li> --}}
-                        <li><a class="dropdown-item" href="#">Altro</a></li>
+                        {{-- <li><a class="dropdown-item" href="{{ route('configurazioni.convenzioni') }}">Convenzioni</a>
+                </li> --}}
+                <li><a class="dropdown-item" href="#">Altro</a></li>
+            </ul>
+            </li>
+            <a class="nav-link dropdown-toggle" href="#" id="userMenu" data-bs-toggle="dropdown">
+                {{ Auth::user()->firstname }}
+            </a>
+            <ul class="dropdown-menu dropdown-menu-end">
+                <li>
+                    <button id="profile-toggle" class="dropdown-item" type="button">
+                        Profilo
+                    </button>
+                    <ul id="profile-submenu"
+                        class="list-unstyled d-none bg-light rounded mx-2 my-2 px-3 py-2 overflow-hidden">
+                        @include('profilo.edit')
                     </ul>
                 </li>
-                <a class="nav-link dropdown-toggle" href="#" id="userMenu" data-bs-toggle="dropdown">
-                    {{ Auth::user()->firstname }}
-                </a>
-                <ul class="dropdown-menu dropdown-menu-end">
-                        <li>
-                            <button id="profile-toggle" class="dropdown-item" type="button">
-                                Profilo
-                            </button>
-                            <ul id="profile-submenu"
-                                class="list-unstyled d-none bg-light rounded mx-2 my-2 px-3 py-2 overflow-hidden">
-                                @include('profilo.edit')
-                            </ul>
-                        </li>
-                        <li>
-                            <hr class="dropdown-divider">
-                        </li>
-                        <li>
-                            <form method="POST" action="{{ route('logout') }}">
-                                @csrf
-                                <button type="submit" class="dropdown-item">Logout</button>
-                            </form>
-                        </li>
-                    </li>
-                </ul>
+                <li>
+                    <hr class="dropdown-divider">
                 </li>
-                @else
-                <li class="nav-item"><a class="nav-link" href="{{ route('login') }}">Login</a></li>
-                @endauth
+                <li>
+                    <form method="POST" action="{{ route('logout') }}">
+                        @csrf
+                        <button type="submit" class="dropdown-item">Logout</button>
+                    </form>
+                </li>
+                </li>
+            </ul>
+            </li>
+            @else
+            <li class="nav-item"><a class="nav-link" href="{{ route('login') }}">Login</a></li>
+            @endauth
             </ul>
         </div>
     </div>
@@ -264,29 +273,51 @@ $assocCorr = 'Anpas Nazionale';
 
 
 @push('scripts')
-    <script>
-document.addEventListener('DOMContentLoaded', function () {
-    const toggle = document.getElementById('profile-toggle');
-    const submenu = document.getElementById('profile-submenu');
-    const dropdownMenu = toggle.closest('.dropdown-menu');
-    toggle.addEventListener('click', function (event) {
-        event.preventDefault();
-        event.stopPropagation();
-        submenu.classList.toggle('d-none');
-    });
-    // Nascondi submenu quando il dropdown principale si chiude
-    document.addEventListener('click', function (event) {
-        // Se il click NON è dentro il dropdown
-        if (!dropdownMenu.contains(event.target)) {
-            submenu.classList.add('d-none');
-        }
-    });
-});
-    </script>
-    <script>
-        function toggleSubmenu() {
-            const submenu = document.getElementById('profile-submenu');
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const toggle = document.getElementById('profile-toggle');
+        const submenu = document.getElementById('profile-submenu');
+        const dropdownMenu = toggle.closest('.dropdown-menu');
+        toggle.addEventListener('click', function(event) {
+            event.preventDefault();
+            event.stopPropagation();
             submenu.classList.toggle('d-none');
-        }
-    </script>
+        });
+        // Nascondi submenu quando il dropdown principale si chiude
+        document.addEventListener('click', function(event) {
+            // Se il click NON è dentro il dropdown
+            if (!dropdownMenu.contains(event.target)) {
+                submenu.classList.add('d-none');
+            }
+        });
+    });
+</script>
+<script>
+    function toggleSubmenu() {
+        const submenu = document.getElementById('profile-submenu');
+        submenu.classList.toggle('d-none');
+    }
+
+    (function() {
+        const $loader = $('#pageLoader');
+        const show = () => $loader.stop(true, true).fadeIn(120).attr({
+            'aria-hidden': 'false',
+            'aria-busy': 'true'
+        });
+        const hide = () => $loader.stop(true, true).fadeOut(120).attr({
+            'aria-hidden': 'true',
+            'aria-busy': 'false'
+        });
+
+        // Attiva automaticamente per TUTTE le chiamate jQuery ($.get/$.post/$.ajax)
+        $(document).ajaxStart(show);
+        $(document).ajaxStop(hide);
+
+        // Espongo per uso manuale (es. fetch)
+        window.AnpasLoader = {
+            show,
+            hide
+        };
+    })();
+</script>
 @endpush

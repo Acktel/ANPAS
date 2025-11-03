@@ -108,7 +108,7 @@
             processing: true,
             serverSide: false,
             paging: true,
-            searching: false,
+            searching: true,
             ordering: true,
             order: [],
             info: false,

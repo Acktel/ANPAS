@@ -107,7 +107,7 @@ class CostiAutomezziController extends Controller {
         }
 
         array_unshift($rows, $totali);
-
+        
         return response()->json(['data' => $rows]);
     }
 
@@ -141,6 +141,7 @@ class CostiAutomezziController extends Controller {
 
         // 1) Valida ma consenti vuoto (che poi mettiamo a 0)
         $rules = array_fill_keys($fields, 'nullable|string');
+        $rules['Note'] = 'nullable|string|max:2000';
         $data  = $request->validate($rules);
 
         // normalizza PRIMA di salvare
@@ -161,7 +162,8 @@ class CostiAutomezziController extends Controller {
         // 3) Chiavi
         $data['idAutomezzo'] = (int)$idAutomezzo;
         $data['idAnno'] = (int) session('anno_riferimento', now()->year);
-
+        $data['Note']        = $request->input('Note', null);
+        
         CostiAutomezzi::updateOrInsert($data);
 
         return redirect()

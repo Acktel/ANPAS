@@ -142,7 +142,7 @@
         </div>
 
         {{-- Pulsanti azione --}}
-        <div class="d-flex justify-content-center mt-4">
+        <div class="d-flex justify-content-center mt-4 myborder-button">
           <button type="submit" class="btn btn-anpas-green me-2">
             <i class="fas fa-check me-1"></i> Aggiorna Convenzione
           </button>

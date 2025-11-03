@@ -191,8 +191,8 @@ async function loadTableMateriale() {
     data,
     columns,
     paging: true,
-    searching: false,
-    ordering: false,
+    searching: true,
+    ordering: true,
     info: false,
     responsive: true,
     language: {

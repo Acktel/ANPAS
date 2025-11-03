@@ -246,14 +246,15 @@ class Automezzo
             'idAnno'                             => (int) $data['idAnno'],
             'Targa'                              => $data['Targa'],
             'CodiceIdentificativo'               => $data['CodiceIdentificativo'],
-            'AnnoPrimaImmatricolazione'          => (int) $data['AnnoPrimaImmatricolazione'],
-            'AnnoAcquisto'                       => isset($data['AnnoAcquisto']) ? (int) $data['AnnoAcquisto'] : null,
+            'AnnoPrimaImmatricolazione'          => Automezzo::toIntOrNull($data['AnnoPrimaImmatricolazione'] ?? null),
+            'AnnoAcquisto'                       => Automezzo::toIntOrNull($data['AnnoAcquisto'] ?? null),
             'Modello'                            => $data['Modello'],
-            'idTipoVeicolo'                      => (int) $data['idTipoVeicolo'],
+            'idTipoVeicolo'                      => isset($data['idTipoVeicolo']) && $data['idTipoVeicolo'] !== null
+                                                    ? (int)$data['idTipoVeicolo']
+                                                    : 1,
             'incluso_riparto'                    => (int) ($data['incluso_riparto'] ?? 0),
-            // 👇 KmTotali salvato come intero
             'KmTotali'                           => self::toIntOrNull($data['KmTotali'] ?? null),
-            'idTipoCarburante'                   => (int) $data['idTipoCarburante'],
+            'idTipoCarburante'                   => isset($data['idTipoCarburante']) ? (int)$data['idTipoCarburante'] : 1,
             'DataUltimaAutorizzazioneSanitaria'  => $data['DataUltimaAutorizzazioneSanitaria'],
             'DataUltimoCollaudo'                 => $data['DataUltimoCollaudo'],
             'note'                               => $data['note'] ?? null,
@@ -275,11 +276,12 @@ class Automezzo
                 'AnnoPrimaImmatricolazione'          => (int) $data['AnnoPrimaImmatricolazione'],
                 'AnnoAcquisto'                       => isset($data['AnnoAcquisto']) ? (int) $data['AnnoAcquisto'] : null,
                 'Modello'                            => $data['Modello'],
-                'idTipoVeicolo'                      => (int) $data['idTipoVeicolo'],
+                'idTipoVeicolo'                      => isset($data['idTipoVeicolo']) && $data['idTipoVeicolo'] !== null
+                                                        ? (int)$data['idTipoVeicolo']
+                                                        : 1,
                 'incluso_riparto'                    => (int) ($data['incluso_riparto'] ?? 0),
-                // 👇 KmTotali come intero
                 'KmTotali'                           => self::toIntOrNull($data['KmTotali'] ?? null),
-                'idTipoCarburante'                   => (int) $data['idTipoCarburante'],
+                'idTipoCarburante'                   => (int) $data['idTipoCarburante'] ?? 1,
                 'DataUltimaAutorizzazioneSanitaria'  => $data['DataUltimaAutorizzazioneSanitaria'],
                 'DataUltimoCollaudo'                 => $data['DataUltimoCollaudo'],
                 'note'                               => $data['note'] ?? null,

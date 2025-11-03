@@ -456,6 +456,11 @@ button.btn-qualifica:hover {
   color: var(--anpas-green) !important;
 }
 
+.btn-anpas-green-active{
+  background-color: var(--anpas-green-dark)!important;
+  color: white!important;
+}
+
 div#associazioniTable_wrapper {
   padding: 50px 0px;
 }
@@ -639,4 +644,57 @@ tbody tr.dragging {
 /*====DATATABLE====*/  
   div#docsTable_length {
     margin-bottom: 25px;
+}
+
+/*====LOADER====*/
+.anpas-loader {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+}
+
+.anpas-loader__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.65);
+  backdrop-filter: blur(2px);
+}
+
+.anpas-loader__img {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 100px;
+  height: 100px;
+  transform: translate(-50%, -50%);
+  object-fit: contain;
+  pointer-events: none;
+}
+
+/*======RIAPARTIZIONE COSTI AUTOMEZZI E RADIO - ROTAZIONE MEZZI/MEZZI SOSTITUTIVI ======*/
+  .cell-rotazione   { background: rgba(13,110,253,.08)!important;; }    /* azzurrino */
+  .cell-sostitutivi { background: rgba(25,135,84,.10)!important;; }     /* verdino */
+  .th-rotazione     { border-bottom: 3px solid #fd0d8d !important; }
+  .th-sostitutivi   { border-bottom: 3px solid #198754 !important; }
+
+
+/*=======AGGIUSTAMENTI GLOBALI=======*/
+.row.mt-2.justify-content-between {
+    margin-top: 30px !important;
+}  
+
+.text-center {
+    text-align: center !important;
+    padding: 10px;
+    border: 1px solid #dce1e7;
+    border-radius: var(--tblr-border-radius);
+    box-sizing: border-box;
+}
+
+.myborder-button{
+    text-align: center !important;
+    padding: 10px;
+    border: 1px solid #dce1e7;
+    border-radius: var(--tblr-border-radius);
+    box-sizing: border-box;
 }

@@ -99,7 +99,7 @@ dataSrc: function(res) {
             processing: true,
             serverSide: false,
             paging: true,
-            searching: false,
+            searching: true,
             ordering: true,
             //modificato da 5 a 4 per mettere "TOTALE" in cima
             order: [], // is_totale

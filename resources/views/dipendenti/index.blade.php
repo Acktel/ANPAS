@@ -40,7 +40,7 @@ if (Route::is('dipendenti.byQualifica') && isset($qualificaId)) {
 
     @if($hasEditRoles)
       @if ($config)
-        <a href="{{ route('dipendenti.create') }}" class="btn btn-anpas-green">
+        <a href="{{ route('dipendenti.create', ['idAssociazione' => session('associazione_selezionata')]) }}" class="btn btn-anpas-green">
           <i class="fas fa-plus me-1"></i> Nuovo Dipendente
         </a>
       @else

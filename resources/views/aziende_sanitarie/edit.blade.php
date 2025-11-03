@@ -221,7 +221,7 @@
               </tbody>
             </table>
 
-            <div class="d-flex justify-content-center mt-5">
+            <div class="d-flex justify-content-center mt-5 myborder-button">
               <a href="{{ route('aziende-sanitarie.index') }}" class="btn btn-secondary me-2">
                 <i class="fas fa-arrow-left me-2"></i> Annulla
               </a>

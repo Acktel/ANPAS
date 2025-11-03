@@ -21,7 +21,7 @@
                 required>
         </div>
 
-        <div class="d-flex align-items-center my-3">
+        <div class="d-flex align-items-center my-3 myborder-button">
             <button type="submit" class="btn btn-anpas-green me-2">
                 <i class="fas fa-check me-1"></i> Salva
             </button>

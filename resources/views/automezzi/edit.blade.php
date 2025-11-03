@@ -173,7 +173,7 @@ $annoCorr = session('annoCorrente') ?? ($automezzo->idAnno ?? now()->year);
         </div>
 
         {{-- PULSANTI --}}
-        <div class="text-center">
+        <div class="text-center myborder-button">
           <button type="submit" class="btn btn-anpas-green me-2">
             <i class="fas fa-check me-1"></i> Aggiorna
           </button>

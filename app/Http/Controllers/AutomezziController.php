@@ -76,22 +76,24 @@ class AutomezziController extends Controller {
 
     public function store(Request $request) {
         $rules = [
-            'idAssociazione' => 'required|exists:associazioni,idAssociazione',
-            'idAnno' => 'required|integer|min:2000|max:' . (date('Y') + 5),
-            'Targa' => 'required|string|max:50',
-            'CodiceIdentificativo' => 'required|string|max:100',
-            'AnnoPrimaImmatricolazione' => 'integer|min:1900|max:' . date('Y'),
-            'AnnoAcquisto' => 'nullable|integer|min:1900|max:' . date('Y'),
-            'Modello' => 'string|max:255',
-            'idTipoVeicolo' => 'exists:vehicle_types,id',
-            'KmRiferimento' => 'integer|min:0',
-            'KmTotali' => 'nullable|integer|min:0',
-            'idTipoCarburante' => 'exists:fuel_types,id',
-            'DataUltimaAutorizzazioneSanitaria' => 'nullable|date',
-            'DataUltimoCollaudo' => 'nullable|date',
-            'incluso_riparto' => 'boolean',
-            'note' => 'nullable|string',
-            'informazioniAggiuntive' => 'nullable|string'
+        'idAssociazione' => 'required|exists:associazioni,idAssociazione',
+        'idAnno' => 'required|integer|min:2000|max:' . (date('Y') + 5),
+        'Targa' => 'required|string|max:50',
+        'CodiceIdentificativo' => 'required|string|max:100',
+
+        // opzionali
+        'AnnoPrimaImmatricolazione' => 'nullable|integer|min:1900|max:' . date('Y'),
+        'AnnoAcquisto' => 'nullable|integer|min:1900|max:' . date('Y'),
+        'Modello' => 'nullable|string|max:255',
+        'idTipoVeicolo' => 'nullable|exists:vehicle_types,id',
+        'KmRiferimento' => 'nullable|integer|min:0',
+        'KmTotali' => 'nullable|integer|min:0',
+        'idTipoCarburante' => 'nullable|exists:fuel_types,id',
+        'DataUltimaAutorizzazioneSanitaria' => 'nullable|date',
+        'DataUltimoCollaudo' => 'nullable|date',
+        'incluso_riparto' => 'boolean',
+        'note' => 'nullable|string',
+        'informazioniAggiuntive' => 'nullable|string',
         ];
 
         $validated = $request->validate($rules);
@@ -100,11 +102,13 @@ class AutomezziController extends Controller {
         try {
             $newId = Automezzo::createAutomezzo($validated);
 
-            AutomezzoKmRiferimento::insertKmRiferimento([
-                'idAutomezzo' => $newId,
-                'idAnno' => $validated['idAnno'],
-                'KmRiferimento' => $validated['KmRiferimento'],
-            ]);
+            if (!is_null($validated['KmRiferimento'] ?? null)) {
+                AutomezzoKmRiferimento::insertKmRiferimento([
+                    'idAutomezzo'    => $newId,
+                    'idAnno'         => $validated['idAnno'],
+                    'KmRiferimento'  => (int)$validated['KmRiferimento'],
+                ]);
+            }
 
             DB::commit();
             return redirect()->route('automezzi.index')->with('success', 'Automezzo creato correttamente.');

@@ -75,6 +75,8 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
+
+    AnpasLoader.show();
     // ===== Dropdown associazione =====
     const toggleBtn   = document.getElementById('assocDropdownToggle');
     const dropdown    = document.getElementById('assocDropdown');
@@ -134,6 +136,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 buildGenericaTable(data);
             }
         }
+        AnpasLoader.hide();
     }
 
     // click handler sui bottoni
@@ -152,10 +155,14 @@ document.addEventListener('DOMContentLoaded', function () {
     const defaultBtn = document.querySelector('.btn-qualifica[data-id="1"]')
                       || document.querySelector('.btn-qualifica');
     if (defaultBtn) {
+         AnpasLoader.show();
         const idQualifica = defaultBtn.getAttribute('data-id');
         const label       = defaultBtn.getAttribute('data-label') || '';
         fetchAndRender(idQualifica, label);
+        
+
     }
+    
 });
 </script>
 @endpush

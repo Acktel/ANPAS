@@ -4,11 +4,15 @@
 @endphp
 @section('content')
 <div class="container">
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="d-flex justify-content-between align-items-center">
         <h1 class="container-title">
-            Modifica Servizi Svolti – {{ $automezzo->Targa }} – Anno {{ session('anno_riferimento') }}
+            Modifica Servizi Svolti – {{ $automezzo->Targa }} -  {{ $automezzo->CodiceIdentificativo }}
         </h1>
-    </div>
+    </div>       
+    <p class="text-muted mb-4">
+        Associazione #{{ $assocCorr->Associazione }} — Anno {{ session('anno_riferimento')}}
+    </p>    
+   
 
 
     <form method="POST" action="{{ route('servizi-svolti.update', $automezzo->idAutomezzo) }}">

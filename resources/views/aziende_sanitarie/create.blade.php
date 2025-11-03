@@ -109,7 +109,7 @@
               <textarea name="note" id="note" class="form-control" rows="4">{{ old('note') }}</textarea>
             </div>
 
-            <div class="d-flex justify-content-center">
+            <div class="d-flex justify-content-center myborder-button">
               <a href="{{ route('aziende-sanitarie.index') }}" class="btn btn-secondary me-2">
                 <i class="fas fa-times me-1"></i> Annulla
               </a>
@@ -179,7 +179,7 @@
               </table>
             </div>
 
-            <div class="d-flex justify-content-center mt-5">
+            <div class="d-flex justify-content-center mt-5 myborder-button">
               <a href="{{ route('aziende-sanitarie.index') }}" class="btn btn-secondary me-2">
                 <i class="fas fa-times me-1"></i> Annulla
               </a>
@@ -208,7 +208,7 @@
               <tbody></tbody>
             </table>
 
-            <div class="d-flex justify-content-between mt-3">
+            <div class="d-flex justify-content-between mt-3 myborder-button">
               <a href="{{ route('aziende-sanitarie.index') }}" class="btn btn-secondary">
                 <i class="fas fa-times me-1"></i> Annulla
               </a>

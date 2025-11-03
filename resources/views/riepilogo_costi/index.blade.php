@@ -195,327 +195,425 @@ $user = Auth::user();
 
 @push('scripts')
 <script>
-(function () {
-  const csrfToken = document.head.querySelector('meta[name="csrf-token"]')?.content || '';
-  const isElevato = @json($isElevato);
-  const anno = @json($anno);
-  const selectedAssocServer = @json((int)($selectedAssoc ?? 0));
+  (function() {
+    const $loader = $('#pageLoader');
+    const show = () => $loader.stop(true, true).fadeIn(120).attr({
+      'aria-hidden': 'false',
+      'aria-busy': 'true'
+    });
+    const hide = () => $loader.stop(true, true).fadeOut(120).attr({
+      'aria-hidden': 'true',
+      'aria-busy': 'false'
+    });
 
-  const $assoc = document.getElementById('assocSelect');
-  const $conv  = document.getElementById('convSelect');
+    // Loader globale per tutte le chiamate $.ajax
+    $(document).ajaxStart(show);
+    $(document).ajaxStop(hide);
 
-  // se NON elevato, non deve poter cambiare associazione (ulteriore protezione UI)
-  if (!isElevato && $assoc) $assoc.setAttribute('disabled', 'disabled');
+    // Espongo per uso manuale (fetch)
+    window.AnpasLoader = {
+      show,
+      hide
+    };
 
-  // Totali per riga "al netto"
-  let __totPrevGenerale = 0;   // somma preventivi sezioni 2..10 (identico al totale sopra)
-  let __totConsGenerale = 0;   // somma consuntivi sezioni 2..10 (identico al totale sopra)
-  let __costoFasciaSost = 0;   // solo per tabella mezzi sostitutivi (display)
-  let __costoMezziSost  = 0;   // da sottrarre al Consuntivo nei “netti”
+    const csrfToken = document.head.querySelector('meta[name="csrf-token"]')?.content || '';
+    const isElevato = @json($isElevato);
+    const anno = @json($anno);
+    const selectedAssocServer = @json((int)($selectedAssoc ?? 0));
 
-  // utils
-  const eur  = v => new Intl.NumberFormat('it-IT', { style:'currency', currency:'EUR' }).format(Number(v||0));
-  const pct  = v => `${(Number(v)||0).toFixed(2)}%`;
-  const norm = s => String(s||'').trim().replace(/\s+/g,' ').toUpperCase();
-  function toNum(v) {
-    if (typeof v === 'number') return v;
-    const s = String(v ?? '').trim();
-    if (!s) return 0;
-    if (/,\d{1,2}$/.test(s)) return parseFloat(s.replace(/\./g, '').replace(',', '.')) || 0;
-    return parseFloat(s.replace(/,/g, '')) || 0;
-  }
+    const $assoc = document.getElementById('assocSelect');
+    const $conv = document.getElementById('convSelect');
 
-  function isTelefoniaRow(row) {
-    const d = norm(row?.descrizione);
-    return d === 'UTENZE TELEFONICHE' || row?.meta?.telefonia === true;
-  }
+    // se NON elevato, blocco la select associazione
+    if (!isElevato && $assoc) $assoc.setAttribute('disabled', 'disabled');
 
-  function currentAssociazione() {
-    let v = ($assoc?.value || '').trim();
-    if (!v) v = String(selectedAssocServer || '');
-    return v;
-  }
+    // Totali per "netto" sostitutivi
+    let __totPrevGenerale = 0;
+    let __totConsGenerale = 0;
+    let __costoFasciaSost = 0;
+    let __costoMezziSost = 0;
 
-  // Totale Generale "al netto" (prev = totale prev; cons = totale cons - costo mezzi sostitutivi)
-  function updateTotaleNettoSostitutiviRow() {
-    const wrap    = document.getElementById('totale-netto-sost-wrapper');
-    const outPrev = document.getElementById('tot-prev-netto-sost');
-    const outCons = document.getElementById('tot-cons-netto-sost');
-    const outScos = document.getElementById('tot-scos-netto-sost');
-    if (!wrap || !outPrev || !outCons || !outScos) return;
+    // utils
+    const eur = v => new Intl.NumberFormat('it-IT', {
+      style: 'currency',
+      currency: 'EUR'
+    }).format(Number(v || 0));
+    const pct = v => `${(Number(v)||0).toFixed(2)}%`;
+    const norm = s => String(s || '').trim().replace(/\s+/g, ' ').toUpperCase();
 
-    const hasSost = __costoMezziSost > 0;
-    if (!hasSost) {
-      wrap.classList.add('d-none');
-      outPrev.textContent = '€0,00';
-      outCons.textContent = '€0,00';
-      outScos.textContent = '0%';
-      return;
+    function toNum(v) {
+      if (typeof v === 'number') return v;
+      const s = String(v ?? '').trim();
+      if (!s) return 0;
+      if (/,\d{1,2}$/.test(s)) return parseFloat(s.replace(/\./g, '').replace(',', '.')) || 0;
+      return parseFloat(s.replace(/,/g, '')) || 0;
     }
 
-    const prevNet = Math.max(0, __totPrevGenerale);                 // NON si tocca
-    const consNet = Math.max(0, __totConsGenerale - __costoMezziSost); // solo questo si riduce
-    const scosNet = prevNet !== 0 ? ((consNet - prevNet) / prevNet * 100) : 0;
-
-    outPrev.textContent = eur(prevNet);
-    outCons.textContent = eur(consNet);
-    outScos.textContent = `${scosNet.toFixed(2)}%`;
-    wrap.classList.remove('d-none');
-  }
-
-  function loadConvenzioniForAss(assId, preselect = 'TOT') {
-    if (!$conv) return;
-
-    $conv.innerHTML = '';
-    if (!assId) {
-      $conv.setAttribute('disabled','disabled');
-      return;
+    function isTelefoniaRow(row) {
+      const d = norm(row?.descrizione);
+      return d === 'UTENZE TELEFONICHE' || row?.meta?.telefonia === true;
     }
-    $conv.removeAttribute('disabled');
 
-    const optTot = document.createElement('option');
-    optTot.value = 'TOT';
-    optTot.textContent = 'TOTALE';
-    $conv.appendChild(optTot);
+    function isMergedRow(row) {
+      if (!row) return false;
+      if (row?.meta?.merged === true) return true;
+      const idv = row.idVoceConfig;
+      return typeof idv === 'string' && /_MERGE$/.test(idv); // es. TEL_MERGE, FORMAZIONE_MERGE
+    }
 
-    fetch(`/ajax/convenzioni-by-associazione/${assId}?anno=${anno}`)
-      .then(r => (r.ok ? r.json() : []))
-      .then(items => {
-        (items || []).forEach(c => {
-          const opt = document.createElement('option');
-          opt.value = c.id;
-          opt.textContent = c.text;
-          $conv.appendChild(opt);
-        });
-        $conv.value = preselect ?? 'TOT';
+    function currentAssociazione() {
+      let v = ($assoc?.value || '').trim();
+      if (!v) v = String(selectedAssocServer || '');
+      return v;
+    }
 
-        (async () => {
-          await reloadAllSections();
-          await loadSezioneMezziSostitutivi();
-          if (window.__reloadRotSostBox) window.__reloadRotSostBox();
-        })();
-      })
-      .catch(() => {});
-  }
+    // Box "Totale generale al netto dei mezzi sostitutivi"
+    function updateTotaleNettoSostitutiviRow() {
+      const wrap = document.getElementById('totale-netto-sost-wrapper');
+      const outPrev = document.getElementById('tot-prev-netto-sost');
+      const outCons = document.getElementById('tot-cons-netto-sost');
+      const outScos = document.getElementById('tot-scos-netto-sost');
+      if (!wrap || !outPrev || !outCons || !outScos) return;
 
-  function loadSezione(idTipologia) {
-    const ass  = currentAssociazione();
-    const conv = ($conv?.value || '').trim();
+      const showNetto = (__costoMezziSost > __costoFasciaSost);
+      if (!showNetto) {
+        wrap.classList.add('d-none');
+        outPrev.textContent = '€0,00';
+        outCons.textContent = '€0,00';
+        outScos.textContent = '0%';
+        return;
+      }
 
-    const url = `{{ route('riepilogo.costi.sezione', ['idTipologia' => '__ID__']) }}`.replace('__ID__', idTipologia);
-    const params = new URLSearchParams({ idAssociazione: ass, idConvenzione: conv });
+      const prevNet = Math.max(0, __totPrevGenerale);
+      const consNet = Math.max(0, __totConsGenerale - __costoMezziSost);
+      const scosNet = prevNet !== 0 ? ((consNet - prevNet) / prevNet * 100) : 0;
 
-    return fetch(`${url}?${params}`)
-      .then(r => r.json())
-      .then(({ data }) => {
-        const tbody = document.querySelector(`#table-sezione-${idTipologia} tbody`);
-        if (!tbody) return { prev: 0, cons: 0 };
+      outPrev.textContent = eur(prevNet);
+      outCons.textContent = eur(consNet);
+      outScos.textContent = `${scosNet.toFixed(2)}%`;
+      wrap.classList.remove('d-none');
+    }
 
-        tbody.innerHTML = '';
-        let sumPrev = 0, sumCons = 0;
+    function loadConvenzioniForAss(assId, preselect = 'TOT') {
+      if (!$conv) return;
 
-        (data || []).forEach(row => {
-          sumPrev += toNum(row.preventivo);
-          sumCons += toNum(row.consuntivo);
+      $conv.innerHTML = '';
+      if (!assId) {
+        $conv.setAttribute('disabled', 'disabled');
+        return;
+      }
+      $conv.removeAttribute('disabled');
 
-          const editingEnabled = !!conv && conv !== 'TOT';
-          let actionsHtml = '—';
-          if (editingEnabled) {
-            if (isTelefoniaRow(row)) {
-              const editTelUrl = `{{ route('riepilogo.costi.edit.telefonia') }}`;
-              const qs = new URLSearchParams({ idAssociazione: ass, idConvenzione: conv }).toString();
-              actionsHtml = `<a class="btn btn-warning btn-icon" href="${editTelUrl}?${qs}" title="Modifica utenze telefoniche"><i class="fas fa-edit"></i></a>`;
-            } else {
-              const ensureUrl = `{{ route('riepilogo.costi.ensureEdit') }}`;
-              const qs = new URLSearchParams({ idAssociazione: ass, idConvenzione: conv, idVoceConfig: row.idVoceConfig }).toString();
-              actionsHtml = `<a class="btn btn-warning btn-icon" href="${ensureUrl}?${qs}" title="Modifica"><i class="fas fa-edit"></i></a>`;
+      const optTot = document.createElement('option');
+      optTot.value = 'TOT';
+      optTot.textContent = 'TOTALE';
+      $conv.appendChild(optTot);
+
+      fetch(`/ajax/convenzioni-by-associazione/${assId}?anno=${anno}`)
+        .then(r => (r.ok ? r.json() : []))
+        .then(items => {
+          (items || []).forEach(c => {
+            const opt = document.createElement('option');
+            opt.value = c.id;
+            opt.textContent = c.text;
+            $conv.appendChild(opt);
+          });
+          $conv.value = preselect ?? 'TOT';
+
+          (async () => {
+            AnpasLoader.show();
+            await reloadAllSections();
+            await loadSezioneMezziSostitutivi();
+            if (window.__reloadRotSostBox) window.__reloadRotSostBox();
+          })();
+        })
+        .catch(() => {});
+    }
+
+    function loadSezione(idTipologia) {
+      const ass = currentAssociazione();
+      const conv = ($conv?.value || '').trim();
+
+      const url = `{{ route('riepilogo.costi.sezione', ['idTipologia' => '__ID__']) }}`.replace('__ID__', idTipologia);
+      const params = new URLSearchParams({
+        idAssociazione: ass,
+        idConvenzione: conv
+      });
+
+      return fetch(`${url}?${params}`)
+        .then(r => r.json())
+        .then(({
+          data
+        }) => {
+          const tbody = document.querySelector(`#table-sezione-${idTipologia} tbody`);
+          if (!tbody) return {
+            prev: 0,
+            cons: 0
+          };
+
+          tbody.innerHTML = '';
+          let sumPrev = 0,
+            sumCons = 0;
+
+          (data || []).forEach(row => {
+            const prev = toNum(row?.preventivo);
+            const cons = toNum(row?.consuntivo);
+            sumPrev += prev;
+            sumCons += cons;
+
+            const editingEnabled = !!conv && conv !== 'TOT';
+            const merged = isMergedRow(row);
+
+            let actionsHtml = '—';
+            if (editingEnabled) {
+              if (isTelefoniaRow(row)) {
+                // Edit doppio telefonia (fissa+mobile)
+                const editTelUrl = `{{ route('riepilogo.costi.edit.telefonia') }}`;
+                const qs = new URLSearchParams({
+                  idAssociazione: ass,
+                  idConvenzione: conv
+                }).toString();
+                actionsHtml = `<a class="btn btn-warning btn-icon" href="${editTelUrl}?${qs}" title="Modifica utenze telefoniche"><i class="fas fa-edit"></i></a>`;
+              } else if (merged) {
+                // MERGE formazione (6010 + 6011)
+                const parts = Array.isArray(row?.merged_of) ? row.merged_of.filter(Boolean) : [];
+                if (parts.length >= 2) {
+                  const editMergeUrl = `{{ route('riepilogo.costi.edit.formazione') }}`;
+                  const qs = new URLSearchParams({
+                    idAssociazione: ass,
+                    idConvenzione: conv,
+                    idA: parts[0],
+                    idB: parts[1],
+                  }).toString();
+                  actionsHtml = `<a class="btn btn-warning btn-icon" href="${editMergeUrl}?${qs}" title="Modifica formazione (A + DAE + RDAE)"><i class="fas fa-edit"></i></a>`;
+                } else {
+                  actionsHtml = '—';
+                }
+              } else {
+                // Edit classico singola voce
+                const ensureUrl = `{{ route('riepilogo.costi.ensureEdit') }}`;
+                const qs = new URLSearchParams({
+                  idAssociazione: ass,
+                  idConvenzione: conv,
+                  idVoceConfig: row.idVoceConfig
+                }).toString();
+                actionsHtml = `<a class="btn btn-warning btn-icon" href="${ensureUrl}?${qs}" title="Modifica"><i class="fas fa-edit"></i></a>`;
+              }
             }
-          }
 
-          const tr = document.createElement('tr');
-          tr.innerHTML = `
-            <td>${row.descrizione ?? ''}</td>
-            <td class="text-end">${eur(toNum(row.preventivo))}</td>
-            <td class="text-end">${eur(toNum(row.consuntivo))}</td>
-            <td class="text-end">${row.scostamento ?? '0%'}</td>
-            <td class="text-center">${actionsHtml}</td>`;
-          tbody.appendChild(tr);
-        });
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+          <td>${row?.descrizione ?? ''}</td>
+          <td class="text-end">${eur(prev)}</td>
+          <td class="text-end">${eur(cons)}</td>
+          <td class="text-end">${row?.scostamento ?? '0%'}</td>
+          <td class="text-center">${actionsHtml}</td>`;
+            tbody.appendChild(tr);
+          });
 
-        const scos = sumPrev !== 0 ? ((sumCons - sumPrev) / sumPrev * 100) : 0;
-        document.getElementById(`summary-prev-${idTipologia}`).textContent = 'Preventivo: ' + eur(sumPrev);
-        document.getElementById(`summary-cons-${idTipologia}`).textContent = 'Consuntivo: ' + eur(sumCons);
-        document.getElementById(`summary-scos-${idTipologia}`).textContent = 'Scostamento: ' + pct(scos);
+          const scos = sumPrev !== 0 ? ((sumCons - sumPrev) / sumPrev * 100) : 0;
+          document.getElementById(`summary-prev-${idTipologia}`).textContent = 'Preventivo: ' + eur(sumPrev);
+          document.getElementById(`summary-cons-${idTipologia}`).textContent = 'Consuntivo: ' + eur(sumCons);
+          document.getElementById(`summary-scos-${idTipologia}`).textContent = 'Scostamento: ' + pct(scos);
 
-        return { prev: sumPrev, cons: sumCons };
-      })
-      .catch(() => ({ prev: 0, cons: 0 }));
-  }
-
-  function updateBulkButtonsVisibility() {
-    const convVal = ($conv?.value || '').trim();
-    const show = !!convVal && convVal !== 'TOT';
-    document.querySelectorAll('.js-bulk-bar').forEach(el => el.classList.toggle('d-none', !show));
-  }
-
-  async function reloadAllSections() {
-    const ids = [2,3,4,5,6,7,8,9,10]; // standard (NO mezzi sostitutivi)
-    let totPrev = 0, totCons = 0;
-
-    for (const id of ids) {
-      const s = await loadSezione(id);
-      totPrev += s.prev;
-      totCons += s.cons;
+          return {
+            prev: sumPrev,
+            cons: sumCons
+          };
+        })
+        .catch(() => ({
+          prev: 0,
+          cons: 0
+        }));
     }
 
-    const scosTot = totPrev !== 0 ? ((totCons - totPrev) / totPrev * 100) : 0;
-    document.getElementById('tot-prev').textContent = eur(totPrev);
-    document.getElementById('tot-cons').textContent = eur(totCons);
-    document.getElementById('tot-scos').textContent = `${scosTot.toFixed(2)}%`;
 
-    __totPrevGenerale = totPrev;
-    __totConsGenerale = totCons;
-    updateTotaleNettoSostitutiviRow();
+    function updateBulkButtonsVisibility() {
+      const convVal = ($conv?.value || '').trim();
+      const show = !!convVal && convVal !== 'TOT';
+      document.querySelectorAll('.js-bulk-bar').forEach(el => el.classList.toggle('d-none', !show));
+    }
 
-    const noData = (totPrev === 0 && totCons === 0);
-    document.getElementById('noDataMessage')?.classList.toggle('d-none', !noData);
-    updateBulkButtonsVisibility();
+    async function reloadAllSections() {
+      const ids = [2, 3, 4, 5, 6, 7, 8, 9, 10]; // standard (NO mezzi sostitutivi)
+      let totPrev = 0,
+        totCons = 0;
 
-    return { totPrev, totCons };
-  }
+      for (const id of ids) {
+        const s = await loadSezione(id);
+        totPrev += s.prev;
+        totCons += s.cons;
+      }
 
-  async function loadSezioneMezziSostitutivi() {
-    const ass  = currentAssociazione();
-    const conv = ($conv?.value || '').trim();
+      const scosTot = totPrev !== 0 ? ((totCons - totPrev) / totPrev * 100) : 0;
+      document.getElementById('tot-prev').textContent = eur(totPrev);
+      document.getElementById('tot-cons').textContent = eur(totCons);
+      document.getElementById('tot-scos').textContent = `${scosTot.toFixed(2)}%`;
 
-    const section = document.getElementById('accordion-mezzi-sostitutivi');
-    if (!section) return;
+      __totPrevGenerale = totPrev;
+      __totConsGenerale = totCons;
+      updateTotaleNettoSostitutiviRow();
 
-    // se non c’è convenzione o è TOTALE -> nascondi e reset CORRETTO
-    if (!conv || conv === 'TOT') {
+      const noData = (totPrev === 0 && totCons === 0);
+      document.getElementById('noDataMessage')?.classList.toggle('d-none', !noData);
+      updateBulkButtonsVisibility();
+      AnpasLoader.hide();
+      return {
+        totPrev,
+        totCons
+      };
+    }
+
+    async function loadSezioneMezziSostitutivi() {
+      const ass = currentAssociazione();
+      const conv = ($conv?.value || '').trim();
+
+      const section = document.getElementById('accordion-mezzi-sostitutivi');
+      if (!section) return;
+
+      // se non c’è convenzione o è TOTALE -> nascondi e reset
+      if (!conv || conv === 'TOT') {
+        section.classList.add('d-none');
+        __costoFasciaSost = 0;
+        __costoMezziSost = 0;
+        updateTotaleNettoSostitutiviRow();
+        return;
+      }
+
+      const url = `/ajax/rot-sost/stato?idAssociazione=${ass}&idConvenzione=${conv}&anno=${anno}`;
+      const res = await fetch(url);
+      const data = await res.json().catch(() => ({}));
+
       section.classList.add('d-none');
-      __costoFasciaSost = 0;   // << corretto
-      __costoMezziSost  = 0;   // << corretto
+      const tbody = document.querySelector('#table-mezzi-sostitutivi tbody');
+      if (tbody) tbody.innerHTML = '';
+
+      if (!data?.ok || data.modalita !== 'sostitutivi') {
+        __costoFasciaSost = 0;
+        __costoMezziSost = 0;
+        updateTotaleNettoSostitutiviRow();
+        return;
+      }
+
+      section.classList.remove('d-none');
+
+      const costoFascia = Number(data.costo_fascia_oraria || 0);
+      const costoSost = Number(data.costo_mezzi_sostitutivi || 0);
+      const totaleNetto = costoFascia - costoSost;
+
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td>${data.convenzione ?? 'Convenzione selezionata'}</td>
+        <td class="text-end">${eur(costoFascia)}</td>
+        <td class="text-end">${eur(costoSost)}</td>
+        <td class="text-end fw-bold">${eur(totaleNetto)}</td>
+        <td class="text-center">
+          <a href="/mezzi-sostitutivi/${conv}/edit" class="btn btn-warning btn-icon" title="Modifica costi orari">
+            <i class="fas fa-edit"></i>
+          </a>
+        </td>`;
+      tbody.appendChild(row);
+
+      document.getElementById('summary-prev-sost').textContent = 'Costo fascia oraria: ' + eur(costoFascia);
+      document.getElementById('summary-cons-sost').textContent = 'Costo mezzi sostitutivi: ' + eur(costoSost);
+      document.getElementById('summary-scos-sost').textContent = 'Totale al netto: ' + eur(totaleNetto);
+
+      __costoFasciaSost = costoFascia;
+      __costoMezziSost = costoSost;
       updateTotaleNettoSostitutiviRow();
-      return;
+      AnpasLoader.hide();
     }
 
-    const url = `/ajax/rot-sost/stato?idAssociazione=${ass}&idConvenzione=${conv}&anno=${anno}`;
-    const res = await fetch(url);
-    const data = await res.json().catch(() => ({}));
-
-    section.classList.add('d-none');
-    const tbody = document.querySelector('#table-mezzi-sostitutivi tbody');
-    if (tbody) tbody.innerHTML = '';
-
-    if (!data?.ok || data.modalita !== 'sostitutivi') {
-      __costoFasciaSost = 0;
-      __costoMezziSost  = 0;
-      updateTotaleNettoSostitutiviRow();
-      return;
-    }
-
-    section.classList.remove('d-none');
-
-    const costoFascia = Number(data.costo_fascia_oraria || 0);
-    const costoSost   = Number(data.costo_mezzi_sostitutivi || 0);
-    const totaleNetto = costoFascia - costoSost;
-
-    const row = document.createElement('tr');
-    row.innerHTML = `
-      <td>${data.convenzione ?? 'Convenzione selezionata'}</td>
-      <td class="text-end">${eur(costoFascia)}</td>
-      <td class="text-end">${eur(costoSost)}</td>
-      <td class="text-end fw-bold">${eur(totaleNetto)}</td>
-      <td class="text-center">
-        <a href="/mezzi-sostitutivi/${conv}/edit" class="btn btn-warning btn-icon" title="Modifica costi orari">
-          <i class="fas fa-edit"></i>
-        </a>
-      </td>`;
-    tbody.appendChild(row);
-
-    document.getElementById('summary-prev-sost').textContent = 'Costo fascia oraria: ' + eur(costoFascia);
-    document.getElementById('summary-cons-sost').textContent = 'Costo mezzi sostitutivi: ' + eur(costoSost);
-    document.getElementById('summary-scos-sost').textContent = 'Totale al netto: ' + eur(totaleNetto);
-
-    __costoFasciaSost = costoFascia; // solo display sezione
-    __costoMezziSost  = costoSost;   // usato nei netti
-    updateTotaleNettoSostitutiviRow();
-  }
-
-  $assoc?.addEventListener('change', function () {
-    const assId = this.value || '';
-    @if(Route::has('sessione.setAssociazione'))
+    $assoc?.addEventListener('change', function() {
+      const assId = this.value || '';
+      @if(Route::has('sessione.setAssociazione'))
       fetch("{{ route('sessione.setAssociazione') }}", {
-        method:'POST',
-        headers:{'Content-Type':'application/json','X-CSRF-TOKEN':csrfToken},
-        body: JSON.stringify({ idAssociazione: assId })
-      }).finally(() => loadConvenzioniForAss(assId,'TOT'));
-    @else
-      loadConvenzioniForAss(assId,'TOT');
-    @endif
-  });
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-TOKEN': csrfToken
+        },
+        body: JSON.stringify({
+          idAssociazione: assId
+        })
+      }).finally(() => loadConvenzioniForAss(assId, 'TOT'));
+      AnpasLoader.hide();
+      @else
+      loadConvenzioniForAss(assId, 'TOT');
+      AnpasLoader.hide();
+      @endif
+    });
 
-  $conv?.addEventListener('change', function () {
-    const val = this.value;
-    @if(Route::has('sessione.setConvenzione'))
+    $conv?.addEventListener('change', function() {
+      AnpasLoader.show();
+      const val = this.value;
+      @if(Route::has('sessione.setConvenzione'))
       fetch("{{ route('sessione.setConvenzione') }}", {
-        method:'POST',
-        headers:{'Content-Type':'application/json','X-CSRF-TOKEN':csrfToken},
-        body: JSON.stringify({ idConvenzione: val })
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-TOKEN': csrfToken
+        },
+        body: JSON.stringify({
+          idConvenzione: val
+        })
       }).finally(async () => {
         await reloadAllSections();
         await loadSezioneMezziSostitutivi();
         if (window.__reloadRotSostBox) window.__reloadRotSostBox();
+        AnpasLoader.hide();
       });
-    @else
-      (async () => {
+      @else
+        (async () => {
+          await reloadAllSections();
+          await loadSezioneMezziSostitutivi();
+          AnpasLoader.hide();
+        })();
+      @endif
+    });
+
+    document.addEventListener('click', function(e) {
+      const el = e.target.closest('.js-edit-prev');
+      if (!el) return;
+      e.preventDefault();
+
+      const sezione = el.dataset.sezione;
+      const ass = document.getElementById('assocSelect')?.value || @json((string)($selectedAssoc ?? ''));
+      const conv = document.getElementById('convSelect')?.value || '';
+
+      if (!conv || conv === 'TOT') {
+        alert('Seleziona una convenzione specifica per modificare i preventivi della sezione.');
+        return;
+      }
+
+      const url = new URL(
+        "{{ route('riepilogo.costi.editPreventiviSezione', ['sezione' => '__S__']) }}".replace('__S__', sezione),
+        window.location.origin
+      );
+      url.searchParams.set('idAssociazione', ass);
+      url.searchParams.set('idConvenzione', conv);
+      window.location = url.toString();
+    });
+
+    (async () => {
+      if (isElevato) {
+        const preSel = ($assoc?.value || '').trim() || String(selectedAssocServer || '');
+        if (preSel) loadConvenzioniForAss(preSel, @json($selectedConv ?? 'TOT'));
+      } else {
         await reloadAllSections();
         await loadSezioneMezziSostitutivi();
-      })();
-    @endif
-  });
+        if (window.__reloadRotSostBox) window.__reloadRotSostBox();
+      }
 
-  document.addEventListener('click', function (e) {
-    const el = e.target.closest('.js-edit-prev');
-    if (!el) return;
-    e.preventDefault();
+      if ($conv && @json($selectedConv) && @json($selectedConv) !== 'TOT') {
+        $conv.value = String(@json($selectedConv));
+      }
 
-    const sezione = el.dataset.sezione;
-    const ass = document.getElementById('assocSelect')?.value || @json((string)($selectedAssoc ?? ''));
-    const conv = document.getElementById('convSelect')?.value || '';
+      updateTotaleNettoSostitutiviRow();
+      AnpasLoader.hide();
+    })();
 
-    if (!conv || conv === 'TOT') {
-      alert('Seleziona una convenzione specifica per modificare i preventivi della sezione.');
-      return;
-    }
-
-    const url = new URL(
-      "{{ route('riepilogo.costi.editPreventiviSezione', ['sezione' => '__S__']) }}".replace('__S__', sezione),
-      window.location.origin
-    );
-    url.searchParams.set('idAssociazione', ass);
-    url.searchParams.set('idConvenzione', conv);
-    window.location = url.toString();
-  });
-
-  (async () => {
-    if (isElevato) {
-      const preSel = ($assoc?.value || '').trim() || String(selectedAssocServer || '');
-      if (preSel) loadConvenzioniForAss(preSel, @json($selectedConv ?? 'TOT'));
-    } else {
-      await reloadAllSections();
-      await loadSezioneMezziSostitutivi();
-      if (window.__reloadRotSostBox) window.__reloadRotSostBox();
-    }
-
-    // se il server ha già una convenzione selezionata, applicala alla select
-    if ($conv && @json($selectedConv) && @json($selectedConv) !== 'TOT') {
-      $conv.value = String(@json($selectedConv));
-    }
-
-    updateTotaleNettoSostitutiviRow();
+    AnpasLoader.hide();
   })();
-})();
 </script>
 @endpush

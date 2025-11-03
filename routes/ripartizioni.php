@@ -104,12 +104,27 @@ Route::middleware(['auth'])->prefix('ripartizioni')->group(function () {
         });
 
     // ─── COSTI AUTOMEZZI RADIO E SANITARI ─────────────────────────────────────────────
-    Route::prefix('costi-automezzi-sanitari')->name('ripartizioni.costi_automezzi_sanitari.')->group(function () {
-        Route::get('/', [RipartizioneCostiAutomezziSanitariController::class, 'index'])->name('index');
-        Route::get('/data', [RipartizioneCostiAutomezziSanitariController::class, 'getData'])->name('getData');
+    Route::prefix('costi-automezzi-sanitari')
+        ->name('ripartizioni.costi_automezzi_sanitari.')
+        ->group(function () {
 
-        // ✅ Nuova rotta per la tabella finale (ripartizione completa per voce/convenzione)
-        Route::get('/tabella-finale', [RipartizioneCostiAutomezziSanitariController::class, 'getTabellaFinale'])->name('tabellaFinale');
-    });
+            // Pagina principale (index)
+            Route::get('/', [RipartizioneCostiAutomezziSanitariController::class, 'index'])
+                ->name('index');
 
+            // Dati per tabella sintetica (solo costi automezzi)
+            Route::get('/data', [RipartizioneCostiAutomezziSanitariController::class, 'getData'])
+                ->name('getData');
+
+            // ✅ Tabella finale completa (voci × convenzioni)
+            Route::get('/tabella-finale', [RipartizioneCostiAutomezziSanitariController::class, 'getTabellaFinale'])
+                ->name('tabellaFinale');
+
+            // ✅ Nuove viste di dettaglio
+            Route::get('/dettaglio/rotazione', [RipartizioneCostiAutomezziSanitariController::class, 'dettaglioRotazione'])
+                ->name('dettaglio.rotazione');
+
+            Route::get('/dettaglio/sostitutivi', [RipartizioneCostiAutomezziSanitariController::class, 'dettaglioSostitutivi'])
+                ->name('dettaglio.sostitutivi');
+        });
 });

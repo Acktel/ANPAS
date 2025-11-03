@@ -72,7 +72,7 @@
       </div>
     </div>
 
-    <div class="mt-4 d-flex justify-content-center">
+    <div class="mt-4 d-flex justify-content-center myborder-button">
       <button type="submit" class="btn btn-success me-2">
         <i class="fas fa-check me-1"></i> Salva
       </button>

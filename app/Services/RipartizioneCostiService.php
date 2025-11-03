@@ -51,8 +51,6 @@ class RipartizioneCostiService {
         'ALTRI COSTI MEZZI',
     ];
 
-
-
     /* ========================= MATERIALE SANITARIO / AUTOMEZZI / RADIO ========================= */
     public static function getMaterialiSanitariConsumo(int $idAssociazione, int $idAnno, int $idAutomezzo): float {
         $totaleBilancio = CostoMaterialeSanitario::getTotale($idAssociazione, $idAnno);
@@ -232,7 +230,7 @@ class RipartizioneCostiService {
             'MANUTENZIONE STRAORDINARIA AL NETTO RIMBORSI ASSICURATIVI' => 'ManutenzioneStraordinaria',
             'RIMBORSI ASSICURAZIONE'                                    => 'RimborsiAssicurazione',
             'PULIZIA E DISINFEZIONE'                                    => 'PuliziaDisinfezione',
-            'CARBURANTI AL NETTO RIMBORSI UTIF'                         => 'Carburanti',
+            'CARBURANTI AL NETTO RIMBORSI UTF'                         => 'Carburanti',
             'ADDITIVI'                                                  => 'Additivi',
             'INTERESSI PASS. F.TO, LEASING, NOL.'                       => 'InteressiPassivi',
             'MANUTENZIONE ATTREZZATURA SANITARIA'                       => 'ManutenzioneSanitaria',
@@ -302,6 +300,7 @@ class RipartizioneCostiService {
         // 4. SEZIONE COSTI AUTOMEZZI
         // --------------------------------------------------
         foreach ($vociKm as $voceLabel => $colDB) {
+
             if (!$costi) {
                 $valore = 0.0;
             } else {
@@ -311,7 +310,7 @@ class RipartizioneCostiService {
                             - ((float)($costi->RimborsiAssicurazione ?? 0));
                         break;
 
-                    case 'CARBURANTI AL NETTO RIMBORSI UTIF':
+                    case 'CARBURANTI AL NETTO RIMBORSI UTF':
                         $valore = ((float)($costi->Carburanti ?? 0))
                             - ((float)($costi->RimborsiUTF ?? 0));
                         break;
@@ -332,11 +331,25 @@ class RipartizioneCostiService {
                     // 1️⃣ Ammortamento attrezzatura sanitaria → % Servizi
                     $numeratore   = (float)($serviziPerConv[$idConv] ?? 0.0);
                     $denominatore = (float)$totaleServizi;
-                } elseif (in_array($voceLabel, self::VOCI_ROTAZIONE_MEZZI, true) && ($rotazioneAttiva[$idConv] ?? false)) {
-                    // 2️⃣ Rotazione attiva → % KM del mezzo sulla convenzione rispetto ai KM totali della convenzione
+                    // 2) ROTAZIONE MEZZI → regola speciale (KM_mezzo / KM_tot_CONVENZIONE)
+                } elseif (
+                    in_array($voceLabel, self::VOCI_ROTAZIONE_MEZZI, true)
+                    && self::isRegimeRotazione($idConv)
+                ) {
+
                     $numeratore   = (float)($kmPerConv[$idConv] ?? 0.0);
                     $denominatore = (float)($kmTotConvMap[$idConv] ?? 0.0);
-                    //  dd($idAutomezzo ,$numeratore,$denominatore, $kmPerConv,$kmTotConvMap,);
+
+                    // 3) MEZZI SOSTITUTIVI → regola speciale (KM_mezzo / KM_tot_CONVENZIONE)
+                } elseif (
+                    in_array($voceLabel, self::VOCI_MEZZI_SOSTITUTIVI, true)
+                    && self::isRegimeMezziSostitutivi($idConv)
+                ) {
+
+                    $numeratore   = (float)($kmPerConv[$idConv] ?? 0.0);
+                    $denominatore = (float)($kmTotConvMap[$idConv] ?? 0.0);
+
+                    // 4) Default → % KM del mezzo su tutto l’anno
                 } else {
                     // 3️⃣ Default → % KM del mezzo su tutto l’anno
                     $numeratore   = (float)($kmPerConv[$idConv] ?? 0.0);
@@ -432,12 +445,6 @@ class RipartizioneCostiService {
 
         return $tabella;
     }
-
-
-
-
-
-
 
     public static function calcolaTabellaTotale(int $idAssociazione, int $anno): array {
         $automezzi = DB::table('automezzi')
@@ -1496,5 +1503,50 @@ class RipartizioneCostiService {
 
         // Filtra eventuali convenzioni NON in regime MS (teniamo solo quelle attive)
         return array_filter($out, fn($cid) => self::isRegimeMezziSostitutivi($cid), ARRAY_FILTER_USE_KEY);
+    }
+
+    // --- in RipartizioneCostiService ---
+
+    /** Voci interessate dalla ROTAZIONE (render lato UI) */
+    public static function vociRotazioneUI(): array {
+        return [
+            'LEASING/NOLEGGIO A LUNGO TERMINE',
+            'ASSICURAZIONI',
+            'MANUTENZIONE ORDINARIA',
+            'MANUTENZIONE STRAORDINARIA AL NETTO RIMBORSI ASSICURATIVI',
+            'PULIZIA E DISINFEZIONE',
+            'INTERESSI PASS. F.TO, LEASING, NOL.',
+            'AMMORTAMENTO AUTOMEZZI',
+            'ALTRI COSTI MEZZI',
+        ];
+    }
+
+    /** Voci interessate dai MEZZI SOSTITUTIVI (render lato UI) */
+    public static function vociSostitutiviUI(): array {
+        return [
+            'LEASING/NOLEGGIO A LUNGO TERMINE',
+            'ASSICURAZIONI',
+            'MANUTENZIONE ORDINARIA',
+            'MANUTENZIONE STRAORDINARIA AL NETTO RIMBORSI ASSICURATIVI',
+            'PULIZIA E DISINFEZIONE',
+            'INTERESSI PASS. F.TO, LEASING, NOL.',
+            'MANUTENZIONE ATTREZZATURA SANITARIA',
+            'LEASING ATTREZZATURA SANITARIA',
+            'AMMORTAMENTO AUTOMEZZI',
+            'AMMORTAMENTO ATTREZZATURA SANITARIA',
+            'ALTRI COSTI MEZZI',
+        ];
+    }
+
+    /** Mappa convenzioni per regime (id=>nome), indipendente dal mezzo */
+    public static function convenzioniPerRegime(int $idAssociazione, int $anno): array {
+        $conv = self::convenzioni($idAssociazione, $anno); // [id=>nome]
+        $rot = [];
+        $sost = [];
+        foreach ($conv as $idC => $nome) {
+            if (self::isRegimeRotazione($idC))        $rot[$idC]  = $nome;
+            if (self::isRegimeMezziSostitutivi($idC))  $sost[$idC] = $nome;
+        }
+        return ['rotazione' => $rot, 'sostitutivi' => $sost];
     }
 }

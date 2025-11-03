@@ -73,6 +73,7 @@
 @push('scripts')
 <script>
   async function loadTableData() {
+    AnpasLoader.show();
     const $table = $('#table-ripartizione');
     const selectedAssoc = (document.getElementById('assocSelectHidden')?.value || '').trim();
 
@@ -211,6 +212,7 @@
       stripeClasses: ['table-striped-anpas', ''],
       rowCallback: (rowEl, rowData, index) => {
         $(rowEl).removeClass('even odd').addClass(index % 2 === 0 ? 'even' : 'odd');
+         AnpasLoader.hide();
       },
 
       footerCallback: async function() {

@@ -111,7 +111,7 @@
       order: [[0, 'asc']],
       responsive: true,
       paging: true,
-      searching: false,
+      searching: true,
       info: false,
       language: {
         url: '/js/i18n/Italian.json',
@@ -184,7 +184,7 @@
           {
             data: null,
             title: 'Azioni',
-            orderable: false,
+            orderable: true,
             searchable: false,
             className: 'col-actions text-center',
             render: row => row.is_totale || !row.idDipendente ? '-' : `
@@ -198,9 +198,9 @@
           }
         ],
         paging: true,
-        searching: false,
+        searching: true,
         info: false,
-        ordering: false,
+        ordering: true,
         language: {
           url: '/js/i18n/Italian.json',
           paginate: {

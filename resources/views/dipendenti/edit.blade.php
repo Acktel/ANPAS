@@ -7,12 +7,16 @@ $assoCorr = $associazioni->firstWhere('idAssociazione', $dipendente->idAssociazi
   // Valori selezionati
   $qualificheSelezionate = old('Qualifica', $qualificheAttuali ?? []);
   $livelliSelezionati = old('LivelloMansione', \App\Models\Dipendente::getLivelliMansioneByDipendente($dipendente->idDipendente ) ?? []);
+  $annoCorr = session('anno_riferimento', now()->year);
 @endphp
 
 @section('content')
 <div class="container-fluid">
+  
   <h1 class="container-title mb-4">Modifica Dipendente #{{ $dipendente->idDipendente }}</h1>
-
+    <p class="text-muted mb-4">
+    Associazione #{{ $assoCorr->Associazione }} — Anno {{ $annoCorr}}
+  </p>
   @if ($errors->any())
     <div class="alert alert-danger">
       <ul class="mb-0">
@@ -29,27 +33,12 @@ $assoCorr = $associazioni->firstWhere('idAssociazione', $dipendente->idAssociazi
         @csrf
         @method('PUT')
 
-        {{-- Associazione e Anno --}}
-          <div class="col-md-6 mb-3">
-            <label class="form-label">Associazione</label>
-            <input type="text" class="form-control" value="{{ $assoCorr->Associazione }}" readonly>
-            <input type="hidden" name="idAssociazione" value="{{ $assoCorr->idAssociazione }}">
-          </div>
-
-
-          <div class="col-md-6 mb-3">
-            <label for="idAnno" class="form-label">Anno</label>
-            <select name="idAnno" id="idAnno" class="form-select" required>
-              @foreach($anni as $annoRec)
-                <option value="{{ $annoRec->idAnno }}"
-                  {{ old('idAnno', $dipendente->idAnno) == $annoRec->idAnno ? 'selected' : '' }}>
-                  {{ $annoRec->anno }}
-                </option>
-              @endforeach
-            </select>
-          </div>
         </div>
-
+        {{-- RIGA 1: Associazione | Anno --}}
+        <div class="row mb-3">
+          <input type="hidden" name="idAssociazione" value="{{ $dipendente->idAssociazione }}">
+          <input type="hidden" name="idAnno" value="{{ $annoCorr }}">
+        </div>
         {{-- Nome / Cognome --}}
         <div class="row mb-3">
           <div class="col-md-6 mb-3">

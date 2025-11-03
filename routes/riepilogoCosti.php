@@ -43,6 +43,13 @@ Route::middleware(['auth'])->prefix('riepilogo-costi')->group(function () {
     Route::post('/update-telefonia', [RiepilogoCostiController::class, 'updateTelefonia'])
         ->name('riepilogo.costi.update.telefonia');
 
+    // Edit/Update unificato per “Formazione (A + DAE + RDAE)” = merge 6010+6011
+    Route::get('/edit-formazione', [RiepilogoCostiController::class, 'editFormazione'])
+        ->name('riepilogo.costi.edit.formazione');
+
+    Route::post('/update-formazione', [RiepilogoCostiController::class, 'updateFormazione'])
+        ->name('riepilogo.costi.update.formazione');
+
     // Bulk: edit + update preventivi per sezione
     Route::get('/sezione/{sezione}/edit-preventivi', [RiepilogoCostiController::class, 'editPreventiviSezione'])
         ->whereNumber('sezione')

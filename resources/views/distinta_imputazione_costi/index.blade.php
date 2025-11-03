@@ -67,6 +67,7 @@
     8 => 'Costi amministrativi',
     9 => 'Quote di ammortamento',
     10 => 'Beni Strumentali inferiori a 516,00 euro',
+    11 => 'Altri costi'
   ];
   @endphp
 
@@ -146,6 +147,7 @@ window.distintaCosti = {
 function fmt2(n){ n = Number(n||0); return Number.isFinite(n) ? n.toFixed(2) : '0.00'; }
 
 $(function () {
+  AnpasLoader.show();
   const intestazioniAggiunte = new Set();
 
   // Passo idAssociazione all’API /data
@@ -246,6 +248,7 @@ $(function () {
       $('#tot-bilancio').text('Importo Totale da Bilancio Consuntivo:  '+fmt2(totaliGenerali.bilancio));
       $('#tot-diretta').text('Costi di Diretta Imputazione (Netti):  '+fmt2(totaliGenerali.diretta));
       $('#tot-totale').text('Totale Costi Ripartiti (Indiretti):  '+fmt2(totaliGenerali.totale));
+      AnpasLoader.hide();
     },
     error: function (xhr) {
       console.error("Errore caricamento distinta costi", xhr);
@@ -361,6 +364,7 @@ document.addEventListener('DOMContentLoaded', function () {
   document.addEventListener('click', function (e) {
     if (!form.contains(e.target)) closeDropdown();
   });
+  
 });
 </script>
 @endpush

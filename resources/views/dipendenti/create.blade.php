@@ -4,6 +4,8 @@
 $user = Auth::user();
 $isImpersonating = session()->has('impersonate');
 $annoCorr = session('anno_riferimento', now()->year);
+$assoCorr = $associazioni->firstWhere('IdAssociazione', $user->IdAssociazione);
+
 @endphp
 
 @section('content')
@@ -27,54 +29,17 @@ $annoCorr = session('anno_riferimento', now()->year);
 
         {{-- Associazione e Anno --}}
         <div class="row mb-3">
-          @if (! $isImpersonating && $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor']))
-          <div class="col-md-6 mb-3">
-            <label for="IdAssociazione" class="form-label">Associazione</label>
-            <select name="IdAssociazione" id="IdAssociazione" class="form-select" required>
-              <option value="">-- Seleziona Associazione --</option>
-              @foreach($associazioni as $asso)
-              <option value="{{ $asso->IdAssociazione }}"
-                {{ old('IdAssociazione', session('associazione_selezionata')) == $asso->IdAssociazione ? 'selected' : '' }}>
-                {{ $asso->Associazione }}
-              </option>
-
-              @endforeach
-            </select>
-          </div>
-
-          <div class="col-md-6 mb-3">
-            <label for="idAnno" class="form-label">Anno</label>
-            <select name="idAnno" id="idAnno" class="form-select" required>
-              <option value="">-- Seleziona Anno --</option>
-              @foreach($anni as $annoRec)
-              <option value="{{ $annoRec->idAnno }}"
-                {{ old('idAnno', $annoCorr) == $annoRec->idAnno ? 'selected' : '' }}>
-                {{ $annoRec->Anno }}
-              </option>
-              @endforeach
-            </select>
-          </div>
-          @else
-          @php
-          $assoCorr = $associazioni->firstWhere('IdAssociazione', $user->IdAssociazione);
-
-          @endphp
-          <div class="col-md-6 mb-3">
-            <label class="form-label">Associazione</label>
-            <input type="text" class="form-control" value="{{ $assoCorr->Associazione }}" readonly>
-            <input type="hidden" name="IdAssociazione" value="{{ $assoCorr->IdAssociazione }}">
-          </div>
-
-          <div class="col-md-6 mb-3">
-            <label class="form-label">Anno</label>
-            <input type="text" class="form-control" value="{{ $annoCorr }}" readonly>
-            <input type="hidden" name="idAnno" value="{{ $annoCorr }}">
-          </div>
-          @endif
+            <p class="text-muted mb-4">
+            Associazione #{{ $assoCorr->Associazione }} — Anno {{ $annoCorr}}
+          </p>
         </div>
-
-        {{-- Nome / Cognome --}}
+        {{-- RIGA 1: Associazione | Anno --}}
         <div class="row mb-3">
+          <input type="hidden" name="IdAssociazione" value="{{ session('associazione_selezionata') }}">
+          <input type="hidden" name="idAnno" value="{{ $annoCorr }}">
+        </div>
+        {{-- Nome / Cognome --}}
+        <div class="row mb-3">          
           <div class="col-md-6 mb-3">
             <label for="DipendenteNome" class="form-label">Nome</label>
             <input type="text" name="DipendenteNome" id="DipendenteNome" class="form-control" maxlength="100"

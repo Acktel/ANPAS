@@ -6,7 +6,8 @@
     2=>'Automezzi', 3=>'Attrezzatura Sanitaria', 4=>'Telecomunicazioni',
     5=>'Costi gestione struttura', 6=>'Costo del personale',
     7=>'Materiale sanitario di consumo', 8=>'Costi amministrativi',
-    9=>'Quote di ammortamento', 10=>'Beni Strumentali < 516,00 €', 
+    9=>'Quote di ammortamento', 10=>'Beni Strumentali < 516,00 €',
+    11=> 'Altri costi' 
   ];
   $titoloSezione = $sezioneLabel ?? ($labels[$sezione] ?? "Sezione $sezione");
   $nomeAssociazione = \App\Models\Associazione::getById($idAssociazione)->Associazione ?? ('#'.$idAssociazione);

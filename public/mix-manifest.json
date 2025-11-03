@@ -1,6 +1,6 @@
 {
     "/js/app.js": "/js/app.js?id=50101c75944ad10d9c7883c3b0172927",
-    "/css/app.css": "/css/app.css?id=e344e1afd9b77c5ea9124126e67fa09f",
+    "/css/app.css": "/css/app.css?id=ba9b75c265eac63b4c0a1899b0625a27",
     "/css/tabler.min.css": "/css/tabler.min.css?id=3b7ba02654bbc119a6aa48f4891d4dba",
     "/fonts/Titillium_Web/OFL.txt": "/fonts/Titillium_Web/OFL.txt?id=78d19d95fd57d22641ab026e23286c8b",
     "/fonts/Titillium_Web/TitilliumWeb-Black.ttf": "/fonts/Titillium_Web/TitilliumWeb-Black.ttf?id=08da3fc60feb759e90c3e2138bfed96c",
@@ -14,6 +14,7 @@
     "/fonts/Titillium_Web/TitilliumWeb-Regular.ttf": "/fonts/Titillium_Web/TitilliumWeb-Regular.ttf?id=e7db6525ba175a223cae08061dfbe72d",
     "/fonts/Titillium_Web/TitilliumWeb-SemiBold.ttf": "/fonts/Titillium_Web/TitilliumWeb-SemiBold.ttf?id=31e3a2dbf14a5f81c9eb4a2c0c0f3059",
     "/fonts/Titillium_Web/TitilliumWeb-SemiBoldItalic.ttf": "/fonts/Titillium_Web/TitilliumWeb-SemiBoldItalic.ttf?id=6ddece49e87066d8b6313f29a8a19e42",
+    "/images/anpas_loader.gif": "/images/anpas_loader.gif?id=cd192edc67a74dbf34c3d106de60189d",
     "/images/bg_ampas.png": "/images/bg_ampas.png?id=d5eb707da19a258ee557e3858fc567a9",
     "/images/flags/ad.svg": "/images/flags/ad.svg?id=916446064ea58fdd80fbe8751158c5d9",
     "/images/flags/ae.svg": "/images/flags/ae.svg?id=f532dd38a744665d5146fce33990275d",

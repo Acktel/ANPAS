@@ -666,4 +666,105 @@ class RiepilogoCostiController extends Controller {
 
         return is_numeric($s) ? max(0.0, (float) $s) : 0.0;
     }
+
+    public function editFormazione(Request $request) {
+        $anno = (int) session('anno_riferimento', now()->year);
+        $user = Auth::user();
+        $isElevato = $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor']);
+
+        $data = $request->validate([
+            'idAssociazione' => $isElevato ? 'required|integer' : 'nullable',
+            'idConvenzione'  => 'required|integer',
+            'idA'            => 'required|integer', // 6010
+            'idB'            => 'required|integer', // 6011
+        ]);
+
+        $idAss = $isElevato ? (int)$data['idAssociazione'] : (int)$user->IdAssociazione;
+        $idConv = (int)$data['idConvenzione'];
+        $idA   = (int)$data['idA'];
+        $idB   = (int)$data['idB'];
+
+        // pivot riepilogo
+        $riepilogoId = RiepilogoCosti::getOrCreateRiepilogo($idAss, $anno);
+
+        // preventivi esistenti
+        $rows = DB::table('riepilogo_dati')
+            ->where('idRiepilogo', $riepilogoId)
+            ->where('idConvenzione', $idConv)
+            ->whereIn('idVoceConfig', [$idA, $idB])
+            ->pluck('preventivo', 'idVoceConfig');
+
+        $prevA = (float)($rows[$idA] ?? 0);
+        $prevB = (float)($rows[$idB] ?? 0);
+
+        // consuntivi calcolati (read-only)
+        $mapCons = RipartizioneCostiService::consuntiviPerVoceByConvenzione($idAss, $anno);
+        $consA = (float)($mapCons[$idA][$idConv] ?? 0);
+        $consB = (float)($mapCons[$idB][$idConv] ?? 0);
+
+        $nomeAss = DB::table('associazioni')->where('idAssociazione', $idAss)->value('Associazione');
+        $nomeConv = DB::table('convenzioni')->where('idConvenzione', $idConv)->value('Convenzione');
+
+        return view('riepilogo_costi.edit_formazione_merge', [
+            'anno' => $anno,
+            'idAssociazione' => $idAss,
+            'nomeAssociazione' => $nomeAss,
+            'idConvenzione' => $idConv,
+            'nomeConvenzione' => $nomeConv,
+            'idA' => $idA,
+            'idB' => $idB,
+            'prevA' => $prevA,
+            'prevB' => $prevB,
+            'consA' => $consA,
+            'consB' => $consB,
+            'labelMerge' => 'formazione allegati A + DAE + RDAE',
+        ]);
+    }
+
+    public function updateFormazione(Request $request) {
+        $anno = (int) session('anno_riferimento', now()->year);
+        $user = Auth::user();
+        $isElevato = $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor']);
+
+        $data = $request->validate([
+            'idAssociazione' => $isElevato ? 'required|integer' : 'nullable',
+            'idConvenzione'  => 'required|integer',
+            'idA'            => 'required|integer',
+            'idB'            => 'required|integer',
+            'preventivo_a'   => 'required', // accetto virgola
+            'preventivo_b'   => 'required',
+        ]);
+
+        $idAss = $isElevato ? (int)$data['idAssociazione'] : (int)$user->IdAssociazione;
+        $idConv = (int)$data['idConvenzione'];
+        $idA   = (int)$data['idA'];
+        $idB   = (int)$data['idB'];
+
+        $toDecimal = function ($v): float {
+            if ($v === null) return 0.0;
+            $s = trim((string)$v);
+            if ($s === '') return 0.0;
+            $s = preg_replace('/[.\s\x{00A0}]/u', '', $s);
+            $s = str_replace(',', '.', $s);
+            return is_numeric($s) ? max(0.0, (float)$s) : 0.0;
+        };
+
+        $prevA = $toDecimal($data['preventivo_a']);
+        $prevB = $toDecimal($data['preventivo_b']);
+
+        $riepilogoId = RiepilogoCosti::getOrCreateRiepilogo($idAss, $anno);
+
+        DB::table('riepilogo_dati')->updateOrInsert(
+            ['idRiepilogo' => $riepilogoId, 'idVoceConfig' => $idA, 'idConvenzione' => $idConv],
+            ['preventivo' => $prevA, 'updated_at' => now(), 'created_at' => now()]
+        );
+        DB::table('riepilogo_dati')->updateOrInsert(
+            ['idRiepilogo' => $riepilogoId, 'idVoceConfig' => $idB, 'idConvenzione' => $idConv],
+            ['preventivo' => $prevB, 'updated_at' => now(), 'created_at' => now()]
+        );
+
+        return redirect()
+            ->route('riepilogo.costi', ['idAssociazione' => $idAss, 'idConvenzione' => $idConv])
+            ->with('success', 'Formazione (A + DAE + RDAE) aggiornata.');
+    }
 }

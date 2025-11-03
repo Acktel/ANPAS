@@ -110,7 +110,7 @@
       processing: true,
       serverSide: false,
       paging: true,
-      searching: false,
+      searching: true,
       ordering: true,
       stripeClasses: ['odd', 'even'],
       order: [],

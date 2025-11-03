@@ -117,7 +117,7 @@
 
           <div class="col-md-6">
             <label for="KmRiferimento" class="form-label">Km di Riferimento</label>
-            <input type="number" name="KmRiferimento" id="KmRiferimento" class="form-control" min="0" step="0.01" value="{{ old('KmRiferimento') }}">
+            <input type="number" name="KmRiferimento" id="KmRiferimento" class="form-control" min="0" step="1" value="{{ old('KmRiferimento') }}">
           </div>
         </div>
 
@@ -178,7 +178,7 @@
         </div>
 
           {{-- PULSANTI --}}
-          <div class="text-center">
+          <div class="text-center myborder-button">
             <button type="submit" class="btn btn-anpas-green me-2">
               <i class="fas fa-check me-1"></i> Salva
             </button>

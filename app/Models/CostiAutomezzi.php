@@ -52,6 +52,7 @@ class CostiAutomezzi {
             'LeasingSanitaria' => 0,
             'AmmortamentoMezzi' => 0,
             'AmmortamentoSanitaria' => 0,
+            'Note'                  => null,
         ];
     }
 }

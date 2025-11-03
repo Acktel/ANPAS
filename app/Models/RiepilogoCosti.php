@@ -54,7 +54,7 @@ class RiepilogoCosti {
                 ];
             }
         } else {
-            // PREVENTIVI
+            // PREVENTIVI (TOT = somma su tutte le convenzioni)
             if ($idConvenzione === null || $idConvenzione === 'TOT') {
                 $preventivi = DB::table('riepilogo_dati as rd')
                     ->select('rd.idVoceConfig', DB::raw('SUM(rd.preventivo) as preventivo'))
@@ -71,7 +71,7 @@ class RiepilogoCosti {
                     ->keyBy('idVoceConfig');
             }
 
-            // CONSUNTIVI calcolati
+            // CONSUNTIVI calcolati (mappa: idVoce => [idConvenzione => valore])
             $mapCons  = RipartizioneCostiService::consuntiviPerVoceByConvenzione($idAssociazione, $anno);
             $convIds  = array_keys(RipartizioneCostiService::convenzioni($idAssociazione, $anno));
             $sumConsVoce = function (int $idVoce) use ($mapCons, $convIds): float {
@@ -105,14 +105,14 @@ class RiepilogoCosti {
             }
         }
 
-        // === Merge “costi telefonia fissa” + “costi telefonia mobile” => “UTENZE TELEFONICHE”
+        // ==========================
+        // MERGE 1: UTENZE TELEFONICHE
+        // ==========================
         $telTargets = ['COSTI TELEFONIA FISSA', 'COSTI TELEFONIA MOBILE'];
 
-        // mappa descrizione->id per poter passare gli id al frontend (edit doppio)
+        // mappa descrizione->id per passare gli id originali
         $descToId = [];
-        foreach ($voci as $vc) {
-            $descToId[$norm($vc->descrizione)] = (int)$vc->id;
-        }
+        foreach ($voci as $vc) $descToId[$norm($vc->descrizione)] = (int)$vc->id;
         $idFissa  = $descToId['COSTI TELEFONIA FISSA']  ?? null;
         $idMobile = $descToId['COSTI TELEFONIA MOBILE'] ?? null;
 
@@ -121,10 +121,10 @@ class RiepilogoCosti {
         $firstPos = null;
         $filtered = [];
 
-        foreach ($rows as $idx => $row) {
+        foreach ($rows as $row) {
             $d = $norm($row->descrizione);
             if (in_array($d, $telTargets, true)) {
-                if ($firstPos === null) $firstPos = count($filtered); // posizione di inserimento
+                if ($firstPos === null) $firstPos = count($filtered);
                 $telPrev += (float)$row->preventivo;
                 $telCons += (float)$row->consuntivo;
                 continue; // scarta le due righe originali
@@ -135,27 +135,71 @@ class RiepilogoCosti {
         if ($firstPos !== null) {
             $scostPercTel = $telPrev != 0.0 ? round((($telCons - $telPrev) / $telPrev) * 100, 2) : 0.0;
 
-            $mergedRow = (object)[
-                'idVoceConfig' => 'TEL_MERGE',               // marcatore speciale per il frontend
-                'codice'       => '',                        // ricalcolato sotto
+            $mergedTel = (object)[
+                'idVoceConfig' => 'TEL_MERGE', // marcatore
+                'codice'       => '',
                 'descrizione'  => 'utenze telefoniche',
                 'preventivo'   => round($telPrev, 2),
                 'consuntivo'   => round($telCons, 2),
                 'scostamento'  => number_format($scostPercTel, 2) . '%',
-                // metadati per l’edit: gli id delle due voci originali (se esistono)
-                'merged_of'    => array_values(array_filter([$idFissa, $idMobile])),
+                'meta'         => (object)[
+                    'merged'    => true,
+                    'telefonia' => true,
+                    'of'        => array_values(array_filter([$idFissa, $idMobile])),
+                ],
             ];
 
-            array_splice($filtered, $firstPos, 0, [$mergedRow]);
+            array_splice($filtered, $firstPos, 0, [$mergedTel]);
+        }
+
+        // ==========================
+        // MERGE 2: 6010 + 6011 (formazione)
+        // ==========================
+        $mergeIds = [6010, 6011];
+        $firstIdx2 = null;
+        $sumPrev2  = 0.0;
+        $sumCons2  = 0.0;
+        $filtered2 = [];
+
+        foreach ($filtered as $row) {
+            $idv = (int)($row->idVoceConfig ?? 0);
+            if (in_array($idv, $mergeIds, true)) {
+                if ($firstIdx2 === null) $firstIdx2 = count($filtered2);
+                $sumPrev2 += (float)($row->preventivo ?? 0);
+                $sumCons2 += (float)($row->consuntivo ?? 0);
+                continue; // scarta 6010/6011 originali
+            }
+            $filtered2[] = $row;
+        }
+
+        if ($firstIdx2 !== null) {
+            $scostPerc2 = $sumPrev2 != 0.0 ? round((($sumCons2 - $sumPrev2) / $sumPrev2) * 100, 2) : 0.0;
+
+            $mergedForm = (object)[
+                'idVoceConfig' => 'FORM_MERGE', // marcatore
+                'codice'       => '',
+                'descrizione'  => 'Volontari: formazione allegati A + DAE + RDAE',
+                'preventivo'   => round($sumPrev2, 2),
+                'consuntivo'   => round($sumCons2, 2),
+                'scostamento'  => number_format($scostPerc2, 2) . '%',
+                'meta'         => (object)[
+                    'merged'     => true,
+                    'formazione' => true,
+                    'of'         => $mergeIds,
+                ],
+            ];
+
+            array_splice($filtered2, $firstIdx2, 0, [$mergedForm]);
         }
 
         // Rinumera i codici in base all’ordine finale
-        foreach ($filtered as $i => $row) {
+        foreach ($filtered2 as $i => $row) {
             $row->codice = $mkCod($i + 1);
         }
 
-        return collect($filtered);
+        return collect($filtered2);
     }
+
 
 
 
