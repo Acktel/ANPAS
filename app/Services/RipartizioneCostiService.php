@@ -24,7 +24,7 @@ class RipartizioneCostiService {
         10 => 'ALL',
         11 => 'ALL',
     ];
-    private const IDS_VOLONTARI_RICAVI = [6007, 6008, 6010, 6011, 6012, 6013, 6014];
+    private const IDS_VOLONTARI_RICAVI = [6007, 6008, 6010, 6013, 6014];
     // voci a cui applicare la regola Rotazione/Sostitutivi (quelle “azzurre”)
     private const VOCI_MEZZI_SOSTITUTIVI = [
         'LEASING/NOLEGGIO A LUNGO TERMINE',
@@ -799,7 +799,7 @@ class RipartizioneCostiService {
         $tot6006 = array_sum($per6006);
 
         $percServCivile = self::percentualiServizioCivileByConvenzione($idAssociazione, $anno, $convIds);
-        $VOCE_SCIV_ID = 6009;
+        $VOCE_SCIV_ID = 6013;
 
         $IDS_ADMIN_RICAVI       = [8001, 8002, 8003, 8004, 8005, 8006, 8007];
         $IDS_QUOTE_AMMORTAMENTO = [9002, 9003, 9006, 9007, 9008, 9009];
@@ -906,6 +906,11 @@ class RipartizioneCostiService {
             ) {
                 // ricavi -> fallback servizi -> uniforme
                 $pesi  = self::weightsRicaviConFallback($idAssociazione, $anno, $convIds, $quoteRicavi);
+                $quote = self::splitByWeightsCents($baseIndiretti, $pesi);
+                foreach ($convIds as $cid) $indPerConv[$cid] = $quote[$cid] ?? 0.0;
+            } elseif (in_array($idV, [6011, 6012], true)) {
+                // Formazioni volontari → riparto a % servizi
+                $pesi  = self::percentualiServiziByConvenzione($idAssociazione, $anno, $convIds);
                 $quote = self::splitByWeightsCents($baseIndiretti, $pesi);
                 foreach ($convIds as $cid) $indPerConv[$cid] = $quote[$cid] ?? 0.0;
             } elseif ($ripRow) {
