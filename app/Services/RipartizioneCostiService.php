@@ -24,7 +24,7 @@ class RipartizioneCostiService {
         10 => 'ALL',
         11 => 'ALL',
     ];
-    private const IDS_VOLONTARI_RICAVI = [6007, 6008, 6010, 6013, 6014];
+    private const IDS_VOLONTARI_RICAVI = [6007, 6008, 6009, 6013, 6014];
     // voci a cui applicare la regola Rotazione/Sostitutivi (quelle “azzurre”)
     private const VOCI_MEZZI_SOSTITUTIVI = [
         'LEASING/NOLEGGIO A LUNGO TERMINE',
@@ -776,38 +776,41 @@ class RipartizioneCostiService {
 
     /* ========================= DISTINTA IMPUTAZIONE COSTI ========================= */
     public static function distintaImputazioneData(int $idAssociazione, int $anno): array {
+        // ------------------------------------------------------------
+        // 0) Convenzioni (id => nome)
+        // ------------------------------------------------------------
         $convenzioni = self::convenzioni($idAssociazione, $anno);
-        if (empty($convenzioni)) return ['data' => [], 'convenzioni' => []];
-
+        if (empty($convenzioni)) {
+            return ['data' => [], 'convenzioni' => []];
+        }
         $convIds  = array_keys($convenzioni);
         $convNomi = array_values($convenzioni);
 
-        // Quote ricavi e personale per qualifica (restano uguali)
+        // ------------------------------------------------------------
+        // 1) Pesi base
+        // ------------------------------------------------------------
         $quoteRicavi       = self::quoteRicaviByConvenzione($idAssociazione, $anno, $convIds);
         $persPerQualByConv = self::importiPersonalePerQualificaByConvenzione($idAssociazione, $anno, $convIds);
-        $per6001 = $persPerQualByConv[6001] ?? [];
-        $per6002 = $persPerQualByConv[6002] ?? [];
-        $per6003 = $persPerQualByConv[6003] ?? [];
-        $per6004 = $persPerQualByConv[6004] ?? [];
-        $per6005 = $persPerQualByConv[6005] ?? [];
-        $per6006 = $persPerQualByConv[6006] ?? [];
-        $tot6001 = array_sum($per6001);
-        $tot6002 = array_sum($per6002);
-        $tot6003 = array_sum($per6003);
-        $tot6004 = array_sum($per6004);
-        $tot6005 = array_sum($per6005);
-        $tot6006 = array_sum($per6006);
+        $percServCivile    = self::percentualiServizioCivileByConvenzione($idAssociazione, $anno, $convIds);
 
-        $percServCivile = self::percentualiServizioCivileByConvenzione($idAssociazione, $anno, $convIds);
-        $VOCE_SCIV_ID = 6013;
+        // Id speciali/sezioni
+        $VOCE_SCIV_ID            = 6013;                                   // Servizio Civile Nazionale
+        $IDS_ADMIN_RICAVI        = [8001, 8002, 8003, 8004, 8005, 8006, 8007];
+        $IDS_QUOTE_AMMORTAMENTO  = [9002, 9003, 9006, 9007, 9008, 9009];
+        $BENI_STRUMENTALI_ID     = 10001;
+        $IDS_BENI_STRUMENTALI    = [11001, 11002];
 
-        $IDS_ADMIN_RICAVI       = [8001, 8002, 8003, 8004, 8005, 8006, 8007];
-        $IDS_QUOTE_AMMORTAMENTO = [9002, 9003, 9006, 9007, 9008, 9009];
-        $BENI_STRUMENTALI_ID    = 10001;
-        $IDS_BENI_STRUMENTALI   = [11001, 11002];
-        $IDS_VOLONTARI_RICAVI   = self::IDS_VOLONTARI_RICAVI;
+        // Volontari a ricavi: forzo qui l’elenco corretto per evitare errori di costante non aggiornata
+        $IDS_VOLONTARI_RICAVI = array_values(array_unique(array_merge(
+            self::IDS_VOLONTARI_RICAVI ?? [],
+            [6007, 6008, 6009, 6013, 6014] // pasti, avvicendamenti, assicurazioni, SCN (quota ANPAS), divise
+        )));
+        // Formazioni volontari a % servizi
+        $IDS_VOLONTARI_FORMAZIONE_SERVIZI = [6010, 6011, 6012];            // A+DAE, RDAE, SARA
 
-        // Config voci e legacy (come avevi)
+        // ------------------------------------------------------------
+        // 2) Config voci e “legacy” (tabella riparto mezzi)
+        // ------------------------------------------------------------
         $vociConfig = DB::table('riepilogo_voci_config as vc')
             ->select('vc.id', 'vc.descrizione', 'vc.idTipologiaRiepilogo', 'vc.ordinamento')
             ->whereBetween('vc.idTipologiaRiepilogo', [2, 11])
@@ -818,11 +821,15 @@ class RipartizioneCostiService {
             ->get();
 
         $legacy = self::calcolaTabellaTotale($idAssociazione, $anno);
+
+        // Mappa normalizzata descrizione -> riga legacy
         $ripByNormDesc = [];
-        foreach ((array)$legacy as $r) {
+        foreach ((array) $legacy as $r) {
             if (!isset($r['voce'])) continue;
             $ripByNormDesc[self::norm($r['voce'])] = $r;
         }
+
+        // Alias per matchare le descrizioni configurate con le righe legacy
         $alias = [
             'leasing/ noleggio automezzi'         => 'LEASING/NOLEGGIO A LUNGO TERMINE',
             'assicurazione automezzi'             => 'ASSICURAZIONI',
@@ -848,97 +855,122 @@ class RipartizioneCostiService {
         foreach ($alias as $cfg => $leg) {
             $cfgN = self::norm($cfg);
             $legN = self::norm($leg);
-            if (isset($ripByNormDesc[$legN])) $ripByNormDesc[$cfgN] = $ripByNormDesc[$legN];
+            if (isset($ripByNormDesc[$legN])) {
+                $ripByNormDesc[$cfgN] = $ripByNormDesc[$legN];
+            }
         }
 
+        // ------------------------------------------------------------
+        // 3) Aggregati diretti/bilancio (nuovo schema + fallback legacy)
+        // ------------------------------------------------------------
         [
-            $dirByVoceByConv,
-            $dirTotByVoce,
-            $bilancioByVoce,
-            $ammByVoceByConv,
-            $ammTotByVoce,
-            $netByVoceByConv,
-            $netTotByVoce
+            $dirByVoceByConv,  // [idVoce][idConv] => costo lordo
+            $dirTotByVoce,     // [idVoce] => somma costi lordi
+            $bilancioByVoce,   // [idVoce] => importo bilancio (globale voce, con priorità manuali/legacy)
+            $ammByVoceByConv,  // [idVoce][idConv] => ammortamento/sconto
+            $ammTotByVoce,     // [idVoce] => tot ammortamenti/sconti
+            $netByVoceByConv,  // [idVoce][idConv] => (diretti - ammortamento)
+            $netTotByVoce      // [idVoce] => somma netti
         ] = self::aggregatiDirettiEBilancio($idAssociazione, $anno, $vociConfig, $ripByNormDesc);
 
+        // Mappa tipologia->sezione (uno a uno)
         $tipToSez = [2 => 2, 3 => 3, 4 => 4, 5 => 5, 6 => 6, 7 => 7, 8 => 8, 9 => 9, 10 => 10, 11 => 11];
 
+        // ------------------------------------------------------------
+        // 4) Costruzione righe di output
+        // ------------------------------------------------------------
         $righe = [];
 
         foreach ($vociConfig as $vc) {
-            $idV   = (int)$vc->id;
-            $sez   = (int)($tipToSez[$vc->idTipologiaRiepilogo] ?? 0);
+            $idV   = (int) $vc->id;
+            $sez   = (int) ($tipToSez[$vc->idTipologiaRiepilogo] ?? 0);
             $descN = self::norm($vc->descrizione);
 
-            $bilancio    = (float)($bilancioByVoce[$idV] ?? 0);
-            $dirTotLordo = (float)($dirTotByVoce[$idV] ?? 0);
-            $ammTot      = (float)($ammTotByVoce[$idV] ?? 0);
-            $dirTotNetto = (float)($netTotByVoce[$idV] ?? ($dirTotLordo - $ammTot));
-            $ripRow      = $ripByNormDesc[$descN] ?? null;
+            $bilancio    = (float) ($bilancioByVoce[$idV] ?? 0.0);
+            $dirTotLordo = (float) ($dirTotByVoce[$idV] ?? 0.0);
+            $ammTot      = (float) ($ammTotByVoce[$idV] ?? 0.0);
+            $dirTotNetto = (float) ($netTotByVoce[$idV] ?? ($dirTotLordo - $ammTot));
 
+            // Indiretti da ripartire = (Bilancio voce) - (Diretti netti voce), non negativi
             $baseIndiretti = max(0.0, $bilancio - $dirTotNetto);
 
+            // Eventuale riga legacy di riparto già calcolato (per alcune voci)
+            $ripRow = $ripByNormDesc[$descN] ?? null;
+
+            // Inizializzo mappa indiretti per convenzione
+            $indPerConv = array_fill_keys($convIds, 0.0);
+
+            // 4.a) Personale 6001..6006: importi già calcolati per convenzione → usali tali e quali
+            if (isset($persPerQualByConv[$idV])) {
+                foreach ($convIds as $cid) {
+                    $indPerConv[$cid] = (float) ($persPerQualByConv[$idV][$cid] ?? 0.0);
+                }
+
+                // 4.b) 6013 — Servizio Civile: riparto a % servizio civile
+            } elseif ($idV === $VOCE_SCIV_ID) {
+                $quote = self::splitByWeightsCents($baseIndiretti, $percServCivile);
+                foreach ($convIds as $cid) {
+                    $indPerConv[$cid] = $quote[$cid] ?? 0.0;
+                }
+
+                // 4.c) Formazioni volontari: 6010, 6011, 6012 → % servizi
+            } elseif (in_array($idV, $IDS_VOLONTARI_FORMAZIONE_SERVIZI, true)) {
+                $pesi  = self::percentualiServiziByConvenzione($idAssociazione, $anno, $convIds);
+                $quote = self::splitByWeightsCents($baseIndiretti, $pesi);
+                foreach ($convIds as $cid) {
+                    $indPerConv[$cid] = $quote[$cid] ?? 0.0;
+                }
+
+                // 4.d) Voci a ricavi (volontari “economici”, sezione 5, amministrativi, quote amm., beni strumentali)
+            } elseif (
+                in_array($idV, $IDS_VOLONTARI_RICAVI, true) ||
+                $sez === 5 ||
+                in_array($idV, $IDS_ADMIN_RICAVI, true) ||
+                in_array($idV, $IDS_QUOTE_AMMORTAMENTO, true) ||
+                $idV === $BENI_STRUMENTALI_ID ||
+                in_array($idV, $IDS_BENI_STRUMENTALI, true)
+            ) {
+                $pesi  = self::weightsRicaviConFallback($idAssociazione, $anno, $convIds, $quoteRicavi);
+                $quote = self::splitByWeightsCents($baseIndiretti, $pesi);
+                foreach ($convIds as $cid) {
+                    $indPerConv[$cid] = $quote[$cid] ?? 0.0;
+                }
+
+                // 4.e) Legacy disponibile: usa direttamente le quote storiche (già calcolate “stile Excel”)
+            } elseif ($ripRow) {
+                foreach ($convIds as $cid) {
+                    $nome = $convenzioni[$cid];
+                    $indPerConv[$cid] = (float) ($ripRow[$nome] ?? 0.0);
+                }
+
+                // 4.f) Default: pro-rata sui diretti NETTI per convenzione
+            } else {
+                $pesi = [];
+                foreach ($convIds as $cid) {
+                    $net = (float) ($netByVoceByConv[$idV][$cid] ?? 0.0);
+                    $pesi[$cid] = max($net, 0.0);
+                }
+                $quote = self::splitByWeightsCents($baseIndiretti, $pesi);
+                foreach ($convIds as $cid) {
+                    $indPerConv[$cid] = $quote[$cid] ?? 0.0;
+                }
+            }
+
+            // 4.g) Costruzione riga finale
             $riga = [
                 'idVoceConfig' => $idV,
                 'voce'         => $vc->descrizione,
                 'sezione_id'   => $sez,
                 'bilancio'     => $bilancio,
                 'diretta'      => $dirTotNetto,
-                'totale'       => 0.0,
+                'totale'       => 0.0, // calcolato a fine riga
             ];
 
-            // ================= INDIRETTI PER CONVENZIONE =================
-            $indPerConv = array_fill_keys($convIds, 0.0);
-
-            if (isset($persPerQualByConv[$idV])) {
-                // Personale 6001..6006: sono **importi già calcolati** → usali tali e quali
-                foreach ($convIds as $cid) $indPerConv[$cid] = (float)($persPerQualByConv[$idV][$cid] ?? 0.0);
-            } elseif ($idV === $VOCE_SCIV_ID) {
-                // 6009 Servizio Civile → % SC
-                $quote = self::splitByWeightsCents($baseIndiretti, $percServCivile);
-                foreach ($convIds as $cid) $indPerConv[$cid] = $quote[$cid] ?? 0.0;
-            } elseif (
-                in_array($idV, $IDS_VOLONTARI_RICAVI, true) ||
-                $sez === 5 ||
-                in_array($idV, $IDS_ADMIN_RICAVI, true) ||
-                in_array($idV, $IDS_QUOTE_AMMORTAMENTO, true) ||
-                $idV === $BENI_STRUMENTALI_ID || in_array($idV, $IDS_BENI_STRUMENTALI, true)
-            ) {
-                // ricavi -> fallback servizi -> uniforme
-                $pesi  = self::weightsRicaviConFallback($idAssociazione, $anno, $convIds, $quoteRicavi);
-                $quote = self::splitByWeightsCents($baseIndiretti, $pesi);
-                foreach ($convIds as $cid) $indPerConv[$cid] = $quote[$cid] ?? 0.0;
-            } elseif (in_array($idV, [6011, 6012], true)) {
-                // Formazioni volontari → riparto a % servizi
-                $pesi  = self::percentualiServiziByConvenzione($idAssociazione, $anno, $convIds);
-                $quote = self::splitByWeightsCents($baseIndiretti, $pesi);
-                foreach ($convIds as $cid) $indPerConv[$cid] = $quote[$cid] ?? 0.0;
-            } elseif ($ripRow) {
-                // legacy: usa direttamente le quote storiche
-                foreach ($convIds as $cid) {
-                    $nome = $convenzioni[$cid];
-                    $indPerConv[$cid] = (float)($ripRow[$nome] ?? 0.0);
-                }
-            } else {
-                // Default: pro-rata sui diretti NETTI per convenzione
-                $pesi = [];
-                foreach ($convIds as $cid) {
-                    $net = (float)($netByVoceByConv[$idV][$cid] ?? 0.0);
-                    $pesi[$cid] = max($net, 0.0);
-                }
-                $quote = self::splitByWeightsCents($baseIndiretti, $pesi);
-                foreach ($convIds as $cid) $indPerConv[$cid] = $quote[$cid] ?? 0.0;
-            }
-
-
-            // =============================================================
-
-            // Popola riga e totale
             foreach ($convIds as $cid) {
                 $nome = $convenzioni[$cid];
-                $dirL = (float)($dirByVoceByConv[$idV][$cid] ?? 0.0);
-                $amm  = (float)($ammByVoceByConv[$idV][$cid] ?? 0.0);
-                $ind  = (float)$indPerConv[$cid];
+                $dirL = (float) ($dirByVoceByConv[$idV][$cid] ?? 0.0);
+                $amm  = (float) ($ammByVoceByConv[$idV][$cid] ?? 0.0);
+                $ind  = (float) $indPerConv[$cid];
 
                 $riga[$nome] = [
                     'diretti'      => $dirL,
@@ -947,13 +979,15 @@ class RipartizioneCostiService {
                 ];
             }
 
-            // Totale = somma “tardi” (excel-like)
+            // “Totale” = somma indiretti (Excel-like, arrotondo solo alla fine)
             $riga['totale'] = self::sumLateRound($indPerConv);
+
             $righe[] = $riga;
         }
 
         return ['data' => $righe, 'convenzioni' => $convNomi];
     }
+
 
 
     /* ========================= SUPPORTO % SERVIZI ========================= */
@@ -1503,8 +1537,6 @@ class RipartizioneCostiService {
         // Filtra eventuali convenzioni NON in regime MS (teniamo solo quelle attive)
         return array_filter($out, fn($cid) => self::isRegimeMezziSostitutivi($cid), ARRAY_FILTER_USE_KEY);
     }
-
-    // --- in RipartizioneCostiService ---
 
     /** Voci interessate dalla ROTAZIONE (render lato UI) */
     public static function vociRotazioneUI(): array {
