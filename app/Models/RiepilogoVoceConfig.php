@@ -18,7 +18,7 @@ class RiepilogoVoceConfig
     {
         $rows = DB::table(self::TABLE)
             ->orderBy('idTipologiaRiepilogo')
-            ->orderBy('ordinamento')
+            ->orderBy(column: 'ordinamento')
             ->orderBy('id')
             ->get();
 
