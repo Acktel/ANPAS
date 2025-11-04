@@ -23,14 +23,13 @@ class HomeController extends Controller {
         $associazioni = Dipendente::getAssociazioni($user, $isImpersonating);
 
         // Associazione selezionata (GET -> session; per non admin usa quella dell’utente)
-        $selectedAssoc = $request->query('idAssociazione', session('idAssociazione'));
-        if ($user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])) {
-            if ($request->has('idAssociazione')) {
-                session(['idAssociazione' => $selectedAssoc]);
-            }
+        $selectedAssoc = $request->query('idAssociazione');
+        if ($selectedAssoc) {
+            // aggiorno la sessione se arriva da GET
+            session(['selectedAssociazione' => $selectedAssoc]);
         } else {
-            $selectedAssoc = $user->IdAssociazione;
-            session(['idAssociazione' => $selectedAssoc]);
+            // se non arriva da GET, uso quella in sessione o quella dell’utente
+            $selectedAssoc = session('selectedAssociazione', $user->IdAssociazione);
         }
         $selectedAssoc = $selectedAssoc ? (int)$selectedAssoc : null;
 

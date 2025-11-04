@@ -5,7 +5,7 @@
     use App\Models\Associazione;
   $user = Auth::user();
 $isImpersonating = session()->has('impersonate');
-$selectedAssoc = session('selectedAssociazione') ?? $user->IdAssociazione;
+$selectedAssoc = old('idAssociazione') ?? session('selectedAssociazione') ?? $user->IdAssociazione;
 $assocCorr = Associazione::getById($selectedAssoc);
 @endphp
 
@@ -120,7 +120,7 @@ $assocCorr = Associazione::getById($selectedAssoc);
 @push('scripts')
   {{-- Chart.js --}}
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
+  
   {{-- Dataset dal server --}}
   <script>
     const DASH_LAB   = @json($labels);
