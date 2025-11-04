@@ -84,6 +84,7 @@
       const res = await fetch(url);
       payload = await res.json();
     } catch (err) {
+      AnpasLoader.hide();
       console.error('Errore fetch ripartizioni/personale/data:', err);
       return;
     }
@@ -298,6 +299,8 @@
 
         $persRow.addClass('fw-bold');
         api.columns.adjust(); // aggiusta larghezze se Responsive ha cambiato il layout
+        
+        AnpasLoader.hide();
       }
     });
 

@@ -52,14 +52,14 @@
       <thead>
         <tr>
           <th class="col-label" rowspan="2">{{ $volontari['label'] }}</th>
-          <th class="col-tot"   rowspan="2">ORE DI SERVIZIO</th>
+          <th class="col-tot"   rowspan="2">UNITA' DI SERVIZIO</th>
           @foreach($convenzioni as $c)
             <th colspan="2">{{ $c->Convenzione }}</th>
           @endforeach
         </tr>
         <tr>
           @foreach($convenzioni as $c)
-            <th class="col-ore">ORE</th>
+            <th class="col-ore">UNITA'</th>
             <th class="col-pct">%</th>
           @endforeach
         </tr>
@@ -90,14 +90,14 @@
       <thead>
         <tr>
           <th class="col-label" rowspan="2">{{ $scn['label'] }}</th>
-          <th class="col-tot"   rowspan="2">ORE DI SERVIZIO</th>
+          <th class="col-tot"   rowspan="2">UNITA' DI SERVIZIO</th>
           @foreach($convenzioni as $c)
             <th colspan="2">{{ $c->Convenzione }}</th>
           @endforeach
         </tr>
         <tr>
           @foreach($convenzioni as $c)
-            <th class="col-ore">ORE</th>
+            <th class="col-ore">UNITA'</th>
             <th class="col-pct">%</th>
           @endforeach
         </tr>

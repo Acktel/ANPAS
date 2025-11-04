@@ -52,6 +52,7 @@ class BuildAllPdfsAndBundleJob implements ShouldQueue
             fn($id) => new GeneraCostiPersonalePdfJob($id, $this->idAssociazione, $this->anno, $this->utenteId),
             fn($id) => new GeneraCostiRadioPdfJob($id, $this->idAssociazione, $this->anno, $this->utenteId),
             fn($id) => new GeneraDistintaKmPercorsiPdfJob($id, $this->idAssociazione, $this->anno, $this->utenteId),
+            fn($id) => new GeneraRotazioneMezziPdfJob($id, $this->idAssociazione, $this->anno, $this->utenteId),
             fn($id) => new GeneraImputazioniMaterialeEOssigenoPdfJob($id, $this->idAssociazione, $this->anno, $this->utenteId),
             fn($id) => new GeneraRapportiRicaviPdfJob($id, $this->idAssociazione, $this->anno, $this->utenteId),
             fn($id) => new GeneraRegistroAutomezziPdfJob($id, $this->idAssociazione, $this->anno, $this->utenteId),
