@@ -66,6 +66,7 @@ $user = Auth::user();
   8 => 'Costi amministrativi',
   9 => 'Quote di ammortamento',
   10 => 'Beni Strumentali inferiori a 516,00 euro',
+  11 => 'Altri costi' 
   ];
   @endphp
 
@@ -127,7 +128,7 @@ $user = Auth::user();
           aria-expanded="false"
           aria-controls="collapse-sost">
           <div class="row w-100 text-start gx-2">
-            <div class="col-5 fw-bold">10 - Mezzi sostitutivi</div>
+            <div class="col-5 fw-bold">11 - Mezzi sostitutivi</div>
             <div class="col-2" id="summary-prev-sost">Costo fascia oraria: -</div>
             <div class="col-2" id="summary-cons-sost">Costo netto sostitutivi: -</div>
             <div class="col-2" id="summary-scos-sost">Totale al netto: -</div>
@@ -435,7 +436,7 @@ $user = Auth::user();
     }
 
     async function reloadAllSections() {
-      const ids = [2, 3, 4, 5, 6, 7, 8, 9, 10]; // standard (NO mezzi sostitutivi)
+      const ids = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11]; // standard (NO mezzi sostitutivi)
       let totPrev = 0,
         totCons = 0;
 

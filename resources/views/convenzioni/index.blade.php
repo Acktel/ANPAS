@@ -1,5 +1,8 @@
 @extends('layouts.app')
 
+@php
+$isImpersonating = session()->has('impersonate');
+@endphp
 @section('content')
 <div class="container-fluid">
   <h1 class="container-title mb-4">
@@ -12,7 +15,7 @@
 
   <div class="d-flex mb-3">
     {{-- Selettore associazione (solo per ruoli elevati) --}}
-    @if(!empty($associazioni) && $associazioni->isNotEmpty())
+    @if(!empty($associazioni) && $associazioni->isNotEmpty() && !$isImpersonating )
     <div class="mb-3">
       <form id="assocFilterForm" method="GET" class="w-100">
         <div class="position-relative">

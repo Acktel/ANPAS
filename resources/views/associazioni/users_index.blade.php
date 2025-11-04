@@ -21,7 +21,6 @@
             <th>ID</th>
             <th>Nome</th>
             <th>Email</th>
-            <th>Username</th>
             <th>Attivo</th>
             <th>Creato il</th>
             <th>Azioni</th>
@@ -49,7 +48,6 @@
           render(row) { return row.firstname + ' ' + row.lastname; }
         },
         { data: 'email', name: 'email' },
-        { data: 'username', name: 'username' },
         {
           data: 'active', name: 'active',
           render(val) { return val ? 'Sì' : 'No'; }

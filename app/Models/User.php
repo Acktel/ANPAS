@@ -19,8 +19,7 @@ class User extends Authenticatable
     protected $fillable = [
         'firstname',
         'lastname',
-        'username',        // lasciato perché esiste in DB, ma NON usato per login/listing
-        'email',
+        'username',        
         'password',
         'role_id',
         'active',

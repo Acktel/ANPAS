@@ -1,6 +1,14 @@
 @extends('layouts.app')
 @section('title', 'Dashboard')
 
+@php
+    use App\Models\Associazione;
+  $user = Auth::user();
+$isImpersonating = session()->has('impersonate');
+$selectedAssoc = session('selectedAssociazione') ?? $user->IdAssociazione;
+$assocCorr = Associazione::getById($selectedAssoc);
+@endphp
+
 @section('content')
 <div class="page-header d-print-none">
   <div class="row g-2 align-items-center">
@@ -9,6 +17,8 @@
       <p>Panoramica costi {{ $anno }}
         @if($assocName)
           — dati reali per associazione <strong>{{ $assocName }}</strong>
+        @else 
+        
         @endif
       </p>
     </div>
@@ -17,7 +27,7 @@
 
 <div class="page-body">
   {{-- Selettore associazione --}}
-  @if(auth()->user()->hasAnyRole(['SuperAdmin','Admin','Supervisor']))
+  @if(auth()->user()->hasAnyRole(['SuperAdmin','Admin','Supervisor']) && !$isImpersonating )
     <div class="mb-3">
       <form method="GET" action="{{ route('dashboard') }}" id="assocSelectForm" class="w-100" style="max-width:400px">
         <div class="position-relative">
