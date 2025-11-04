@@ -59,7 +59,7 @@
                 data-type="BUNDLE TUTTI I PDF (PDF)">
                 <i class="fas fa-book me-1"></i> Crea PDF (tutti i report)
               </button>
-<!--
+              <!--
               {{-- Ogni bottone chiama un endpoint che mette in coda un job e ritorna { id } --}}
               <button type="button" class="btn btn-anpas-green"
                 data-endpoint="{{ route('documenti.documento_unico.pdf') }}"
@@ -190,13 +190,42 @@
                 <td>{{ strtoupper(str_replace('_',' ',$doc->tipo_documento)) }}</td>
                 <td>{{ $doc->idAnno }}</td>
                 <td>{{ $doc->generato_il ? \Carbon\Carbon::parse($doc->generato_il)->format('d/m/Y H:i') : '—' }}</td>
-                <td>
+                <td class="col-actions">
                   @if($doc->generato_il && Storage::disk('public')->exists($doc->percorso_file))
-                  <a href="{{ route('documenti.download', $doc->id) }}" class="btn btn-sm btn-primary">Scarica</a>
+                  <a href="{{ route('documenti.download', $doc->id) }}"
+                    class="btn btn-sm btn-anpas-download"
+                    aria-label="Scarica documento {{ $doc->tipo_documento }}">
+                    <i class="fas fa-download me-1" aria-hidden="true"></i> Scarica
+                  </a>
                   @else
-                  <span class="badge bg-warning text-dark">In coda</span>
+                  @php
+                    $stato = strtolower($doc->stato ?? 'in coda');
+                    $badgeClass = str_contains($stato, 'erro')
+                      ? 'badge-anpas-error'
+                      : (
+                          (str_contains($stato, 'elab') || str_contains($stato, 'process'))
+                            ? 'badge-anpas-processing'
+                            : (
+                                (str_contains($stato, 'pronto') || str_contains($stato, 'ready'))
+                                  ? 'badge-anpas-ready'
+                                  : 'badge-anpas-queued'
+                              )
+                        );
+
+                    $label = $doc->stato ? ucfirst($doc->stato) : 'In coda';
+                    $icon  = match($badgeClass){
+                      'badge-anpas-error'      => 'fa-times-circle',
+                      'badge-anpas-processing' => 'fa-spinner fa-spin',
+                      'badge-anpas-ready'      => 'fa-check-circle',
+                      default                  => 'fa-hourglass-half',
+                    };
+                  @endphp
+                  <span class="badge {{ $badgeClass }}">
+                    <i class="fas {{ $icon }} me-1" aria-hidden="true"></i>{{ $label }}
+                  </span>
                   @endif
                 </td>
+
               </tr>
               @endforeach
             </tbody>
@@ -322,7 +351,7 @@
           typeLabel,
           idAnno,
           '—',
-          `<span class="badge bg-warning text-dark">In coda</span>`
+          `<span class="badge badge-anpas-queued"><i class="fas fa-hourglass-half me-1"></i>In coda</span>`
         ]).draw(false).node();
 
         // assegna un id DOM alla riga per il polling
@@ -352,17 +381,26 @@
           if (j.status === 'ready' && j.download_url) {
             clearInterval(timer);
             data[3] = new Date(j.generato_il).toLocaleString();
-            data[4] = `<a href="${j.download_url}" class="btn btn-sm btn-primary">Scarica</a>`;
+            data[4] = `<a href="${j.download_url}" class="btn btn-sm btn-anpas-download">
+                      <i class="fas fa-download me-1"></i>Scarica
+                    </a>`;
             row.data(data).draw(false);
           } else if (j.status === 'error') {
             clearInterval(timer);
             data[3] = '—';
-            data[4] = `<span class="badge bg-danger">Errore</span>`;
+            data[4] = `<span class="badge badge-anpas-error"><i class="fas fa-times-circle me-1"></i>Errore</span>`;
             row.data(data).draw(false);
           } else {
-            data[4] = `<span class="badge bg-warning text-dark">${j.status || 'In coda'}</span>`;
+            // queued / processing / elaborazione...
+            const s = (j.status || 'queued').toLowerCase();
+            const isProc = s.includes('proc') || s.includes('elab');
+            const label = isProc ? 'Elaborazione' : 'In coda';
+            const cls = isProc ? 'badge-anpas-processing' : 'badge-anpas-queued';
+            const icon = isProc ? 'fa-spinner fa-spin' : 'fa-hourglass-half';
+            data[4] = `<span class="badge ${cls}"><i class="fas ${icon} me-1"></i>${label}</span>`;
             row.data(data).draw(false);
           }
+
         } catch (_) {
           /* ignora, ritenta */
         }

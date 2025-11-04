@@ -237,7 +237,7 @@ class Convenzione {
             $query->where('idAssociazione', $idAssociazione);
         }
 
-        return $query->orderBy('Convenzione')->get();
+        return $query->orderBy('idConvenzione')->get();
     }
 
     public static function getMezzoTitolare(int $idConvenzione): ?object {
