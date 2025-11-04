@@ -28,16 +28,13 @@ class GeneraRipVolontariScnPdfJob implements ShouldQueue
     private const QUALIFICA_VOLONTARI_ID = 15;
     private const QUALIFICA_SCN_ID       = 16;
 
-    /** Coda dedicata */
-    protected string $queue = 'pdf';
-
     public function __construct(
         public int $documentoId,
         public int $idAssociazione,
         public int $anno,
         public int $utenteId,
     ) {
-        $this->onQueue($this->queue);
+        $this->onQueue('pdf'); 
     }
 
     public function handle(): void
