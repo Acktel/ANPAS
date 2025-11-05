@@ -10,6 +10,7 @@ use App\Models\Automezzo;
 use App\Models\Convenzione;
 use App\Models\Dipendente;
 use App\Models\AutomezzoKm; 
+use App\Models\AutomezzoServiziSvolti;
 use Illuminate\Http\JsonResponse;
 
 class CostoMaterialeSanitarioController extends Controller {
@@ -34,10 +35,12 @@ class CostoMaterialeSanitarioController extends Controller {
         $numeroServizi  = RipartizioneMaterialeSanitario::getTotaleServizi($automezzi, $anno);
         $totaleBilancio = CostoMaterialeSanitario::getTotale($selectedAssoc, $anno);
         $dati           = RipartizioneMaterialeSanitario::getRipartizione($selectedAssoc, $anno);
+        $totaleServizi =  AutomezzoServiziSvolti::getTotaleByAssociazioneAnno($selectedAssoc, $anno);
 
         return view('imputazioni.materiale_sanitario.index', [
             'anno'           => $anno,
             'numeroServizi'  => $numeroServizi,
+            'totaleServizi'  => $totaleServizi, 
             'totaleBilancio' => $totaleBilancio,
             'righe'          => $dati['righe'],
             'associazioni'   => $associazioni,

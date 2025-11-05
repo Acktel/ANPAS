@@ -7,15 +7,13 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use App\Models\User;
 
-class AutomezzoServiziSvolti
-{
+class AutomezzoServiziSvolti {
     protected const TABLE = 'automezzi_servizi';
 
     /**
      * Inserisce un nuovo record.
      */
-    public static function add(int $idAutomezzo, int $idConvenzione, int $numeroServizi): int
-    {
+    public static function add(int $idAutomezzo, int $idConvenzione, int $numeroServizi): int {
         return DB::table(self::TABLE)->insertGetId([
             'idAutomezzo'      => $idAutomezzo,
             'idConvenzione'    => $idConvenzione,
@@ -28,8 +26,7 @@ class AutomezzoServiziSvolti
     /**
      * Inserisce o aggiorna il numero servizi.
      */
-    public static function upsert(int $idAutomezzo, int $idConvenzione, int $numeroServizi): void
-    {
+    public static function upsert(int $idAutomezzo, int $idConvenzione, int $numeroServizi): void {
         DB::table(self::TABLE)->updateOrInsert(
             [
                 'idAutomezzo'   => $idAutomezzo,
@@ -45,8 +42,7 @@ class AutomezzoServiziSvolti
     /**
      * Elimina tutti i record di servizi per un automezzo.
      */
-    public static function deleteByAutomezzo(int $idAutomezzo): void
-    {
+    public static function deleteByAutomezzo(int $idAutomezzo): void {
         DB::table(self::TABLE)
             ->where('idAutomezzo', $idAutomezzo)
             ->delete();
@@ -70,9 +66,22 @@ class AutomezzoServiziSvolti
             's.idConvenzione',
             DB::raw('SUM(s.NumeroServizi) as NumeroServizi')
         )
-        ->groupBy('s.idAutomezzo', 's.idConvenzione')
-        ->get()
-        ->groupBy(fn($row) => $row->idAutomezzo . '-' . $row->idConvenzione);
+            ->groupBy('s.idAutomezzo', 's.idConvenzione')
+            ->get()
+            ->groupBy(fn($row) => $row->idAutomezzo . '-' . $row->idConvenzione);
     }
 
+    /**
+     * Totale servizi svolti dall'associazione in un dato anno
+     * (somma di NumeroServizi per tutti gli automezzi dell'associazione/anno).
+     */
+    public static function getTotaleByAssociazioneAnno(int $idAssociazione, int $anno): int {
+        $tot = DB::table(self::TABLE . ' as s')
+            ->join('automezzi as a', 's.idAutomezzo', '=', 'a.idAutomezzo')
+            ->where('a.idAnno', $anno)
+            ->where('a.idAssociazione', $idAssociazione)
+            ->sum('s.NumeroServizi');
+
+        return (int) ($tot ?? 0);
+    }
 }
