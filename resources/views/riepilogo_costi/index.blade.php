@@ -285,8 +285,12 @@ $user = Auth::user();
         return;
       }
 
+      // differenza effettiva da sottrarre
+      const diffSost = Math.max(0, __costoMezziSost - __costoFasciaSost);
+
+      // totali netti
       const prevNet = Math.max(0, __totPrevGenerale);
-      const consNet = Math.max(0, __totConsGenerale - __costoMezziSost);
+      const consNet = Math.max(0, __totConsGenerale - diffSost);
       const scosNet = prevNet !== 0 ? ((consNet - prevNet) / prevNet * 100) : 0;
 
       outPrev.textContent = eur(prevNet);

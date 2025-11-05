@@ -240,37 +240,58 @@ class Convenzione {
         return $query->orderBy('idConvenzione')->get();
     }
 
+    // App/Models/Convenzione.php
+
     public static function getMezzoTitolare(int $idConvenzione): ?object {
-        // Mezzo titolare
+        // Mezzo titolare + km del titolare su questa convenzione
         $sql = "
-        SELECT a.idAutomezzo, a.Targa, a.CodiceIdentificativo, ak.KMPercorsi AS km_titolare
-        FROM automezzi_km AS ak
-        JOIN automezzi AS a ON a.idAutomezzo = ak.idAutomezzo
-        WHERE ak.idConvenzione = :idConvenzione
-          AND ak.is_titolare = 1
-        LIMIT 1";
+        SELECT a.idAutomezzo, a.Targa, a.CodiceIdentificativo, k.KMPercorsi AS km_titolare,
+               c.idAnno
+        FROM automezzi_km k
+        JOIN automezzi a ON a.idAutomezzo = k.idAutomezzo
+        JOIN convenzioni c ON c.idConvenzione = k.idConvenzione
+        WHERE k.idConvenzione = :idConvenzione
+          AND k.is_titolare = 1
+        LIMIT 1
+    ";
         $titolare = DB::selectOne($sql, ['idConvenzione' => $idConvenzione]);
+        if (!$titolare) return null;
 
-        if (!$titolare) {
-            return null;
-        }
-
-        // Km totali per convenzione
-        $tot = DB::selectOne("
-        SELECT COALESCE(SUM(KMPercorsi),0) AS km_totali
+        // Totale km della CONVENZIONE (serve per % rotazione, già presente)
+        $totConv = DB::selectOne("
+        SELECT COALESCE(SUM(KMPercorsi),0) AS km_totali_conv
         FROM automezzi_km
-        WHERE idConvenzione = :idConvenzione", ['idConvenzione' => $idConvenzione]);
+        WHERE idConvenzione = :idConvenzione
+    ", ['idConvenzione' => $idConvenzione]);
 
-        $kmTotali = (float) ($tot->km_totali ?? 0);
-        $perc = $kmTotali > 0 ? round(($titolare->km_titolare / $kmTotali) * 100, 2) : 0;
+        $kmTotaliConv = (float) ($totConv->km_totali_conv ?? 0);
+        $percentRot   = $kmTotaliConv > 0
+            ? round(($titolare->km_titolare / $kmTotaliConv) * 100, 2)
+            : 0;
+
+        // Totale km del MEZZO nell’anno della convenzione (serve per % tradizionale)
+        $totMezzo = DB::selectOne("
+        SELECT COALESCE(SUM(k.KMPercorsi),0) AS km_totali_mezzo
+        FROM automezzi_km k
+        JOIN convenzioni c ON c.idConvenzione = k.idConvenzione
+        WHERE k.idAutomezzo = :idAutomezzo
+          AND c.idAnno = :idAnno
+    ", ['idAutomezzo' => $titolare->idAutomezzo, 'idAnno' => (int)$titolare->idAnno]);
+
+        $kmTotaliMezzo = (float) ($totMezzo->km_totali_mezzo ?? 0);
+        $percentTrad   = $kmTotaliMezzo > 0
+            ? round(($titolare->km_titolare / $kmTotaliMezzo) * 100, 2)
+            : 0;
 
         return (object) [
-            'idAutomezzo'          => $titolare->idAutomezzo,
+            'idAutomezzo'          => (int) $titolare->idAutomezzo,
             'Targa'                => $titolare->Targa,
             'CodiceIdentificativo' => $titolare->CodiceIdentificativo,
-            'km_titolare'          => $titolare->km_titolare,
-            'km_totali'            => $kmTotali,
-            'percentuale'          => $perc,
+            'km_titolare'          => (int) $titolare->km_titolare,
+            'km_totali_conv'       => (int) $kmTotaliConv,
+            'km_totali_mezzo'      => (int) $kmTotaliMezzo,
+            'percent_rot'          => $percentRot,    // % ROTAZIONE (com’era prima)
+            'percent_trad'         => $percentTrad,   // % TRADIZIONALE (nuova)
         ];
     }
 }

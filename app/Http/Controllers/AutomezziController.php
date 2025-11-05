@@ -118,7 +118,8 @@ class AutomezziController extends Controller {
                 'exception' => $e,
                 'request' => $request->all()
             ]);
-
+            
+            DB::rollBack();
             // opzionale: rilancia per vedere errore completo sul browser in debug
             if (config('app.debug')) {
                 throw $e;

@@ -1,10 +1,10 @@
 @extends('layouts.app')
 
 @php
-  $user = Auth::user();
-  $isImpersonating = session()->has('impersonate');
-  $annoCorr = session('anno_riferimento', now()->year);
-  $assoCorr = $associazioni->firstWhere('idAssociazione', $conv->idAssociazione);
+$user = Auth::user();
+$isImpersonating = session()->has('impersonate');
+$annoCorr = session('anno_riferimento', now()->year);
+$assoCorr = $associazioni->firstWhere('idAssociazione', $conv->idAssociazione);
 
 @endphp
 
@@ -19,13 +19,13 @@
 
   {{-- Errori validazione --}}
   @if($errors->any())
-    <div class="alert alert-danger">
-      <ul class="mb-0">
-        @foreach($errors->all() as $e)
-          <li>{{ $e }}</li>
-        @endforeach
-      </ul>
-    </div>
+  <div class="alert alert-danger">
+    <ul class="mb-0">
+      @foreach($errors->all() as $e)
+      <li>{{ $e }}</li>
+      @endforeach
+    </ul>
+  </div>
   @endif
 
   <div class="card-anpas mb-4">
@@ -34,8 +34,8 @@
         @csrf
         @method('PUT')
 
-       <input type="hidden" name="idAssociazione" value="{{ $assoCorr->idAssociazione ?? $conv->idAssociazione }}">
-       <input type="hidden" name="idAnno" value="{{ $conv->idAnno }}">
+        <input type="hidden" name="idAssociazione" value="{{ $assoCorr->idAssociazione ?? $conv->idAssociazione }}">
+        <input type="hidden" name="idAnno" value="{{ $conv->idAnno }}">
         {{-- Associazione e Anno --}}
 
         {{-- Descrizione --}}
@@ -57,10 +57,10 @@
             <label for="aziende_sanitarie" class="form-label">Aziende Sanitarie associate</label>
             <select name="aziende_sanitarie[]" id="aziende_sanitarie" class="form-select" multiple size="6">
               @foreach($aziendeSanitarie as $az)
-                <option value="{{ $az->idAziendaSanitaria }}"
-                  {{ in_array($az->idAziendaSanitaria, old('aziende_sanitarie', $aziendeSelezionate ?? [])) ? 'selected' : '' }}>
-                  {{ $az->Nome }}
-                </option>
+              <option value="{{ $az->idAziendaSanitaria }}"
+                {{ in_array($az->idAziendaSanitaria, old('aziende_sanitarie', $aziendeSelezionate ?? [])) ? 'selected' : '' }}>
+                {{ $az->Nome }}
+              </option>
               @endforeach
             </select>
             <small class="form-text text-muted">
@@ -110,25 +110,35 @@
                 onclick="setRotSostAndGo({{ $conv->idConvenzione }}, {{ $titolare->idAutomezzo ?? 'null' }})">
                 <i class="fa fa-car me-1"></i>
                 @if($titolare)
-                  Modifica KM del TITOLARE
+                Modifica KM del TITOLARE
                 @else
-                  Nomina mezzo TITOLARE / Gestisci KM
+                Nomina mezzo TITOLARE / Gestisci KM
                 @endif
               </button>
 
               {{-- Info TITOLARE, se presente --}}
               @if($titolare)
-                <div class="alert alert-info p-2 mb-0">
-                  <strong>Mezzo titolare:</strong> {{ $titolare->Targa }} – {{ $titolare->CodiceIdentificativo }}<br>
-                  <strong>Km titolare:</strong> {{ number_format($titolare->km_titolare, 0, ',', '.') }} km<br>
-                  <strong>Totale convenzione:</strong> {{ number_format($titolare->km_totali, 0, ',', '.') }} km<br>
-                  <strong>Percentuale impiego:</strong> {{ $titolare->percentuale }}%
+              <div class="alert alert-info p-2 mb-0">
+                <strong>Mezzo titolare:</strong> {{ $titolare->Targa }} – {{ $titolare->CodiceIdentificativo }}<br>
+                <strong>Km titolare (su questa convenzione):</strong> {{ number_format($titolare->km_titolare, 0, ',', '.') }} km<br>
+                <strong>Totale km convenzione:</strong> {{ number_format($titolare->km_totali_conv, 0, ',', '.') }} km<br>
+
+                {{-- Nuove due percentuali affiancate --}}
+                <div class="mt-2">
+                  <span class="badge me-2">
+                    % TRADIZIONALE: {{ number_format($titolare->percent_trad, 2, ',', '.') }}%
+                  </span>
+                  <span class="badge">
+                    % ROTAZIONE MEZZI: {{ number_format($titolare->percent_rot, 2, ',', '.') }}%
+                  </span>
                 </div>
+              </div>
               @else
-                <div class="alert alert-warning p-2 mb-0">
-                  Nessun mezzo titolare nominato per questa convenzione.
-                </div>
+              <div class="alert alert-warning p-2 mb-0">
+                Nessun mezzo titolare nominato per questa convenzione.
+              </div>
               @endif
+
             </div>
           </div>
         </div>

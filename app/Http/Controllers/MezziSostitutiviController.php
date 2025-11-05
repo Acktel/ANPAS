@@ -11,6 +11,8 @@ class MezziSostitutiviController extends Controller {
      * GET /ajax/rot-sost/stato?idConvenzione=&anno=
      * Restituisce lo stato della convenzione (rotazione / sostitutivi)
      */
+    // App/Http/Controllers/MezziSostitutiviController.php
+
     public function stato(Request $req) {
         $idConv = (int) $req->integer('idConvenzione');
         $anno   = (int) ($req->integer('anno') ?: session('anno_riferimento', now()->year));
@@ -19,44 +21,64 @@ class MezziSostitutiviController extends Controller {
         $conv = Convenzione::getById($idConv);
         if (!$conv) return response()->json(['ok' => false, 'message' => 'Convenzione non trovata'], 404);
 
+        // se la funzionalità non è abilitata per la convenzione, esci subito
         if ((int)($conv->abilita_rot_sost ?? 0) !== 1) {
             return response()->json([
-                'ok' => true,
-                'modalita' => 'off',
-                'percentuale' => null,
-                'costo_fascia_oraria' => null,
-                'costo_mezzi_sostitutivi' => null,
-                'totale_netto' => null
+                'ok'          => true,
+                'modalita'    => 'off',
+                'convenzione' => $conv->Convenzione ?? null,
             ]);
         }
 
+        // mezzo titolare + percentuali (devono includere percent_trad)
         $titolare = Convenzione::getMezzoTitolare($idConv);
         if (!$titolare) {
             return response()->json([
-                'ok' => true,
-                'modalita' => 'off',
-                'percentuale' => null,
-                'costo_fascia_oraria' => null,
-                'costo_mezzi_sostitutivi' => null,
-                'totale_netto' => null
+                'ok'          => true,
+                'modalita'    => 'no-titolare',
+                'convenzione' => $conv->Convenzione ?? null,
             ]);
         }
 
-        $perc = (float)($titolare->percentuale ?? 0);
-        $modalita = ($perc >= 98.0) ? 'sostitutivi' : 'rotazione';
+        // REGOLA: si usa SOLO la % tradizionale
+        $percTrad = (float) ($titolare->percent_trad ?? 0.0);
+        $modalita = $percTrad >= 98.0 ? 'sostitutivi' : 'rotazione';
 
-        $stato = MezziSostitutivi::getStato($idConv, $anno);
+        // Valori economici (solo se davvero "sostitutivi")
+        $costoFascia = 0.0;
+        $costoSost   = 0.0;
+        if ($modalita === 'sostitutivi') {
+            // costo fascia oraria da tabella mezzi_sostitutivi
+            $row = MezziSostitutivi::getByConvenzioneAnno($idConv, $anno);
+            $costoFascia = $row ? (float)$row->costo_fascia_oraria : 0.0;
+
+            // costo netto sostitutivi calcolato dalla ripartizione totale (service)
+            $netByConv = \App\Services\RipartizioneCostiService::costoNettoMezziSostitutiviByConvenzione(
+                (int)$conv->idAssociazione,
+                $anno
+            );
+            $costoSost = (float)($netByConv[$idConv] ?? 0.0);
+        }
 
         return response()->json([
-            'ok' => true,
-            'modalita' => $modalita,
-            'percentuale' => $perc,
-            'convenzione' => $conv->Convenzione ?? null,
-            'costo_fascia_oraria' => $stato->costo_fascia_oraria,
-            'costo_mezzi_sostitutivi' => $stato->costo_mezzi_sostitutivi,
-            'totale_netto' => $stato->totale_netto,
+            'ok'              => true,
+            'modalita'        => $modalita,                 // 'sostitutivi' | 'rotazione' | 'no-titolare' | 'off'
+            'convenzione'     => $conv->Convenzione ?? null,
+            // debug/info
+            'percent_trad'    => $percTrad,
+            'percent_rot'     => (float) ($titolare->percent_rot ?? 0.0),
+            'km_titolare'     => (float) ($titolare->km_titolare ?? 0.0),
+            'km_tot_conv'     => (float) ($titolare->km_totali_conv ?? 0.0),
+            'km_tot_mezzo'    => (float) ($titolare->km_totali_mezzo ?? 0.0),
+            // valori economici (solo significativi in 'sostitutivi')
+            'costo_fascia_oraria'     => $costoFascia,
+            'costo_mezzi_sostitutivi' => $costoSost,
+            // utilità per la UI "netto"
+            'differenza_netto'        => max(0.0, $costoSost - $costoFascia),
         ]);
     }
+
+
 
     public function salva(Request $req) {
         $data = $req->validate([
@@ -78,13 +100,14 @@ class MezziSostitutiviController extends Controller {
         }
 
         $titolare = Convenzione::getMezzoTitolare($idConv);
-        if (!$titolare || (float)$titolare->percentuale < 98.0) {
+        $percTrad = $titolare ? (float)$titolare->percent_trad : null;
+
+        if ($percTrad === null || $percTrad < 98.0) {
             $msg = 'La convenzione è in Rotazione: non è previsto il calcolo mezzi sostitutivi.';
             return $req->expectsJson()
                 ? response()->json(['ok' => false, 'message' => $msg], 422)
                 : redirect()->route('riepilogo.costi')->with('error', $msg);
         }
-
         MezziSostitutivi::upsertCosto($idConv, $anno, $costo);
 
         return $req->expectsJson()
@@ -98,20 +121,29 @@ class MezziSostitutiviController extends Controller {
         $conv = Convenzione::getById($idConvenzione);
         abort_unless($conv, 404);
 
+        // Recupera mezzo titolare con le due percentuali
         $titolare = Convenzione::getMezzoTitolare($idConvenzione);
-        $perc = $titolare ? (float)$titolare->percentuale : null;
-        $isSost = $conv && (int)($conv->abilita_rot_sost ?? 0) === 1 && $perc !== null && $perc >= 98.0;
 
+        // Usa SEMPRE la % tradizionale come riferimento
+        $percTrad = $titolare ? (float)$titolare->percent_trad : null;
+
+        // Regime "mezzi sostitutivi" = abilitato + % trad >= 98
+        $isSost = $conv
+            && (int)($conv->abilita_rot_sost ?? 0) === 1
+            && $percTrad !== null
+            && $percTrad >= 98.0;
+
+        // Costo già salvato (se esiste)
         $row = MezziSostitutivi::getByConvenzioneAnno($idConvenzione, $anno);
-        $costo = $row ? (float)$row->costo_fascia_oraria : 0;
+        $costo = $row ? (float)$row->costo_fascia_oraria : 0.0;
 
         return view('mezzi_sostitutivi.edit', [
             'idConvenzione'   => $idConvenzione,
             'anno'            => $anno,
             'costo'           => $costo,
             'nomeConvenzione' => $conv->Convenzione ?? null,
-            'percTitolare'    => $perc,
-            'isSostitutivi'   => $isSost,
+            'percTitolare'    => $percTrad,     // ← percentuale tradizionale
+            'isSostitutivi'   => $isSost,       // ← flag per mostrare form o messaggio "non applicabile"
         ]);
     }
 }

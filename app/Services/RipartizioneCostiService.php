@@ -1433,10 +1433,10 @@ class RipartizioneCostiService {
     }
 
 
-    /** true se per la convenzione vale il regime “mezzi sostitutivi”:
+    /** true se per la convenzione vale il regime “mezzi sostitutivi”
      *  - flag abilita_rot_sost = 1
-     *  - è impostato un mezzo titolare
-     *  - %KM del titolare >= 98
+     *  - esiste un mezzo con is_titolare = 1
+     *  - % TRADIZIONALE del titolare (km mezzo su conv / km totali mezzo) >= 98
      */
     private static function isRegimeMezziSostitutivi(int $idConv): bool {
         $conv = DB::table('convenzioni')
@@ -1445,25 +1445,29 @@ class RipartizioneCostiService {
             ->first();
         if (!$conv) return false;
 
+        // prendo il titolare dichiarato
         $tit = DB::table('automezzi_km')
-            ->select(DB::raw('idAutomezzo, SUM(KMPercorsi) as km'))
+            ->select('idAutomezzo', DB::raw('COALESCE(KMPercorsi,0) AS kmConv'))
             ->where('idConvenzione', $idConv)
-            ->groupBy('idAutomezzo')
-            ->orderByDesc('km')
-            ->limit(1)
+            ->where('is_titolare', 1)
             ->first();
-
         if (!$tit) return false;
 
-        $totConv = DB::table('automezzi_km')
-            ->where('idConvenzione', $idConv)
+        $totKmMezzo = (float) DB::table('automezzi_km')
+            ->where('idAutomezzo', $tit->idAutomezzo)
             ->sum('KMPercorsi');
 
-        $perc = $totConv > 0 ? ($tit->km / $totConv) * 100 : 0;
-        return $perc >= 98.0;
+        $kmConv = (float) ($tit->kmConv ?? 0);
+        $percTrad = $totKmMezzo > 0 ? ($kmConv / $totKmMezzo) * 100.0 : 0.0;
+
+        return $percTrad >= 98.0;
     }
 
-    /** true se per la convenzione vale il regime “rotazione mezzi” */
+    /** true se per la convenzione vale il regime “rotazione mezzi”
+     *  - flag abilita_rot_sost = 1
+     *  - esiste un mezzo con is_titolare = 1
+     *  - % TRADIZIONALE del titolare < 98
+     */
     public static function isRegimeRotazione(int $idConv): bool {
         $conv = DB::table('convenzioni')
             ->where('idConvenzione', $idConv)
@@ -1472,22 +1476,22 @@ class RipartizioneCostiService {
         if (!$conv) return false;
 
         $tit = DB::table('automezzi_km')
-            ->select(DB::raw('idAutomezzo, SUM(KMPercorsi) as km'))
+            ->select('idAutomezzo', DB::raw('COALESCE(KMPercorsi,0) AS kmConv'))
             ->where('idConvenzione', $idConv)
-            ->groupBy('idAutomezzo')
-            ->orderByDesc('km')
-            ->limit(1)
+            ->where('is_titolare', 1)
             ->first();
-
         if (!$tit) return false;
 
-        $totConv = DB::table('automezzi_km')
-            ->where('idConvenzione', $idConv)
+        $totKmMezzo = (float) DB::table('automezzi_km')
+            ->where('idAutomezzo', $tit->idAutomezzo)
             ->sum('KMPercorsi');
 
-        $perc = $totConv > 0 ? ($tit->km / $totConv) * 100 : 0;
-        return $perc < 98.0;
+        $kmConv = (float) ($tit->kmConv ?? 0);
+        $percTrad = $totKmMezzo > 0 ? ($kmConv / $totKmMezzo) * 100.0 : 0.0;
+
+        return $percTrad < 98.0;
     }
+
 
     /**
      * Calcola il COSTO NETTO MEZZI SOSTITUTIVI per ciascuna convenzione:
