@@ -397,6 +397,31 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                 Log::warning('Errore blocco “fogli per convenzione”', ['msg' => $e->getMessage(), 'file' => $e->getFile(), 'line' => $e->getLine()]);
             }
 
+            /* ===================== TAGLIO COLONNE + AUTOSIZE + FORMATO NUMERICO ===================== */
+            foreach ($spreadsheet->getAllSheets() as $ws) {
+                $lastHeaderCol = 1;
+                for ($col = 1; $col <= \PhpOffice\PhpSpreadsheet\Cell\Coordinate::columnIndexFromString($ws->getHighestColumn()); $col++) {
+                    $v1 = trim((string)$ws->getCellByColumnAndRow($col, 1)->getValue());
+                    $v2 = trim((string)$ws->getCellByColumnAndRow($col, 2)->getValue());
+                    if ($v1 !== '' || $v2 !== '') $lastHeaderCol = $col;
+                }
+
+                $totalCols = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::columnIndexFromString($ws->getHighestColumn());
+                for ($col = $lastHeaderCol + 1; $col <= $totalCols; $col++) {
+                    $colL = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($col);
+                    $ws->getColumnDimension($colL)->setVisible(false);
+                }
+
+                $lastRow = $ws->getHighestRow();
+                $range = 'A1:' . \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($lastHeaderCol) . $lastRow;
+                $ws->getStyle($range)->getNumberFormat()->setFormatCode('#,##0.00');
+
+                for ($col = 1; $col <= $lastHeaderCol; $col++) {
+                    $colL = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($col);
+                    $ws->getColumnDimension($colL)->setAutoSize(true);
+                }
+            }
+
             /* ===================== SALVATAGGIO ===================== */
             $lastColL = $sheet->getHighestColumn();
             $lastRow  = $sheet->getHighestRow();
@@ -426,18 +451,16 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                 'line'            => $e->getLine(),
             ]);
 
-            DB::table('documenti_generati')->where('id', $this->documentoId)
-                ->update([
-                    'stato'       => 'error',
-                    'updated_at'  => now(),
-                    'errore_note' => substr($e->getMessage(), 0, 1900), // opzionale: salva msg breve
-                ]);
+            DB::table('documenti_generati')->where('id', $this->documentoId)->update([
+                'stato'       => 'error',
+                'updated_at'  => now(),
+                'errore_note' => substr($e->getMessage(), 0, 1900),
+            ]);
 
-            // NON rilanciare. Segna il job come failed e termina.
             if (method_exists($this, 'fail')) {
-                $this->fail($e); // InteractsWithQueue
+                $this->fail($e);
             }
-            return; // stop
+            return;
         }
     }
 
@@ -626,7 +649,7 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
         return max($totRowNew, $tpl['endRow'] + $off);
     }
 
-    /** RICAVI (ritorna [endRow, ricaviMap]) */
+
     /** RICAVI (una sola riga dati nel template, niente riga “Totale ricavi” da creare/spostare) */
     private function blockRicavi(Worksheet $sheet, array $tpl, $convenzioni, array $logos): array {
         // locateRicaviHeader deve restituire:
@@ -2511,8 +2534,6 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
             }
         }
     }
-
-
 
     /* ===================== HEADER FINDERS RICICLATI ===================== */
 
