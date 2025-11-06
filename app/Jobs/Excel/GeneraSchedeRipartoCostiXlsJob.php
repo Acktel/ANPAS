@@ -28,6 +28,7 @@ use PhpOffice\PhpSpreadsheet\RichText\RichText;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PhpOffice\PhpSpreadsheet\CachedObjectStorage\MemoryCache;
 use PhpOffice\PhpSpreadsheet\CachedObjectStorage\PhpTemp;
+use PhpOffice\PhpSpreadsheet\Worksheet\PageSetup;
 
 use App\Models\Automezzo;
 use App\Models\Associazione;
@@ -399,27 +400,29 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
 
             /* ===================== TAGLIO COLONNE + AUTOSIZE + FORMATO NUMERICO ===================== */
             foreach ($spreadsheet->getAllSheets() as $ws) {
-                $lastHeaderCol = 1;
-                for ($col = 1; $col <= \PhpOffice\PhpSpreadsheet\Cell\Coordinate::columnIndexFromString($ws->getHighestColumn()); $col++) {
-                    $v1 = trim((string)$ws->getCellByColumnAndRow($col, 1)->getValue());
-                    $v2 = trim((string)$ws->getCellByColumnAndRow($col, 2)->getValue());
-                    if ($v1 !== '' || $v2 !== '') $lastHeaderCol = $col;
+                // 1) Ultima colonna realmente usata (dati o header, anche con celle unite)
+                $lastUsedCol = Coordinate::columnIndexFromString($ws->getHighestDataColumn());
+
+                // 2) Nascondi SOLO ciò che sta oltre l’ultima colonna usata
+                $totalCols = Coordinate::columnIndexFromString($ws->getHighestColumn());
+                for ($col = $lastUsedCol + 1; $col <= $totalCols; $col++) {
+                    $ws->getColumnDimension(Coordinate::stringFromColumnIndex($col))->setVisible(false);
                 }
 
-                $totalCols = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::columnIndexFromString($ws->getHighestColumn());
-                for ($col = $lastHeaderCol + 1; $col <= $totalCols; $col++) {
-                    $colL = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($col);
-                    $ws->getColumnDimension($colL)->setVisible(false);
-                }
-
+                // 3) Formato numerico su tutta l’area usata
                 $lastRow = $ws->getHighestRow();
-                $range = 'A1:' . \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($lastHeaderCol) . $lastRow;
-                $ws->getStyle($range)->getNumberFormat()->setFormatCode('#,##0.00');
-
-                for ($col = 1; $col <= $lastHeaderCol; $col++) {
-                    $colL = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($col);
-                    $ws->getColumnDimension($colL)->setAutoSize(true);
+                if ($lastUsedCol >= 1 && $lastRow >= 1) {
+                    $range = 'A1:' . Coordinate::stringFromColumnIndex($lastUsedCol) . $lastRow;
+                    $ws->getStyle($range)->getNumberFormat()->setFormatCode('#,##0.00');
                 }
+
+                // 4) AutoSize per evitare “####”
+                for ($col = 1; $col <= $lastUsedCol; $col++) {
+                    $ws->getColumnDimension(Coordinate::stringFromColumnIndex($col))->setAutoSize(true);
+                }
+
+                // 5) Impostazioni di stampa (vedi sotto se vuoi personalizzare)
+                $this->applyPrintSetup($ws);
             }
 
             /* ===================== SALVATAGGIO ===================== */
@@ -3166,122 +3169,157 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
         }
     }
 
+protected function addDistintaImputazioneCostiSheet(\PhpOffice\PhpSpreadsheet\Spreadsheet $spreadsheet, int $idAssociazione, int $anno): void
+{
+    // 1) Dati dal service
+    $payload  = \App\Services\RipartizioneCostiService::distintaImputazioneData($idAssociazione, $anno);
+    $righe    = $payload['data'] ?? [];
+    $convNomi = $payload['convenzioni'] ?? [];
+    if (empty($righe) || empty($convNomi)) return;
 
-    protected function addDistintaImputazioneCostiSheet(Spreadsheet $spreadsheet, int $idAssociazione, int $anno): void {
-        // 1) Dati dal service
-        $payload  = RipartizioneCostiService::distintaImputazioneData($idAssociazione, $anno);
-        $righe    = $payload['data'] ?? [];
-        $convNomi = $payload['convenzioni'] ?? [];
-        if (empty($righe) || empty($convNomi)) return;
+    // 2) Sezioni (tipologia 2→11)
+    $sezioneName = [
+        2  => 'Automezzi ed attrezzature sanitarie',
+        3  => 'Attrezzatura sanitaria',
+        4  => 'Telecomunicazioni',
+        5  => 'Costi di gestione della struttura',
+        6  => 'Costo del personale',
+        7  => 'Materiale sanitario di consumo',
+        8  => 'Costi amministrativi',
+        9  => 'Quote di ammortamento',
+        10 => 'Beni strumentali < 516 €',
+        11 => 'Altri Costi'
+    ];
 
-        // 2) Sezioni (tipologia 2→11)
-        $sezioneName = [
-            2  => 'Automezzi ed attrezzature sanitarie',
-            3  => 'Attrezzatura sanitaria',
-            4  => 'Telecomunicazioni',
-            5  => 'Costi di gestione della struttura',
-            6  => 'Costo del personale',
-            7  => 'Materiale sanitario di consumo',
-            8  => 'Costi amministrativi',
-            9  => 'Quote di ammortamento',
-            10 => 'Beni strumentali < 516 €',
-        ];
+    // 3) Crea foglio in coda
+    $sheet = new \PhpOffice\PhpSpreadsheet\Worksheet\Worksheet($spreadsheet, 'DISTINTA IMPUTAZIONE COSTI');
+    $spreadsheet->addSheet($sheet, $spreadsheet->getSheetCount());
 
-        // 3) Crea foglio in coda
-        $sheet = new Worksheet($spreadsheet, 'DISTINTA IMPUTAZIONE COSTI');
-        $spreadsheet->addSheet($sheet, $spreadsheet->getSheetCount());
+    // Stili rapidi
+    $headFill    = ['fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID, 'startColor' => ['rgb' => 'D9E1F2']];
+    $subHeadFill = ['fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID, 'startColor' => ['rgb' => 'F2F2F2']];
+    $secFill     = ['fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID, 'startColor' => ['rgb' => 'FFF2CC']];
+    $thinBorder  = ['borders'  => ['allBorders' => ['borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN, 'color' => ['rgb' => '999999']]]];
 
-        // Stili
-        $headFill = ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'D9E1F2']];
-        $subHeadFill = ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'F2F2F2']];
-        $secFill = ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'FFF2CC']];
-        $thinBorder = ['borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => '999999']]]];
+    // 4) Header (r1: titoli; r2: sottotitoli convenzioni)
+    $col = 1; // A
+    $sheet->setCellValueByColumnAndRow($col++, 1, 'VOCE');                                            // A
+    $sheet->setCellValueByColumnAndRow($col++, 1, 'IMPORTO TOTALE DA BILANCIO CONSUNTIVO');           // B
+    $sheet->setCellValueByColumnAndRow($col++, 1, 'COSTI DI DIRETTA IMPUTAZIONE (NETTI)');            // C
+    $sheet->setCellValueByColumnAndRow($col++, 1, 'TOTALE COSTI RIPARTITI (INDIRETTI)');              // D  <<< NUOVA COLONNA FISSA
 
-        // 4) Header (r1: titoli; r2: sottotitoli convenzioni)
-        $col = 1; // A
-        $sheet->setCellValueByColumnAndRow($col++, 1, 'VOCE');
-        $sheet->setCellValueByColumnAndRow($col++, 1, 'Importo Totale da Bilancio (Cons.)');
-        $sheet->setCellValueByColumnAndRow($col++, 1, 'Costi di Diretta Imputazione');
+    // Convenzioni a 3 sotto-colonne: Diretti / Sconto (amm.) / Indiretti
+    foreach ($convNomi as $convName) {
+        $c1 = $col;            // Diretti
+        $c2 = $col + 1;        // Sconto
+        $c3 = $col + 2;        // Indiretti
+        $sheet->mergeCellsByColumnAndRow($c1, 1, $c3, 1);
+        $sheet->setCellValueByColumnAndRow($c1, 1, $convName);
+        $sheet->setCellValueByColumnAndRow($c1, 2, 'DIRETTI');
+        $sheet->setCellValueByColumnAndRow($c2, 2, 'SCONTO');
+        $sheet->setCellValueByColumnAndRow($c3, 2, 'INDIRETTI');
+        $col += 3;
+    }
+    $lastCol = $col - 1;
 
-        $convStartCol = $col;
-        foreach ($convNomi as $convName) {
-            $c1 = $col;
-            $c2 = $col + 1;
-            $c3 = $col + 2;
-            $sheet->mergeCellsByColumnAndRow($c1, 1, $c3, 1);
-            $sheet->setCellValueByColumnAndRow($c1, 1, $convName);
-            $sheet->setCellValueByColumnAndRow($c1, 2, 'Diretti');
-            $sheet->setCellValueByColumnAndRow($c2, 2, 'Sconto (Amm.)');
-            $sheet->setCellValueByColumnAndRow($c3, 2, 'Indiretti');
-            $col += 3;
-        }
+    // Stile header
+    $sheet->getStyleByColumnAndRow(1, 1, $lastCol, 1)->getFill()->applyFromArray($headFill);
+    $sheet->getStyleByColumnAndRow(1, 2, $lastCol, 2)->getFill()->applyFromArray($subHeadFill);
+    $sheet->getStyleByColumnAndRow(1, 1, $lastCol, 2)->getFont()->setBold(true);
+    $sheet->getStyleByColumnAndRow(1, 1, $lastCol, 2)->applyFromArray($thinBorder);
+    $sheet->getRowDimension(1)->setRowHeight(22);
+    $sheet->getRowDimension(2)->setRowHeight(18);
+    $sheet->getStyleByColumnAndRow(1, 1, $lastCol, 2)->getAlignment()
+        ->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER)
+        ->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER)
+        ->setWrapText(true);
 
-        // Stile header
-        $sheet->getStyleByColumnAndRow(1, 1, $col - 1, 1)->getFill()->applyFromArray($headFill);
-        $sheet->getStyleByColumnAndRow(1, 2, $col - 1, 2)->getFill()->applyFromArray($subHeadFill);
-        $sheet->getStyleByColumnAndRow(1, 1, $col - 1, 2)->getFont()->setBold(true);
-        $sheet->getStyleByColumnAndRow(1, 1, $col - 1, 2)->applyFromArray($thinBorder);
+    // 5) Righe dati — rispetta ordine da service
+    $row = 3;
+    $currentSection = null;
 
-        // Larghezze
-        $sheet->getColumnDimension('A')->setWidth(60); // VOCE
-        $sheet->getColumnDimension('B')->setWidth(22); // Bilancio
-        $sheet->getColumnDimension('C')->setWidth(24); // Diretta
+    foreach ($righe as $riga) {
+        $sezId = (int)($riga['sezione_id'] ?? 0);
+        if ($sezId < 2 || $sezId > 11) continue;
 
-        // 5) Righe dati — NESSUN ordinamento aggiuntivo (rispetta ordine da DB / service)
-        $row = 3;
-        $currentSection = null;
-
-        foreach ($righe as $riga) {
-            $sezId = (int)($riga['sezione_id'] ?? 0);
-            if ($sezId < 2 || $sezId > 11) continue;
-
-            // Riga titolo sezione (solo quando cambia)
-            if ($currentSection !== $sezId) {
-                $currentSection = $sezId;
-                $sheet->mergeCellsByColumnAndRow(1, $row, $col - 1, $row);
-                $sheet->setCellValueByColumnAndRow(1, $row, strtoupper($sezioneName[$sezId] ?? "Sezione $sezId"));
-                $sheet->getStyleByColumnAndRow(1, $row, $col - 1, $row)->getFill()->applyFromArray($secFill);
-                $sheet->getStyleByColumnAndRow(1, $row, $col - 1, $row)->getFont()->setBold(true);
-                $row++;
-            }
-
-            // RIGA VOCE
-            $c = 1;
-            $sheet->setCellValueByColumnAndRow($c++, $row, (string)$riga['voce']);                  // VOCE
-            $sheet->setCellValueByColumnAndRow($c++, $row, (float)($riga['bilancio'] ?? 0));        // Bilancio (cons.)
-            $sheet->setCellValueByColumnAndRow($c++, $row, (float)($riga['diretta'] ?? 0));         // Diretta = diretto - ammortamento
-
-            $sumDiretti = 0.0;
-            $sumSconto = 0.0;
-            $sumInd = 0.0;
-            foreach ($convNomi as $convName) {
-                $cell = $riga[$convName] ?? ['diretti' => 0, 'ammortamento' => 0, 'indiretti' => 0];
-                $dir = (float)($cell['diretti'] ?? 0);
-                $amm = (float)($cell['ammortamento'] ?? 0);
-                $ind = (float)($cell['indiretti'] ?? 0);
-
-                $sheet->setCellValueByColumnAndRow($c++, $row, $dir);
-                $sheet->setCellValueByColumnAndRow($c++, $row, $amm);
-                $sheet->setCellValueByColumnAndRow($c++, $row, $ind);
-
-                $sumDiretti += $dir;
-                $sumSconto += $amm;
-                $sumInd += $ind;
-            }
-
+        // Riga titolo sezione quando cambia
+        if ($currentSection !== $sezId) {
+            $currentSection = $sezId;
+            $sheet->mergeCellsByColumnAndRow(1, $row, $lastCol, $row);
+            $sheet->setCellValueByColumnAndRow(1, $row, mb_strtoupper($sezioneName[$sezId] ?? "Sezione $sezId", 'UTF-8'));
+            $sheet->getStyleByColumnAndRow(1, $row, $lastCol, $row)->getFill()->applyFromArray($secFill);
+            $sheet->getStyleByColumnAndRow(1, $row, $lastCol, $row)->getFont()->setBold(true);
+            $sheet->getStyleByColumnAndRow(1, $row, $lastCol, $row)->applyFromArray($thinBorder);
             $row++;
         }
 
-        // Bordi e formati
-        $sheet->getStyleByColumnAndRow(1, 1, $col - 1, $row - 1)->applyFromArray($thinBorder);
-        for ($cc = 2; $cc <= $col - 1; $cc++) {
-            $sheet->getStyleByColumnAndRow($cc, 3, $cc, $row - 1)
-                ->getNumberFormat()->setFormatCode('#,##0.00');
+        // RIGA VOCE
+        $c = 1;
+        $sheet->setCellValueByColumnAndRow($c++, $row, (string)$riga['voce']);                   // VOCE
+        $sheet->setCellValueByColumnAndRow($c++, $row, (float)($riga['bilancio'] ?? 0));         // Bilancio (cons.)
+        $sheet->setCellValueByColumnAndRow($c++, $row, (float)($riga['diretta'] ?? 0));          // Diretta (netta)
+        $sheet->setCellValueByColumnAndRow($c++, $row, (float)($riga['totale']  ?? 0));          // <<< Totale indiretti
+
+        // Convenzioni
+        foreach ($convNomi as $convName) {
+            $cell = $riga[$convName] ?? ['diretti' => 0, 'ammortamento' => 0, 'indiretti' => 0];
+            $dir = (float)($cell['diretti']      ?? 0);
+            $amm = (float)($cell['ammortamento'] ?? 0);
+            $ind = (float)($cell['indiretti']    ?? 0);
+
+            $sheet->setCellValueByColumnAndRow($c++, $row, $dir);
+            $sheet->setCellValueByColumnAndRow($c++, $row, $amm);
+            $sheet->setCellValueByColumnAndRow($c++, $row, $ind);
         }
 
-        // Freeze: dopo le 3 colonne fisse (VOCE, Bilancio, Diretta)
-        $sheet->freezePaneByColumnAndRow(4, 3);
+        $row++;
     }
+
+    // 6) Bordi e formati
+    $lastRow = $row - 1;
+    $sheet->getStyleByColumnAndRow(1, 1, $lastCol, $lastRow)->applyFromArray($thinBorder);
+
+    // Formato numerico su tutte le colonne da B in poi
+    for ($cc = 2; $cc <= $lastCol; $cc++) {
+        $sheet->getStyleByColumnAndRow($cc, 3, $cc, $lastRow)
+            ->getNumberFormat()->setFormatCode('#,##0.00');
+        $sheet->getStyleByColumnAndRow($cc, 3, $cc, $lastRow)
+            ->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+    }
+
+    // 7) Freeze pane: dopo 4 colonne fisse (E3)
+    $sheet->freezePaneByColumnAndRow(5, 3);
+
+    // 8) AutoSize colonne (A un po' più larga)
+    $sheet->getColumnDimension('A')->setWidth(55);
+    for ($cc = 2; $cc <= $lastCol; $cc++) {
+        $sheet->getColumnDimensionByColumn($cc)->setAutoSize(true);
+    }
+
+    // 9) Impostazioni di stampa
+    $ps = $sheet->getPageSetup();
+    $ps->setOrientation(PageSetup::ORIENTATION_LANDSCAPE);
+    $ps->setFitToWidth(1);
+    $ps->setFitToHeight(0);
+    $ps->setHorizontalCentered(true);
+
+    $margins = $sheet->getPageMargins();
+    $margins->setTop(0.4);
+    $margins->setBottom(0.6);
+    $margins->setLeft(0.4);
+    $margins->setRight(0.4);
+    $margins->setHeader(0.2);
+    $margins->setFooter(0.2);
+
+    // Ripeti header (r1-2) in stampa
+    $sheet->getPageSetup()->setRowsToRepeatAtTopByStartAndEnd(1, 2);
+
+    // Area di stampa
+    $lastColL = Coordinate::stringFromColumnIndex($lastCol);
+    $sheet->getPageSetup()->setPrintArea("A1:{$lastColL}{$lastRow}");
+}
+
+    
 
     private function writeTabellaTipologia1(
         Worksheet $ws,
@@ -4688,4 +4726,40 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
         // se vuoi proprio “bianco”:
         // $sheet->getStyle($range)->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('FFFFFF');
     }
+
+    private function applyPrintSetup(Worksheet $ws): void
+{
+    // Area di stampa: tutta l’area usata
+    $lastCol = Coordinate::stringFromColumnIndex(
+        Coordinate::columnIndexFromString($ws->getHighestDataColumn())
+    );
+    $lastRow = $ws->getHighestRow();
+    if ($lastRow > 0) {
+        $ws->getPageSetup()->setPrintArea("A1:{$lastCol}{$lastRow}");
+    }
+
+    // Orientamento e carta
+    $ws->getPageSetup()->setOrientation(PageSetup::ORIENTATION_LANDSCAPE);
+    $ws->getPageSetup()->setPaperSize(PageSetup::PAPERSIZE_A4);
+
+    // Scala su una pagina in larghezza
+    $ws->getPageSetup()->setFitToWidth(1);
+    $ws->getPageSetup()->setFitToHeight(0); // quante pagine servono in altezza
+
+    // Margini (in pollici). Regola a piacere.
+    $ws->getPageMargins()->setTop(0.5);
+    $ws->getPageMargins()->setBottom(0.5);
+    $ws->getPageMargins()->setLeft(0.5);
+    $ws->getPageMargins()->setRight(0.5);
+
+    // Centra orizzontalmente
+    $ws->getPageSetup()->setHorizontalCentered(true);
+
+    // Ripeti le prime 2 righe in ogni pagina (se hai header su 2 righe)
+    $ws->getPageSetup()->setRowsToRepeatAtTopByStartAndEnd(1, 2);
+
+    // Facoltativo: intestazione/piè di pagina
+    // $ws->getHeaderFooter()->setOddFooter('&L&8'.$this->idAssociazione.' '.$this->anno.' &R&P/&N');
+}
+
 }
