@@ -70,15 +70,11 @@ class MezziSostitutiviController extends Controller {
             'km_titolare'     => (float) ($titolare->km_titolare ?? 0.0),
             'km_tot_conv'     => (float) ($titolare->km_totali_conv ?? 0.0),
             'km_tot_mezzo'    => (float) ($titolare->km_totali_mezzo ?? 0.0),
-            // valori economici (solo significativi in 'sostitutivi')
             'costo_fascia_oraria'     => $costoFascia,
             'costo_mezzi_sostitutivi' => $costoSost,
-            // utilità per la UI "netto"
             'differenza_netto'        => max(0.0, $costoSost - $costoFascia),
         ]);
     }
-
-
 
     public function salva(Request $req) {
         $data = $req->validate([
@@ -142,8 +138,8 @@ class MezziSostitutiviController extends Controller {
             'anno'            => $anno,
             'costo'           => $costo,
             'nomeConvenzione' => $conv->Convenzione ?? null,
-            'percTitolare'    => $percTrad,     // ← percentuale tradizionale
-            'isSostitutivi'   => $isSost,       // ← flag per mostrare form o messaggio "non applicabile"
+            'percTitolare'    => $percTrad,    
+            'isSostitutivi'   => $isSost,       
         ]);
     }
 }
