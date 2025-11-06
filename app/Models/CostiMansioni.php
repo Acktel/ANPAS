@@ -13,7 +13,7 @@ class CostiMansioni
     {
         return DB::table(self::TABLE)
             ->where('idDipendente', $idDipendente)
-            ->where('idAnno', $anno) // <-- FIX: rimuovi "operator:"
+            ->where('idAnno', $anno)
             ->pluck('percentuale', 'idQualifica')
             ->map(fn($v) => (float)$v)
             ->toArray();
@@ -62,5 +62,33 @@ class CostiMansioni
             ->where('idDipendente', $idDipendente)
             ->where('idAnno', $anno)
             ->delete();
+    }
+
+    /**
+     * Calcola il coefficiente (quota di costo) di una mansione per un dipendente.
+     * Restituisce 1.0 se ha una sola mansione, altrimenti percentuale/100.
+     */
+    public static function coeffFor(int $anno, int $idDipendente, int $idQualifica): float
+    {
+        $n = DB::table('dipendenti_qualifiche')
+            ->where('idDipendente', $idDipendente)
+            ->count();
+
+        if ($n <= 0) return 0.0;
+
+        if ($n === 1) {
+            return DB::table('dipendenti_qualifiche')
+                ->where('idDipendente', $idDipendente)
+                ->where('idQualifica', $idQualifica)
+                ->exists() ? 1.0 : 0.0;
+        }
+
+        $pct = DB::table(self::TABLE)
+            ->where('idAnno', $anno)
+            ->where('idDipendente', $idDipendente)
+            ->where('idQualifica', $idQualifica)
+            ->value('percentuale');
+
+        return max(0.0, ((float)$pct) / 100.0);
     }
 }

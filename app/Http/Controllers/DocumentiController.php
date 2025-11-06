@@ -485,12 +485,9 @@ class DocumentiController extends Controller {
     // === polling stato (JSON) ===
     public function status($id) {
         $doc = DocumentoGenerato::find($id);
-        if (!$doc) {
-            return response()->json(['status' => 'error', 'message' => 'Documento non trovato'], 404);
-        }
+        if (!$doc) return response()->json(['status' => 'error'], 404);
 
-        $ready = $doc->generato_il && $doc->percorso_file && Storage::disk('public')->exists($doc->percorso_file);
-
+        $ready = ($doc->stato === 'ready') && $doc->generato_il && $doc->percorso_file; // niente Storage::exists()
         return response()->json([
             'id'           => $doc->id,
             'tipo'         => $doc->tipo_documento,

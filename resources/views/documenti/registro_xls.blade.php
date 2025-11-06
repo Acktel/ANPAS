@@ -6,15 +6,15 @@
   <h1 class="mb-3 container-title">Esporta file Excel – anno {{ session('anno_riferimento', now()->year) }}</h1>
 
   @php
-    $user     = auth()->user();
-    $isElev   = $user->hasAnyRole(['SuperAdmin','Admin','Supervisor']);
-    $selAssoc = $selectedAssoc
-      ?? session('associazione_selezionata')
-      ?? ($isElev ? null : $user->IdAssociazione);
+  $user = auth()->user();
+  $isElev = $user->hasAnyRole(['SuperAdmin','Admin','Supervisor']);
+  $selAssoc = $selectedAssoc
+  ?? session('associazione_selezionata')
+  ?? ($isElev ? null : $user->IdAssociazione);
 
-    $routeSetAssoc = \Illuminate\Support\Facades\Route::has('sessione.setAssociazione')
-      ? route('sessione.setAssociazione')
-      : null;
+  $routeSetAssoc = \Illuminate\Support\Facades\Route::has('sessione.setAssociazione')
+  ? route('sessione.setAssociazione')
+  : null;
   @endphp
 
   <div class="row g-3">
@@ -30,19 +30,19 @@
             <div class="mb-3">
               <label class="form-label">Associazione</label>
               @if($isElev)
-                <select id="idAssociazione" class="form-select" required>
-                  <option value="">— Seleziona —</option>
-                  @foreach($associazioni as $asso)
-                    <option value="{{ $asso->IdAssociazione }}" @selected($selAssoc == $asso->IdAssociazione)>
-                      {{ $asso->Associazione }}
-                    </option>
-                  @endforeach
-                </select>
+              <select id="idAssociazione" class="form-select" required>
+                <option value="">— Seleziona —</option>
+                @foreach($associazioni as $asso)
+                <option value="{{ $asso->IdAssociazione }}" @selected($selAssoc==$asso->IdAssociazione)>
+                  {{ $asso->Associazione }}
+                </option>
+                @endforeach
+              </select>
               @else
-                <input type="text" class="form-control"
-                  value="{{ optional($associazioni->firstWhere('IdAssociazione', $selAssoc))->Associazione ?? '' }}"
-                  readonly>
-                <input type="hidden" id="idAssociazione" value="{{ $selAssoc }}">
+              <input type="text" class="form-control"
+                value="{{ optional($associazioni->firstWhere('IdAssociazione', $selAssoc))->Associazione ?? '' }}"
+                readonly>
+              <input type="hidden" id="idAssociazione" value="{{ $selAssoc }}">
               @endif
             </div>
 
@@ -95,49 +95,49 @@
             </thead>
             <tbody>
               @foreach($documenti as $doc)
-                <tr id="docrow-{{ $doc->id }}">
-                  <td>{{ $doc->id }}</td>
-                  <td>{{ strtoupper(str_replace('_',' ',$doc->tipo_documento)) }}</td>
-                  <td>{{ $doc->idAnno }}</td>
-                  <td>
-                    {{ $doc->generato_il ? \Carbon\Carbon::parse($doc->generato_il)->format('d/m/Y H:i') : '—' }}
-                  </td>
-                  <td class="col-actions">
-                    @if($doc->generato_il && Storage::disk('public')->exists($doc->percorso_file))
-                      <a href="{{ route('documenti.download', $doc->id) }}"
-                         class="btn btn-sm btn-anpas-download"
-                         aria-label="Scarica documento {{ $doc->nome ?? ('#'.$doc->id) }}">
-                        <i class="fas fa-download me-1" aria-hidden="true"></i> Scarica
-                      </a>
-                    @else
-                      @php
-                        $stato = strtolower($doc->stato ?? 'in coda');
+              <tr id="docrow-{{ $doc->id }}">
+                <td>{{ $doc->id }}</td>
+                <td>{{ strtoupper(str_replace('_',' ',$doc->tipo_documento)) }}</td>
+                <td>{{ $doc->idAnno }}</td>
+                <td>
+                  {{ $doc->generato_il ? \Carbon\Carbon::parse($doc->generato_il)->format('d/m/Y H:i') : '—' }}
+                </td>
+                <td class="col-actions">
+                  @if($doc->generato_il && Storage::disk('public')->exists($doc->percorso_file))
+                  <a href="{{ route('documenti.download', $doc->id) }}"
+                    class="btn btn-sm btn-anpas-download"
+                    aria-label="Scarica documento {{ $doc->nome ?? ('#'.$doc->id) }}">
+                    <i class="fas fa-download me-1" aria-hidden="true"></i> Scarica
+                  </a>
+                  @else
+                  @php
+                  $stato = strtolower($doc->stato ?? 'in coda');
 
-                        $badgeClass = match (true) {
-                          str_contains($stato, 'erro')               => 'badge-anpas-error',
-                          (str_contains($stato, 'elab') || str_contains($stato, 'proc'))
-                                                            => 'badge-anpas-processing',
-                          (str_contains($stato, 'pronto') || str_contains($stato, 'ready'))
-                                                            => 'badge-anpas-ready',
-                          default                                     => 'badge-anpas-queued',
-                        };
+                  $badgeClass = match (true) {
+                  str_contains($stato, 'erro') => 'badge-anpas-error',
+                  (str_contains($stato, 'elab') || str_contains($stato, 'proc'))
+                  => 'badge-anpas-processing',
+                  (str_contains($stato, 'pronto') || str_contains($stato, 'ready'))
+                  => 'badge-anpas-ready',
+                  default => 'badge-anpas-queued',
+                  };
 
-                        $icon = match ($badgeClass) {
-                          'badge-anpas-error'      => 'fa-times-circle',
-                          'badge-anpas-processing' => 'fa-spinner fa-spin',
-                          'badge-anpas-ready'      => 'fa-check-circle',
-                          default                  => 'fa-hourglass-half',
-                        };
+                  $icon = match ($badgeClass) {
+                  'badge-anpas-error' => 'fa-times-circle',
+                  'badge-anpas-processing' => 'fa-spinner fa-spin',
+                  'badge-anpas-ready' => 'fa-check-circle',
+                  default => 'fa-hourglass-half',
+                  };
 
-                        $label = $doc->stato ? ucfirst($doc->stato) : 'In coda';
-                      @endphp
+                  $label = $doc->stato ? ucfirst($doc->stato) : 'In coda';
+                  @endphp
 
-                      <span class="badge {{ $badgeClass }}" title="{{ $label }}">
-                        <i class="fas {{ $icon }} me-1" aria-hidden="true"></i>{{ $label }}
-                      </span>
-                    @endif
-                  </td>
-                </tr>
+                  <span class="badge {{ $badgeClass }}" title="{{ $label }}">
+                    <i class="fas {{ $icon }} me-1" aria-hidden="true"></i>{{ $label }}
+                  </span>
+                  @endif
+                </td>
+              </tr>
               @endforeach
             </tbody>
           </table>
@@ -151,160 +151,190 @@
 
 @push('scripts')
 <script>
-(() => {
-  const csrf        = document.querySelector('meta[name="csrf-token"]').content;
-  const paramsForm  = document.getElementById('paramsForm');
-  const idAssEl     = document.getElementById('idAssociazione');
-  const idAnnoEl    = document.getElementById('idAnno');
-  const setAssocUrl = @json($routeSetAssoc);
+  (() => {
+    const csrf = document.querySelector('meta[name="csrf-token"]').content;
+    const paramsForm = document.getElementById('paramsForm');
+    const idAssEl = document.getElementById('idAssociazione');
+    const idAnnoEl = document.getElementById('idAnno');
+    const setAssocUrl = @json($routeSetAssoc);
 
-  // DataTable
-  const dt = $('#docsTable').DataTable({
-    pageLength: 25,
-    lengthMenu: [5, 10, 25, 50, 100],
-    order: [[3, 'desc']], // ordina per "Generato il"
-    columnDefs: [{ targets: 4, orderable: false }],
-    language: { url: '/js/i18n/Italian.json' }
-  });
+    // DataTable
+    const dt = $('#docsTable').DataTable({
+      pageLength: 25,
+      lengthMenu: [5, 10, 25, 50, 100],
+      order: [
+        [3, 'desc']
+      ], // ordina per "Generato il"
+      columnDefs: [{
+        targets: 4,
+        orderable: false
+      }],
+      language: {
+        url: '/js/i18n/Italian.json'
+      }
+    });
 
-  // Persisti selezione (sessione -> rotta; fallback localStorage)
-  async function persistSelection() {
-    const idAss = (idAssEl?.value || '').trim();
-    if (!idAss) return;
+    // Persisti selezione (sessione -> rotta; fallback localStorage)
+    async function persistSelection() {
+      const idAss = (idAssEl?.value || '').trim();
+      if (!idAss) return;
 
-    if (setAssocUrl) {
-      try {
-        await fetch(setAssocUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-CSRF-TOKEN': csrf
-          },
-          body: JSON.stringify({ idAssociazione: idAss })
-        });
-      } catch (_) {}
-    } else {
-      try { localStorage.setItem('doc_export_assoc', idAss); } catch (_) {}
+      if (setAssocUrl) {
+        try {
+          await fetch(setAssocUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-CSRF-TOKEN': csrf
+            },
+            body: JSON.stringify({
+              idAssociazione: idAss
+            })
+          });
+        } catch (_) {}
+      } else {
+        try {
+          localStorage.setItem('doc_export_assoc', idAss);
+        } catch (_) {}
+      }
     }
-  }
 
-  document.addEventListener('DOMContentLoaded', () => {
-    if (idAssEl && !idAssEl.value) {
-      try {
-        const saved = localStorage.getItem('doc_export_assoc');
-        if (saved) idAssEl.value = saved;
-      } catch (_) {}
-    }
-  });
-
-  idAssEl?.addEventListener('change', persistSelection);
-
-  // Avvio job per ciascun bottone
-  paramsForm.querySelectorAll('button[data-endpoint]').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const idAssociazione = (idAssEl?.value || '').trim();
-      const idAnno         = (idAnnoEl?.value || '').trim();
-
-      if (!idAssociazione || !idAnno) {
-        alert('Seleziona Associazione e Anno');
-        return;
+    document.addEventListener('DOMContentLoaded', () => {
+      if (idAssEl && !idAssEl.value) {
+        try {
+          const saved = localStorage.getItem('doc_export_assoc');
+          if (saved) idAssEl.value = saved;
+        } catch (_) {}
       }
+    });
 
-      await persistSelection();
+    idAssEl?.addEventListener('change', persistSelection);
 
-      let res;
-      try {
-        res = await fetch(btn.dataset.endpoint, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-CSRF-TOKEN': csrf,
-            'Accept': 'application/json'
-          },
-          body: JSON.stringify({ idAssociazione, idAnno })
-        });
-      } catch (_) {
-        alert('Errore di rete nell’avvio del job');
-        return;
-      }
+    // Avvio job per ciascun bottone
+    paramsForm.querySelectorAll('button[data-endpoint]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const idAssociazione = (idAssEl?.value || '').trim();
+        const idAnno = (idAnnoEl?.value || '').trim();
 
-      if (!res.ok) {
-        alert('Errore avvio job');
-        return;
-      }
+        if (!idAssociazione || !idAnno) {
+          alert('Seleziona Associazione e Anno');
+          return;
+        }
 
-      const { id } = await res.json();
-      const typeLabel = btn.dataset.type || 'Documento Excel';
+        await persistSelection();
 
-      // Aggiungo riga “In coda”
-      const rowNode = dt.row.add([
-        id,
-        typeLabel,
-        idAnno,
-        '—',
-        `<span class="badge badge-anpas-queued">
+        let res;
+        try {
+          res = await fetch(btn.dataset.endpoint, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-CSRF-TOKEN': csrf,
+              'Accept': 'application/json'
+            },
+            body: JSON.stringify({
+              idAssociazione,
+              idAnno
+            })
+          });
+        } catch (_) {
+          alert('Errore di rete nell’avvio del job');
+          return;
+        }
+
+        if (!res.ok) {
+          alert('Errore avvio job');
+          return;
+        }
+
+        const {
+          id
+        } = await res.json();
+        const typeLabel = btn.dataset.type || 'Documento Excel';
+
+        // Aggiungo riga “In coda”
+        const rowNode = dt.row.add([
+          id,
+          typeLabel,
+          idAnno,
+          '—',
+          `<span class="badge badge-anpas-queued">
            <i class="fas fa-hourglass-half me-1" aria-hidden="true"></i>In coda
          </span>`
-      ]).draw(false).node();
+        ]).draw(false).node();
 
-      rowNode.id = 'docrow-' + id;
+        rowNode.id = 'docrow-' + id;
 
-      // Polling stato
-      pollStatus(id);
+        // Polling stato
+        pollStatus(id);
+      });
     });
-  });
 
-  async function pollStatus(id) {
-    const timer = setInterval(async () => {
-      try {
-        const r = await fetch("{{ route('documenti.status','__ID__') }}".replace('__ID__', id), {
-          headers: { 'Accept': 'application/json' }
-        });
-        if (!r.ok) return;
+    const activeTimers = new Set();
 
-        const j = await r.json(); // {status, generato_il, download_url}
+    function pollStatus(id) {
+      const timer = setInterval(async () => {
+        try {
+          const r = await fetch("{{ route('documenti.status','__ID__') }}".replace('__ID__', id), {
+            headers: {
+              'Accept': 'application/json'
+            },
+            signal: (pollStatus.abortControllers[id] ??= new AbortController()).signal,
+          });
+          if (!r.ok) return;
+          const j = await r.json();
 
-        const row = dt.row('#docrow-' + id);
-        if (!row.node()) return;
+          const row = dt.row('#docrow-' + id);
+          if (!row.node()) {
+            clearInterval(timer);
+            activeTimers.delete(timer);
+            return;
+          }
 
-        const data = row.data(); // [ID, Tipo, Anno, Generato il, Azione]
+          const data = row.data();
 
-        if (j.status === 'ready' && j.download_url) {
-          clearInterval(timer);
-          data[3] = new Date(j.generato_il).toLocaleString();
-          data[4] = `<a href="${j.download_url}" class="btn btn-sm btn-anpas-download" aria-label="Scarica file ${id}">
-                       <i class="fas fa-download me-1" aria-hidden="true"></i>Scarica
-                     </a>`;
-          row.data(data).draw(false);
-          return;
-        }
+          if (j.status === 'ready' && j.download_url) {
+            clearInterval(timer);
+            activeTimers.delete(timer);
+            data[3] = new Date(j.generato_il).toLocaleString();
+            data[4] = `<a href="${j.download_url}" class="btn btn-sm btn-anpas-download"><i class="fas fa-download me-1"></i>Scarica</a>`;
+            row.data(data).draw(false);
+            return;
+          }
 
-        if (j.status === 'error') {
-          clearInterval(timer);
-          data[3] = '—';
-          data[4] = `<span class="badge badge-anpas-error">
-                       <i class="fas fa-times-circle me-1" aria-hidden="true"></i>Errore
-                     </span>`;
-          row.data(data).draw(false);
-          return;
-        }
+          if (j.status === 'error') {
+            clearInterval(timer);
+            activeTimers.delete(timer);
+            data[3] = '—';
+            data[4] = `<span class="badge badge-anpas-error"><i class="fas fa-times-circle me-1"></i>Errore</span>`;
+            row.data(data).draw(false);
+            return;
+          }
 
-        // queued / processing
-        const s = (j.status || 'queued').toLowerCase();
-        const isProc = s.includes('proc') || s.includes('elab');
-        const label  = isProc ? 'Elaborazione' : 'In coda';
-        const cls    = isProc ? 'badge-anpas-processing' : 'badge-anpas-queued';
-        const icon   = isProc ? 'fa-spinner fa-spin' : 'fa-hourglass-half';
+          // update badge ...
+        } catch (_) {
+          /* ignora */ }
+      }, 2500);
 
-        data[4] = `<span class="badge ${cls}">
-                     <i class="fas ${icon} me-1" aria-hidden="true"></i>${label}
-                   </span>`;
-        row.data(data).draw(false);
+      activeTimers.add(timer);
+    }
+    pollStatus.abortControllers = {};
 
-      } catch (_) {/* ignora, riprova */}
-    }, 2500);
-  }
-})();
+    // stop tutto quando esci / nascondi
+    window.addEventListener('pagehide', () => {
+      activeTimers.forEach(t => clearInterval(t));
+      activeTimers.clear();
+      Object.values(pollStatus.abortControllers).forEach(c => c.abort());
+    });
 
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) {
+        activeTimers.forEach(t => clearInterval(t));
+        activeTimers.clear();
+        Object.values(pollStatus.abortControllers).forEach(c => c.abort());
+      }
+    });
+
+  })();
 </script>
 @endpush

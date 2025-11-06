@@ -202,7 +202,6 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
             $endMS = $this->blockDistintaServizi($sheet, $msMeta, $automezzi, $convenzioni, $logos);
 
             /*========================== BLOCCO 8: ROTAZIONE MEZZI ============================*/
-            $arrConvenzioni = [];
             $regimeRotazione = false;
             foreach ($convenzioni as $conv) {
                 if (RipartizioneCostiService::isRegimeRotazione($conv->idConvenzione)) {
@@ -218,15 +217,18 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                         $disk->path('documenti/template_excel/RotazioneMezzi.xlsx'),
                         $rowCursor
                     );
-                    $convenzioni = RotazioneMezzi::getConvRotazione($this->idAssociazione, $this->anno);
+
+                    // ✅ VARIABILE SEPARATA, NON TOCCARE $convenzioni
+                    $convRotazione = RotazioneMezzi::getConvRotazione($this->idAssociazione, $this->anno);
 
                     $endRotMezzi = $this->BlockRotazioneMezzi(
                         $sheet,
                         $kmRotazioneMeta,
                         $automezzi,
-                        $convenzioni
+                        $convRotazione // ← uso solo qui
                     );
-                    Log::info('Rotazione mezzi completata', []);
+
+                    Log::info('Rotazione mezzi completata');
                 } catch (Throwable $e) {
                     Log::warning('Tabella Rotazione Mezzi: errore non bloccante', [
                         'msg'  => $e->getMessage(),
@@ -719,45 +721,38 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
         return [max($meta['dataRow'], $tpl['endRow']), $ricaviMap];
     }
 
-    /** AUTISTI & BARELLIERI (tabellina costi + tabella ore) */
     private function blockAutistiBarellieri(Worksheet $sheet, array $tpl, $convenzioni, array $logos): int {
         [$headerRow, $cols] = $this->detectABHeaderAndCols($sheet, $tpl);
 
-        // Coppie (VALORE | %) per convenzione: subito dopo "TOT ORE"
         $firstPairCol = $cols['TOTORE'] + 1;
         $usedPairs    = max(1, $convenzioni->count());
         $lastUsedCol  = max($cols['TOTORE'], $firstPairCol + ($usedPairs * 2) - 1);
 
-        // Loghi
         $this->insertLogosAtRow($sheet, $logos, $tpl['startRow'] + 1, $lastUsedCol);
 
-        // Intestazioni convenzioni (riga sopra la fucsia)
         foreach ($convenzioni as $i => $c) {
             $col = $firstPairCol + ($i * 2);
             $sheet->setCellValueByColumnAndRow($col, $headerRow - 1, (string)$c->Convenzione);
         }
 
-        /* ---------------- TABELLINA IN ALTO: COSTI PERSONALE (A&B) ---------------- */
-
-        // Individua le righe "PREVENTIVO" e "CONSUNTIVO" già presenti nel template
+        // ---------- TABELLINA COSTI A&B ----------
         $scanFrom = max(1, $headerRow - 6);
         $scanTo   = $headerRow - 1;
-        $prevRow  = $this->findRowByLabel($sheet, 'PREVENTIVO',  $scanFrom, $scanTo) ?? ($headerRow - 2);
+        $prevRow  = $this->findRowByLabel($sheet, 'PREVENTIVO', $scanFrom, $scanTo) ?? ($headerRow - 2);
         $consRow  = $this->findRowByLabel($sheet, 'CONSUNTIVO', $scanFrom, $scanTo) ?? ($headerRow - 1);
 
-        // Convenzioni nell’ordine corrente
         $convIds = $convenzioni->pluck('idConvenzione')->map(fn($v) => (int)$v)->all();
 
-        // CONSUNTIVO (voce 6001 dalla distinta)
         $consByVoce   = RipartizioneCostiService::consuntiviPerVoceByConvenzione($this->idAssociazione, $this->anno);
         $consByConvAB = array_fill_keys($convIds, 0.0);
         if (!empty($consByVoce[6001])) {
-            foreach ($convIds as $cid) $consByConvAB[$cid] = round((float)($consByVoce[6001][$cid] ?? 0.0), 2);
+            foreach ($convIds as $cid) {
+                $consByConvAB[$cid] = round((float)($consByVoce[6001][$cid] ?? 0.0), 2);
+            }
         }
 
-        // PREVENTIVO (voce 6001 da riepilogo_dati)
         $prevByConvAB = array_fill_keys($convIds, 0.0);
-        $idRiepilogo  = DB::table('riepiloghi')
+        $idRiepilogo = DB::table('riepiloghi')
             ->where('idAssociazione', $this->idAssociazione)
             ->where('idAnno', $this->anno)
             ->value('idRiepilogo');
@@ -771,27 +766,25 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                 ->groupBy('idConvenzione')
                 ->get();
 
-            foreach ($rowsPrev as $r) $prevByConvAB[(int)$r->idConvenzione] = round((float)$r->prev, 2);
+            foreach ($rowsPrev as $r) {
+                $prevByConvAB[(int)$r->idConvenzione] = round((float)$r->prev, 2);
+            }
         }
 
-        // Scrittura nella tabellina: SOLO importi nelle colonne "valore"; colonna "%" svuotata.
         foreach ($convenzioni as $i => $c) {
             $impCol = $firstPairCol + ($i * 2);
-            $pcCol  = $impCol + 1; // percentuale: la lasciamo vuota
+            $pcCol  = $impCol + 1;
             $cid    = (int)$c->idConvenzione;
 
-            // PREVENTIVO
             $sheet->setCellValueByColumnAndRow($impCol, $prevRow, $prevByConvAB[$cid] ?? 0.0);
             $sheet->getStyleByColumnAndRow($impCol, $prevRow)->getNumberFormat()->setFormatCode('#,##0.00');
-            $sheet->setCellValueByColumnAndRow($pcCol,  $prevRow, null);
+            $sheet->setCellValueByColumnAndRow($pcCol, $prevRow, null);
 
-            // CONSUNTIVO
             $sheet->setCellValueByColumnAndRow($impCol, $consRow, $consByConvAB[$cid] ?? 0.0);
             $sheet->getStyleByColumnAndRow($impCol, $consRow)->getNumberFormat()->setFormatCode('#,##0.00');
-            $sheet->setCellValueByColumnAndRow($pcCol,  $consRow, null);
+            $sheet->setCellValueByColumnAndRow($pcCol, $consRow, null);
         }
 
-        // Grassetto uniforme sui due “nastri” di PREVENTIVO/CONSUNTIVO (stile coerente al template)
         $boldPrev = Coordinate::stringFromColumnIndex($firstPairCol) . $prevRow . ':' .
             Coordinate::stringFromColumnIndex($lastUsedCol)  . $prevRow;
         $boldCons = Coordinate::stringFromColumnIndex($firstPairCol) . $consRow . ':' .
@@ -799,17 +792,15 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
         $sheet->getStyle($boldPrev)->getFont()->setBold(true);
         $sheet->getStyle($boldCons)->getFont()->setBold(true);
 
-        /* ---------------- TABELLA GRANDE: ORE PER DIPENDENTE (invariata) ---------------- */
-
+        // ---------- TABELLA GRANDE ORE ----------
         $dip = Dipendente::getAutistiEBarellieri($this->anno, $this->idAssociazione);
         $rip = RipartizionePersonale::getAll($this->anno, null, $this->idAssociazione)->groupBy('idDipendente');
 
-        // NB: NON rimuoviamo righe della tabella principale
         $totalRow   = $this->findRowByLabel($sheet, 'TOTALE', $headerRow + 1, $tpl['endRow']) ?? $tpl['endRow'];
         $sampleRow  = $headerRow + 1;
         $styleRange = 'A' . $sampleRow . ':' . Coordinate::stringFromColumnIndex($lastUsedCol) . $sampleRow;
 
-        $rows      = [];
+        $rows = [];
         $totOreAll = 0.0;
         $totByConv = [];
         foreach ($convenzioni as $c) $totByConv[(int)$c->idConvenzione] = 0.0;
@@ -845,21 +836,22 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
         $off       = count($rows);
         $totRowNew = $totalRow + $off;
 
-        // --- GRIGLIA sulla tabella ORE (seconda tabella)
-        $gridLeftCol = $cols['IDX'];                // colonna iniziale della tabella ore (indice)
-        $gridTopRow  = $headerRow;                  // includo anche l'header della tabella
+        // --- GRIGLIA e totali
+        $gridLeftCol = $cols['IDX'];
+        $gridTopRow  = $headerRow;
         $gridRange   = $this->col($gridLeftCol) . $gridTopRow . ':' .
             Coordinate::stringFromColumnIndex($lastUsedCol) . $totRowNew;
 
         $this->applyGridWithOuterBorder($sheet, $gridRange);
 
-        // Riga TOTALE (merge A:B)
-        $sheet->setCellValueByColumnAndRow($cols['NOME'] ?? 1, $totRowNew, 'TOTALE');
-        $this->mergeTotalAB($sheet, $totRowNew, 'TOTALE');
+        // Riga TOTALE (merge A:B “safe”)
+        $this->safeMergeByColRow($sheet, 1, $totRowNew, 2, $totRowNew);
+        $sheet->setCellValueExplicit("A{$totRowNew}", 'TOTALE', DataType::TYPE_STRING);
+        $sheet->setCellValue("B{$totRowNew}", null);
 
         $sheet->setCellValueByColumnAndRow($cols['TOTORE'], $totRowNew, $totOreAll);
-        $pairSum = 0.0;
 
+        $pairSum = 0.0;
         foreach ($convenzioni as $i => $c) {
             $impCol = $firstPairCol + ($i * 2);
             $pcCol  = $impCol + 1;
@@ -876,9 +868,8 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
             $sheet->getStyleByColumnAndRow($pcCol, $totRowNew)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
         }
 
-        // Bordi/layout come da template
         $this->thickBorderRow($sheet, $headerRow, $lastUsedCol);
-        $this->thickBorderRow($sheet, $totRowNew,  $lastUsedCol);
+        $this->thickBorderRow($sheet, $totRowNew, $lastUsedCol);
         $sheet->getStyle('A' . $totRowNew . ':' . Coordinate::stringFromColumnIndex($lastUsedCol) . $totRowNew)
             ->getFont()->setBold(true);
         $this->thickOutline($sheet, $headerRow, $totRowNew, $lastUsedCol);
@@ -887,6 +878,7 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
 
         return max($totRowNew, $tpl['endRow'] + $off);
     }
+
 
     /** VOLONTARI */
     private function blockVolontari(Worksheet $sheet, array $tpl, $convenzioni, array $ricaviMap, array $logos): int {
@@ -1209,9 +1201,14 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
             }
 
             // coefficiente: applica % solo se il dipendente ha >1 qualifica (come nel web)
-            $hasMultiQual = ((int)($qCount[$d->idDipendente] ?? 1)) > 1;
-            $coeff = $hasMultiQual ? max(0.0, (($pctAB[$d->idDipendente] ?? 0.0) / 100.0)) : 1.0;
+            // coefficiente mansione centralizzato
+            $coeff = CostiMansioni::coeffFor($this->anno, $d->idDipendente, \App\Models\Dipendente::Q_AUTISTA_ID);
 
+            // se il dipendente non ha quella mansione, lo salti (es. solo amministrativo)
+            if ($coeff <= 0) {
+                $i++;
+                continue;
+            }
             // quote di costo (già con diretti) * coeff A&B
             $retr  = (float)$cp->Retribuzioni     * $coeff;
             $inps  = (float)$cp->OneriSocialiInps * $coeff;
@@ -1922,8 +1919,36 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
 
     /** Unisce A:B sulla riga totale e scrive la label (default 'TOTALE') nella colonna A. */
     private function mergeTotalAB(Worksheet $sheet, int $row, string $label = 'TOTALE'): void {
-        $sheet->mergeCells("A{$row}:B{$row}");
-        $sheet->setCellValueExplicit("A{$row}", $label, DataType::TYPE_STRING);
+        // Calcola range A:B della riga corrente
+        $range = "A{$row}:B{$row}";
+
+        // Se il range è già mergiato, non rifarlo
+        foreach ($sheet->getMergeCells() as $existing) {
+            if (strtoupper($existing) === strtoupper($range)) {
+                // già presente → evitiamo di crearne un duplicato
+                $sheet->setCellValueExplicit("A{$row}", $label, DataType::TYPE_STRING);
+                $sheet->setCellValue("B{$row}", null);
+                return;
+            }
+        }
+
+        // Se esistono merge che si sovrappongono (es. A1:B2), smontali
+        foreach ($sheet->getMergeCells() as $existing) {
+            [$start, $end] = explode(':', $existing);
+            [$c1, $r1] = Coordinate::coordinateFromString($start);
+            [$c2, $r2] = Coordinate::coordinateFromString($end);
+
+            $r1 = (int)$r1;
+            $r2 = (int)$r2;
+
+            if ($row >= $r1 && $row <= $r2 && (in_array($c1, ['A', 'B']) || in_array($c2, ['A', 'B']))) {
+                $sheet->unmergeCells($existing);
+            }
+        }
+
+        // Esegui il merge “pulito”
+        $sheet->mergeCells($range);
+        $sheet->setCellValueExplicit("A{$row}", strtoupper($label), DataType::TYPE_STRING);
         $sheet->setCellValue("B{$row}", null);
     }
 
@@ -2306,20 +2331,23 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
         $maxRow = $src->getHighestRow();
         $maxCol = Coordinate::columnIndexFromString($src->getHighestColumn());
 
-        // colonne
+        // === Copia colonne ===
         for ($c = 1; $c <= $maxCol; $c++) {
             $colL   = Coordinate::stringFromColumnIndex($c);
             $srcDim = $src->getColumnDimension($colL);
             $dstDim = $dst->getColumnDimension($colL);
+
             $dstDim->setAutoSize(false);
             $w = $srcDim->getWidth();
-            if ($w !== null) $dstDim->setWidth($w);
+            if ($w !== null) {
+                $dstDim->setWidth($w);
+            }
             $dstDim->setVisible($srcDim->getVisible());
         }
 
-        // celle + stili
+        // === Copia celle + stili ===
         for ($r = 1; $r <= $maxRow; $r++) {
-            $dstR = $rowCursor + $r - 1;
+            $dstR  = $rowCursor + $r - 1;
             $srcRow = $src->getRowDimension($r);
             $dstRow = $dst->getRowDimension($dstR);
             $dstRow->setRowHeight($srcRow->getRowHeight());
@@ -2329,8 +2357,10 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                 $srcCell = $src->getCellByColumnAndRow($c, $r);
                 $dstCell = $dst->getCellByColumnAndRow($c, $dstR);
 
+                // Copia valore e tipo
                 $dstCell->setValueExplicit($srcCell->getValue(), $srcCell->getDataType());
 
+                // Copia stile se esiste
                 $styleArr = $src->getStyleByColumnAndRow($c, $r)->exportArray();
                 if (!empty($styleArr)) {
                     $dst->getStyleByColumnAndRow($c, $dstR)->applyFromArray($styleArr);
@@ -2338,12 +2368,39 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
             }
         }
 
-        // merge
+        // === Copia merge in modo “safe” ===
         foreach ($src->getMergeCells() as $merge) {
-            [$start, $end] = Coordinate::rangeBoundaries($merge);
-            [$c1, $r1] = $start;
-            [$c2, $r2] = $end;
-            $dst->mergeCellsByColumnAndRow($c1, $r1 + $rowCursor - 1, $c2, $r2 + $rowCursor - 1);
+            try {
+                // Esempio: A1:C3 → [ [1,1], [3,3] ]
+                [$start, $end] = Coordinate::rangeBoundaries($merge);
+                [$c1, $r1] = $start;
+                [$c2, $r2] = $end;
+
+                $newR1 = $r1 + $rowCursor - 1;
+                $newR2 = $r2 + $rowCursor - 1;
+
+                // Range valido?
+                if ($c1 <= 0 || $c2 <= 0 || $newR1 <= 0 || $newR2 <= 0) continue;
+
+                // Range string (es. "A10:C12")
+                $range = Coordinate::stringFromColumnIndex($c1) . $newR1 . ':' .
+                    Coordinate::stringFromColumnIndex($c2) . $newR2;
+
+                // Evita duplicati o sovrapposizioni
+                $already = false;
+                foreach ($dst->getMergeCells() as $existing) {
+                    if (strtoupper($existing) === strtoupper($range)) {
+                        $already = true;
+                        break;
+                    }
+                }
+                if ($already) continue;
+
+                $dst->mergeCells($range);
+            } catch (Throwable $e) {
+                Log::warning('appendTemplate: merge skip', ['tpl' => $templateAbs, 'msg' => $e->getMessage()]);
+                continue;
+            }
         }
 
         $start = $rowCursor;
@@ -2354,6 +2411,8 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
 
         return ['startRow' => $start, 'endRow' => $end];
     }
+
+
 
     private function safeSaveSpreadsheet(Spreadsheet $spreadsheet, string $baseFilename, string $dirRel = 'documenti', int $retries = 3, int $sleepMs = 300): array {
         $disk = Storage::disk('public');
@@ -3169,157 +3228,156 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
         }
     }
 
-protected function addDistintaImputazioneCostiSheet(\PhpOffice\PhpSpreadsheet\Spreadsheet $spreadsheet, int $idAssociazione, int $anno): void
-{
-    // 1) Dati dal service
-    $payload  = \App\Services\RipartizioneCostiService::distintaImputazioneData($idAssociazione, $anno);
-    $righe    = $payload['data'] ?? [];
-    $convNomi = $payload['convenzioni'] ?? [];
-    if (empty($righe) || empty($convNomi)) return;
+    protected function addDistintaImputazioneCostiSheet(\PhpOffice\PhpSpreadsheet\Spreadsheet $spreadsheet, int $idAssociazione, int $anno): void {
+        // 1) Dati dal service
+        $payload  = \App\Services\RipartizioneCostiService::distintaImputazioneData($idAssociazione, $anno);
+        $righe    = $payload['data'] ?? [];
+        $convNomi = $payload['convenzioni'] ?? [];
+        if (empty($righe) || empty($convNomi)) return;
 
-    // 2) Sezioni (tipologia 2→11)
-    $sezioneName = [
-        2  => 'Automezzi ed attrezzature sanitarie',
-        3  => 'Attrezzatura sanitaria',
-        4  => 'Telecomunicazioni',
-        5  => 'Costi di gestione della struttura',
-        6  => 'Costo del personale',
-        7  => 'Materiale sanitario di consumo',
-        8  => 'Costi amministrativi',
-        9  => 'Quote di ammortamento',
-        10 => 'Beni strumentali < 516 €',
-        11 => 'Altri Costi'
-    ];
+        // 2) Sezioni (tipologia 2→11)
+        $sezioneName = [
+            2  => 'Automezzi ed attrezzature sanitarie',
+            3  => 'Attrezzatura sanitaria',
+            4  => 'Telecomunicazioni',
+            5  => 'Costi di gestione della struttura',
+            6  => 'Costo del personale',
+            7  => 'Materiale sanitario di consumo',
+            8  => 'Costi amministrativi',
+            9  => 'Quote di ammortamento',
+            10 => 'Beni strumentali < 516 €',
+            11 => 'Altri Costi'
+        ];
 
-    // 3) Crea foglio in coda
-    $sheet = new \PhpOffice\PhpSpreadsheet\Worksheet\Worksheet($spreadsheet, 'DISTINTA IMPUTAZIONE COSTI');
-    $spreadsheet->addSheet($sheet, $spreadsheet->getSheetCount());
+        // 3) Crea foglio in coda
+        $sheet = new \PhpOffice\PhpSpreadsheet\Worksheet\Worksheet($spreadsheet, 'DISTINTA IMPUTAZIONE COSTI');
+        $spreadsheet->addSheet($sheet, $spreadsheet->getSheetCount());
 
-    // Stili rapidi
-    $headFill    = ['fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID, 'startColor' => ['rgb' => 'D9E1F2']];
-    $subHeadFill = ['fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID, 'startColor' => ['rgb' => 'F2F2F2']];
-    $secFill     = ['fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID, 'startColor' => ['rgb' => 'FFF2CC']];
-    $thinBorder  = ['borders'  => ['allBorders' => ['borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN, 'color' => ['rgb' => '999999']]]];
+        // Stili rapidi
+        $headFill    = ['fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID, 'startColor' => ['rgb' => 'D9E1F2']];
+        $subHeadFill = ['fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID, 'startColor' => ['rgb' => 'F2F2F2']];
+        $secFill     = ['fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID, 'startColor' => ['rgb' => 'FFF2CC']];
+        $thinBorder  = ['borders'  => ['allBorders' => ['borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN, 'color' => ['rgb' => '999999']]]];
 
-    // 4) Header (r1: titoli; r2: sottotitoli convenzioni)
-    $col = 1; // A
-    $sheet->setCellValueByColumnAndRow($col++, 1, 'VOCE');                                            // A
-    $sheet->setCellValueByColumnAndRow($col++, 1, 'IMPORTO TOTALE DA BILANCIO CONSUNTIVO');           // B
-    $sheet->setCellValueByColumnAndRow($col++, 1, 'COSTI DI DIRETTA IMPUTAZIONE (NETTI)');            // C
-    $sheet->setCellValueByColumnAndRow($col++, 1, 'TOTALE COSTI RIPARTITI (INDIRETTI)');              // D  <<< NUOVA COLONNA FISSA
+        // 4) Header (r1: titoli; r2: sottotitoli convenzioni)
+        $col = 1; // A
+        $sheet->setCellValueByColumnAndRow($col++, 1, 'VOCE');                                            // A
+        $sheet->setCellValueByColumnAndRow($col++, 1, 'IMPORTO TOTALE DA BILANCIO CONSUNTIVO');           // B
+        $sheet->setCellValueByColumnAndRow($col++, 1, 'COSTI DI DIRETTA IMPUTAZIONE (NETTI)');            // C
+        $sheet->setCellValueByColumnAndRow($col++, 1, 'TOTALE COSTI RIPARTITI (INDIRETTI)');              // D  <<< NUOVA COLONNA FISSA
 
-    // Convenzioni a 3 sotto-colonne: Diretti / Sconto (amm.) / Indiretti
-    foreach ($convNomi as $convName) {
-        $c1 = $col;            // Diretti
-        $c2 = $col + 1;        // Sconto
-        $c3 = $col + 2;        // Indiretti
-        $sheet->mergeCellsByColumnAndRow($c1, 1, $c3, 1);
-        $sheet->setCellValueByColumnAndRow($c1, 1, $convName);
-        $sheet->setCellValueByColumnAndRow($c1, 2, 'DIRETTI');
-        $sheet->setCellValueByColumnAndRow($c2, 2, 'SCONTO');
-        $sheet->setCellValueByColumnAndRow($c3, 2, 'INDIRETTI');
-        $col += 3;
-    }
-    $lastCol = $col - 1;
+        // Convenzioni a 3 sotto-colonne: Diretti / Sconto (amm.) / Indiretti
+        foreach ($convNomi as $convName) {
+            $c1 = $col;            // Diretti
+            $c2 = $col + 1;        // Sconto
+            $c3 = $col + 2;        // Indiretti
+            $sheet->mergeCellsByColumnAndRow($c1, 1, $c3, 1);
+            $sheet->setCellValueByColumnAndRow($c1, 1, $convName);
+            $sheet->setCellValueByColumnAndRow($c1, 2, 'DIRETTI');
+            $sheet->setCellValueByColumnAndRow($c2, 2, 'SCONTO');
+            $sheet->setCellValueByColumnAndRow($c3, 2, 'INDIRETTI');
+            $col += 3;
+        }
+        $lastCol = $col - 1;
 
-    // Stile header
-    $sheet->getStyleByColumnAndRow(1, 1, $lastCol, 1)->getFill()->applyFromArray($headFill);
-    $sheet->getStyleByColumnAndRow(1, 2, $lastCol, 2)->getFill()->applyFromArray($subHeadFill);
-    $sheet->getStyleByColumnAndRow(1, 1, $lastCol, 2)->getFont()->setBold(true);
-    $sheet->getStyleByColumnAndRow(1, 1, $lastCol, 2)->applyFromArray($thinBorder);
-    $sheet->getRowDimension(1)->setRowHeight(22);
-    $sheet->getRowDimension(2)->setRowHeight(18);
-    $sheet->getStyleByColumnAndRow(1, 1, $lastCol, 2)->getAlignment()
-        ->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER)
-        ->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER)
-        ->setWrapText(true);
+        // Stile header
+        $sheet->getStyleByColumnAndRow(1, 1, $lastCol, 1)->getFill()->applyFromArray($headFill);
+        $sheet->getStyleByColumnAndRow(1, 2, $lastCol, 2)->getFill()->applyFromArray($subHeadFill);
+        $sheet->getStyleByColumnAndRow(1, 1, $lastCol, 2)->getFont()->setBold(true);
+        $sheet->getStyleByColumnAndRow(1, 1, $lastCol, 2)->applyFromArray($thinBorder);
+        $sheet->getRowDimension(1)->setRowHeight(22);
+        $sheet->getRowDimension(2)->setRowHeight(18);
+        $sheet->getStyleByColumnAndRow(1, 1, $lastCol, 2)->getAlignment()
+            ->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER)
+            ->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER)
+            ->setWrapText(true);
 
-    // 5) Righe dati — rispetta ordine da service
-    $row = 3;
-    $currentSection = null;
+        // 5) Righe dati — rispetta ordine da service
+        $row = 3;
+        $currentSection = null;
 
-    foreach ($righe as $riga) {
-        $sezId = (int)($riga['sezione_id'] ?? 0);
-        if ($sezId < 2 || $sezId > 11) continue;
+        foreach ($righe as $riga) {
+            $sezId = (int)($riga['sezione_id'] ?? 0);
+            if ($sezId < 2 || $sezId > 11) continue;
 
-        // Riga titolo sezione quando cambia
-        if ($currentSection !== $sezId) {
-            $currentSection = $sezId;
-            $sheet->mergeCellsByColumnAndRow(1, $row, $lastCol, $row);
-            $sheet->setCellValueByColumnAndRow(1, $row, mb_strtoupper($sezioneName[$sezId] ?? "Sezione $sezId", 'UTF-8'));
-            $sheet->getStyleByColumnAndRow(1, $row, $lastCol, $row)->getFill()->applyFromArray($secFill);
-            $sheet->getStyleByColumnAndRow(1, $row, $lastCol, $row)->getFont()->setBold(true);
-            $sheet->getStyleByColumnAndRow(1, $row, $lastCol, $row)->applyFromArray($thinBorder);
+            // Riga titolo sezione quando cambia
+            if ($currentSection !== $sezId) {
+                $currentSection = $sezId;
+                $sheet->mergeCellsByColumnAndRow(1, $row, $lastCol, $row);
+                $sheet->setCellValueByColumnAndRow(1, $row, mb_strtoupper($sezioneName[$sezId] ?? "Sezione $sezId", 'UTF-8'));
+                $sheet->getStyleByColumnAndRow(1, $row, $lastCol, $row)->getFill()->applyFromArray($secFill);
+                $sheet->getStyleByColumnAndRow(1, $row, $lastCol, $row)->getFont()->setBold(true);
+                $sheet->getStyleByColumnAndRow(1, $row, $lastCol, $row)->applyFromArray($thinBorder);
+                $row++;
+            }
+
+            // RIGA VOCE
+            $c = 1;
+            $sheet->setCellValueByColumnAndRow($c++, $row, (string)$riga['voce']);                   // VOCE
+            $sheet->setCellValueByColumnAndRow($c++, $row, (float)($riga['bilancio'] ?? 0));         // Bilancio (cons.)
+            $sheet->setCellValueByColumnAndRow($c++, $row, (float)($riga['diretta'] ?? 0));          // Diretta (netta)
+            $sheet->setCellValueByColumnAndRow($c++, $row, (float)($riga['totale']  ?? 0));          // <<< Totale indiretti
+
+            // Convenzioni
+            foreach ($convNomi as $convName) {
+                $cell = $riga[$convName] ?? ['diretti' => 0, 'ammortamento' => 0, 'indiretti' => 0];
+                $dir = (float)($cell['diretti']      ?? 0);
+                $amm = (float)($cell['ammortamento'] ?? 0);
+                $ind = (float)($cell['indiretti']    ?? 0);
+
+                $sheet->setCellValueByColumnAndRow($c++, $row, $dir);
+                $sheet->setCellValueByColumnAndRow($c++, $row, $amm);
+                $sheet->setCellValueByColumnAndRow($c++, $row, $ind);
+            }
+
             $row++;
         }
 
-        // RIGA VOCE
-        $c = 1;
-        $sheet->setCellValueByColumnAndRow($c++, $row, (string)$riga['voce']);                   // VOCE
-        $sheet->setCellValueByColumnAndRow($c++, $row, (float)($riga['bilancio'] ?? 0));         // Bilancio (cons.)
-        $sheet->setCellValueByColumnAndRow($c++, $row, (float)($riga['diretta'] ?? 0));          // Diretta (netta)
-        $sheet->setCellValueByColumnAndRow($c++, $row, (float)($riga['totale']  ?? 0));          // <<< Totale indiretti
+        // 6) Bordi e formati
+        $lastRow = $row - 1;
+        $sheet->getStyleByColumnAndRow(1, 1, $lastCol, $lastRow)->applyFromArray($thinBorder);
 
-        // Convenzioni
-        foreach ($convNomi as $convName) {
-            $cell = $riga[$convName] ?? ['diretti' => 0, 'ammortamento' => 0, 'indiretti' => 0];
-            $dir = (float)($cell['diretti']      ?? 0);
-            $amm = (float)($cell['ammortamento'] ?? 0);
-            $ind = (float)($cell['indiretti']    ?? 0);
-
-            $sheet->setCellValueByColumnAndRow($c++, $row, $dir);
-            $sheet->setCellValueByColumnAndRow($c++, $row, $amm);
-            $sheet->setCellValueByColumnAndRow($c++, $row, $ind);
+        // Formato numerico su tutte le colonne da B in poi
+        for ($cc = 2; $cc <= $lastCol; $cc++) {
+            $sheet->getStyleByColumnAndRow($cc, 3, $cc, $lastRow)
+                ->getNumberFormat()->setFormatCode('#,##0.00');
+            $sheet->getStyleByColumnAndRow($cc, 3, $cc, $lastRow)
+                ->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
         }
 
-        $row++;
+        // 7) Freeze pane: dopo 4 colonne fisse (E3)
+        $sheet->freezePaneByColumnAndRow(5, 3);
+
+        // 8) AutoSize colonne (A un po' più larga)
+        $sheet->getColumnDimension('A')->setWidth(55);
+        for ($cc = 2; $cc <= $lastCol; $cc++) {
+            $sheet->getColumnDimensionByColumn($cc)->setAutoSize(true);
+        }
+
+        // 9) Impostazioni di stampa
+        $ps = $sheet->getPageSetup();
+        $ps->setOrientation(PageSetup::ORIENTATION_LANDSCAPE);
+        $ps->setFitToWidth(1);
+        $ps->setFitToHeight(0);
+        $ps->setHorizontalCentered(true);
+
+        $margins = $sheet->getPageMargins();
+        $margins->setTop(0.4);
+        $margins->setBottom(0.6);
+        $margins->setLeft(0.4);
+        $margins->setRight(0.4);
+        $margins->setHeader(0.2);
+        $margins->setFooter(0.2);
+
+        // Ripeti header (r1-2) in stampa
+        $sheet->getPageSetup()->setRowsToRepeatAtTopByStartAndEnd(1, 2);
+
+        // Area di stampa
+        $lastColL = Coordinate::stringFromColumnIndex($lastCol);
+        $sheet->getPageSetup()->setPrintArea("A1:{$lastColL}{$lastRow}");
     }
 
-    // 6) Bordi e formati
-    $lastRow = $row - 1;
-    $sheet->getStyleByColumnAndRow(1, 1, $lastCol, $lastRow)->applyFromArray($thinBorder);
 
-    // Formato numerico su tutte le colonne da B in poi
-    for ($cc = 2; $cc <= $lastCol; $cc++) {
-        $sheet->getStyleByColumnAndRow($cc, 3, $cc, $lastRow)
-            ->getNumberFormat()->setFormatCode('#,##0.00');
-        $sheet->getStyleByColumnAndRow($cc, 3, $cc, $lastRow)
-            ->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
-    }
-
-    // 7) Freeze pane: dopo 4 colonne fisse (E3)
-    $sheet->freezePaneByColumnAndRow(5, 3);
-
-    // 8) AutoSize colonne (A un po' più larga)
-    $sheet->getColumnDimension('A')->setWidth(55);
-    for ($cc = 2; $cc <= $lastCol; $cc++) {
-        $sheet->getColumnDimensionByColumn($cc)->setAutoSize(true);
-    }
-
-    // 9) Impostazioni di stampa
-    $ps = $sheet->getPageSetup();
-    $ps->setOrientation(PageSetup::ORIENTATION_LANDSCAPE);
-    $ps->setFitToWidth(1);
-    $ps->setFitToHeight(0);
-    $ps->setHorizontalCentered(true);
-
-    $margins = $sheet->getPageMargins();
-    $margins->setTop(0.4);
-    $margins->setBottom(0.6);
-    $margins->setLeft(0.4);
-    $margins->setRight(0.4);
-    $margins->setHeader(0.2);
-    $margins->setFooter(0.2);
-
-    // Ripeti header (r1-2) in stampa
-    $sheet->getPageSetup()->setRowsToRepeatAtTopByStartAndEnd(1, 2);
-
-    // Area di stampa
-    $lastColL = Coordinate::stringFromColumnIndex($lastCol);
-    $sheet->getPageSetup()->setPrintArea("A1:{$lastColL}{$lastRow}");
-}
-
-    
 
     private function writeTabellaTipologia1(
         Worksheet $ws,
@@ -4727,39 +4785,85 @@ protected function addDistintaImputazioneCostiSheet(\PhpOffice\PhpSpreadsheet\Sp
         // $sheet->getStyle($range)->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('FFFFFF');
     }
 
-    private function applyPrintSetup(Worksheet $ws): void
-{
-    // Area di stampa: tutta l’area usata
-    $lastCol = Coordinate::stringFromColumnIndex(
-        Coordinate::columnIndexFromString($ws->getHighestDataColumn())
-    );
-    $lastRow = $ws->getHighestRow();
-    if ($lastRow > 0) {
-        $ws->getPageSetup()->setPrintArea("A1:{$lastCol}{$lastRow}");
+    private function applyPrintSetup(Worksheet $ws): void {
+        // Area di stampa: tutta l’area usata
+        $lastCol = Coordinate::stringFromColumnIndex(
+            Coordinate::columnIndexFromString($ws->getHighestDataColumn())
+        );
+        $lastRow = $ws->getHighestRow();
+        if ($lastRow > 0) {
+            $ws->getPageSetup()->setPrintArea("A1:{$lastCol}{$lastRow}");
+        }
+
+        // Orientamento e carta
+        $ws->getPageSetup()->setOrientation(PageSetup::ORIENTATION_LANDSCAPE);
+        $ws->getPageSetup()->setPaperSize(PageSetup::PAPERSIZE_A4);
+
+        // Scala su una pagina in larghezza
+        $ws->getPageSetup()->setFitToWidth(1);
+        $ws->getPageSetup()->setFitToHeight(0); // quante pagine servono in altezza
+
+        // Margini (in pollici). Regola a piacere.
+        $ws->getPageMargins()->setTop(0.5);
+        $ws->getPageMargins()->setBottom(0.5);
+        $ws->getPageMargins()->setLeft(0.5);
+        $ws->getPageMargins()->setRight(0.5);
+
+        // Centra orizzontalmente
+        $ws->getPageSetup()->setHorizontalCentered(true);
+
+        // Ripeti le prime 2 righe in ogni pagina (se hai header su 2 righe)
+        $ws->getPageSetup()->setRowsToRepeatAtTopByStartAndEnd(1, 2);
+
+        // Facoltativo: intestazione/piè di pagina
+        // $ws->getHeaderFooter()->setOddFooter('&L&8'.$this->idAssociazione.' '.$this->anno.' &R&P/&N');
     }
 
-    // Orientamento e carta
-    $ws->getPageSetup()->setOrientation(PageSetup::ORIENTATION_LANDSCAPE);
-    $ws->getPageSetup()->setPaperSize(PageSetup::PAPERSIZE_A4);
+    private function safeMerge(Worksheet $ws, string $range): void {
+        // normalizza
+        $range = strtoupper(str_replace(' ', '', $range));
+        // evita duplicati
+        $existing = $ws->getMergeCells();         // es. ['A1:B1' => 'A1:B1', ...]
+        if (isset($existing[$range])) return;
+        // valida coordinate
+        [$a, $b] = explode(':', $range);
+        if (!$b) return;
+        [$c1, $r1] = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::coordinateFromString($a);
+        [$c2, $r2] = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::coordinateFromString($b);
+        if ($r1 > $r2) [$r1, $r2] = [$r2, $r1];
+        if (
+            \PhpOffice\PhpSpreadsheet\Cell\Coordinate::columnIndexFromString($c1) >
+            \PhpOffice\PhpSpreadsheet\Cell\Coordinate::columnIndexFromString($c2)
+        ) {
+            [$c1, $c2] = [$c2, $c1];
+        }
+        // evita merge “vuoti”
+        if ($c1 === $c2 && $r1 === $r2) return;
 
-    // Scala su una pagina in larghezza
-    $ws->getPageSetup()->setFitToWidth(1);
-    $ws->getPageSetup()->setFitToHeight(0); // quante pagine servono in altezza
+        $ws->mergeCells("{$c1}{$r1}:{$c2}{$r2}");
+    }
 
-    // Margini (in pollici). Regola a piacere.
-    $ws->getPageMargins()->setTop(0.5);
-    $ws->getPageMargins()->setBottom(0.5);
-    $ws->getPageMargins()->setLeft(0.5);
-    $ws->getPageMargins()->setRight(0.5);
+    private function safeMergeByColRow(Worksheet $ws, int $c1, int $r1, int $c2, int $r2): void {
+        if ($r1 > $r2) [$r1, $r2] = [$r2, $r1];
+        if ($c1 > $c2) [$c1, $c2] = [$c2, $c1];
+        // evita range 1x1
+        if ($c1 === $c2 && $r1 === $r2) return;
+        $a = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($c1) . $r1;
+        $b = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($c2) . $r2;
+        $this->safeMerge($ws, "{$a}:{$b}");
+    }
 
-    // Centra orizzontalmente
-    $ws->getPageSetup()->setHorizontalCentered(true);
-
-    // Ripeti le prime 2 righe in ogni pagina (se hai header su 2 righe)
-    $ws->getPageSetup()->setRowsToRepeatAtTopByStartAndEnd(1, 2);
-
-    // Facoltativo: intestazione/piè di pagina
-    // $ws->getHeaderFooter()->setOddFooter('&L&8'.$this->idAssociazione.' '.$this->anno.' &R&P/&N');
-}
-
+    // opzionale: ripulisce eventuali duplicati residui
+    private function dedupeMerges(Worksheet $ws): void {
+        $seen = [];
+        foreach ($ws->getMergeCells() as $rng => $val) {
+            if (isset($seen[$rng])) {
+                $ws->unmergeCells($rng); // rimuove il duplicato
+                // e ri-applica una sola volta
+                if (!isset($seen[$rng])) $this->safeMerge($ws, $rng);
+            } else {
+                $seen[$rng] = true;
+            }
+        }
+    }
 }
