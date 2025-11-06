@@ -2,13 +2,12 @@
 
 namespace App\Support\Excel;
 
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 use PhpOffice\PhpSpreadsheet\Worksheet\PageSetup;
-use PhpOffice\PhpSpreadsheet\Worksheet\PageMargins;
 use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 
-class PrintConfigurator
-{
+class PrintConfigurator {
     public const PROFILE_SINGLE = 'single'; // 1×1 pagina (tabella unica, grande e leggibile)
     public const PROFILE_MULTI  = 'multi';  // 1×N (tutte le colonne su una pagina in larghezza, multipagina in verticale)
 
@@ -29,15 +28,13 @@ class PrintConfigurator
     public float $marginHeader = 0.3;
     public float $marginFooter = 0.3;
 
-    public function __construct(?int $minScale = null, ?bool $allowA3 = null)
-    {
+    public function __construct(?int $minScale = null, ?bool $allowA3 = null) {
         if ($minScale !== null) $this->minScale = max(10, (int)$minScale); // guard rail
         if ($allowA3  !== null) $this->allowA3 = (bool)$allowA3;
     }
 
     /** Applica il profilo scelto a un Worksheet */
-    public function apply(Worksheet $sheet, string $profile): void
-    {
+    public function apply(Worksheet $sheet, string $profile): void {
         $this->applyCosmetics($sheet);
 
         // Definisci area di stampa sulla base dell’area usata
@@ -57,8 +54,7 @@ class PrintConfigurator
     }
 
     /** Impostazioni estetiche e margini */
-    protected function applyCosmetics(Worksheet $sheet): void
-    {
+    protected function applyCosmetics(Worksheet $sheet): void {
         $sheet->getPageMargins()
             ->setTop($this->marginTop)
             ->setBottom($this->marginBottom)
@@ -76,8 +72,7 @@ class PrintConfigurator
     }
 
     /** Profilo 1×1 pagina, senza scendere sotto minScale; orientamento/formato adattivi */
-    protected function profileSingle(Worksheet $sheet): void
-    {
+    protected function profileSingle(Worksheet $sheet): void {
         $ps = $sheet->getPageSetup();
         $ps->setFitToWidth(1)->setFitToHeight(1);
 
@@ -87,8 +82,7 @@ class PrintConfigurator
     }
 
     /** Profilo 1×N (tutte le colonne su una pagina, più pagine in verticale) */
-    protected function profileMulti(Worksheet $sheet): void
-    {
+    protected function profileMulti(Worksheet $sheet): void {
         $ps = $sheet->getPageSetup();
         $ps->setFitToWidth(1)->setFitToHeight(0); // 0 = illimitato in verticale
 
@@ -97,12 +91,11 @@ class PrintConfigurator
     }
 
     /** Orientamento + formato carta adattivi per rispettare la soglia di scala stimata */
-    protected function autoFixOrientation(Worksheet $sheet, int $minScale, bool $allowA3): void
-    {
+    protected function autoFixOrientation(Worksheet $sheet, int $minScale, bool $allowA3): void {
         // A4 Portrait
         $sheet->getPageSetup()
-              ->setOrientation(PageSetup::ORIENTATION_PORTRAIT)
-              ->setPaperSize(PageSetup::PAPERSIZE_A4);
+            ->setOrientation(PageSetup::ORIENTATION_PORTRAIT)
+            ->setPaperSize(PageSetup::PAPERSIZE_A4);
         if ($this->estimateScale($sheet) >= $minScale) return;
 
         // A4 Landscape
@@ -118,8 +111,7 @@ class PrintConfigurator
     }
 
     /** Stima percentuale scala necessaria per stare in 1 pagina in larghezza */
-    protected function estimateScale(Worksheet $sheet): int
-    {
+    protected function estimateScale(Worksheet $sheet): int {
         $content = $this->estimateContentWidthPoints($sheet);
         $avail   = $this->printableWidthPoints($sheet);
         if ($content <= 0) return 100;
@@ -127,8 +119,7 @@ class PrintConfigurator
     }
 
     /** Stima larghezza contenuto sommando le colonne visibili (punti tipografici) */
-    protected function estimateContentWidthPoints(Worksheet $sheet): float
-    {
+    protected function estimateContentWidthPoints(Worksheet $sheet): float {
         $last = $sheet->getHighestColumn();
         $firstColIdx = 1;
         $lastColIdx  = Coordinate::columnIndexFromString($last);
@@ -146,8 +137,7 @@ class PrintConfigurator
     }
 
     /** Larghezza stampabile (punti) considerando formato, orientamento e margini */
-    protected function printableWidthPoints(Worksheet $sheet): float
-    {
+    protected function printableWidthPoints(Worksheet $sheet): float {
         $ps = $sheet->getPageSetup();
         $pm = $sheet->getPageMargins();
 
@@ -165,11 +155,50 @@ class PrintConfigurator
     }
 
     /** Imposta area di stampa sull’area realmente usata */
-    protected function ensurePrintArea(Worksheet $sheet): void
-    {
+    protected function ensurePrintArea(Worksheet $sheet): void {
         $lastCol = $sheet->getHighestColumn();
         $lastRow = $sheet->getHighestRow();
         if ($lastRow < 1) $lastRow = 1;
         $sheet->getPageSetup()->setPrintArea("A1:{$lastCol}{$lastRow}");
+    }
+
+    /** Forza A4 orizzontale, centratura H/V, scala >= $minScale. */
+    public static function forceLandscapeCenteredMinScale(Worksheet $ws, int $minScale = 50, bool $setPrintArea = true): void {
+        $ps = $ws->getPageSetup();
+
+        // Carta e orientamento
+        $ps->setPaperSize(PageSetup::PAPERSIZE_A4);
+        $ps->setOrientation(PageSetup::ORIENTATION_LANDSCAPE);
+
+        // Usiamo "Adjust to" (scala) e NON Fit-to (serve che width/height siano 0)
+        $ps->setFitToWidth(0);
+        $ps->setFitToHeight(0);
+
+        // Scala: mai sotto minScale (Excel consente 10..400)
+        $scale = (int) ($ps->getScale() ?: 100);
+        if ($scale < $minScale) $scale = $minScale;
+        if ($scale > 400)       $scale = 400;
+        $ps->setScale($scale);
+
+        // Centratura
+        $ps->setHorizontalCentered(true);
+        $ps->setVerticalCentered(true);
+
+        // Area di stampa = area usata (evita colonne/righe fantasma)
+        if ($setPrintArea) {
+            $lastColIdx = Coordinate::columnIndexFromString($ws->getHighestDataColumn());
+            $lastRow    = $ws->getHighestDataRow();
+            if ($lastColIdx > 0 && $lastRow > 0) {
+                $lastCol = Coordinate::stringFromColumnIndex($lastColIdx);
+                $ps->setPrintArea("A1:{$lastCol}{$lastRow}");
+            }
+        }
+    }
+
+    /** Applica le impostazioni a tutto il workbook. */
+    public static function applyToWorkbook(Spreadsheet $wb, int $minScale = 50, bool $setPrintArea = true): void {
+        foreach ($wb->getAllSheets() as $ws) {
+            self::forceLandscapeCenteredMinScale($ws, $minScale, $setPrintArea);
+        }
     }
 }

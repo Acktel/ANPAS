@@ -219,7 +219,7 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                         $rowCursor
                     );
 
-                    // ✅ VARIABILE SEPARATA, NON TOCCARE $convenzioni
+                    // VARIABILE SEPARATA, NON TOCCARE $convenzioni
                     $convRotazione = RotazioneMezzi::getConvRotazione($this->idAssociazione, $this->anno);
 
                     $endRotMezzi = $this->BlockRotazioneMezzi(
@@ -410,15 +410,13 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                 'DIST.RIPARTO COSTI DIPENDENTI',
             ];
 
-            // Se vuoi forzare NO header ripetuto su qualche foglio:
-            // $noRepeatHeader = ['DISTINTA RIPARTO AUTOMEZZI'];
-
+            // ===================== FORMATTAZIONE E IMPOSTAZIONI DI STAMPA =====================
             foreach ($spreadsheet->getAllSheets() as $ws) {
                 // 1) Ultima colonna realmente usata
                 $lastUsedCol = Coordinate::columnIndexFromString($ws->getHighestDataColumn());
                 $totalCols   = Coordinate::columnIndexFromString($ws->getHighestColumn());
 
-                // 2) Nascondi extra oltre l’area usata
+                // 2) Nascondi colonne extra
                 for ($col = $lastUsedCol + 1; $col <= $totalCols; $col++) {
                     $ws->getColumnDimension(Coordinate::stringFromColumnIndex($col))->setVisible(false);
                 }
@@ -435,16 +433,12 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                     $ws->getColumnDimension(Coordinate::stringFromColumnIndex($col))->setAutoSize(true);
                 }
 
-                // 5) Stampa adattiva con soglia 30% (mai sotto)
-                // Header ripetuto ON di default (riga 1). Se vuoi escludere:
-                // if (in_array($ws->getTitle(), $noRepeatHeader, true)) $config->repeatHeaderRow = null;
-
-                $profile = in_array($ws->getTitle(), $singlePages, true)
-                    ? PrintConfigurator::PROFILE_SINGLE   // 1×1 pagina
-                    : PrintConfigurator::PROFILE_MULTI;   // 1×N (tutte le colonne su una pagina, multipagina verticale)
-
-                $config->apply($ws, $profile);
+                // 5) Impostazioni di stampa globali
+                \App\Support\Excel\PrintConfigurator::forceLandscapeCenteredMinScale($ws, 50, true);
             }
+
+
+
 
             /**LOG AUTOSIZE STAMPA */
             foreach ($spreadsheet->getAllSheets() as $ws) {
