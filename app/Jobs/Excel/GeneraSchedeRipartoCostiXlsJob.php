@@ -29,6 +29,7 @@ use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PhpOffice\PhpSpreadsheet\CachedObjectStorage\MemoryCache;
 use PhpOffice\PhpSpreadsheet\CachedObjectStorage\PhpTemp;
 use PhpOffice\PhpSpreadsheet\Worksheet\PageSetup;
+use App\Support\Excel\PrintConfigurator;
 
 use App\Models\Automezzo;
 use App\Models\Associazione;
@@ -112,8 +113,8 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                     \PhpOffice\PhpSpreadsheet\Settings::setLibXmlLoaderOptions(LIBXML_COMPACT);
                 }
             }
-        } catch (\Throwable $e) {
-            \Log::warning('PhpSpreadsheet cache setup failed (safe fallback)', ['err' => $e->getMessage()]);
+        } catch (Throwable $e) {
+            Log::warning('PhpSpreadsheet cache setup failed (safe fallback)', ['err' => $e->getMessage()]);
         }
 
         // -------------------------------------------------------------------------------
@@ -400,18 +401,29 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                 Log::warning('Errore blocco “fogli per convenzione”', ['msg' => $e->getMessage(), 'file' => $e->getFile(), 'line' => $e->getLine()]);
             }
 
-            /* ===================== TAGLIO COLONNE + AUTOSIZE + FORMATO NUMERICO ===================== */
-            foreach ($spreadsheet->getAllSheets() as $ws) {
-                // 1) Ultima colonna realmente usata (dati o header, anche con celle unite)
-                $lastUsedCol = Coordinate::columnIndexFromString($ws->getHighestDataColumn());
+            /* ===================== FORMAT + STAMPA ADATTIVA (min scale 30%) ===================== */
+            $config = new PrintConfigurator(minScale: 30, allowA3: false);
 
-                // 2) Nascondi SOLO ciò che sta oltre l’ultima colonna usata
-                $totalCols = Coordinate::columnIndexFromString($ws->getHighestColumn());
+            // Fogli “tabella unica” → 1×1 pagina (grande e leggibile)
+            $singlePages = [
+                'SCHEDE DI RIPARTO DEI COSTI',
+                'DIST.RIPARTO COSTI DIPENDENTI',
+            ];
+
+            // Se vuoi forzare NO header ripetuto su qualche foglio:
+            // $noRepeatHeader = ['DISTINTA RIPARTO AUTOMEZZI'];
+
+            foreach ($spreadsheet->getAllSheets() as $ws) {
+                // 1) Ultima colonna realmente usata
+                $lastUsedCol = Coordinate::columnIndexFromString($ws->getHighestDataColumn());
+                $totalCols   = Coordinate::columnIndexFromString($ws->getHighestColumn());
+
+                // 2) Nascondi extra oltre l’area usata
                 for ($col = $lastUsedCol + 1; $col <= $totalCols; $col++) {
                     $ws->getColumnDimension(Coordinate::stringFromColumnIndex($col))->setVisible(false);
                 }
 
-                // 3) Formato numerico su tutta l’area usata
+                // 3) Formato numerico area usata
                 $lastRow = $ws->getHighestRow();
                 if ($lastUsedCol >= 1 && $lastRow >= 1) {
                     $range = 'A1:' . Coordinate::stringFromColumnIndex($lastUsedCol) . $lastRow;
@@ -423,9 +435,31 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                     $ws->getColumnDimension(Coordinate::stringFromColumnIndex($col))->setAutoSize(true);
                 }
 
-                // 5) Impostazioni di stampa (vedi sotto se vuoi personalizzare)
-                $this->applyPrintSetup($ws);
+                // 5) Stampa adattiva con soglia 30% (mai sotto)
+                // Header ripetuto ON di default (riga 1). Se vuoi escludere:
+                // if (in_array($ws->getTitle(), $noRepeatHeader, true)) $config->repeatHeaderRow = null;
+
+                $profile = in_array($ws->getTitle(), $singlePages, true)
+                    ? PrintConfigurator::PROFILE_SINGLE   // 1×1 pagina
+                    : PrintConfigurator::PROFILE_MULTI;   // 1×N (tutte le colonne su una pagina, multipagina verticale)
+
+                $config->apply($ws, $profile);
             }
+
+            /**LOG AUTOSIZE STAMPA */
+            foreach ($spreadsheet->getAllSheets() as $ws) {
+                $ps = $ws->getPageSetup();
+                Log::debug('PRINTSET', [
+                    'sheet'        => $ws->getTitle(),
+                    'paper'        => $ps->getPaperSize(),        // atteso: PageSetup::PAPERSIZE_A4
+                    'orientation'  => $ps->getOrientation(),      // PORTRAIT/LANDSCAPE
+                    'fitW'         => $ps->getFitToWidth(),       // 1
+                    'fitH'         => $ps->getFitToHeight(),      // 0 o 1
+                    'scale'        => $ps->getScale(),            // >= 30
+                    'printArea'    => $ws->getPageSetup()->getPrintArea(),
+                ]);
+            }
+
 
             /* ===================== SALVATAGGIO ===================== */
             $lastColL = $sheet->getHighestColumn();
