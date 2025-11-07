@@ -18,7 +18,7 @@ return Application::configure(basePath: dirname(__DIR__))
         //
     })
     ->withSchedule(function (Illuminate\Console\Scheduling\Schedule $schedule) {
-        $schedule->command('queue:work database --queue=excel --once --sleep=1 --tries=3 --timeout=7200 --memory=4096')
+        $schedule->command('queue:work database --queue=excel,pdf,default --once --sleep=1 --tries=3 --timeout=7200 --memory=4096')
             ->withoutOverlapping(5)
             ->everyMinute();
     })

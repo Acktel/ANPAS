@@ -135,6 +135,8 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
             $spreadsheet = new Spreadsheet();
             $sheet = $spreadsheet->getActiveSheet();
             $sheet->setTitle('SCHEDE DI RIPARTO DEI COSTI');
+            // Altezza di default più bassa
+            $sheet->getDefaultRowDimension()->setRowHeight(14);
 
             // loghi
             $logos = [
@@ -489,7 +491,7 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
             DB::table('documenti_generati')->where('id', $this->documentoId)->update([
                 'stato'       => 'error',
                 'updated_at'  => now(),
-                'errore_note' => substr($e->getMessage(), 0, 1900),
+                'errore' => substr($e->getMessage(), 0, 1900),
             ]);
 
             if (method_exists($this, 'fail')) {
@@ -2918,6 +2920,7 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
             // 1) Crea un foglio VERO del workbook e incolla il template
             $sheet = $wb->createSheet();
             $sheet->setTitle('OSSIGENO');                 // titola SUBITO
+            $sheet->getDefaultRowDimension()->setRowHeight(14);
             $this->appendTemplate($sheet, $tplPath, 1);   // copia celle/stili/merge
 
             // 2) Sposta il foglio subito dopo "MATERIALE SANITARIO DI CONSUMO" (se esiste)
@@ -3038,6 +3041,7 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
         // 1) crea foglio vuoto, appende il template e lo titola
         $sheet = $wb->createSheet();
         $sheet->setTitle('RIEPILOGO COSTI AUTO-RADIO-SAN.');
+        $sheet->getDefaultRowDimension()->setRowHeight(14);
         $this->appendTemplate($sheet, $templatePath, 1);
 
         // 2) placeholder intestazione template (come negli altri fogli)
@@ -3497,6 +3501,7 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
         }
 
         $sheet->setTitle($title);
+        $sheet->getDefaultRowDimension()->setRowHeight(14);
 
         $after = $wb->getSheetByName($afterName);
         $index = $after ? ($wb->getIndex($after) + 1) : $wb->getSheetCount();
