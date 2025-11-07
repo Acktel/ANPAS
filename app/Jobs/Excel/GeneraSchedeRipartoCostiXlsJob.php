@@ -410,6 +410,7 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                 'DIST.RIPARTO COSTI DIPENDENTI',
             ];
 
+
             // ===================== FORMATTAZIONE E IMPOSTAZIONI DI STAMPA =====================
             foreach ($spreadsheet->getAllSheets() as $ws) {
                 // 1) Ultima colonna realmente usata
@@ -433,11 +434,12 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                     $ws->getColumnDimension(Coordinate::stringFromColumnIndex($col))->setAutoSize(true);
                 }
 
-                // 5) Impostazioni di stampa globali
-                \App\Support\Excel\PrintConfigurator::forceLandscapeCenteredMinScale($ws, 50, true);
+                // 5) Celle compatte dappertutto (no wrap/indent, shrink-to-fit, vertical TOP)
+                PrintConfigurator::compactAllCells($ws, 14.0);
+
+                // 6) Stampa: A4 orizz., centrature H/V, scala minima 50%, print area reale
+                PrintConfigurator::forceLandscapeCenteredMinScale($ws, 50, true);
             }
-
-
 
 
             /**LOG AUTOSIZE STAMPA */
