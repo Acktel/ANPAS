@@ -1045,6 +1045,7 @@ class RipartizioneCostiService {
     public static function consuntiviPerVoceByConvenzione(int $idAssociazione, int $anno): array {
         $conv = self::convenzioni($idAssociazione, $anno);
         $dist = self::distintaImputazioneData($idAssociazione, $anno);
+        
         $righe = $dist['data'] ?? [];
 
         $out = [];
