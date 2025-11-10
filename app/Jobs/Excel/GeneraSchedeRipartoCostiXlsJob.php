@@ -111,6 +111,9 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                 'nome_associazione' => $nomeAss,
                 'anno_riferimento'  => (string)$this->anno,
             ]);
+                                                if (!empty($logos['left'])) {
+    $this->placeHeaderImage($sheet, $logos['left'], 'B' . ($kmMeta['startRow'] + 1), rowSpan: 3, targetHeightPx: 64, offsetX: 6, offsetY: 8);
+}
             $endKm = $this->blockKm($sheet, $kmMeta, $automezzi, $convenzioni, $logos);
 
             /* ===================== BLOCCO 2: SERVIZI ===================== */
@@ -119,6 +122,9 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                 'nome_associazione' => $nomeAss,
                 'anno_riferimento'  => (string)$this->anno,
             ]);
+                                    if (!empty($logos['left'])) {
+    $this->placeHeaderImage($sheet, $logos['left'], 'B' . ($srvMeta['startRow'] + 1), rowSpan: 3, targetHeightPx: 64, offsetX: 6, offsetY: 8);
+}
             $endSrv = $this->blockServizi($sheet, $srvMeta, $automezzi, $convenzioni, $logos);
 
             /* ===================== BLOCCO 3: RICAVI ===================== */
@@ -127,6 +133,9 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                 'nome_associazione' => $nomeAss,
                 'anno_riferimento'  => (string)$this->anno,
             ]);
+                        if (!empty($logos['left'])) {
+    $this->placeHeaderImage($sheet, $logos['left'], 'B' . ($ricMeta['startRow'] + 1), rowSpan: 3, targetHeightPx: 64, offsetX: 6, offsetY: 8);
+}
             [$endRic, $ricaviMap] = $this->blockRicavi($sheet, $ricMeta, $convenzioni, $logos);
 
             /* ===================== BLOCCO 4: PERSONALE AUTISTI/BARELLIERI ===================== */
@@ -135,6 +144,12 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                 'nome_associazione' => $nomeAss,
                 'anno_riferimento'  => (string)$this->anno,
             ]);
+
+            if (!empty($logos['left'])) {
+                // àncora “B2” del foglio corrente, 3 righe di fascia, altezza ~64px, un po’ di offset
+                $this->placeHeaderImage($sheet, $logos['left'], 'B' . ($abMeta['startRow'] + 1), rowSpan: 3, targetHeightPx: 64, offsetX: 6, offsetY: 8);
+            }
+
             $endAB = $this->blockAutistiBarellieri($sheet, $abMeta, $convenzioni, $logos);
 
             /* ===================== BLOCCO 5: VOLONTARI ===================== */
@@ -143,6 +158,9 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                 'nome_associazione' => $nomeAss,
                 'anno_riferimento'  => (string)$this->anno,
             ]);
+            if (!empty($logos['left'])) {
+    $this->placeHeaderImage($sheet, $logos['left'], 'B' . ($volMeta['startRow'] + 1), rowSpan: 3, targetHeightPx: 64, offsetX: 6, offsetY: 8);
+}
             $endVol = $this->blockVolontari($sheet, $volMeta, $convenzioni, $ricaviMap, $logos);
 
             /* ===================== BLOCCO 6: SERVIZIO CIVILE ===================== */
@@ -151,6 +169,9 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                 'nome_associazione' => $nomeAss,
                 'anno_riferimento'  => (string)$this->anno,
             ]);
+                        if (!empty($logos['left'])) {
+    $this->placeHeaderImage($sheet, $logos['left'], 'B' . ($scMeta['startRow'] + 1), rowSpan: 3, targetHeightPx: 64, offsetX: 6, offsetY: 8);
+}
             $endSC = $this->blockServizioCivile($sheet, $scMeta, $convenzioni, $logos);
 
             /* ===================== BLOCCO 7: DISTINTA SERVIZI ===================== */
@@ -159,6 +180,9 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                 'nome_associazione' => $nomeAss,
                 'anno_riferimento'  => (string)$this->anno,
             ]);
+                                    if (!empty($logos['left'])) {
+    $this->placeHeaderImage($sheet, $logos['left'], 'B' . ($scMeta['startRow'] + 1), rowSpan: 3, targetHeightPx: 64, offsetX: 6, offsetY: 8);
+}
             $endMS = $this->blockDistintaServizi($sheet, $msMeta, $automezzi, $convenzioni, $logos);
 
             /* ============ BLOCCO 8: ROTAZIONE MEZZI (se serve) ============ */
@@ -2211,7 +2235,7 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
             $d->setHeight(60);
             $d->setCoordinates('B' . $row);
             $d->setOffsetX(5);
-            $d->setOffsetY(2);
+            $d->setOffsetY(5);
             $d->setWorksheet($sheet);
         }
         // DX
@@ -2228,7 +2252,7 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
             $d->setHeight(60);
             $d->setCoordinates($rightColL . $row);
             $d->setOffsetX(5);
-            $d->setOffsetY(2);
+            $d->setOffsetY(offsetY: 5);
             $d->setWorksheet($sheet);
         }
         $sheet->getRowDimension($row)->setRowHeight(48);
@@ -4795,7 +4819,7 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
         int $rowSpan = 2,       // quante righe “banner” vuoi riservare
         float $targetHeightPx = 70, // altezza immagine
         int $offsetX = 6,
-        int $offsetY = 4
+        int $offsetY = 10
     ): void {
         if (!is_file($imgPath)) return;
 
