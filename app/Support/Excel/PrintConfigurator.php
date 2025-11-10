@@ -8,8 +8,7 @@ use PhpOffice\PhpSpreadsheet\Worksheet\PageSetup;
 use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 
-class PrintConfigurator
-{
+class PrintConfigurator {
     /** Profili (storici, puoi ignorarli se usi solo il forceLandscape) */
     public const PROFILE_SINGLE = 'single';
     public const PROFILE_MULTI  = 'multi';
@@ -26,18 +25,17 @@ class PrintConfigurator
     public float $marginHeader = 0.3;
     public float $marginFooter = 0.3;
 
-    public function __construct(?int $minScale = null)
-    {
-        if ($minScale !== null) {
-            $this->minScale = max(10, (int) $minScale);
-        }
+    public bool $allowA3 = false;
+
+    public function __construct(?int $minScale = null, ?bool $allowA3 = null) {
+        if ($minScale !== null)  $this->minScale = max(10, (int)$minScale);
+        if ($allowA3  !== null)  $this->allowA3  = (bool)$allowA3;
     }
 
     /* ============================================================
      *  IMPOSTAZIONI DI STAMPA
      * ============================================================ */
-    public static function forceLandscapeCenteredMinScale(Worksheet $ws, int $minScale = 50, bool $setPrintArea = true): void
-    {
+    public static function forceLandscapeCenteredMinScale(Worksheet $ws, int $minScale = 50, bool $setPrintArea = true): void {
         $ps = $ws->getPageSetup();
 
         // A4 orizzontale
@@ -76,8 +74,7 @@ class PrintConfigurator
         $ws->setShowGridlines(false);
     }
 
-    public static function applyToWorkbook(Spreadsheet $wb, int $minScale = 50, bool $setPrintArea = true): void
-    {
+    public static function applyToWorkbook(Spreadsheet $wb, int $minScale = 50, bool $setPrintArea = true): void {
         foreach ($wb->getAllSheets() as $ws) {
             self::forceLandscapeCenteredMinScale($ws, $minScale, $setPrintArea);
         }
@@ -144,6 +141,87 @@ class PrintConfigurator
 
         if ($fontSizeOverridePt !== null) {
             $ws->getStyle($range)->getFont()->setSize($fontSizeOverridePt);
+        }
+    }
+
+    public static function compactBodyOnly(
+        Worksheet $ws,
+        int $bodyStartRow = 2,           // da che riga inizia il corpo
+        float $defaultRowHeightPt = 14.0,
+        ?float $fontSizeOverridePt = null
+    ): void {
+        // altezza di default “slim” solo per il corpo
+        $ws->getDefaultRowDimension()->setRowHeight($defaultRowHeightPt);
+
+        $lastRow = $ws->getHighestRow();
+        $lastCol = Coordinate::columnIndexFromString($ws->getHighestDataColumn());
+        if ($lastCol < $bodyStartRow || $lastRow < $bodyStartRow) return;
+
+        // Rende adattive solo le righe del corpo
+        for ($r = $bodyStartRow; $r <= $lastRow; $r++) {
+            $dim = $ws->getRowDimension($r);
+            $dim->setRowHeight(-1); // auto
+        }
+
+        // Stili SOLO sul corpo
+        $range = 'A' . $bodyStartRow . ':' .
+            Coordinate::stringFromColumnIndex($lastCol) . $lastRow;
+
+        $align = $ws->getStyle($range)->getAlignment();
+        $align->setVertical(Alignment::VERTICAL_TOP);
+        $align->setHorizontal(Alignment::HORIZONTAL_LEFT);
+        $align->setIndent(0);
+        $align->setWrapText(false);
+        $align->setShrinkToFit(true);
+
+        if ($fontSizeOverridePt !== null) {
+            $ws->getStyle($range)->getFont()->setSize($fontSizeOverridePt);
+        }
+    }
+
+    /** Variante: escludi righe specifiche (es. 1..3) e compatta tutto il resto */
+    public static function compactExceptRows(
+        Worksheet $ws,
+        array $excludeRows = [1],
+        float $defaultRowHeightPt = 14.0,
+        ?float $fontSizeOverridePt = null
+    ): void {
+        $ws->getDefaultRowDimension()->setRowHeight($defaultRowHeightPt);
+
+        $lastRow = $ws->getHighestRow();
+        $lastCol = Coordinate::columnIndexFromString($ws->getHighestDataColumn());
+        if ($lastCol < 1 || $lastRow < 1) return;
+
+        // set auto solo per le righe non escluse
+        for ($r = 1; $r <= $lastRow; $r++) {
+            if (in_array($r, $excludeRows, true)) continue;
+            $ws->getRowDimension($r)->setRowHeight(-1);
+        }
+
+        // Applica stile solo alle righe non escluse
+        // (costruiamo unione di range per blocchi continui)
+        $ranges = [];
+        $start = null;
+        for ($r = 1; $r <= $lastRow; $r++) {
+            $excluded = in_array($r, $excludeRows, true);
+            if (!$excluded && $start === null) $start = $r;
+            if (($excluded || $r === $lastRow) && $start !== null) {
+                $end = $excluded ? $r - 1 : $r;
+                $ranges[] = 'A' . $start . ':' .
+                   Coordinate::stringFromColumnIndex($lastCol) . $end;
+                $start = null;
+            }
+        }
+        foreach ($ranges as $range) {
+            $align = $ws->getStyle($range)->getAlignment();
+            $align->setVertical(Alignment::VERTICAL_TOP);
+            $align->setHorizontal(Alignment::HORIZONTAL_LEFT);
+            $align->setIndent(0);
+            $align->setWrapText(false);
+            $align->setShrinkToFit(true);
+            if ($fontSizeOverridePt !== null) {
+                $ws->getStyle($range)->getFont()->setSize($fontSizeOverridePt);
+            }
         }
     }
 }

@@ -240,6 +240,7 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                     ]);
                 }
             }
+            Log::info('Primo foglio fatto');
             /* ===================== NUOVO FOGLIO: DIST.RIPARTO COSTI DIPENDENTI ===================== */
             $sheetRip = $spreadsheet->createSheet();
             $sheetRip->setTitle('DIST.RIPARTO COSTI DIPENDENTI');
@@ -272,6 +273,7 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                 ]);
                 $rowCursor = $this->blockDistintaCostiPerMansione($sheetRip, $tplMeta, $idQ, $logos) + 1;
             }
+            Log::info('FOGLIO 2:DIST.RIPARTO COSTI DIPENDENTI fatto');
 
             /* ===================== NUOVO FOGLIO: DISTINTA RIPARTO AUTOMEZZI ===================== */
             $sheetAuto = $spreadsheet->createSheet();
@@ -283,7 +285,7 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
             ]);
             $this->blockRipartoAutomezzi($sheetAuto, $autoMeta, $logos);
             $this->forceHeaderText($sheetAuto, $autoMeta, $nomeAss, $this->anno);
-
+            Log::info('FOGLIO 3:DISTINTA RIPARTO AUTOMEZZI fatto');
             /* ===================== NUOVO FOGLIO: DISTINTA RIPARTO COSTI RADIO ===================== */
             $sheetRadio = $spreadsheet->createSheet();
             $sheetRadio->setTitle('DISTINTA RIPARTO COSTI RADIO');
@@ -294,6 +296,7 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
             ]);
             $this->blockCostiRadio($sheetRadio, $radioMeta, $logos);
 
+            Log::info('FOGLIO 4:DISTINTA RIPARTO COSTI RADIOfatto');
             /* ===================== ALTRI FOGLI ===================== */
             try {
                 $this->creaFoglioImputazioneSanitario(
@@ -307,6 +310,7 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                 Log::warning('Foglio Imputazione MS: errore non bloccante', ['msg' => $e->getMessage(), 'file' => $e->getFile(), 'line' => $e->getLine()]);
             }
 
+            Log::info('FOGLIO 5:DISTINTA ImputazioneCosti_Sanitario fatto');
             try {
                 $this->creaFoglioImputazioneOssigeno($spreadsheet, $this->idAssociazione, $this->anno);
             } catch (Throwable $e) {
@@ -323,7 +327,7 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
             } catch (Throwable $e) {
                 Log::warning('Foglio RIEPILOGO COSTI AUTO-RADIO-SAN.: errore non bloccante', ['msg' => $e->getMessage(), 'file' => $e->getFile(), 'line' => $e->getLine()]);
             }
-
+            Log::info('FOGLIO 6:DISTINTA RIEPILOGO COSTI AUTO-RADIO-SAN fatto');
             try {
                 $tplAutoPath = $disk->path('documenti/template_excel/Costi_AUTO1.xlsx');
                 $autos = DB::table('automezzi')
@@ -337,7 +341,7 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
             } catch (Throwable $e) {
                 Log::warning('Fogli per singolo automezzo: errore non bloccante', ['msg' => $e->getMessage(), 'file' => $e->getFile(), 'line' => $e->getLine()]);
             }
-
+            Log::info('FOGLIO 7..:DISTINTA RIEPILOGO COSTI AUTO singoli fatti');
             try {
                 $this->addDistintaImputazioneCostiSheet($spreadsheet, $this->idAssociazione, $this->anno);
             } catch (Throwable $e) {
@@ -402,7 +406,7 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
             } catch (Throwable $e) {
                 Log::warning('Errore blocco “fogli per convenzione”', ['msg' => $e->getMessage(), 'file' => $e->getFile(), 'line' => $e->getLine()]);
             }
-
+            Log::info('FOGLIO 8:RIEPILOGO DATI singoli fatto');
             /* ===================== FORMAT + STAMPA ADATTIVA (min scale 30%) ===================== */
             $config = new PrintConfigurator(minScale: 30, allowA3: false);
 
@@ -415,34 +419,30 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
 
             // ===================== FORMATTAZIONE E IMPOSTAZIONI DI STAMPA =====================
             foreach ($spreadsheet->getAllSheets() as $ws) {
-                // 1) Ultima colonna realmente usata
                 $lastUsedCol = Coordinate::columnIndexFromString($ws->getHighestDataColumn());
                 $totalCols   = Coordinate::columnIndexFromString($ws->getHighestColumn());
 
-                // 2) Nascondi colonne extra
                 for ($col = $lastUsedCol + 1; $col <= $totalCols; $col++) {
                     $ws->getColumnDimension(Coordinate::stringFromColumnIndex($col))->setVisible(false);
                 }
 
-                // 3) Formato numerico area usata
                 $lastRow = $ws->getHighestRow();
                 if ($lastUsedCol >= 1 && $lastRow >= 1) {
                     $range = 'A1:' . Coordinate::stringFromColumnIndex($lastUsedCol) . $lastRow;
-                    $ws->getStyle($range)->getNumberFormat()->setFormatCode('#,##0.00');
+                   // $ws->getStyle($range)->getNumberFormat()->setFormatCode('#,##0.00');
                 }
 
-                // 4) AutoSize per evitare “####”
                 for ($col = 1; $col <= $lastUsedCol; $col++) {
                     $ws->getColumnDimension(Coordinate::stringFromColumnIndex($col))->setAutoSize(true);
                 }
 
-                // 5) Celle compatte dappertutto (no wrap/indent, shrink-to-fit, vertical TOP)
-                PrintConfigurator::compactAllCells($ws, 14.0);
+                // intestazioni intatte, corpo compatto a partire dalla riga 2
+                PrintConfigurator::compactBodyOnly($ws, bodyStartRow: 2, defaultRowHeightPt: 14.0);
 
-                // 6) Stampa: A4 orizz., centrature H/V, scala minima 50%, print area reale
+                // stampa A4 landscape centrata con scala minima
                 PrintConfigurator::forceLandscapeCenteredMinScale($ws, 50, true);
             }
-
+            Log::info('FORMATTAZIONE E IMPOSTAZIONI DI STAMPA completate');
 
             /**LOG AUTOSIZE STAMPA */
             foreach ($spreadsheet->getAllSheets() as $ws) {
@@ -457,7 +457,6 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                     'printArea'    => $ws->getPageSetup()->getPrintArea(),
                 ]);
             }
-
 
             /* ===================== SALVATAGGIO ===================== */
             $lastColL = $sheet->getHighestColumn();
