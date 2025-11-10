@@ -112,7 +112,11 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                 'anno_riferimento'  => (string)$this->anno,
             ]);
             if (!empty($logos['left'])) {
-                $this->placeHeaderImage($sheet, $logos['left'], 'B' . ($kmMeta['startRow'] + 1), rowSpan: 3, targetHeightPx: 64, offsetX: 6, offsetY: 8);
+                $anchorRow = isset($kmMeta['startRow']) && (int)$kmMeta['startRow'] > 0
+                    ? (int)$kmMeta['startRow'] + 1
+                    : 2; // fallback sicuro
+
+                $this->placeHeaderImage($sheet, $logos['left'], 'B' . $anchorRow, rowSpan: 3, targetHeightPx: 64, offsetX: 6, offsetY: 8);
             }
             $endKm = $this->blockKm($sheet, $kmMeta, $automezzi, $convenzioni, $logos);
 
@@ -123,7 +127,11 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                 'anno_riferimento'  => (string)$this->anno,
             ]);
             if (!empty($logos['left'])) {
-                $this->placeHeaderImage($sheet, $logos['left'], 'B' . ($srvMeta['startRow'] + 1), rowSpan: 3, targetHeightPx: 64, offsetX: 6, offsetY: 8);
+                $anchorRow = isset($srvMeta['startRow']) && (int)$srvMeta['startRow'] > 0
+                    ? (int)$srvMeta['startRow'] + 1
+                    : 2; // fallback sicuro
+
+                $this->placeHeaderImage($sheet, $logos['left'], 'B' . $anchorRow, rowSpan: 3, targetHeightPx: 64, offsetX: 6, offsetY: 8);
             }
             $endSrv = $this->blockServizi($sheet, $srvMeta, $automezzi, $convenzioni, $logos);
 
@@ -134,7 +142,11 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                 'anno_riferimento'  => (string)$this->anno,
             ]);
             if (!empty($logos['left'])) {
-                $this->placeHeaderImage($sheet, $logos['left'], 'B' . ($ricMeta['startRow'] + 1), rowSpan: 3, targetHeightPx: 64, offsetX: 6, offsetY: 8);
+                $anchorRow = isset($ricMeta['startRow']) && (int)$ricMeta['startRow'] > 0
+                    ? (int)$ricMeta['startRow'] + 1
+                    : 2; // fallback sicuro
+
+                $this->placeHeaderImage($sheet, $logos['left'], 'B' . $anchorRow, rowSpan: 3, targetHeightPx: 64, offsetX: 6, offsetY: 8);
             }
             [$endRic, $ricaviMap] = $this->blockRicavi($sheet, $ricMeta, $convenzioni, $logos);
 
@@ -145,7 +157,11 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                 'anno_riferimento'  => (string)$this->anno,
             ]);
             if (!empty($logos['left'])) {
-                $this->placeHeaderImage($sheet, $logos['left'], 'B' . ($abMeta['startRow'] + 1), rowSpan: 3, targetHeightPx: 64, offsetX: 6, offsetY: 8);
+                $anchorRow = isset($abMeta['startRow']) && (int)$abMeta['startRow'] > 0
+                    ? (int)$abMeta['startRow'] + 1
+                    : 2; // fallback sicuro
+
+                $this->placeHeaderImage($sheet, $logos['left'], 'B' . $anchorRow, rowSpan: 3, targetHeightPx: 64, offsetX: 6, offsetY: 8);
             }
             $endAB = $this->blockAutistiBarellieri($sheet, $abMeta, $convenzioni, $logos);
 
@@ -156,7 +172,11 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                 'anno_riferimento'  => (string)$this->anno,
             ]);
             if (!empty($logos['left'])) {
-                $this->placeHeaderImage($sheet, $logos['left'], 'B' . ($volMeta['startRow'] + 1), rowSpan: 3, targetHeightPx: 64, offsetX: 6, offsetY: 8);
+                $anchorRow = isset($volMeta['startRow']) && (int)$volMeta['startRow'] > 0
+                    ? (int)$volMeta['startRow'] + 1
+                    : 2; // fallback sicuro
+
+                $this->placeHeaderImage($sheet, $logos['left'], 'B' . $anchorRow, rowSpan: 3, targetHeightPx: 64, offsetX: 6, offsetY: 8);
             }
             $endVol = $this->blockVolontari($sheet, $volMeta, $convenzioni, $ricaviMap, $logos);
 
@@ -167,7 +187,11 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                 'anno_riferimento'  => (string)$this->anno,
             ]);
             if (!empty($logos['left'])) {
-                $this->placeHeaderImage($sheet, $logos['left'], 'B' . ($scMeta['startRow'] + 1), rowSpan: 3, targetHeightPx: 64, offsetX: 6, offsetY: 8);
+                $anchorRow = isset($scMeta['startRow']) && (int)$scMeta['startRow'] > 0
+                    ? (int)$scMeta['startRow'] + 1
+                    : 2; // fallback sicuro
+
+                $this->placeHeaderImage($sheet, $logos['left'], 'B' . $anchorRow, rowSpan: 3, targetHeightPx: 64, offsetX: 6, offsetY: 8);
             }
             $endSC = $this->blockServizioCivile($sheet, $scMeta, $convenzioni, $logos);
 
@@ -178,8 +202,11 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                 'anno_riferimento'  => (string)$this->anno,
             ]);
             if (!empty($logos['left'])) {
-                // **fix refuso**: qui devi usare $msMeta, non $scMeta
-                $this->placeHeaderImage($sheet, $logos['left'], 'B' . ($msMeta['startRow'] + 1), rowSpan: 3, targetHeightPx: 64, offsetX: 6, offsetY: 8);
+                $anchorRow = isset($msMeta['startRow']) && (int)$msMeta['startRow'] > 0
+                    ? (int)$msMeta['startRow'] + 1
+                    : 2; // fallback sicuro
+
+                $this->placeHeaderImage($sheet, $logos['left'], 'B' . $anchorRow, rowSpan: 3, targetHeightPx: 64, offsetX: 6, offsetY: 8);
             }
             $endMS = $this->blockDistintaServizi($sheet, $msMeta, $automezzi, $convenzioni, $logos);
 
@@ -195,7 +222,11 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                 try {
                     $kmRotazioneMeta = $this->appendTemplate($sheet, $disk->path('documenti/template_excel/RotazioneMezzi.xlsx'), $endMS + 2);
                     if (!empty($logos['left'])) {
-                        $this->placeHeaderImage($sheet, $logos['left'], 'B' . ($kmRotazioneMeta['startRow'] + 1), rowSpan: 3, targetHeightPx: 64, offsetX: 6, offsetY: 8);
+                        $anchorRow = isset($kmRotazioneMeta['startRow']) && (int)$msMkmRotazioneMetaeta['startRow'] > 0
+                            ? (int)$kmRotazioneMeta['startRow'] + 1
+                            : 2; // fallback sicuro
+
+                        $this->placeHeaderImage($sheet, $logos['left'], 'B' . $anchorRow, rowSpan: 3, targetHeightPx: 64, offsetX: 6, offsetY: 8);
                     }
                     $convRotazione = RotazioneMezzi::getConvRotazione($this->idAssociazione, $this->anno);
                     $this->BlockRotazioneMezzi($sheet, $kmRotazioneMeta, $automezzi, $convRotazione);
@@ -214,7 +245,11 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                 'anno_riferimento'  => (string)$this->anno,
             ]);
             if (!empty($logos['left'])) {
-                $this->placeHeaderImage($sheetRip, $logos['left'], 'B' . ($ripMeta['startRow'] + 1), rowSpan: 3, targetHeightPx: 64, offsetX: 6, offsetY: 8);
+                $anchorRow = isset($ripMeta['startRow']) && (int)$ripMeta['startRow'] > 0
+                    ? (int)$ripMeta['startRow'] + 1
+                    : 2; // fallback sicuro
+
+                $this->placeHeaderImage($sheet, $logos['left'], 'B' . $anchorRow, rowSpan: 3, targetHeightPx: 64, offsetX: 6, offsetY: 8);
             }
             $this->blockRipartoCostiDipendentiAB($sheetRip, $ripMeta, $convenzioni, $logos);
             $this->forceHeaderText($sheetRip, $ripMeta, $nomeAss, $this->anno);
@@ -238,7 +273,11 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                     'anno_riferimento'  => (string)$this->anno,
                 ]);
                 if (!empty($logos['left'])) {
-                    $this->placeHeaderImage($sheetRip, $logos['left'], 'B' . ($tplMeta['startRow'] + 1), rowSpan: 3, targetHeightPx: 64, offsetX: 6, offsetY: 8);
+                    $anchorRow = isset($tplMeta['startRow']) && (int)$tplMeta['startRow'] > 0
+                        ? (int)$tplMeta['startRow'] + 1
+                        : 2; // fallback sicuro
+
+                    $this->placeHeaderImage($sheet, $logos['left'], 'B' . $anchorRow, rowSpan: 3, targetHeightPx: 64, offsetX: 6, offsetY: 8);
                 }
                 $rowCursor = $this->blockDistintaCostiPerMansione($sheetRip, $tplMeta, $idQ, $logos) + 1;
             }
@@ -252,7 +291,11 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                 'anno_riferimento'  => (string)$this->anno,
             ]);
             if (!empty($logos['left'])) {
-                $this->placeHeaderImage($sheetAuto, $logos['left'], 'B' . ($autoMeta['startRow'] + 1), rowSpan: 3, targetHeightPx: 64, offsetX: 6, offsetY: 8);
+                $anchorRow = isset($autoMeta['startRow']) && (int)$autoMeta['startRow'] > 0
+                    ? (int)$autoMeta['startRow'] + 1
+                    : 2; // fallback sicuro
+
+                $this->placeHeaderImage($sheet, $logos['left'], 'B' . $anchorRow, rowSpan: 3, targetHeightPx: 64, offsetX: 6, offsetY: 8);
             }
             $this->blockRipartoAutomezzi($sheetAuto, $autoMeta, $logos);
             $this->forceHeaderText($sheetAuto, $autoMeta, $nomeAss, $this->anno);
@@ -266,7 +309,11 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                 'anno_riferimento'  => (string)$this->anno,
             ]);
             if (!empty($logos['left'])) {
-                $this->placeHeaderImage($sheetRadio, $logos['left'], 'B' . ($radioMeta['startRow'] + 1), rowSpan: 3, targetHeightPx: 64, offsetX: 6, offsetY: 8);
+                $anchorRow = isset($radioMeta['startRow']) && (int)$radioMeta['startRow'] > 0
+                    ? (int)$radioMeta['startRow'] + 1
+                    : 2; // fallback sicuro
+
+                $this->placeHeaderImage($sheet, $logos['left'], 'B' . $anchorRow, rowSpan: 3, targetHeightPx: 64, offsetX: 6, offsetY: 8);
             }
             $this->blockCostiRadio($sheetRadio, $radioMeta, $logos);
 
@@ -427,11 +474,6 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
             return;
         }
     }
-
-
-
-
-    /* ===================== BLOCCHI (ritornano SEMPRE l’ultima riga usata) ===================== */
 
     /** KM */
     private function blockKm(Worksheet $sheet, array $tpl, $automezzi, $convenzioni, array $logos): int {
@@ -4835,34 +4877,51 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
     private function placeHeaderImage(
         Worksheet $ws,
         string $imgPath,
-        string $anchorCell,     // es. "B2"
-        int $rowSpan = 2,       // quante righe “banner” vuoi riservare
-        float $targetHeightPx = 70, // altezza immagine
+        string $anchorCell,          // es. "B2" (ma gestiamo anche input sporchi)
+        int $rowSpan = 2,
+        float $targetHeightPx = 70,
         int $offsetX = 6,
         int $offsetY = 10
     ): void {
         if (!is_file($imgPath)) return;
 
-        // 1) crea una fascia alta per il logo (righe dedicate)
-        [$col, $row] = sscanf($anchorCell, "%[A-Z]%d");
-        $row = (int)$row;
-        $lastColIdx = Coordinate::columnIndexFromString($ws->getHighestColumn());
-        $lastCol    = Coordinate::stringFromColumnIndex($lastColIdx);
+        // --- Parsifica l'anchor in modo robusto ---
+        // Accetta "B2", "B", "2", "b2", "B02" ecc.
+        $anchorCell = strtoupper(trim($anchorCell));
+        $colLetters = 'B';  // default di sicurezza
+        $rowNumber  = 2;    // default di sicurezza
 
-        // mergia l’area dell’header per dare spazio anche a padding visuale
-        $ws->mergeCells("{$col}{$row}:{$lastCol}" . ($row + $rowSpan - 1));
-
-        // alza le righe della fascia banner
-        for ($r = 0; $r < $rowSpan; $r++) {
-            $ws->getRowDimension($row + $r)->setRowHeight(28); // ~28pt ciascuna ≈ ~2 righe “alte”
+        if (preg_match('/^([A-Z]+)?\s*([0-9]+)?$/', $anchorCell, $m)) {
+            if (!empty($m[1])) $colLetters = $m[1];
+            if (!empty($m[2])) $rowNumber  = (int)$m[2];
         }
 
-        // 2) inserisci il logo con offset
+        // Forza valori minimi validi
+        $rowNumber = max(1, (int)$rowNumber);
+        // Se per assurdo è arrivato qualcosa senza colonna, tieni 'B'
+        if (!preg_match('/^[A-Z]+$/', $colLetters)) {
+            $colLetters = 'B';
+        }
+
+        // --- Calcola l'ultima colonna reale (>= A) ---
+        $lastColIdx = max(1, Coordinate::columnIndexFromString($ws->getHighestColumn()));
+        $lastCol    = Coordinate::stringFromColumnIndex($lastColIdx);
+
+        // --- Calcola riga finale del banner ---
+        $endRow = $rowNumber + max(1, $rowSpan) - 1;
+
+        // --- Mergia fascia header e alza righe banner ---
+        $ws->mergeCells("{$colLetters}{$rowNumber}:{$lastCol}{$endRow}");
+        for ($r = $rowNumber; $r <= $endRow; $r++) {
+            $ws->getRowDimension($r)->setRowHeight(28); // ~28pt ciascuna
+        }
+
+        // --- Inserisci il logo con offset ---
         $drawing = new Drawing();
         $drawing->setName('HeaderLogo');
         $drawing->setPath($imgPath);
         $drawing->setHeight($targetHeightPx);
-        $drawing->setCoordinates($anchorCell);
+        $drawing->setCoordinates($colLetters . $rowNumber); // ora è sempre valido (es. "B2")
         $drawing->setOffsetX($offsetX);
         $drawing->setOffsetY($offsetY);
         $drawing->setWorksheet($ws);
