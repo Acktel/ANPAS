@@ -148,194 +148,247 @@
   </div>
 </div>
 @endsection
-
 @push('scripts')
 <script>
-  (() => {
-    const csrf = document.querySelector('meta[name="csrf-token"]').content;
-    const paramsForm = document.getElementById('paramsForm');
-    const idAssEl = document.getElementById('idAssociazione');
-    const idAnnoEl = document.getElementById('idAnno');
-    const setAssocUrl = @json($routeSetAssoc);
+(() => {
+  const csrf        = document.querySelector('meta[name="csrf-token"]').content;
+  const paramsForm  = document.getElementById('paramsForm');
+  const idAssEl     = document.getElementById('idAssociazione');
+  const idAnnoEl    = document.getElementById('idAnno');
+  const setAssocUrl = @json($routeSetAssoc);
 
-    // DataTable
-    const dt = $('#docsTable').DataTable({
-      pageLength: 25,
-      lengthMenu: [5, 10, 25, 50, 100],
-      order: [
-        [3, 'desc']
-      ], // ordina per "Generato il"
-      columnDefs: [{
-        targets: 4,
-        orderable: false
-      }],
-      language: {
-        url: '/js/i18n/Italian.json'
-      }
-    });
+  // =========================
+  // DataTable
+  // =========================
+  const dt = $('#docsTable').DataTable({
+    pageLength: 25,
+    lengthMenu: [5, 10, 25, 50, 100],
+    order: [[3, 'desc']],
+    columnDefs: [{ targets: 4, orderable: false }],
+    language: { url: '/js/i18n/Italian.json' }
+  });
 
-    // Persisti selezione (sessione -> rotta; fallback localStorage)
-    async function persistSelection() {
-      const idAss = (idAssEl?.value || '').trim();
-      if (!idAss) return;
-
-      if (setAssocUrl) {
-        try {
-          await fetch(setAssocUrl, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'X-CSRF-TOKEN': csrf
-            },
-            body: JSON.stringify({
-              idAssociazione: idAss
-            })
-          });
-        } catch (_) {}
-      } else {
-        try {
-          localStorage.setItem('doc_export_assoc', idAss);
-        } catch (_) {}
-      }
+  // =========================
+  // Persistenza & reload su change
+  // =========================
+  async function persistSelection() {
+    const idAss = (idAssEl?.value || '').trim();
+    if (!idAss) return;
+    if (setAssocUrl) {
+      try {
+        await fetch(setAssocUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf },
+          body: JSON.stringify({ idAssociazione: idAss })
+        });
+      } catch {}
+    } else {
+      try { localStorage.setItem('doc_export_assoc', idAss); } catch {}
     }
+  }
 
-    document.addEventListener('DOMContentLoaded', () => {
-      if (idAssEl && !idAssEl.value) {
-        try {
-          const saved = localStorage.getItem('doc_export_assoc');
-          if (saved) idAssEl.value = saved;
-        } catch (_) {}
+  document.addEventListener('DOMContentLoaded', () => {
+    if (idAssEl && !idAssEl.value) {
+      try {
+        const saved = localStorage.getItem('doc_export_assoc');
+        if (saved) idAssEl.value = saved;
+      } catch {}
+    }
+  });
+
+  idAssEl?.addEventListener('change', async () => {
+    const idAss = (idAssEl?.value || '').trim();
+    if (!idAss) return;
+    await persistSelection();
+    const url = new URL(window.location.href);
+    url.searchParams.set('idAssociazione', idAss);
+    const idAnno = (idAnnoEl?.value || '').trim();
+    if (idAnno) url.searchParams.set('idAnno', idAnno);
+    window.location.assign(url.toString());
+  });
+
+  // =========================
+  // Avvio job
+  // =========================
+  paramsForm?.querySelectorAll('button[data-endpoint]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const idAssociazione = (idAssEl?.value || '').trim();
+      const idAnno         = (idAnnoEl?.value || '').trim();
+      if (!idAssociazione || !idAnno) { alert('Seleziona Associazione e Anno'); return; }
+
+      await persistSelection();
+
+      let res;
+      try {
+        res = await fetch(btn.dataset.endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf, 'Accept': 'application/json' },
+          body: JSON.stringify({ idAssociazione, idAnno })
+        });
+      } catch {
+        alert('Errore di rete nell’avvio del job');
+        return;
       }
-    });
+      if (!res.ok) { alert('Errore avvio job'); return; }
 
-    idAssEl?.addEventListener('change', persistSelection);
+      const { id } = await res.json();
+      const typeLabel = btn.dataset.type || 'Documento Excel';
 
-    // Avvio job per ciascun bottone
-    paramsForm.querySelectorAll('button[data-endpoint]').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        const idAssociazione = (idAssEl?.value || '').trim();
-        const idAnno = (idAnnoEl?.value || '').trim();
-
-        if (!idAssociazione || !idAnno) {
-          alert('Seleziona Associazione e Anno');
-          return;
-        }
-
-        await persistSelection();
-
-        let res;
-        try {
-          res = await fetch(btn.dataset.endpoint, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'X-CSRF-TOKEN': csrf,
-              'Accept': 'application/json'
-            },
-            body: JSON.stringify({
-              idAssociazione,
-              idAnno
-            })
-          });
-        } catch (_) {
-          alert('Errore di rete nell’avvio del job');
-          return;
-        }
-
-        if (!res.ok) {
-          alert('Errore avvio job');
-          return;
-        }
-
-        const {
-          id
-        } = await res.json();
-        const typeLabel = btn.dataset.type || 'Documento Excel';
-
-        // Aggiungo riga “In coda”
-        const rowNode = dt.row.add([
-          id,
-          typeLabel,
-          idAnno,
-          '—',
-          `<span class="badge badge-anpas-queued">
+      const rowNode = dt.row.add([
+        id,
+        typeLabel,
+        idAnno,
+        '—',
+        `<span class="badge badge-anpas-queued">
            <i class="fas fa-hourglass-half me-1" aria-hidden="true"></i>In coda
          </span>`
-        ]).draw(false).node();
+      ]).draw(false).node();
 
-        rowNode.id = 'docrow-' + id;
-
-        // Polling stato
-        pollStatus(id);
-      });
+      rowNode.id = 'docrow-' + id;
+      pollStatus(id);
     });
+  });
 
-    const activeTimers = new Set();
+  // =========================
+  // Polling stato documenti
+  // =========================
+  const polling = new Map(); // id -> interval
 
-    function pollStatus(id) {
-      const timer = setInterval(async () => {
-        try {
-          const r = await fetch("{{ route('documenti.status','__ID__') }}".replace('__ID__', id), {
-            headers: {
-              'Accept': 'application/json'
-            },
-            signal: (pollStatus.abortControllers[id] ??= new AbortController()).signal,
-          });
-          if (!r.ok) return;
-          const j = await r.json();
+  function currentMaxId() {
+    let max = -Infinity;
+    dt.rows().every(function () {
+      const data = this.data();
+      const id = parseInt(data?.[0], 10);
+      if (!Number.isNaN(id) && id > max) max = id;
+    });
+    return max === -Infinity ? null : max;
+  }
 
-          const row = dt.row('#docrow-' + id);
-          if (!row.node()) {
-            clearInterval(timer);
-            activeTimers.delete(timer);
-            return;
-          }
+  function renderBadge(status) {
+    const s = (status || 'queued').toLowerCase();
+    const proc = s.includes('proc') || s.includes('elab');
+    const cls  = proc ? 'badge-anpas-processing' : 'badge-anpas-queued';
+    const icon = proc ? 'fa-spinner fa-spin' : 'fa-hourglass-half';
+    const lbl  = proc ? 'Elaborazione' : 'In coda';
+    return `<span class="badge ${cls}">
+              <i class="fas ${icon} me-1" aria-hidden="true"></i>${lbl}
+            </span>`;
+  }
 
-          const data = row.data();
+  function markRowIdAttributes() {
+    dt.rows().every(function () {
+      const data = this.data();
+      const id = parseInt(data?.[0], 10);
+      if (!Number.isNaN(id)) $(this.node()).attr('id', 'docrow-' + id);
+    });
+  }
 
-          if (j.status === 'ready' && j.download_url) {
-            clearInterval(timer);
-            activeTimers.delete(timer);
-            data[3] = new Date(j.generato_il).toLocaleString();
-            data[4] = `<a href="${j.download_url}" class="btn btn-sm btn-anpas-download"><i class="fas fa-download me-1"></i>Scarica</a>`;
-            row.data(data).draw(false);
-            return;
-          }
+  function stopPoll(id) {
+    const h = polling.get(id);
+    if (h) clearInterval(h);
+    polling.delete(id);
+  }
 
-          if (j.status === 'error') {
-            clearInterval(timer);
-            activeTimers.delete(timer);
-            data[3] = '—';
-            data[4] = `<span class="badge badge-anpas-error"><i class="fas fa-times-circle me-1"></i>Errore</span>`;
-            row.data(data).draw(false);
-            return;
-          }
+  function stopAllPolling() {
+    for (const h of polling.values()) clearInterval(h);
+    polling.clear();
+  }
 
-          // update badge ...
-        } catch (e) {
-            console.error('Errore nel polling stato documento ID ' + id + 'error: ', e);
-        }
-      }, 2500);
-
-      activeTimers.add(timer);
+  function maybeStopAllIfTopDone(doneId) {
+    const top = currentMaxId();
+    if (top !== null && doneId === top) {
+      stopAllPolling();
     }
-    pollStatus.abortControllers = {};
+  }
 
-    // stop tutto quando esci / nascondi
-    window.addEventListener('pagehide', () => {
-      activeTimers.forEach(t => clearInterval(t));
-      activeTimers.clear();
-      Object.values(pollStatus.abortControllers).forEach(c => c.abort());
-    });
+  async function tick(id) {
+    try {
+      const r = await fetch("{{ route('documenti.status','__ID__') }}".replace('__ID__', id), {
+        headers: { 'Accept': 'application/json' }
+      });
+      if (!r.ok) return;
 
-    document.addEventListener('visibilitychange', () => {
-      if (document.hidden) {
-        activeTimers.forEach(t => clearInterval(t));
-        activeTimers.clear();
-        Object.values(pollStatus.abortControllers).forEach(c => c.abort());
+      const j = await r.json();
+      const row = dt.row('#docrow-' + id);
+      if (!row.node()) { stopPoll(id); return; }
+
+      const data = row.data();
+
+      if (j.status === 'ready' && j.download_url) {
+        stopPoll(id);
+        data[3] = new Date(j.generato_il).toLocaleString();
+        data[4] = `<a href="${j.download_url}" class="btn btn-sm btn-anpas-download">
+                     <i class="fas fa-download me-1"></i>Scarica
+                   </a>`;
+        row.data(data).draw(false);
+        $(row.node()).attr('id', 'docrow-' + id);
+        maybeStopAllIfTopDone(id);  // <-- arresta tutto se è l’ID maggiore
+        return;
       }
-    });
 
-  })();
+      if (j.status === 'error') {
+        stopPoll(id);
+        data[3] = '—';
+        data[4] = `<span class="badge badge-anpas-error">
+                     <i class="fas fa-times-circle me-1"></i>Errore
+                   </span>`;
+        row.data(data).draw(false);
+        $(row.node()).attr('id', 'docrow-' + id);
+        maybeStopAllIfTopDone(id);  // <-- arresta tutto se è l’ID maggiore
+        return;
+      }
+
+      // queued / processing
+      data[4] = renderBadge(j.status);
+      row.data(data).draw(false);
+      $(row.node()).attr('id', 'docrow-' + id);
+    } catch {}
+  }
+
+  function pollStatus(id) {
+    if (!id || polling.has(id)) return;
+    tick(id); // check immediato
+    const handle = setInterval(() => tick(id), 2500);
+    polling.set(id, handle);
+  }
+
+  function startInitialPolling() {
+    markRowIdAttributes();
+
+    // avvia polling solo per righe non terminali
+    dt.rows().every(function () {
+      const data = this.data();
+      const id   = parseInt(data?.[0], 10);
+      if (Number.isNaN(id)) return;
+      const html = (data?.[4] || '').toString();
+      const done = /btn-anpas-download|fa-download|badge-anpas-error/.test(html);
+      if (!done) pollStatus(id);
+    });
+  }
+
+  // Mantieni id riga & riattiva polling su righe non terminali
+  dt.on('draw', function () {
+    markRowIdAttributes();
+    dt.rows({ page: 'current' }).every(function () {
+      const data = this.data();
+      const id   = parseInt(data?.[0], 10);
+      if (Number.isNaN(id)) return;
+      const html = (data?.[4] || '').toString();
+      const done = /btn-anpas-download|fa-download|badge-anpas-error/.test(html);
+      if (!done) pollStatus(id);
+    });
+  });
+
+  // Lifecycle
+  $(document).ready(startInitialPolling);
+  window.addEventListener('pagehide', stopAllPolling);
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      stopAllPolling();
+    } else {
+      startInitialPolling();
+    }
+  });
+})();
 </script>
 @endpush

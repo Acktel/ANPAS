@@ -445,6 +445,7 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
             Log::info('FORMATTAZIONE E IMPOSTAZIONI DI STAMPA completate');
 
             /**LOG AUTOSIZE STAMPA */
+/*        
             foreach ($spreadsheet->getAllSheets() as $ws) {
                 $ps = $ws->getPageSetup();
                 Log::debug('PRINTSET', [
@@ -457,7 +458,7 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                     'printArea'    => $ws->getPageSetup()->getPrintArea(),
                 ]);
             }
-
+*/
             /* ===================== SALVATAGGIO ===================== */
             $lastColL = $sheet->getHighestColumn();
             $lastRow  = $sheet->getHighestRow();
