@@ -429,7 +429,7 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                 $lastRow = $ws->getHighestRow();
                 if ($lastUsedCol >= 1 && $lastRow >= 1) {
                     $range = 'A1:' . Coordinate::stringFromColumnIndex($lastUsedCol) . $lastRow;
-                   // $ws->getStyle($range)->getNumberFormat()->setFormatCode('#,##0.00');
+                    // $ws->getStyle($range)->getNumberFormat()->setFormatCode('#,##0.00');
                 }
 
                 for ($col = 1; $col <= $lastUsedCol; $col++) {
@@ -445,7 +445,7 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
             Log::info('FORMATTAZIONE E IMPOSTAZIONI DI STAMPA completate');
 
             /**LOG AUTOSIZE STAMPA */
-/*        
+            /*        
             foreach ($spreadsheet->getAllSheets() as $ws) {
                 $ps = $ws->getPageSetup();
                 Log::debug('PRINTSET', [
@@ -4900,5 +4900,41 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                 $seen[$rng] = true;
             }
         }
+    }
+
+    private function placeHeaderImage(
+        Worksheet $ws,
+        string $imgPath,
+        string $anchorCell,     // es. "B2"
+        int $rowSpan = 2,       // quante righe “banner” vuoi riservare
+        float $targetHeightPx = 70, // altezza immagine
+        int $offsetX = 6,
+        int $offsetY = 4
+    ): void {
+        if (!is_file($imgPath)) return;
+
+        // 1) crea una fascia alta per il logo (righe dedicate)
+        [$col, $row] = sscanf($anchorCell, "%[A-Z]%d");
+        $row = (int)$row;
+        $lastColIdx = Coordinate::columnIndexFromString($ws->getHighestColumn());
+        $lastCol    = Coordinate::stringFromColumnIndex($lastColIdx);
+
+        // mergia l’area dell’header per dare spazio anche a padding visuale
+        $ws->mergeCells("{$col}{$row}:{$lastCol}" . ($row + $rowSpan - 1));
+
+        // alza le righe della fascia banner
+        for ($r = 0; $r < $rowSpan; $r++) {
+            $ws->getRowDimension($row + $r)->setRowHeight(28); // ~28pt ciascuna ≈ ~2 righe “alte”
+        }
+
+        // 2) inserisci il logo con offset
+        $drawing = new Drawing();
+        $drawing->setName('HeaderLogo');
+        $drawing->setPath($imgPath);
+        $drawing->setHeight($targetHeightPx);
+        $drawing->setCoordinates($anchorCell);
+        $drawing->setOffsetX($offsetX);
+        $drawing->setOffsetY($offsetY);
+        $drawing->setWorksheet($ws);
     }
 }
