@@ -72,7 +72,7 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
         return [(new WithoutOverlapping($key))->expireAfter(300)->releaseAfter(15)];
     }
 
-    /* ===================== HANDLE ===================== */    
+    /* ===================== HANDLE ===================== */
     public function handle(): void {
         $this->setupSpreadsheetCaching();
         Log::info('SchedeRipartoCosti V3: START', [
@@ -111,9 +111,9 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                 'nome_associazione' => $nomeAss,
                 'anno_riferimento'  => (string)$this->anno,
             ]);
-                                                if (!empty($logos['left'])) {
-    $this->placeHeaderImage($sheet, $logos['left'], 'B' . ($kmMeta['startRow'] + 1), rowSpan: 3, targetHeightPx: 64, offsetX: 6, offsetY: 8);
-}
+            if (!empty($logos['left'])) {
+                $this->placeHeaderImage($sheet, $logos['left'], 'B' . ($kmMeta['startRow'] + 1), rowSpan: 3, targetHeightPx: 64, offsetX: 6, offsetY: 8);
+            }
             $endKm = $this->blockKm($sheet, $kmMeta, $automezzi, $convenzioni, $logos);
 
             /* ===================== BLOCCO 2: SERVIZI ===================== */
@@ -122,9 +122,9 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                 'nome_associazione' => $nomeAss,
                 'anno_riferimento'  => (string)$this->anno,
             ]);
-                                    if (!empty($logos['left'])) {
-    $this->placeHeaderImage($sheet, $logos['left'], 'B' . ($srvMeta['startRow'] + 1), rowSpan: 3, targetHeightPx: 64, offsetX: 6, offsetY: 8);
-}
+            if (!empty($logos['left'])) {
+                $this->placeHeaderImage($sheet, $logos['left'], 'B' . ($srvMeta['startRow'] + 1), rowSpan: 3, targetHeightPx: 64, offsetX: 6, offsetY: 8);
+            }
             $endSrv = $this->blockServizi($sheet, $srvMeta, $automezzi, $convenzioni, $logos);
 
             /* ===================== BLOCCO 3: RICAVI ===================== */
@@ -133,9 +133,9 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                 'nome_associazione' => $nomeAss,
                 'anno_riferimento'  => (string)$this->anno,
             ]);
-                        if (!empty($logos['left'])) {
-    $this->placeHeaderImage($sheet, $logos['left'], 'B' . ($ricMeta['startRow'] + 1), rowSpan: 3, targetHeightPx: 64, offsetX: 6, offsetY: 8);
-}
+            if (!empty($logos['left'])) {
+                $this->placeHeaderImage($sheet, $logos['left'], 'B' . ($ricMeta['startRow'] + 1), rowSpan: 3, targetHeightPx: 64, offsetX: 6, offsetY: 8);
+            }
             [$endRic, $ricaviMap] = $this->blockRicavi($sheet, $ricMeta, $convenzioni, $logos);
 
             /* ===================== BLOCCO 4: PERSONALE AUTISTI/BARELLIERI ===================== */
@@ -144,12 +144,9 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                 'nome_associazione' => $nomeAss,
                 'anno_riferimento'  => (string)$this->anno,
             ]);
-
             if (!empty($logos['left'])) {
-                // àncora “B2” del foglio corrente, 3 righe di fascia, altezza ~64px, un po’ di offset
                 $this->placeHeaderImage($sheet, $logos['left'], 'B' . ($abMeta['startRow'] + 1), rowSpan: 3, targetHeightPx: 64, offsetX: 6, offsetY: 8);
             }
-
             $endAB = $this->blockAutistiBarellieri($sheet, $abMeta, $convenzioni, $logos);
 
             /* ===================== BLOCCO 5: VOLONTARI ===================== */
@@ -159,8 +156,8 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                 'anno_riferimento'  => (string)$this->anno,
             ]);
             if (!empty($logos['left'])) {
-    $this->placeHeaderImage($sheet, $logos['left'], 'B' . ($volMeta['startRow'] + 1), rowSpan: 3, targetHeightPx: 64, offsetX: 6, offsetY: 8);
-}
+                $this->placeHeaderImage($sheet, $logos['left'], 'B' . ($volMeta['startRow'] + 1), rowSpan: 3, targetHeightPx: 64, offsetX: 6, offsetY: 8);
+            }
             $endVol = $this->blockVolontari($sheet, $volMeta, $convenzioni, $ricaviMap, $logos);
 
             /* ===================== BLOCCO 6: SERVIZIO CIVILE ===================== */
@@ -169,9 +166,9 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                 'nome_associazione' => $nomeAss,
                 'anno_riferimento'  => (string)$this->anno,
             ]);
-                        if (!empty($logos['left'])) {
-    $this->placeHeaderImage($sheet, $logos['left'], 'B' . ($scMeta['startRow'] + 1), rowSpan: 3, targetHeightPx: 64, offsetX: 6, offsetY: 8);
-}
+            if (!empty($logos['left'])) {
+                $this->placeHeaderImage($sheet, $logos['left'], 'B' . ($scMeta['startRow'] + 1), rowSpan: 3, targetHeightPx: 64, offsetX: 6, offsetY: 8);
+            }
             $endSC = $this->blockServizioCivile($sheet, $scMeta, $convenzioni, $logos);
 
             /* ===================== BLOCCO 7: DISTINTA SERVIZI ===================== */
@@ -180,9 +177,10 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                 'nome_associazione' => $nomeAss,
                 'anno_riferimento'  => (string)$this->anno,
             ]);
-                                    if (!empty($logos['left'])) {
-    $this->placeHeaderImage($sheet, $logos['left'], 'B' . ($scMeta['startRow'] + 1), rowSpan: 3, targetHeightPx: 64, offsetX: 6, offsetY: 8);
-}
+            if (!empty($logos['left'])) {
+                // **fix refuso**: qui devi usare $msMeta, non $scMeta
+                $this->placeHeaderImage($sheet, $logos['left'], 'B' . ($msMeta['startRow'] + 1), rowSpan: 3, targetHeightPx: 64, offsetX: 6, offsetY: 8);
+            }
             $endMS = $this->blockDistintaServizi($sheet, $msMeta, $automezzi, $convenzioni, $logos);
 
             /* ============ BLOCCO 8: ROTAZIONE MEZZI (se serve) ============ */
@@ -196,6 +194,9 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
             if ($regimeRotazione) {
                 try {
                     $kmRotazioneMeta = $this->appendTemplate($sheet, $disk->path('documenti/template_excel/RotazioneMezzi.xlsx'), $endMS + 2);
+                    if (!empty($logos['left'])) {
+                        $this->placeHeaderImage($sheet, $logos['left'], 'B' . ($kmRotazioneMeta['startRow'] + 1), rowSpan: 3, targetHeightPx: 64, offsetX: 6, offsetY: 8);
+                    }
                     $convRotazione = RotazioneMezzi::getConvRotazione($this->idAssociazione, $this->anno);
                     $this->BlockRotazioneMezzi($sheet, $kmRotazioneMeta, $automezzi, $convRotazione);
                     Log::info('Rotazione mezzi completata');
@@ -212,6 +213,9 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                 'nome_associazione' => $nomeAss,
                 'anno_riferimento'  => (string)$this->anno,
             ]);
+            if (!empty($logos['left'])) {
+                $this->placeHeaderImage($sheetRip, $logos['left'], 'B' . ($ripMeta['startRow'] + 1), rowSpan: 3, targetHeightPx: 64, offsetX: 6, offsetY: 8);
+            }
             $this->blockRipartoCostiDipendentiAB($sheetRip, $ripMeta, $convenzioni, $logos);
             $this->forceHeaderText($sheetRip, $ripMeta, $nomeAss, $this->anno);
 
@@ -233,6 +237,9 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                     'nome_associazione' => $nomeAss,
                     'anno_riferimento'  => (string)$this->anno,
                 ]);
+                if (!empty($logos['left'])) {
+                    $this->placeHeaderImage($sheetRip, $logos['left'], 'B' . ($tplMeta['startRow'] + 1), rowSpan: 3, targetHeightPx: 64, offsetX: 6, offsetY: 8);
+                }
                 $rowCursor = $this->blockDistintaCostiPerMansione($sheetRip, $tplMeta, $idQ, $logos) + 1;
             }
 
@@ -244,6 +251,9 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                 'nome_associazione' => $nomeAss,
                 'anno_riferimento'  => (string)$this->anno,
             ]);
+            if (!empty($logos['left'])) {
+                $this->placeHeaderImage($sheetAuto, $logos['left'], 'B' . ($autoMeta['startRow'] + 1), rowSpan: 3, targetHeightPx: 64, offsetX: 6, offsetY: 8);
+            }
             $this->blockRipartoAutomezzi($sheetAuto, $autoMeta, $logos);
             $this->forceHeaderText($sheetAuto, $autoMeta, $nomeAss, $this->anno);
 
@@ -255,6 +265,9 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                 'nome_associazione' => $nomeAss,
                 'anno_riferimento'  => (string)$this->anno,
             ]);
+            if (!empty($logos['left'])) {
+                $this->placeHeaderImage($sheetRadio, $logos['left'], 'B' . ($radioMeta['startRow'] + 1), rowSpan: 3, targetHeightPx: 64, offsetX: 6, offsetY: 8);
+            }
             $this->blockCostiRadio($sheetRadio, $radioMeta, $logos);
 
             /* ===================== ALTRI FOGLI ===================== */
@@ -337,6 +350,10 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                                 'convenzione'       => (string)$conv->Convenzione,
                             ]);
 
+                            if (!empty($logos['left'])) {
+                                $this->placeHeaderImage($ws, $logos['left'], 'B2', rowSpan: 3, targetHeightPx: 64, offsetX: 6, offsetY: 8);
+                            }
+
                             $this->fillTabellaRiepilogoDatiSequential($ws, (int)$this->idAssociazione, (int)$this->anno, (int)$conv->idConvenzione);
                             $this->fillRiepilogoCostiSottoPrimaTabella($ws, (int)$this->idAssociazione, (int)$this->anno, (int)$conv->idConvenzione);
                         } catch (Throwable $e) {
@@ -364,7 +381,7 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                     $ws->getColumnDimension(Coordinate::stringFromColumnIndex($col))->setAutoSize(true);
                 }
 
-                // 3) Compatta SOLO il corpo (da riga 2 in giù: gli header restano belli alti)
+                // 3) Compatta SOLO il corpo (da riga 2 in giù: gli header restano “alti”)
                 PrintConfigurator::compactBodyOnly($ws, bodyStartRow: 2, defaultRowHeightPt: 14.0);
 
                 // 4) Stampa A4 landscape, centrata H/V, scala >= 50%, print-area reale
@@ -410,6 +427,9 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
             return;
         }
     }
+
+
+
 
     /* ===================== BLOCCHI (ritornano SEMPRE l’ultima riga usata) ===================== */
 
