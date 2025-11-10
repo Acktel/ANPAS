@@ -312,8 +312,9 @@
           }
 
           // update badge ...
-        } catch (_) {
-          /* ignora */ }
+        } catch (e) {
+            console.error('Errore nel polling stato documento ID ' + id + 'error: ', e);
+        }
       }, 2500);
 
       activeTimers.add(timer);
