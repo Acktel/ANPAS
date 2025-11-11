@@ -348,13 +348,6 @@ class PrintConfigurator {
         }
     }
 
-    private function compactColumnsWidth(Worksheet $ws, int $fromCol = 1, ?int $toCol = null): void {
-        $to = $toCol ?: Coordinate::columnIndexFromString($ws->getHighestDataColumn());
-        for ($c = $fromCol; $c <= $to; $c++) {
-            $ws->getColumnDimensionByColumn($c)->setAutoSize(true);
-        }
-    }
-
     public static function configureScrolling(Worksheet $ws, ?string $freezeCell = null): void {
         // Se specifichi la cella, blocca da lì in giù; altrimenti rimuove il blocco
         if ($freezeCell) {
@@ -364,5 +357,55 @@ class PrintConfigurator {
         }
 
         $ws->setShowGridlines(false);
+    }
+
+    /**
+     * Impone un font minimo leggibile su tutto il foglio (header, voci, corpo).
+     * - Default: 10 pt
+     * - Non tocca i fogli vuoti o i numeri (solo testo).
+     */
+    public static function enforceMinimumFontSize(
+        Worksheet $ws,
+        float $minFontSizePt = 10.0,
+        bool $includeNumbers = false
+    ): void {
+        $lastRow = $ws->getHighestDataRow();
+        $lastCol = Coordinate::columnIndexFromString($ws->getHighestDataColumn());
+        if ($lastRow < 1 || $lastCol < 1) return;
+
+        // Range totale
+        $range = 'A1:' . Coordinate::stringFromColumnIndex($lastCol) . $lastRow;
+        $style = $ws->getStyle($range);
+        $font  = $style->getFont();
+
+        // Se il font esistente è più piccolo → porta al minimo
+        if ($font->getSize() < $minFontSizePt) {
+            $font->setSize($minFontSizePt);
+        }
+
+        // Forza anche nero per leggibilità (evita font tema grigio)
+        $font->getColor()->setARGB('FF000000');
+
+        // Eventuale logica opzionale: salta numeri puri
+        if (!$includeNumbers) {
+            for ($r = 1; $r <= $lastRow; $r++) {
+                for ($c = 1; $c <= $lastCol; $c++) {
+                    $cell = $ws->getCellByColumnAndRow($c, $r);
+                    if (!$cell) continue;
+                    $v = trim((string)$cell->getValue());
+                    if ($v === '' || is_numeric(str_replace(',', '.', $v))) continue;
+                    $ws->getStyleByColumnAndRow($c, $r)->getFont()->setSize(max($minFontSizePt, 10));
+                }
+            }
+        }
+    }
+
+    public static function enforceMinimumFontSizeForWorkbook(
+        Spreadsheet $wb,
+        float $minFontSizePt = 10.0
+    ): void {
+        foreach ($wb->getAllSheets() as $ws) {
+            self::enforceMinimumFontSize($ws, $minFontSizePt);
+        }
     }
 }

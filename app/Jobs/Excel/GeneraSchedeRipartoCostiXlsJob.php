@@ -78,16 +78,28 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
         return [(new WithoutOverlapping($key))->expireAfter(300)->releaseAfter(15)];
     }
 
-    private array $logos = [
-        'left'  => null,
-        'right' => null,
-    ];
-    private function setLogos(): void {
-        $l = storage_path('app/public/loghi/anpas_left.png');
-        $r = storage_path('app/public/loghi/anpas_right.png');
-        $this->logos['left']  = is_file($l) ? $l : null;
-        $this->logos['right'] = is_file($r) ? $r : null;
+    private function setLogos(): void
+    {
+        $pick = function (array $candidates): ?string {
+            foreach ($candidates as $p) {
+                if ($p && is_file($p)) return $p;
+            }
+            return null;
+        };
+
+        $this->logos['left'] = $pick([
+            public_path('storage/documenti/template_excel/logo_left.png')
+        ]);
+
+        $this->logos['right'] = $pick([
+            public_path('storage/documenti/template_excel/logo_right.png')
+        ]);
+
+        if (!$this->logos['left'] || !$this->logos['right']) {
+            Log::warning('Loghi non trovati', $this->logos);
+        }
     }
+
 
     private function reinsertTemplateLogos(Worksheet $ws, array $tpl): void {
         $this->placeLogoAtRow($ws, $tpl, $this->logos['left'],  $tpl['startRow'] + 1, 2, 84, 18, 34, 1, 28);
@@ -318,7 +330,7 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                         // Crea il foglio subito all’indice calcolato
                         $ws = new Worksheet($spreadsheet, $title);
                         $spreadsheet->addSheet($ws, $insertAt++);
-                        
+
                         // Applica template
                         $this->appendTemplate($ws, $tplConvenzionePath, 1);
 
@@ -375,6 +387,9 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                 }
             }
 
+            //FORZA FONT MINIMO
+            PrintConfigurator::enforceMinimumFontSizeForWorkbook($spreadsheet, 10);
+
             /* ======================================================
          * SALVATAGGIO
          * ====================================================== */
@@ -415,16 +430,9 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
         }
     }
 
-
-
-
-
-
-
-
     /* ======================================================
- * Utility per blocchi extra con logging unificato
- * ====================================================== */
+    * Utility per blocchi extra con logging unificato
+    * ====================================================== */
     private function safeCall(string $label, callable $fn): void {
         try {
             $fn();
@@ -1854,8 +1862,6 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
         return max($totRowNew, $tpl['endRow'] + $off);
     }
 
-
-
     /* ===================== UTILS PER BLOCCHI ===================== */
     private function detectKmHeaderAndCols(Worksheet $sheet, array $tpl): array {
         $headerRow = $this->findHeaderRowKm($sheet, $tpl['startRow'], $tpl['endRow']);
@@ -2224,38 +2230,51 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
         return null;
     }
 
-
     private function insertLogosAtRow(Worksheet $sheet, array $images, int $row, ?int $rightColIdx = null): void {
-        // SX
-        if (!empty($images['left']) && file_exists($images['left'])) {
+        $row = max(1, $row);
+
+        // Normalizza path (devono essere assoluti)
+        $leftPath  = isset($images['left'])  ? (string)$images['left']  : '';
+        $rightPath = isset($images['right']) ? (string)$images['right'] : '';
+
+        // LOGO SX
+        if ($leftPath !== '' && is_file($leftPath)) {
             $d = new Drawing();
             $d->setName('Logo Left');
-            $d->setPath($images['left']);
-            $d->setHeight(60);
-            $d->setCoordinates('B' . $row);
+            $d->setPath($leftPath);
+            $d->setResizeProportional(true);
+            $d->setHeight(60);                // ~45pt
+            $d->setCoordinates('B' . $row);   // ancoraggio
             $d->setOffsetX(5);
             $d->setOffsetY(5);
             $d->setWorksheet($sheet);
         }
-        // DX
-        if (!empty($images['right']) && file_exists($images['right'])) {
-            if (!$rightColIdx) {
-                $maxColIdx = Coordinate::columnIndexFromString($sheet->getHighestColumn());
-                $rightColIdx = max(12, $maxColIdx - 4);
-            }
-            $rightColL = Coordinate::stringFromColumnIndex($rightColIdx);
 
-            $d = new Drawing();
-            $d->setName('Logo Right');
-            $d->setPath($images['right']);
-            $d->setHeight(60);
-            $d->setCoordinates($rightColL . $row);
-            $d->setOffsetX(5);
-            $d->setOffsetY(offsetY: 5);
-            $d->setWorksheet($sheet);
+        // LOGO DX
+        if ($rightPath !== '' && is_file($rightPath)) {
+            // Se non specificato, usa l’ultima colonna dati
+            if (!$rightColIdx) {
+                $maxColIdx   = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::columnIndexFromString($sheet->getHighestDataColumn() ?: 'A');
+                // mettilo nell’ultima colonna utile (almeno J per sicurezza)
+                $rightColIdx = max(10, $maxColIdx);
+            }
+            $rightColL = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($rightColIdx);
+
+            $d2 = new Drawing();
+            $d2->setName('Logo Right');
+            $d2->setPath($rightPath);
+            $d2->setResizeProportional(true);
+            $d2->setHeight(60);
+            $d2->setCoordinates($rightColL . $row);
+            $d2->setOffsetX(5);
+            $d2->setOffsetY(5);
+            $d2->setWorksheet($sheet);
         }
+
+        // Alza la riga per ospitare i loghi (pt, non px)
         $sheet->getRowDimension($row)->setRowHeight(48);
     }
+
 
     /**
      * Trova la prima cella che contiene esattamente $label (case insensitive)
@@ -2790,7 +2809,7 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
      * Nome foglio: "TARGA - CODICE"
      * I dati sono quelli di RipartizioneCostiService::calcolaRipartizioneTabellaFinale()
      * filtrati per idAutomezzo.
-     */  
+     */
     private function creaFoglioCostiPerAutomezzo(
         Spreadsheet $wb,
         string $templatePath,
