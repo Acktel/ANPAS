@@ -267,19 +267,6 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                 $this->addDistintaImputazioneCostiSheet($spreadsheet, $this->idAssociazione, $this->anno)
             );
 
-            // Riepilogo Dati + Costi per Convenzione
-            $this->safeCall(
-                'Riepilogo Dati + Costi per Convenzione',
-                fn() =>
-                $this->creaFogliRiepilogoDatiPerConvenzione(
-                    $spreadsheet,
-                    $disk->path('documenti/template_excel/RiepilogoDati.xlsx'),
-                    $this->idAssociazione,
-                    $this->anno,
-                    'DISTINTA IMPUTAZIONE COSTI'
-                )
-            );
-
             // Fogli singoli automezzo
             $this->safeCall('Fogli per singolo automezzo', function () use ($spreadsheet, $disk, $nomeAss) {
                 $tplAutoPath = $disk->path('documenti/template_excel/Costi_AUTO1.xlsx');
@@ -299,6 +286,77 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                     );
                 }
             });
+
+            // Fogli per convenzione (TAB.1 + TAB.2)
+            $this->safeCall('Fogli per convenzione (Tabella 1 + 2)', function () use ($spreadsheet, $nomeAss) {
+                $tplConvenzionePath = public_path('storage/documenti/template_excel/RiepilogoDati.xlsx');
+
+                if (!is_file($tplConvenzionePath)) {
+                    Log::warning('Template RiepilogoDati.xlsx non trovato', ['path' => $tplConvenzionePath]);
+                    return;
+                }
+
+                // Punto di inserimento (subito dopo l’anchor, altrimenti in coda)
+                $anchorTitle = 'DISTINTA IMPUTAZIONE COSTI';
+                $anchor   = $spreadsheet->getSheetByName($anchorTitle);
+                $insertAt = $anchor ? ($spreadsheet->getIndex($anchor) + 1) : $spreadsheet->getSheetCount();
+
+                // Convenzioni ordinate
+                $convenzioni = DB::table('convenzioni')
+                    ->select('idConvenzione', 'Convenzione')
+                    ->where('idAssociazione', $this->idAssociazione)
+                    ->where('idAnno', $this->anno)
+                    ->orderBy('ordinamento')
+                    ->orderBy('idConvenzione')
+                    ->get();
+
+                foreach ($convenzioni as $conv) {
+                    try {
+                        // Titolo foglio unico (max 31 char)
+                        $title = $this->uniqueSheetTitle($spreadsheet, (string) $conv->Convenzione);
+
+                        // Crea il foglio subito all’indice calcolato
+                        $ws = new Worksheet($spreadsheet, $title);
+                        $spreadsheet->addSheet($ws, $insertAt++);
+                        
+                        // Applica template
+                        $this->appendTemplate($ws, $tplConvenzionePath, 1);
+
+                        // Placeholder header
+                        $this->replacePlaceholdersEverywhere($ws, [
+                            'nome_associazione' => $nomeAss,
+                            'ASSOCIAZIONE'      => $nomeAss,
+                            'anno_riferimento'  => (string) $this->anno,
+                            'ANNO'              => (string) $this->anno,
+                            'nome_convenzione'  => (string) $conv->Convenzione,
+                            'convenzione'       => (string) $conv->Convenzione,
+                        ]);
+
+                        // TAB.1: Voce / Preventivo / Consuntivo (sequenziale)
+                        $this->fillTabellaRiepilogoDatiSequential(
+                            $ws,
+                            (int) $this->idAssociazione,
+                            (int) $this->anno,
+                            (int) $conv->idConvenzione
+                        );
+
+                        // TAB.2: RIEPILOGO COSTI (sezioni 2..11) sotto la prima tabella
+                        $this->fillRiepilogoCostiSottoPrimaTabella(
+                            $ws,
+                            (int) $this->idAssociazione,
+                            (int) $this->anno,
+                            (int) $conv->idConvenzione
+                        );
+                    } catch (Throwable $e) {
+                        Log::warning('Foglio convenzione (Tabella 1+2) saltato', [
+                            'conv' => (string) $conv->Convenzione,
+                            'err'  => $e->getMessage(),
+                        ]);
+                        continue;
+                    }
+                }
+            });
+
 
             /* ======================================================
          * FORMATTAZIONE GENERALE E STAMPA
@@ -2732,7 +2790,7 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
      * Nome foglio: "TARGA - CODICE"
      * I dati sono quelli di RipartizioneCostiService::calcolaRipartizioneTabellaFinale()
      * filtrati per idAutomezzo.
-     */
+     */  
     private function creaFoglioCostiPerAutomezzo(
         Spreadsheet $wb,
         string $templatePath,
@@ -2783,17 +2841,16 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
         //    (intestazione contiene "TOTALE COSTI DA RIPARTIRE", ultima colonna = "TOTALE")
         [$hdrRow, $colVoce, $colTotRip, $colFirstConv, $colTotCol] = $this->locateHeaderAutoDetail($s);
 
-        // === NUOVO: scrivi in colonna A dell'header "TARGA - CODICE" ===
+        // === Etichetta in testa: "TARGA - CODICE" in colonna Voce dell’header
         $labelAuto = trim(sprintf('%s - %s', (string)$auto->Targa, (string)$auto->CodiceIdentificativo));
         $s->setCellValueByColumnAndRow($colVoce, $hdrRow, $labelAuto);
 
-        // 5) Scrivi i nomi delle convenzioni in header
+        // 5) Header convenzioni
         $c = $colFirstConv;
         foreach ($convNames as $name) {
             $s->setCellValueByColumnAndRow($c, $hdrRow, $name);
             $c++;
         }
-        // ultima colonna header = TOTALE
         $s->setCellValueByColumnAndRow($colTotCol, $hdrRow, 'TOTALE');
 
         // 6) Righe dati
@@ -2808,7 +2865,7 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
 
             // voce
             $s->setCellValueByColumnAndRow($colVoce,   $r, (string)$row['voce']);
-            // totale costi da ripartire (colonna accanto alla voce)
+            // totale costi da ripartire
             $s->setCellValueByColumnAndRow($colTotRip, $r, (float)$row['totale']);
 
             // importi per convenzione
@@ -2819,10 +2876,10 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                 $c++;
             }
 
-            // colonna TOTALE a destra (qui mantengo il totale riga come valore)
+            // totale riga a destra
             $s->setCellValueByColumnAndRow($colTotCol, $r, (float)$row['totale']);
 
-            // copia stile riga dal template (prima riga dati)
+            // stile riga
             $this->copyRowStyle($s, $startDataRow, $r);
 
             $lastDataRow = $r;
@@ -2863,6 +2920,18 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
         for ($cc = $colFirstConv; $cc <= $colTotCol; $cc++) {
             $this->formatAsCurrency($s, $startDataRow, $rowTot, $cc);
         }
+
+        // 9) **Bordo spesso + grassetto** su TUTTA la riga "TOTALI"
+        $fromColLetter = $this->col($colVoce);
+        $toColLetter   = $this->col($colTotCol);
+        $rowRange      = "{$fromColLetter}{$rowTot}:{$toColLetter}{$rowTot}";
+
+        $s->getStyle($rowRange)->getFont()->setBold(true);
+        $s->getStyle($rowRange)->applyFromArray([
+            'borders' => [
+                'allBorders' => ['borderStyle' => Border::BORDER_THICK],
+            ],
+        ]);
     }
 
     protected function addDistintaImputazioneCostiSheet(Spreadsheet $spreadsheet, int $idAssociazione, int $anno): void {
@@ -3171,105 +3240,6 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
             Coordinate::stringFromColumnIndex($col) . $r2;
         $s->getStyle($range)->getNumberFormat()->setFormatCode('0.00%');
     }
-
-
-    /**
-     * Crea un foglio per OGNI convenzione usando il template passato
-     * e compila SOLTANTO la Tabella 1 (Voce / Preventivo / Consuntivo).
-     * I fogli vengono inseriti subito dopo il foglio anchor (default: "DISTINTA IMPUTAZIONE COSTI").
-     */
-    private function creaFogliPerConvenzioni(
-        Spreadsheet $spreadsheet,
-        string $tplConvenzionePath,
-        string $nomeAssociazione,
-        int $idAssociazione,
-        int $anno,
-        string $anchorTitle = 'DISTINTA IMPUTAZIONE COSTI'
-    ): void {
-        if (!is_file($tplConvenzionePath)) {
-            Log::warning('creaFogliPerConvenzioni: template non trovato', ['path' => $tplConvenzionePath]);
-            return;
-        }
-
-        // Carica UNA sola volta il template
-        $tplWb = IOFactory::load($tplConvenzionePath);
-        if ($tplWb->getSheetCount() < 1) {
-            Log::warning('creaFogliPerConvenzioni: template senza fogli', ['path' => $tplConvenzionePath]);
-            return;
-        }
-        $tplSheet = $tplWb->getSheet(0);
-
-        // Punto di inserimento: subito dopo l’anchor (se esiste), altrimenti in coda
-        $anchorSheet = $spreadsheet->getSheetByName($anchorTitle);
-        $insertAt = $anchorSheet
-            ? ($spreadsheet->getIndex($anchorSheet) + 1)
-            : $spreadsheet->getSheetCount();
-
-        // Convenzioni ordinate
-        $convenzioni = DB::table('convenzioni')
-            ->select('idConvenzione', 'Convenzione')
-            ->where('idAssociazione', $idAssociazione)
-            ->where('idAnno', $anno)
-            ->orderBy('ordinamento')
-            ->orderBy('idConvenzione')
-            ->get();
-
-        foreach ($convenzioni as $conv) {
-            try {
-                // Copia "esterna" del foglio template
-                // NB: addExternalSheet è la via giusta quando la sorgente ha un parent diverso
-                $newSheet = $tplSheet->copy();
-
-                // Titolo foglio valido e univoco
-                $baseTitle = $this->sanitizeSheetTitle((string)$conv->Convenzione);
-                $title     = $this->uniqueSheetTitle($spreadsheet, mb_substr($baseTitle, 0, 31, 'UTF-8'));
-                $newSheet->setTitle($title !== '' ? $title : 'CONVENZIONE');
-
-                // Clamp sicuro dell’indice (0..count)
-                $count = $spreadsheet->getSheetCount();
-                if ($insertAt < 0)      $insertAt = 0;
-                if ($insertAt > $count) $insertAt = $count;
-
-                // Inserisci come foglio **esterno**
-                $spreadsheet->addExternalSheet($newSheet, $insertAt);
-                $insertAt++; // la prossima convenzione subito dopo
-
-                // Placeholder header
-                $this->replacePlaceholdersEverywhere($newSheet, [
-                    'nome_associazione' => $nomeAssociazione,
-                    'anno_riferimento'  => (string)$anno,
-                    'nome_convenzione'  => (string)$conv->Convenzione,
-                    'convenzione'       => (string)$conv->Convenzione,
-                ]);
-
-                // Compila SOLO la Tabella 1 (si auto-localizza nell’header PREV/CONS)
-                $this->writeTabellaTipologia1(
-                    $newSheet,
-                    $idAssociazione,
-                    $anno,
-                    (int)$conv->idConvenzione
-                );
-
-                // Piccola rifinitura: seleziona A1 per evitare selezioni strane
-                $newSheet->setSelectedCell('A1');
-            } catch (\Throwable $e) {
-                Log::warning('Fogli per convenzione (Tabella 1): errore non bloccante', [
-                    'idConvenzione' => (int)$conv->idConvenzione,
-                    'conv'          => (string)$conv->Convenzione,
-                    'msg'           => $e->getMessage(),
-                    'file'          => $e->getFile(),
-                    'line'          => $e->getLine(),
-                    'insertAt'      => $insertAt,
-                    'sheetCount'    => $spreadsheet->getSheetCount(),
-                ]);
-                // continua con la prossima convenzione
-            }
-        }
-
-        // Libera il workbook del template
-        $tplWb->disconnectWorksheets();
-    }
-
 
     /** Pulisce un titolo di foglio da caratteri vietati e spazi doppi */
     private function sanitizeSheetTitle(string $t): string {
@@ -3724,11 +3694,6 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
         }
     }
 
-
-    /**
-     * Inserisce la tabella "RIEPILOGO COSTI" immediatamente sotto la prima tabella
-     * e la compila per tutte le sezioni 2..11 (Automezzi..Altri costi).
-     */
     /**
      * Inserisce la tabella "RIEPILOGO COSTI" immediatamente sotto la prima tabella
      * e la compila per tutte le sezioni 2..11 (Automezzi..Altri costi).
@@ -3749,28 +3714,22 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
         $startRow += 2;
 
         // Header
-        $ws->setCellValue("A{$startRow}", 'Voce');
-        $ws->setCellValue("B{$startRow}", 'PREVENTIVO');
-        $ws->setCellValue("C{$startRow}", 'CONSUNTIVO');
-        $ws->setCellValue("D{$startRow}", 'SCOSTAMENTO');
+        $ws->fromArray(['Voce', 'PREVENTIVO', 'CONSUNTIVO', 'SCOSTAMENTO'], null, "A{$startRow}");
         $ws->getStyle("A{$startRow}:D{$startRow}")->getFont()->setBold(true);
         $ws->getStyle("A{$startRow}:D{$startRow}")
             ->getBorders()->getBottom()->setBorderStyle(Border::BORDER_MEDIUM);
 
-        // <<< AGGIUNGI QUESTO BLOCCO
+        // Colonne leggibili
         foreach (['A', 'B', 'C', 'D'] as $col) {
             $dim = $ws->getColumnDimension($col);
             $dim->setVisible(true);
-            // se la larghezza è 0 / non definita, metti una larghezza minima decente
             if (($dim->getWidth() ?? 0) <= 0) {
                 $dim->setAutoSize(false);
-                $dim->setWidth(12); // qualsiasi valore >= 10 va bene
+                $dim->setWidth(12);
             }
         }
-        // >>>
 
         $startRow++;
-
         $firstDataRow = $startRow;
 
         // Sezioni 2..11
@@ -3788,7 +3747,6 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
         ];
 
         foreach (range(2, 11) as $tipologia) {
-            // Intestazione sezione
             $ws->setCellValue("A{$startRow}", $mapSezioni[$tipologia] ?? "Sezione {$tipologia}");
             $ws->mergeCells("A{$startRow}:D{$startRow}");
             $ws->getStyle("A{$startRow}:D{$startRow}")->getFont()->setBold(true);
@@ -3797,43 +3755,44 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                 ->getStartColor()->setARGB('FFEFEFEF');
             $startRow++;
 
-            // Righe della sezione (stessa logica della view)
             $rows = RiepilogoCosti::getByTipologia($tipologia, $anno, $idAssociazione, $idConvenzione);
 
             foreach ($rows as $r) {
                 $descr = (string) ($r->descrizione ?? '');
-                $prev  = (float)  ($r->preventivo  ?? 0);
-                $cons  = (float)  ($r->consuntivo  ?? 0);
+                $prev  = is_numeric($r->preventivo) ? (float)$r->preventivo : 0.0;
+                $cons  = is_numeric($r->consuntivo) ? (float)$r->consuntivo : 0.0;
 
                 $ws->setCellValue("A{$startRow}", $descr);
                 $ws->setCellValueExplicit("B{$startRow}", $prev, DataType::TYPE_NUMERIC);
                 $ws->setCellValueExplicit("C{$startRow}", $cons, DataType::TYPE_NUMERIC);
 
-                // SCOSTAMENTO calcolato in Excel: =SE(Bn=0;0;(Cn-Bn)/Bn)
-                $ws->setCellValue("D{$startRow}", "=IF(B{$startRow}=0,0,(C{$startRow}-B{$startRow})/B{$startRow})");
+                // Formula scostamento
+                $formula = "=IF(B{$startRow}=0,0,(C{$startRow}-B{$startRow})/B{$startRow})";
+                $ws->setCellValue("D{$startRow}", $formula);
+
+                // Formati numerici appena scritti
+                $ws->getStyle("B{$startRow}:C{$startRow}")
+                    ->getNumberFormat()->setFormatCode('#,##0.00');
+                $ws->getStyle("D{$startRow}")
+                    ->getNumberFormat()->setFormatCode(NumberFormat::FORMAT_PERCENTAGE_00);
 
                 $startRow++;
             }
 
-            // Riga vuota tra sezioni
-            $startRow++;
+            $startRow++; // Riga vuota tra sezioni
         }
 
         $lastDataRow = $startRow - 1;
 
-        // Formati: € su B:C, % su D
-        $ws->getStyle("B{$firstDataRow}:C{$lastDataRow}")
-            ->getNumberFormat()->setFormatCode('#,##0.00');
-        $ws->getStyle("D{$firstDataRow}:D{$lastDataRow}")
-            ->getNumberFormat()->setFormatCode(NumberFormat::FORMAT_PERCENTAGE_00);
-
-        // Allineamento numeri a destra (facoltativo ma consigliato)
+        // Allineamento numeri a destra
         $ws->getStyle("B{$firstDataRow}:D{$lastDataRow}")
             ->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
 
-        // Bordatura tabellare (include header sezione)
+        // Bordatura generale
         $this->applyGridWithOuterBorder($ws, "A" . ($firstDataRow - 2) . ":D{$lastDataRow}");
     }
+
+
 
     /** Converte '12,34%' | '12.34%' | '12.34' in 0.1234 */
     /** Converte input in frazione (0..1). Gestisce %, punti percentuali e basis points. */
