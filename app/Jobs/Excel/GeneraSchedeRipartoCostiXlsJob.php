@@ -95,8 +95,6 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
         $this->placeLogoAtRow($ws, $tpl, $this->logos['right'], $tpl['startRow'] + 1, 8, 84, 18, 34, 1, 28);
     }
 
-    /* ===================== HANDLE ===================== */
-    /* ===================== HANDLE ===================== */
     public function handle(): void {
         $this->setLogos();
         $this->initSpreadsheetCache();
@@ -110,7 +108,9 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
         $disk = Storage::disk('public');
 
         try {
-            /* ===================== BASE DATI ===================== */
+            /* ======================================================
+         * DATI BASE
+         * ====================================================== */
             $associazione = Associazione::getById($this->idAssociazione);
             $nomeAss = (string)($associazione->Associazione ?? '');
             $slugAss = $this->slugify($nomeAss);
@@ -120,82 +120,74 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
             $convenzioni = Convenzione::getByAssociazioneAnno($this->idAssociazione, $this->anno);
 
             Log::info('Dati base caricati', [
-                'automezzi' => $automezzi->count(),
-                'convenzioni' => $convenzioni->count(),
+                'automezzi'    => $automezzi->count(),
+                'convenzioni'  => $convenzioni->count(),
             ]);
 
-            /* ===================== WORKBOOK ===================== */
+            /* ======================================================
+         * CREA WORKBOOK PRINCIPALE
+         * ====================================================== */
             $spreadsheet = new Spreadsheet();
             $sheet = $spreadsheet->getActiveSheet();
             $sheet->setTitle('SCHEDE DI RIPARTO DEI COSTI');
             $sheet->getDefaultRowDimension()->setRowHeight(14);
 
-            $noLogos = ['left' => null, 'right' => null];
             $phBase = [
                 'nome_associazione' => $nomeAss,
                 'anno_riferimento'  => (string)$this->anno,
             ];
+            $noLogos = ['left' => null, 'right' => null];
 
-            /* ===================== BLOCCO 1: KM ===================== */
-            Log::info('[B1] Inizio blocco KM');
+            /* ======================================================
+         * BLOCCO 1 → 8
+         * ====================================================== */
+
+            // ---- [B1] KM ------------------------------------------------
             $kmMeta = $this->appendTemplate($sheet, $disk->path('documenti/template_excel/KmPercorsi.xlsx'));
             $this->reinsertTemplateLogos($sheet, $kmMeta);
             $this->replacePlaceholdersEverywhere($sheet, $phBase);
             $endKm = $this->blockKm($sheet, $kmMeta, $automezzi, $convenzioni, $noLogos);
-            Log::info('[B1] KM completato');
 
-            /* ===================== BLOCCO 2: SERVIZI ===================== */
-            Log::info('[B2] Inizio blocco SERVIZI');
+            // ---- [B2] SERVIZI ------------------------------------------
             $srvMeta = $this->appendTemplate($sheet, $disk->path('documenti/template_excel/ServiziSvolti.xlsx'), $endKm + 2);
             $this->reinsertTemplateLogos($sheet, $srvMeta);
             $this->replacePlaceholdersEverywhere($sheet, $phBase);
             $endSrv = $this->blockServizi($sheet, $srvMeta, $automezzi, $convenzioni, $noLogos);
-            Log::info('[B2] SERVIZI completato');
 
-            /* ===================== BLOCCO 3: RICAVI ===================== */
-            Log::info('[B3] Inizio blocco RICAVI');
+            // ---- [B3] RICAVI -------------------------------------------
             $ricMeta = $this->appendTemplate($sheet, $disk->path('documenti/template_excel/Costi_Ricavi.xlsx'), $endSrv + 2);
             $this->reinsertTemplateLogos($sheet, $ricMeta);
             $this->replacePlaceholdersEverywhere($sheet, $phBase);
             [$endRic, $ricaviMap] = $this->blockRicavi($sheet, $ricMeta, $convenzioni, $noLogos);
-            Log::info('[B3] RICAVI completato');
 
-            /* ===================== BLOCCO 4: AUTISTI/BARELLIERI ===================== */
-            Log::info('[B4] Inizio blocco AUTISTI');
+            // ---- [B4] AUTISTI/BAR --------------------------------------
             $abMeta = $this->appendTemplate($sheet, $disk->path('documenti/template_excel/CostiPersonale_autisti.xlsx'), $endRic + 2);
             $this->reinsertTemplateLogos($sheet, $abMeta);
             $this->replacePlaceholdersEverywhere($sheet, $phBase);
             $endAB = $this->blockAutistiBarellieri($sheet, $abMeta, $convenzioni, $noLogos);
-            Log::info('[B4] AUTISTI completato');
 
-            /* ===================== BLOCCO 5: VOLONTARI ===================== */
-            Log::info('[B5] Inizio blocco VOLONTARI');
+            // ---- [B5] VOLONTARI ----------------------------------------
             $volMeta = $this->appendTemplate($sheet, $disk->path('documenti/template_excel/CostiPersonale_volontari.xlsx'), $endAB + 2);
             $this->reinsertTemplateLogos($sheet, $volMeta);
             $this->replacePlaceholdersEverywhere($sheet, $phBase);
             $endVol = $this->blockVolontari($sheet, $volMeta, $convenzioni, $ricaviMap, $noLogos);
-            Log::info('[B5] VOLONTARI completato');
 
-            /* ===================== BLOCCO 6: SERVIZIO CIVILE ===================== */
-            Log::info('[B6] Inizio blocco SERVIZIO CIVILE');
+            // ---- [B6] SERVIZIO CIVILE ----------------------------------
             $scMeta = $this->appendTemplate($sheet, $disk->path('documenti/template_excel/CostiPersonale_ServizioCivile.xlsx'), $endVol + 2);
             $this->reinsertTemplateLogos($sheet, $scMeta);
             $this->replacePlaceholdersEverywhere($sheet, $phBase);
             $endSC = $this->blockServizioCivile($sheet, $scMeta, $convenzioni, $noLogos);
-            Log::info('[B6] SERVIZIO CIVILE completato');
 
-            /* ===================== BLOCCO 7: DISTINTA SERVIZI ===================== */
-            Log::info('[B7] Inizio blocco DISTINTA SERVIZI');
+            // ---- [B7] DISTINTA SERVIZI ---------------------------------
             $msMeta = $this->appendTemplate($sheet, $disk->path('documenti/template_excel/DistintaServiziSvolti.xlsx'), $endSC + 2);
             $this->reinsertTemplateLogos($sheet, $msMeta);
             $this->replacePlaceholdersEverywhere($sheet, $phBase);
             $endMS = $this->blockDistintaServizi($sheet, $msMeta, $automezzi, $convenzioni, $noLogos);
-            Log::info('[B7] DISTINTA SERVIZI completato');
 
-            /* ===================== BLOCCO 8: ROTAZIONE MEZZI ===================== */
-            Log::info('[B8] Inizio blocco ROTAZIONE MEZZI');
+            // ---- [B8] ROTAZIONE MEZZI ----------------------------------
             $hasRotazione = collect($convenzioni)->contains(
-                fn($c) => RipartizioneCostiService::isRegimeRotazione($c->idConvenzione)
+                fn($c) =>
+                RipartizioneCostiService::isRegimeRotazione($c->idConvenzione)
             );
             if ($hasRotazione) {
                 $rotMeta = $this->appendTemplate($sheet, $disk->path('documenti/template_excel/RotazioneMezzi.xlsx'), $endMS + 2);
@@ -203,36 +195,40 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                 $this->replacePlaceholdersEverywhere($sheet, $phBase);
                 $this->BlockRotazioneMezzi($sheet, $rotMeta, $automezzi, $convenzioni, $this->idAssociazione, $this->anno);
             }
-            Log::info('[B8] ROTAZIONE completato');
 
-            /* ===================== FOGLIO 2: COSTI DIPENDENTI ===================== */
+            /* ======================================================
+         * FOGLIO 2 → 4
+         * ====================================================== */
+
+            // ---- [F2] COSTI DIPENDENTI ---------------------------------
             $sheetRip = $spreadsheet->createSheet();
             $sheetRip->setTitle('DIST.RIPARTO COSTI DIPENDENTI');
-            $ripMeta = $this->appendTemplate($sheetRip, $disk->path('documenti/template_excel/DistintaCostiPersonale_Autisti.xlsx'), 1);
+            $ripMeta = $this->appendTemplate($sheetRip, $disk->path('documenti/template_excel/DistintaCostiPersonale_Autisti.xlsx'));
             $this->reinsertTemplateLogos($sheetRip, $ripMeta);
             $this->replacePlaceholdersEverywhere($sheetRip, $phBase);
             $this->blockRipartoCostiDipendentiAB($sheetRip, $ripMeta, $convenzioni, $noLogos);
-            Log::info('[F2] DIPENDENTI completato');
 
-            /* ===================== FOGLIO 3: AUTOMEZZI ===================== */
+            // ---- [F3] AUTOMEZZI ----------------------------------------
             $sheetAuto = $spreadsheet->createSheet();
             $sheetAuto->setTitle('DISTINTA RIPARTO AUTOMEZZI');
-            $autoMeta = $this->appendTemplate($sheetAuto, $disk->path('documenti/template_excel/CostiAutomezzi_Sanitaria.xlsx'), 1);
+            $autoMeta = $this->appendTemplate($sheetAuto, $disk->path('documenti/template_excel/CostiAutomezzi_Sanitaria.xlsx'));
             $this->reinsertTemplateLogos($sheetAuto, $autoMeta);
             $this->replacePlaceholdersEverywhere($sheetAuto, $phBase);
             $this->blockRipartoAutomezzi($sheetAuto, $autoMeta, $noLogos);
-            Log::info('[F3] AUTOMEZZI completato');
 
-            /* ===================== FOGLIO 4: COSTI RADIO ===================== */
+            // ---- [F4] RADIO ---------------------------------------------
             $sheetRadio = $spreadsheet->createSheet();
             $sheetRadio->setTitle('DISTINTA RIPARTO COSTI RADIO');
-            $radioMeta = $this->appendTemplate($sheetRadio, $disk->path('documenti/template_excel/DistintaCosti_Radio.xlsx'), 1);
+            $radioMeta = $this->appendTemplate($sheetRadio, $disk->path('documenti/template_excel/DistintaCosti_Radio.xlsx'));
             $this->reinsertTemplateLogos($sheetRadio, $radioMeta);
             $this->replacePlaceholdersEverywhere($sheetRadio, $phBase);
             $this->blockCostiRadio($sheetRadio, $radioMeta, $noLogos);
-            Log::info('[F4] RADIO completato');
 
-            /* ===================== FOGLI EXTRA ===================== */
+            /* ======================================================
+         * FOGLI EXTRA E CONSUNTIVI
+         * ====================================================== */
+
+            // Imputazione Sanitario
             $this->safeCall(
                 'Imputazione Sanitario',
                 fn() =>
@@ -245,12 +241,14 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                 )
             );
 
+            // Imputazione Ossigeno
             $this->safeCall(
                 'Imputazione Ossigeno',
                 fn() =>
                 $this->creaFoglioImputazioneOssigeno($spreadsheet, $this->idAssociazione, $this->anno)
             );
 
+            // Riepilogo Auto-Radio-San
             $this->safeCall(
                 'Riepilogo Auto-Radio-San',
                 fn() =>
@@ -262,7 +260,27 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                 )
             );
 
-            /* ======= FOGLI PER SINGOLO AUTOMEZZO ======= */
+            // Distinta Imputazione Costi
+            $this->safeCall(
+                'Distinta Imputazione Costi',
+                fn() =>
+                $this->addDistintaImputazioneCostiSheet($spreadsheet, $this->idAssociazione, $this->anno)
+            );
+
+            // Riepilogo Dati + Costi per Convenzione
+            $this->safeCall(
+                'Riepilogo Dati + Costi per Convenzione',
+                fn() =>
+                $this->creaFogliRiepilogoDatiPerConvenzione(
+                    $spreadsheet,
+                    $disk->path('documenti/template_excel/RiepilogoDati.xlsx'),
+                    $this->idAssociazione,
+                    $this->anno,
+                    'DISTINTA IMPUTAZIONE COSTI'
+                )
+            );
+
+            // Fogli singoli automezzo
             $this->safeCall('Fogli per singolo automezzo', function () use ($spreadsheet, $disk, $nomeAss) {
                 $tplAutoPath = $disk->path('documenti/template_excel/Costi_AUTO1.xlsx');
                 $autos = DB::table('automezzi')
@@ -270,7 +288,6 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                     ->where('idAnno', $this->anno)
                     ->orderBy('Targa')
                     ->get(['idAutomezzo', 'Targa', 'CodiceIdentificativo']);
-
                 foreach ($autos as $auto) {
                     $this->creaFoglioCostiPerAutomezzo(
                         $spreadsheet,
@@ -283,42 +300,28 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                 }
             });
 
-            /* ======= DISTINTA IMPUTAZIONE COSTI ======= */
-            $this->safeCall(
-                'Distinta Imputazione Costi',
-                fn() =>
-                $this->addDistintaImputazioneCostiSheet($spreadsheet, $this->idAssociazione, $this->anno)
-            );
-
-            /* ===================== FORMAT & STAMPA ===================== */
+            /* ======================================================
+         * FORMATTAZIONE GENERALE E STAMPA
+         * ====================================================== */
             foreach ($spreadsheet->getAllSheets() as $ws) {
                 try {
-                    $setup = $ws->getPageSetup();
-                    $setup->setFitToWidth(0);
-                    $setup->setFitToHeight(0);
-                    $setup->setFitToPage(false);
-                    $setup->setOrientation(PageSetup::ORIENTATION_LANDSCAPE);
-                    $setup->setPaperSize(PageSetup::PAPERSIZE_A4);
-                    $setup->setHorizontalCentered(true);
-                    $setup->setVerticalCentered(false);
-
-                    $m = $ws->getPageMargins();
-                    $m->setTop(0.4)->setBottom(0.6)->setLeft(0.4)->setRight(0.4)->setHeader(0.3)->setFooter(0.3);
-
+                    PrintConfigurator::forceLandscapeCenteredMinScale($ws, 50, true);
+                    PrintConfigurator::compactBodyOnly($ws, 2, 14.0, null, false, 1);
                     PrintConfigurator::configureScrolling($ws, null);
                     $ws->setShowGridlines(false);
                 } catch (Throwable $e) {
                     Log::warning('[FORMAT] Errore configurazione foglio', [
                         'sheet' => $ws->getTitle(),
-                        'msg' => $e->getMessage(),
+                        'msg'   => $e->getMessage(),
                     ]);
                 }
             }
 
-            /* ===================== SALVATAGGIO ===================== */
+            /* ======================================================
+         * SALVATAGGIO
+         * ====================================================== */
             $lastColL = trim((string)$sheet->getHighestDataColumn());
             $lastRow  = (int)$sheet->getHighestDataRow();
-
             if ($lastColL && $lastRow > 1) {
                 $sheet->getPageSetup()->setPrintArea("A1:{$lastColL}{$lastRow}");
             }
@@ -348,9 +351,18 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                 'file'        => $e->getFile(),
                 'line'        => $e->getLine(),
             ]);
-            if (method_exists($this, 'fail')) $this->fail($e);
+            if (method_exists($this, 'fail')) {
+                $this->fail($e);
+            }
         }
     }
+
+
+
+
+
+
+
 
     /* ======================================================
  * Utility per blocchi extra con logging unificato
@@ -367,8 +379,6 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
             ]);
         }
     }
-
-
 
     /** KM */
     private function blockKm(Worksheet $sheet, array $tpl, $automezzi, $convenzioni, array $logos): int {
@@ -1655,14 +1665,14 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
      * DISTINTA RIPARTO COSTI RADIO
      * Divide in parti uguali i totali di costi_radio fra gli automezzi dell’associazione/anno.
      * Gestisce l’eventuale colonna “spacer” vuota tra MONT e LOCA nel template.
-    */
+     */
     private function blockCostiRadio(Worksheet $sheet, array $tpl, array $logos): int {
         // 1) Header & mappa colonne del template
         [$headerRow, $cols] = $this->detectCostiRadioHeaderAndCols($sheet, $tpl);
 
         // Calcolo sicuro ultima colonna usata (VISIBILE): ignoro eventuale spacer
         $candidateCols = [];
-        foreach (['IDX','TARGA','MANT','MONT','LOCA','AMMO'] as $k) {
+        foreach (['IDX', 'TARGA', 'MANT', 'MONT', 'LOCA', 'AMMO'] as $k) {
             if (isset($cols[$k]) && is_int($cols[$k])) $candidateCols[] = $cols[$k];
         }
         $lastVisualCol = !empty($candidateCols) ? max($candidateCols) : 1;
@@ -1786,7 +1796,7 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
         return max($totRowNew, $tpl['endRow'] + $off);
     }
 
-    
+
 
     /* ===================== UTILS PER BLOCCHI ===================== */
     private function detectKmHeaderAndCols(Worksheet $sheet, array $tpl): array {
@@ -3176,19 +3186,26 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
         int $anno,
         string $anchorTitle = 'DISTINTA IMPUTAZIONE COSTI'
     ): void {
-        // 0) Template esiste?
         if (!is_file($tplConvenzionePath)) {
             Log::warning('creaFogliPerConvenzioni: template non trovato', ['path' => $tplConvenzionePath]);
             return;
         }
 
-        // 1) Individua l’indice di inserimento (subito dopo l’anchor)
+        // Carica UNA sola volta il template
+        $tplWb = IOFactory::load($tplConvenzionePath);
+        if ($tplWb->getSheetCount() < 1) {
+            Log::warning('creaFogliPerConvenzioni: template senza fogli', ['path' => $tplConvenzionePath]);
+            return;
+        }
+        $tplSheet = $tplWb->getSheet(0);
+
+        // Punto di inserimento: subito dopo l’anchor (se esiste), altrimenti in coda
         $anchorSheet = $spreadsheet->getSheetByName($anchorTitle);
         $insertAt = $anchorSheet
             ? ($spreadsheet->getIndex($anchorSheet) + 1)
             : $spreadsheet->getSheetCount();
 
-        // 2) Convenzioni ordinate come da DB
+        // Convenzioni ordinate
         $convenzioni = DB::table('convenzioni')
             ->select('idConvenzione', 'Convenzione')
             ->where('idAssociazione', $idAssociazione)
@@ -3197,24 +3214,27 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
             ->orderBy('idConvenzione')
             ->get();
 
-        // 3) Carica UNA volta il template e clona il suo primo foglio per ogni convenzione
-        $tplWb    = IOFactory::load($tplConvenzionePath);
-        $tplSheet = $tplWb->getSheet(0);
-
         foreach ($convenzioni as $conv) {
             try {
-                // 3.a) Clona il foglio del template
-                $newSheet = clone $tplSheet;
+                // Copia "esterna" del foglio template
+                // NB: addExternalSheet è la via giusta quando la sorgente ha un parent diverso
+                $newSheet = $tplSheet->copy();
 
-                // 3.b) Titolo foglio = nome convenzione (31 char max, univoco)
-                $title = $this->uniqueSheetTitle($spreadsheet, mb_substr((string)$conv->Convenzione, 0, 31));
+                // Titolo foglio valido e univoco
+                $baseTitle = $this->sanitizeSheetTitle((string)$conv->Convenzione);
+                $title     = $this->uniqueSheetTitle($spreadsheet, mb_substr($baseTitle, 0, 31, 'UTF-8'));
                 $newSheet->setTitle($title !== '' ? $title : 'CONVENZIONE');
 
-                // 3.c) Inserisci subito dopo l’anchor
-                $spreadsheet->addSheet($newSheet, $insertAt);
-                $insertAt++;
+                // Clamp sicuro dell’indice (0..count)
+                $count = $spreadsheet->getSheetCount();
+                if ($insertAt < 0)      $insertAt = 0;
+                if ($insertAt > $count) $insertAt = $count;
 
-                // 3.d) Placeholder header
+                // Inserisci come foglio **esterno**
+                $spreadsheet->addExternalSheet($newSheet, $insertAt);
+                $insertAt++; // la prossima convenzione subito dopo
+
+                // Placeholder header
                 $this->replacePlaceholdersEverywhere($newSheet, [
                     'nome_associazione' => $nomeAssociazione,
                     'anno_riferimento'  => (string)$anno,
@@ -3222,51 +3242,67 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                     'convenzione'       => (string)$conv->Convenzione,
                 ]);
 
-                // 3.e) Compila **solo la Tabella 1** (Voce/Preventivo/Consuntivo)
-                //     La funzione si auto-localizza sull’header corretto.
+                // Compila SOLO la Tabella 1 (si auto-localizza nell’header PREV/CONS)
                 $this->writeTabellaTipologia1(
                     $newSheet,
                     $idAssociazione,
                     $anno,
                     (int)$conv->idConvenzione
                 );
-            } catch (Throwable $e) {
+
+                // Piccola rifinitura: seleziona A1 per evitare selezioni strane
+                $newSheet->setSelectedCell('A1');
+            } catch (\Throwable $e) {
                 Log::warning('Fogli per convenzione (Tabella 1): errore non bloccante', [
                     'idConvenzione' => (int)$conv->idConvenzione,
                     'conv'          => (string)$conv->Convenzione,
                     'msg'           => $e->getMessage(),
                     'file'          => $e->getFile(),
                     'line'          => $e->getLine(),
+                    'insertAt'      => $insertAt,
+                    'sheetCount'    => $spreadsheet->getSheetCount(),
                 ]);
                 // continua con la prossima convenzione
             }
         }
 
-        // pulizia
+        // Libera il workbook del template
         $tplWb->disconnectWorksheets();
     }
 
-    /** Genera un titolo di foglio univoco all’interno del workbook (max 31 char). */
-    private function uniqueSheetTitle(Spreadsheet $wb, string $base): string {
-        $title = trim($base) ?: 'Foglio';
-        $title = mb_substr($title, 0, 31, 'UTF-8');
 
-        // Evita caratteri non permessi in Excel
-        $title = str_replace(['\\', '/', '?', '*', '[', ']'], '-', $title);
-
-        if (!$wb->sheetNameExists($title)) {
-            return $title;
-        }
-        // Aggiunge (2), (3), ... finché è unico
-        $i = 2;
-        while ($wb->sheetNameExists(mb_substr($title, 0, 31 - (strlen((string)$i) + 2)) . '(' . $i . ')')) {
-            $i++;
-            if ($i > 99) break;
-        }
-        $baseTrunc = mb_substr($title, 0, 31 - (strlen((string)$i) + 2));
-        return $baseTrunc . '(' . $i . ')';
+    /** Pulisce un titolo di foglio da caratteri vietati e spazi doppi */
+    private function sanitizeSheetTitle(string $t): string {
+        // Vietati in Excel: : \ / ? * [ ]
+        $t = preg_replace('/[:\\\\\\/\\?\\*\\[\\]]+/', ' ', $t) ?? '';
+        $t = trim(preg_replace('/\\s+/', ' ', $t) ?? '');
+        return $t === '' ? 'Foglio' : $t;
     }
 
+    /** Genera un titolo univoco (<=31 char), robusto a UTF-8, usando sheetNameExists() */
+    private function uniqueSheetTitle(Spreadsheet $wb, string $base): string {
+        $base = $this->sanitizeSheetTitle($base);
+        $base = mb_substr($base, 0, 31, 'UTF-8'); // clamp iniziale
+
+        $exists = fn(string $name) => $wb->sheetNameExists($name);
+
+        if (!$exists($base)) {
+            return $base;
+        }
+
+        // Prova con " (2)", " (3)", ... accorciando in modo multibyte-safe
+        for ($i = 2; $i < 1000; $i++) {
+            $suffix   = ' (' . $i . ')';
+            $maxBase  = 31 - mb_strlen($suffix, 'UTF-8');
+            $candidate = mb_substr($base, 0, max(1, $maxBase), 'UTF-8') . $suffix;
+            if (!$exists($candidate)) {
+                return $candidate;
+            }
+        }
+
+        // Fallback estremo (non dovrebbe mai servire)
+        return mb_substr($base, 0, 25, 'UTF-8') . ' ' . substr(uniqid('', false), 0, 5);
+    }
 
 
     /** Tabella 2: Tipologie 2..11 (per sezione: titolo + voci sotto, ordine DB, nessun totale finale) */
@@ -3418,7 +3454,6 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
         // fallback prudente: in alto
         return 6;
     }
-
 
     private function creaFogliRiepilogoDatiPerConvenzione(
         Spreadsheet $wb,
