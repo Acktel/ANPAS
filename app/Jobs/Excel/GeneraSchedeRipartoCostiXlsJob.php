@@ -78,8 +78,7 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
         return [(new WithoutOverlapping($key))->expireAfter(300)->releaseAfter(15)];
     }
 
-    private function setLogos(): void
-    {
+    private function setLogos(): void {
         $pick = function (array $candidates): ?string {
             foreach ($candidates as $p) {
                 if ($p && is_file($p)) return $p;
@@ -102,9 +101,8 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
 
 
     private function reinsertTemplateLogos(Worksheet $ws, array $tpl): void {
-        $this->placeLogoAtRow($ws, $tpl, $this->logos['left'],  $tpl['startRow'] + 1, 2, 84, 18, 34, 1, 28);
-        // opzionale, il destro su una colonna a destra:
-        $this->placeLogoAtRow($ws, $tpl, $this->logos['right'], $tpl['startRow'] + 1, 8, 84, 18, 34, 1, 28);
+        $this->placeLogoAtRow($ws, $tpl, $this->logos['left'],  $tpl['startRow'] + 1, 2, 64, 8, 28, 1, 22);
+        $this->placeLogoAtRow($ws, $tpl, $this->logos['right'], $tpl['startRow'] + 1, 8, 64, 8, 28, 1, 22);
     }
 
     public function handle(): void {
@@ -215,10 +213,47 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
             // ---- [F2] COSTI DIPENDENTI ---------------------------------
             $sheetRip = $spreadsheet->createSheet();
             $sheetRip->setTitle('DIST.RIPARTO COSTI DIPENDENTI');
-            $ripMeta = $this->appendTemplate($sheetRip, $disk->path('documenti/template_excel/DistintaCostiPersonale_Autisti.xlsx'));
+
+            // A&B (prima tabella)
+            $ripMeta = $this->appendTemplate(
+                $sheetRip,
+                $disk->path('documenti/template_excel/DistintaCostiPersonale_Autisti.xlsx')
+            );
             $this->reinsertTemplateLogos($sheetRip, $ripMeta);
             $this->replacePlaceholdersEverywhere($sheetRip, $phBase);
             $this->blockRipartoCostiDipendentiAB($sheetRip, $ripMeta, $convenzioni, $noLogos);
+            $this->forceHeaderText($sheetRip, $ripMeta, $nomeAss, $this->anno);
+
+            // Mansioni aggiuntive (tabelle separate sotto, una per template)
+            $mansioniTpl = [
+                5 => 'DistintaCostiPersonale_CoordAmm.xlsx',
+                6 => 'DistintaCostiPersonale_CordTec.xlsx',
+                7 => 'DistintaCostiPersonale_Amministrativi.xlsx',
+                2 => 'DistintaCostiPersonale_Logistica.xlsx',
+                3 => 'DistintaCostiPersonale_Pulizia.xlsx',
+                4 => 'DistintaCostiPersonale_Altro.xlsx',
+            ];
+
+            $rowCursor = $sheetRip->getHighestRow() + 2;
+
+            foreach ($mansioniTpl as $idQ => $fileName) {
+                $abs = $disk->path('documenti/template_excel/' . $fileName);
+                if (!is_file($abs)) {
+                    \Log::warning('Template mansione non trovato', ['idQualifica' => $idQ, 'file' => $abs]);
+                    continue;
+                }
+
+                // Appendo il template alla riga corrente e reinserisco i loghi del template
+                $tplMeta = $this->appendTemplate($sheetRip, $abs, $rowCursor);
+                $this->reinsertTemplateLogos($sheetRip, $tplMeta);
+                $this->replacePlaceholdersEverywhere($sheetRip, $phBase);
+
+                // Compilo la tabella della mansione e aggiorno il cursore (con 1 riga di spazio)
+                $rowCursor = $this->blockDistintaCostiPerMansione($sheetRip, $tplMeta, (int)$idQ, $noLogos) + 2;
+
+                // (opzionale) Forza testo header anche per i blocchi mansioni
+                $this->forceHeaderText($sheetRip, $tplMeta, $nomeAss, $this->anno);
+            }
 
             // ---- [F3] AUTOMEZZI ----------------------------------------
             $sheetAuto = $spreadsheet->createSheet();
@@ -379,6 +414,19 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                     PrintConfigurator::compactBodyOnly($ws, 2, 14.0, null, false, 1);
                     PrintConfigurator::configureScrolling($ws, null);
                     $ws->setShowGridlines(false);
+
+                    // (1) Font minimo su TUTTO, numeri inclusi
+                    PrintConfigurator::enforceMinimumFontSize($ws, 10.0, true);
+
+                    // (2) Blocca shrink e imposta font MIN su header + prima colonna
+                    PrintConfigurator::enforceHeaderAndFirstColReadable(
+                        $ws,
+                        10,   // min font
+                        1,    // prima colonna = A
+                        1,    // header da riga 1
+                        8,    // header fino a riga 8
+                        12.0  // larghezza minima colonna A
+                    );
                 } catch (Throwable $e) {
                     Log::warning('[FORMAT] Errore configurazione foglio', [
                         'sheet' => $ws->getTitle(),
@@ -1439,6 +1487,10 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
         [$headerRow, $cols] = $this->detectMansioneHeaderAndCols($sheet, $tpl);
 
         $lastUsedCol = $cols['TOTALE'];
+        if (!empty($logos['left']) || !empty($logos['right'])) {
+            $this->insertLogosAtRow($sheet, $logos, $tpl['startRow'] + 2, $lastUsedCol);
+        }
+
         $this->insertLogosAtRow($sheet, $logos, $tpl['startRow'] + 2, $lastUsedCol);
 
         // 2) Dati base
@@ -3890,7 +3942,7 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
         $lastUsedCol = $firstPairCol + ($usedPairs * 2) - 1;
 
         // 2bis) Logo coerente con handle
-        $this->placeLogoAtRow($sheet, $tpl, $this->logos['left'] ?? null, $tpl['startRow'] + 2, 2, 64, 0, 36, 2, 26);
+        //$this->placeLogoAtRow($sheet, $tpl, $this->logos['left'] ?? null, $tpl['startRow'] + 2, 2, 64, 0, 36, 2, 26);
 
         // 3) Titoli convenzioni (sopra banda)
         foreach ($convList as $i => $c) {
@@ -4963,7 +5015,22 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
         $s->freezePaneByColumnAndRow($firstCol + 1, $hdrRow + 1);
 
         // 6) Auto-size con larghezza minima (evita ####)
-        $this->autosizeUsedColumns($s, $firstCol, $lastCol, 9.5);
+        // Blocca shrink dell’HEADER su tutte le colonne del blocco
+        $s->getStyle(
+            Coordinate::stringFromColumnIndex($firstCol) . $hdrRow . ':' .
+                Coordinate::stringFromColumnIndex($lastCol)  . $hdrRow
+        )->getAlignment()->setShrinkToFit(false)->setWrapText(false);
+
+        //Niente shrink sulla PRIMA COLONNA + wrap per le voci
+        $s->getStyle(
+            Coordinate::stringFromColumnIndex($firstCol) . $hdrRow . ':' .
+                Coordinate::stringFromColumnIndex($firstCol) . $totalRow
+        )->getAlignment()->setShrinkToFit(false)->setWrapText(true);
+
+        // larghezza minima colonna etichette
+        $dim = $s->getColumnDimension(Coordinate::stringFromColumnIndex($firstCol));
+        $dim->setAutoSize(false);
+        if (($dim->getWidth() ?? 0) < 12) $dim->setWidth(12);
     }
 
     // Compat: accetta sia (sheet, topRow, bottomRow, lastColIdx)
@@ -5199,9 +5266,9 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
         int $col = 2,
         int $heightPx = 90,           // leggermente più alto per riempire bene il banner
         int $offsetY = 25,            // alzato un po' (meno schiacciato in basso)
-        float $logoRowHeightPt = 36.0, // riga logo più alta
-        int $belowRows = 1,           // una riga sotto di respiro
-        float $belowRowHeightPt = 34.0 // altezza più ampia del padding
+        float $logoRowHeightPt = 40.0, // riga logo più alta
+        int $belowRows = 2,           // una riga sotto di respiro
+        float $belowRowHeightPt = 40.0 // altezza più ampia del padding
     ): void {
         if (!$logoPath || !is_file($logoPath)) {
             return;

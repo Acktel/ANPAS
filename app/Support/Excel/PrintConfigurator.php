@@ -163,9 +163,12 @@ class PrintConfigurator {
         if ($lastCol < $firstCol || $lastRow < $bodyStartRow) return;
 
         for ($r = $bodyStartRow; $r <= $lastRow; $r++) {
-            $ws->getRowDimension($r)->setRowHeight(-1); // auto
+            $dim = $ws->getRowDimension($r);
+            // se il template o il codice hanno già messo un’altezza >0, NON toccarla
+            if ($dim->getRowHeight() === -1) {
+                $dim->setRowHeight(-1); // solo righe "auto"
+            }
         }
-
         $range = Coordinate::stringFromColumnIndex($firstCol) . $bodyStartRow . ':' .
             Coordinate::stringFromColumnIndex($lastCol)  . $lastRow;
 
@@ -408,4 +411,46 @@ class PrintConfigurator {
             self::enforceMinimumFontSize($ws, $minFontSizePt);
         }
     }
+
+    public static function enforceHeaderAndFirstColReadable(
+    Worksheet $ws,
+    int $minFontPt = 10,
+    int $firstColIdx = 1,
+    int $headerTopRow = 1,
+    int $headerBottomRow = 8,
+    float $firstColMinWidth = 12.0
+): void {
+    $lastRow = $ws->getHighestDataRow();
+    $lastCol = Coordinate::columnIndexFromString($ws->getHighestDataColumn());
+    if ($lastRow < 1 || $lastCol < 1) return;
+
+    // --- Header: prime N righe ---
+    $headerTopRow    = max(1, $headerTopRow);
+    $headerBottomRow = max($headerTopRow, min($lastRow, $headerBottomRow));
+    $hdrRange = 'A' . $headerTopRow . ':' .
+       Coordinate::stringFromColumnIndex($lastCol) . $headerBottomRow;
+
+    $hdrStyle = $ws->getStyle($hdrRange);
+    $hdrStyle->getAlignment()->setShrinkToFit(false)->setWrapText(false);
+    // forza minimo leggibile ma non toccare il grassetto ecc.
+    if ($hdrStyle->getFont()->getSize() < $minFontPt) {
+        $hdrStyle->getFont()->setSize($minFontPt);
+    }
+
+    // --- Prima colonna su tutto il foglio ---
+    $colL = Coordinate::stringFromColumnIndex($firstColIdx);
+    $colRange = $colL . '1:' . $colL . $lastRow;
+    $colStyle = $ws->getStyle($colRange)->getAlignment();
+    $colStyle->setShrinkToFit(false)->setWrapText(true)->setHorizontal(Alignment::HORIZONTAL_LEFT);
+    // font minimo anche qui
+    $ws->getStyle($colRange)->getFont()->setSize($minFontPt);
+
+    // larghezza minima per evitare #### o squeeze eccessivo
+    $dim = $ws->getColumnDimension($colL);
+    $dim->setAutoSize(false);
+    if (($dim->getWidth() ?? 0) < $firstColMinWidth) {
+        $dim->setWidth($firstColMinWidth);
+    }
+}
+
 }
