@@ -6,7 +6,10 @@ use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 use PhpOffice\PhpSpreadsheet\Worksheet\PageSetup;
 use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
+use PhpOffice\PhpSpreadsheet\Cell\Cell;
+use PhpOffice\PhpSpreadsheet\Shared\StringHelper;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
+
 
 class PrintConfigurator {
     /** Profili (storici, puoi ignorarli se usi solo il forceLandscape) */
@@ -53,6 +56,7 @@ class PrintConfigurator {
         // Centratura
         $ps->setHorizontalCentered(true);
         $ps->setVerticalCentered(true);
+        $ps->setFitToPage(false);
 
         // Margini compatti
         $ws->getPageMargins()
@@ -146,26 +150,24 @@ class PrintConfigurator {
 
     public static function compactBodyOnly(
         Worksheet $ws,
-        int $bodyStartRow = 2,           // da che riga inizia il corpo
+        int $bodyStartRow = 2,
         float $defaultRowHeightPt = 14.0,
-        ?float $fontSizeOverridePt = null
+        ?float $fontSizeOverridePt = null,
+        bool $autoSizeColumns = false,   // <-- DEFAULT: false (prima era true)
+        int $firstCol = 1
     ): void {
-        // altezza di default “slim” solo per il corpo
         $ws->getDefaultRowDimension()->setRowHeight($defaultRowHeightPt);
 
         $lastRow = $ws->getHighestRow();
         $lastCol = Coordinate::columnIndexFromString($ws->getHighestDataColumn());
-        if ($lastCol < $bodyStartRow || $lastRow < $bodyStartRow) return;
+        if ($lastCol < $firstCol || $lastRow < $bodyStartRow) return;
 
-        // Rende adattive solo le righe del corpo
         for ($r = $bodyStartRow; $r <= $lastRow; $r++) {
-            $dim = $ws->getRowDimension($r);
-            $dim->setRowHeight(-1); // auto
+            $ws->getRowDimension($r)->setRowHeight(-1); // auto
         }
 
-        // Stili SOLO sul corpo
-        $range = 'A' . $bodyStartRow . ':' .
-            Coordinate::stringFromColumnIndex($lastCol) . $lastRow;
+        $range = Coordinate::stringFromColumnIndex($firstCol) . $bodyStartRow . ':' .
+            Coordinate::stringFromColumnIndex($lastCol)  . $lastRow;
 
         $align = $ws->getStyle($range)->getAlignment();
         $align->setVertical(Alignment::VERTICAL_TOP);
@@ -177,7 +179,17 @@ class PrintConfigurator {
         if ($fontSizeOverridePt !== null) {
             $ws->getStyle($range)->getFont()->setSize($fontSizeOverridePt);
         }
+
+        // se proprio richiesto, abilita autosize (ma noi NON lo useremo quando “tagliamo”)
+        if ($autoSizeColumns) {
+            for ($c = $firstCol; $c <= $lastCol; $c++) {
+                $dim = $ws->getColumnDimensionByColumn($c);
+                if ($dim->getVisible()) $dim->setAutoSize(true);
+            }
+        }
     }
+
+
 
     /** Variante: escludi righe specifiche (es. 1..3) e compatta tutto il resto */
     public static function compactExceptRows(
@@ -208,7 +220,7 @@ class PrintConfigurator {
             if (($excluded || $r === $lastRow) && $start !== null) {
                 $end = $excluded ? $r - 1 : $r;
                 $ranges[] = 'A' . $start . ':' .
-                   Coordinate::stringFromColumnIndex($lastCol) . $end;
+                    Coordinate::stringFromColumnIndex($lastCol) . $end;
                 $start = null;
             }
         }
@@ -223,5 +235,134 @@ class PrintConfigurator {
                 $ws->getStyle($range)->getFont()->setSize($fontSizeOverridePt);
             }
         }
+    }
+
+    /**
+     * Stringe orizzontalmente le colonne del **corpo** (da bodyStartRow in giù),
+     * calcolando la larghezza sul testo **formattato** (es. 1.234,56; 12,50%).
+     * - padding: spazio extra oltre al contenuto
+     * - min/max: clamp delle larghezze per non avere colonne ridicole o infinite
+     * - excludeCols: indici colonna (1=A, 2=B, ...) da NON toccare
+     */
+    public static function fitBodyColumns(
+        Worksheet $ws,
+        int $bodyStartRow = 2,
+        ?int $firstCol = null,
+        ?int $lastCol = null,
+        float $padding = 1.6,
+        float $minWidth = 7.0,
+        float $maxWidth = 40.0,
+        array $excludeCols = []
+    ): void {
+        $lastRow = $ws->getHighestRow();
+        if ($lastRow < $bodyStartRow) return;
+
+        $firstCol = $firstCol ?? 1;
+        $lastCol  = $lastCol  ?? Coordinate::columnIndexFromString($ws->getHighestDataColumn());
+        if ($lastCol < $firstCol) return;
+
+        $charToWidth = 1.0;
+
+        for ($col = $firstCol; $col <= $lastCol; $col++) {
+            if (in_array($col, $excludeCols, true)) continue;
+
+            $maxChars = 0;
+
+            // 🔹 Considera anche le prime righe d’intestazione (tipicamente 5–8)
+            $headerRows = range(1, min(8, $lastRow));
+            foreach ($headerRows as $r) {
+                $cell = $ws->getCellByColumnAndRow($col, $r);
+                if ($cell instanceof Cell) {
+                    $txt = trim((string)$cell->getFormattedValue());
+                    if ($txt !== '') {
+                        $len = StringHelper::countCharacters($txt);
+                        if ($len > $maxChars) $maxChars = $len;
+                    }
+                }
+            }
+
+            // 🔹 Scansiona anche il corpo dati per trovare testi lunghi
+            for ($row = $bodyStartRow; $row <= $lastRow; $row++) {
+                $cell = $ws->getCellByColumnAndRow($col, $row);
+                if (!$cell instanceof Cell) continue;
+
+                $text = (string) $cell->getFormattedValue();
+                if ($text === '') continue;
+
+                // Gestione multilinea → prendi la più lunga
+                if (strpos($text, "\n") !== false) {
+                    $text = str_replace("\r", '', $text);
+                    $parts = explode("\n", $text);
+                    $text = array_reduce(
+                        $parts,
+                        fn($a, $b) => (StringHelper::countCharacters($b) > StringHelper::countCharacters($a)) ? $b : $a,
+                        ''
+                    );
+                }
+
+                $len = StringHelper::countCharacters($text);
+                if ($len > $maxChars) $maxChars = $len;
+            }
+
+            // 🔹 Calcolo larghezza effettiva
+            $width = ($maxChars * $charToWidth) + $padding;
+            if ($width < $minWidth) $width = $minWidth;
+            if ($width > $maxWidth) $width = $maxWidth;
+
+            // 🔹 Se colonna con header lungo (es. convenzione), allarghiamo ancora un po’
+            $headerText = trim((string) $ws->getCellByColumnAndRow($col, 6)->getValue());
+            if ($headerText !== '' && StringHelper::countCharacters($headerText) > 20) {
+                $width = min($width + 6, $maxWidth + 4); // titoli lunghi leggibili
+            }
+
+            // Applica larghezza deterministica
+            $ws->getColumnDimensionByColumn($col)->setAutoSize(false);
+            $ws->getColumnDimensionByColumn($col)->setWidth($width);
+        }
+    }
+
+
+
+    /**
+     * Shortcut: applica fitBodyColumns a **tutti i fogli** del workbook.
+     */
+    public static function fitBodyColumnsForWorkbook(
+        Spreadsheet $wb,
+        int $bodyStartRow = 2,
+        float $padding = 1.6,
+        float $minWidth = 7.0,
+        float $maxWidth = 26.0,
+        array $excludeCols = [1] // esclude la colonna A (etichette) di default
+    ): void {
+        foreach ($wb->getAllSheets() as $ws) {
+            self::fitBodyColumns(
+                $ws,
+                $bodyStartRow,
+                null,
+                null,
+                $padding,
+                $minWidth,
+                $maxWidth,
+                $excludeCols
+            );
+        }
+    }
+
+    private function compactColumnsWidth(Worksheet $ws, int $fromCol = 1, ?int $toCol = null): void {
+        $to = $toCol ?: Coordinate::columnIndexFromString($ws->getHighestDataColumn());
+        for ($c = $fromCol; $c <= $to; $c++) {
+            $ws->getColumnDimensionByColumn($c)->setAutoSize(true);
+        }
+    }
+
+    public static function configureScrolling(Worksheet $ws, ?string $freezeCell = null): void {
+        // Se specifichi la cella, blocca da lì in giù; altrimenti rimuove il blocco
+        if ($freezeCell) {
+            $ws->freezePane($freezeCell);
+        } else {
+            $ws->freezePane(null); // sblocca scroll verticale/orizzontale
+        }
+
+        $ws->setShowGridlines(false);
     }
 }
