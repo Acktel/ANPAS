@@ -86,7 +86,6 @@ $assocCorr = 'Anpas Nazionale';
                 @php
                 $user = Auth::user();
                 $imp = session()->has('impersonate_original_user');
-
                 @endphp
 
 

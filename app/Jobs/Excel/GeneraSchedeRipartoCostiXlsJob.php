@@ -4964,11 +4964,11 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
     }
 
     /**
-     * Applica in blocco gli stili coerenti:
-     * - header: clona stile dalla riga campione del template
-     * - righe dati: già clonate una a una (tu lo fai con copyRowStyle)
-     * - totale: clona stile riga campione + grassetto
-     * - griglia/outline, freeze e auto-size
+     * Applica gli stili coerenti a una tabella appena scritta.
+     * - Header: clona lo stile dalla 1ª riga dati, wrap ON, no shrink, font minimo 10pt
+     * - Totale: stile riga campione + grassetto + bordo spesso
+     * - Griglia/outline, freeze pane, autosize colonne
+     * - Prima colonna: wrap ON, no shrink, left/top, larghezza minima
      */
     private function applyTablePolish(
         Worksheet $s,
@@ -4980,58 +4980,67 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
         int $totalRow,      // riga "TOTALE"
         ?int $centerPctCol = null // colonna % da centrare (opzionale)
     ): void {
-        // 1) Header: clona lo stile della riga campione del template
+        // 0) Riferimenti utili
+        $colL = fn(int $i) => Coordinate::stringFromColumnIndex($i);
+
+        // 1) Header = stile riga campione (1ª riga dati) + wrap ON + no shrink + font minimo 10
         $sampleRow = max($firstDataRow, $hdrRow + 1);
         for ($c = $firstCol; $c <= $lastCol; $c++) {
-            $s->duplicateStyle(
-                $s->getStyleByColumnAndRow($c, $sampleRow),  // <<-- usa la riga campione
-                Coordinate::stringFromColumnIndex($c) . $hdrRow
-            );
+            $s->duplicateStyle($s->getStyleByColumnAndRow($c, $sampleRow), $colL($c) . $hdrRow);
         }
+        $hdrRange = $colL($firstCol) . $hdrRow . ':' . $colL($lastCol) . $hdrRow;
+        $s->getStyle($hdrRange)->getAlignment()
+            ->setWrapText(true)
+            ->setShrinkToFit(false)
+            ->setVertical(Alignment::VERTICAL_CENTER);
+        $hdrFont = $s->getStyle($hdrRange)->getFont();
+        if ($hdrFont->getSize() < 10) $hdrFont->setSize(10);
+        // altezza riga header sufficiente per il wrap
+        $hdrH = (float) $s->getRowDimension($hdrRow)->getRowHeight();
+        if ($hdrH <= 0 || $hdrH < 24) $s->getRowDimension($hdrRow)->setRowHeight(24);
+
         // bordo spesso su header
-        $this->thickBorderRow($s, $hdrRow, $lastCol);
+        $this->thickBorderRow($s, $hdrRow, $firstCol, $lastCol);
 
         // 2) Riga TOTALE = stile riga campione + grassetto + bordo spesso
         $this->copyRowStyle($s, $sampleRow, $totalRow);
-        $s->getStyleByColumnAndRow($firstCol, $totalRow, $lastCol, $totalRow)->getFont()->setBold(true);
-        $this->thickBorderRow($s, $totalRow, $lastCol);
+        $s->getStyle($colL($firstCol) . $totalRow . ':' . $colL($lastCol) . $totalRow)
+            ->getFont()->setBold(true);
+        $this->thickBorderRow($s, $totalRow, $firstCol, $lastCol);
 
-        // 3) Griglia interna + outline
+        // 3) Griglia interna + outline esterno
         $this->gridWithOutline(
             $s,
-            Coordinate::stringFromColumnIndex($firstCol) . $hdrRow . ':' .
-                Coordinate::stringFromColumnIndex($lastCol)  . $totalRow
+            $colL($firstCol) . $hdrRow . ':' . $colL($lastCol) . $totalRow
         );
 
-        // 4) Centra la colonna % (se esiste)
+        // 4) Centra la colonna % (se fornita)
         if ($centerPctCol) {
-            $s->getStyle(
-                Coordinate::stringFromColumnIndex($centerPctCol) . $firstDataRow . ':' .
-                    Coordinate::stringFromColumnIndex($centerPctCol) . $totalRow
-            )->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+            $s->getStyle($colL($centerPctCol) . $firstDataRow . ':' . $colL($centerPctCol) . $totalRow)
+                ->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
         }
 
-        // 5) Freeze: mantieni bloccata l’header + le colonne fisse
+        // 5) Freeze: header + colonne fisse
         $s->freezePaneByColumnAndRow($firstCol + 1, $hdrRow + 1);
 
-        // 6) Auto-size con larghezza minima (evita ####)
-        // Blocca shrink dell’HEADER su tutte le colonne del blocco
-        $s->getStyle(
-            Coordinate::stringFromColumnIndex($firstCol) . $hdrRow . ':' .
-                Coordinate::stringFromColumnIndex($lastCol)  . $hdrRow
-        )->getAlignment()->setShrinkToFit(false)->setWrapText(false);
-
-        //Niente shrink sulla PRIMA COLONNA + wrap per le voci
-        $s->getStyle(
-            Coordinate::stringFromColumnIndex($firstCol) . $hdrRow . ':' .
-                Coordinate::stringFromColumnIndex($firstCol) . $totalRow
-        )->getAlignment()->setShrinkToFit(false)->setWrapText(true);
-
-        // larghezza minima colonna etichette
-        $dim = $s->getColumnDimension(Coordinate::stringFromColumnIndex($firstCol));
+        // 6) Prima colonna (etichette/“voci”): wrap ON, no shrink, left/top, min width
+        $firstColRange = $colL($firstCol) . $hdrRow . ':' . $colL($firstCol) . $totalRow;
+        $s->getStyle($firstColRange)->getAlignment()
+            ->setWrapText(true)
+            ->setShrinkToFit(false)
+            ->setHorizontal(Alignment::HORIZONTAL_LEFT)
+            ->setVertical(Alignment::VERTICAL_TOP);
+        $dim = $s->getColumnDimension($colL($firstCol));
         $dim->setAutoSize(false);
         if (($dim->getWidth() ?? 0) < 12) $dim->setWidth(12);
+
+        // 7) Autosize delle altre colonne (lascia intatta la 1ª che abbiamo forzato)
+        //    NB: il tuo autosizeUsedColumns imposta AutoSize(true) – va bene per 2..lastCol
+        if ($firstCol < $lastCol) {
+            $this->autosizeUsedColumns($s, $firstCol + 1, $lastCol, 9.5);
+        }
     }
+
 
     // Compat: accetta sia (sheet, topRow, bottomRow, lastColIdx)
     // sia (sheet, topRow, bottomRow, firstColIdx, lastColIdx)
