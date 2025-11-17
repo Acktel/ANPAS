@@ -810,8 +810,12 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
         // ---------- TABELLINA COSTI A&B (PREV/CONS) ----------
         $scanFrom = max(1, $headerRow - 6);
         $scanTo   = $headerRow - 1;
-        $prevRow  = $this->findRowByLabel($sheet, 'PREVENTIVO', $scanFrom, $scanTo) ?? ($headerRow - 2);
-        $consRow  = $this->findRowByLabel($sheet, 'CONSUNTIVO', $scanFrom, $scanTo) ?? ($headerRow - 1);
+
+        $prevRow = $this->findRowByLabel($sheet, 'PREVENTIVO', $scanFrom, $scanTo)
+            ?? ($headerRow - 3);       
+
+        $consFound = $this->findRowByLabel($sheet, 'CONSUNTIVO', $scanFrom, $scanTo);
+        $consRow   = $consFound ?: ($prevRow + 1);     
 
         $convIds = $convList->pluck('idConvenzione')->map(fn($v) => (int)$v)->all();
 
