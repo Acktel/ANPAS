@@ -42,6 +42,7 @@ class AssociazioniController extends Controller
 
         }
 
+
         return view('associazioni.index', compact('anno', 'associazioni'));
     }
 
