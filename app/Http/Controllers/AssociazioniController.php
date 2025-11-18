@@ -144,7 +144,7 @@ class AssociazioniController extends Controller
             'token' => $token,
             'email' => $user->email,
         ], false));
-        Mail::to($user)->send(new SupervisorInvite($user, $resetUrl));
+   //     Mail::to($user)->send(new SupervisorInvite($user, $resetUrl));
 
         return redirect()
             ->route('dashboard')
