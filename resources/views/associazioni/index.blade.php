@@ -50,14 +50,11 @@ document.addEventListener('DOMContentLoaded', function () {
     responsive: true,
     ajax: {
       url: "{{ route('associazioni.data') }}",
-      data(d) {
-        d.idAssociazione = document.getElementById('assocSelectHidden')?.value || '';
-      },
       dataSrc(json) {
-        // protezione: se manca data o non è array, ritorno array vuoto
         const rows = Array.isArray(json?.data) ? json.data : [];
-        const filtered = isSuperAdmin ? rows : rows.filter(r => r.Associazione !== 'GOD' && r.Associazione !== 'Associazione GOD');
-        return filtered;
+        return isSuperAdmin 
+          ? rows 
+          : rows.filter(r => r.Associazione !== 'GOD' && r.Associazione !== 'Associazione GOD');
       }
     },
     columns: [
@@ -123,51 +120,6 @@ document.addEventListener('DOMContentLoaded', function () {
       $(row).removeClass('even odd').addClass(index % 2 === 0 ? 'even' : 'odd');
     }
   });
-
-  // --- Select personalizzata Associazione ---
-  function setupCustomSelect(formId, inputId, dropdownId, toggleBtnId, hiddenId) {
-    const form      = document.getElementById(formId);
-    const input     = document.getElementById(inputId);
-    const dropdown  = document.getElementById(dropdownId);
-    const toggleBtn = document.getElementById(toggleBtnId);
-    const hidden    = document.getElementById(hiddenId);
-    if (!form || !input || !dropdown || !toggleBtn || !hidden) return;
-
-    function showDropdown(){ dropdown.style.display = 'block';  toggleBtn.setAttribute('aria-expanded','true'); }
-    function hideDropdown(){ dropdown.style.display = 'none';   toggleBtn.setAttribute('aria-expanded','false'); }
-
-    function filterDropdown(term) {
-      const t = (term || '').toLowerCase();
-      dropdown.querySelectorAll('.assoc-item').forEach(li => {
-        const txt = (li.textContent || '').toLowerCase();
-        li.style.display = txt.includes(t) ? '' : 'none';
-      });
-    }
-
-    function setSelection(id, name) {
-      hidden.value = id ?? '';
-      input.value  = name ?? '';
-      form.submit();
-    }
-
-    dropdown.querySelectorAll('.assoc-item').forEach(li => {
-      li.style.cursor = 'pointer';
-      li.addEventListener('click', function () {
-        setSelection(this.dataset.id, (this.textContent || '').trim());
-      });
-    });
-
-    input.addEventListener('input', () => filterDropdown(input.value));
-    toggleBtn.addEventListener('click', () => {
-      (dropdown.style.display === 'block') ? hideDropdown() : (filterDropdown(input.value), showDropdown());
-    });
-
-    document.addEventListener('click', (e) => {
-      if (!form.contains(e.target)) hideDropdown();
-    });
-  }
-
-  setupCustomSelect('assocSelectForm', 'assocSelect', 'assocSelectDropdown', 'assocSelectToggleBtn', 'assocSelectHidden');
 });
 </script>
 @endpush
