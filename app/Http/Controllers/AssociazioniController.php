@@ -85,6 +85,7 @@ class AssociazioniController extends Controller
      *  ========================= */
     public function store(Request $request)
     {
+      
         $validated = $request->validate([
             'Associazione'      => 'required|string|max:255',
             'email'             => 'required|email|unique:associazioni,email',
@@ -116,12 +117,13 @@ class AssociazioniController extends Controller
             'created_at'   => $now,
             'updated_at'   => $now,
         ]);
-
         // 2) ruolo utente iniziale
-        $isFirst  = DB::table('associazioni')->whereNull('deleted_at')->count() === 1;
+       $isFirst = DB::table('users')
+                ->where('idAssociazione', $associazioneId )               
+                ->count() === 0;
         $roleName = $isFirst ? 'AdminUser' : 'User';
         $role     = Role::where('name', $roleName)->firstOrFail();
-
+    
         // 3) crea utente e collega all’associazione
         $password = Str::random(10);
         $user = User::create([
