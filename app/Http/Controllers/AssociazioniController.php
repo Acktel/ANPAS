@@ -40,20 +40,9 @@ class AssociazioniController extends Controller
                 ->orderBy('Associazione')
                 ->get();
 
-            // se arriva via GET lo salvo anche in session
-            $selectedAssoc = $request->get('idAssociazione')
-                ?? ($associazioni->first()->IdAssociazione ?? null);
-        } else {
-            // utenti standard: solo la propria associazione
-            $selectedAssoc = (int) $user->IdAssociazione;
         }
 
-        if ($request->filled('idAssociazione')) {
-            session(['associazione_selezionata' => (int) $request->idAssociazione]);
-        }
-        $selectedAssoc = session('associazione_selezionata') ?? $selectedAssoc;
-
-        return view('associazioni.index', compact('anno', 'associazioni', 'selectedAssoc'));
+        return view('associazioni.index', compact('anno', 'associazioni'));
     }
 
     /** =========================
