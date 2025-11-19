@@ -15,18 +15,15 @@ use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
 use Spatie\Permission\Models\Role;
 
-class AssociazioniController extends Controller
-{
-    public function __construct()
-    {
+class AssociazioniController extends Controller {
+    public function __construct() {
         $this->middleware('auth');
     }
 
     /** =========================
      *  GET /associazioni (index)
      *  ========================= */
-    public function index(Request $request)
-    {
+    public function index(Request $request) {
         $user = Auth::user();
         $anno = session('anno_riferimento', now()->year);
 
@@ -39,7 +36,6 @@ class AssociazioniController extends Controller
                 ->whereNull('deleted_at')
                 ->orderBy('Associazione')
                 ->get();
-
         }
 
 
@@ -49,33 +45,32 @@ class AssociazioniController extends Controller
     /** =========================
      *  GET /associazioni/data  (DataTables)
      *  ========================= */
-    public function getData(Request $request)
-    {
-        $user    = Auth::user();
+    public function getData(Request $request) {
+
+        $user = Auth::user();
         $isSuper = $user->hasRole('SuperAdmin');
 
         $result = Associazione::getAll($request);
 
-        // nascondi “GOD” ai non-super
-        if (! $isSuper) {
+        // Filtro speciale: se non SuperAdmin, rimuovo alcune associazioni dalla lista
+        if (!$isSuper) {
             $rows = collect($result['data']);
-            $filtered = $rows->filter(function ($row) {
-                return $row->Associazione !== 'Associazione GOD' && $row->Associazione !== 'GOD';
+            $filtered = $rows->reject(function ($row) {
+                return in_array($row->IdAssociazione, [1, 2]); // GOD + ANPAS NAZIONALE
             });
 
-            $result['data']            = $filtered->values();
+            $result['data'] = $filtered->values();
             $result['recordsFiltered'] = $filtered->count();
         }
-
+        
         return response()->json($result);
     }
 
     /** =========================
      *  POST /associazioni  (store)
      *  ========================= */
-    public function store(Request $request)
-    {
-      
+    public function store(Request $request) {
+
         $validated = $request->validate([
             'Associazione'      => 'required|string|max:255',
             'email'             => 'required|email|unique:associazioni,email',
@@ -99,7 +94,7 @@ class AssociazioniController extends Controller
             'provincia'    => $validated['provincia'],
             'citta'        => $validated['citta'],
             'cap'          => $validated['cap'] ?? null,
-            'indirizzo'    => $validated['indirizzo']?? null,
+            'indirizzo'    => $validated['indirizzo'] ?? null,
             'note'         => $validated['note'] ?? null,
             'active'       => true,
             'created_by'   => $userId,
@@ -108,12 +103,12 @@ class AssociazioniController extends Controller
             'updated_at'   => $now,
         ]);
         // 2) ruolo utente iniziale
-       $isFirst = DB::table('users')
-                ->where('idAssociazione', $associazioneId )               
-                ->count() === 0;
+        $isFirst = DB::table('users')
+            ->where('idAssociazione', $associazioneId)
+            ->count() === 0;
         $roleName = $isFirst ? 'AdminUser' : 'User';
         $role     = Role::where('name', $roleName)->firstOrFail();
-    
+
         // 3) crea utente e collega all’associazione
         $password = Str::random(10);
         $user = User::create([
@@ -134,18 +129,16 @@ class AssociazioniController extends Controller
             'token' => $token,
             'email' => $user->email,
         ], false));
-   //     Mail::to($user)->send(new SupervisorInvite($user, $resetUrl));
-
+        //     Mail::to($user)->send(new SupervisorInvite($user, $resetUrl));
         return redirect()
-            ->route('dashboard')
-            ->with('success', "Associazione e utente creati. Controlla la mail di {$user->email}.");
+        ->route('all-users.edit',  $user->id)
+        ->with('success', 'Associazione creata. Ora configura l’utente AdminUser.');
     }
 
     /** =========================
      *  POST /associazioni/{id}/toggle-active
      *  ========================= */
-    public function toggleActive($id)
-    {
+    public function toggleActive($id) {
         Associazione::toggleActive((int) $id);
 
         return redirect()
@@ -156,8 +149,7 @@ class AssociazioniController extends Controller
     /** =========================
      *  DELETE /associazioni/{id}
      *  ========================= */
-    public function destroy($id)
-    {
+    public function destroy($id) {
         Associazione::softDelete((int) $id);
 
         return redirect()
@@ -168,8 +160,7 @@ class AssociazioniController extends Controller
     /** =========================
      *  GET /associazioni/create
      *  ========================= */
-    public function create()
-    {
+    public function create() {
         $cities = Cities::getAll();
 
         // CAP per combo (stesso approccio di Aziende Sanitarie)
@@ -187,8 +178,7 @@ class AssociazioniController extends Controller
     /** =========================
      *  GET /associazioni/{id}/edit
      *  ========================= */
-    public function edit($id)
-    {
+    public function edit($id) {
         $associazione = Associazione::findById((int) $id);
         if (! $associazione) {
             abort(404, 'Associazione non trovata');
@@ -211,8 +201,7 @@ class AssociazioniController extends Controller
     /** =========================
      *  PATCH /associazioni/{id} (update)
      *  ========================= */
-    public function update(Request $request, $id)
-    {
+    public function update(Request $request, $id) {
         $data = $request->validate([
             'Associazione' => 'required|string|max:255',
             'email'        => 'required|email',
@@ -241,5 +230,4 @@ class AssociazioniController extends Controller
             ->route('associazioni.index')
             ->with('success', 'Associazione aggiornata con successo.');
     }
-  
 }

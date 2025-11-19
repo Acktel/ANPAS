@@ -19,26 +19,12 @@ class Associazione
      */
 public static function getAll(Request $request): array
 {
-    $elevatedRoleIds = [1,2,3];
+    $elevatedRoleIds = [1, 2, 3];
 
-    // ---- SUBQUERY: SOLO CAMPI AGGREGABILI + supervisor_user_id ----
-    $sub = DB::table(self::TABLE . ' as a')
-        ->leftJoin('users as u', 'a.IdAssociazione', '=', 'u.IdAssociazione')
-        ->selectRaw("
-            a.IdAssociazione,
-            a.Associazione,
-            a.email,
-            a.provincia,
-            a.citta,
-            a.cap,
-            a.indirizzo,
-            a.active,
-            MIN(CASE WHEN u.role_id IN (" . implode(',', $elevatedRoleIds) . ") 
-                THEN u.id END
-            ) AS supervisor_user_id
-        ")
-        ->whereNull('a.deleted_at')
-        ->groupBy(
+    $base = DB::table('associazioni as a')
+        ->leftJoin('users as uc', 'a.created_by', '=', 'uc.id')
+        ->leftJoin('users as uu', 'a.updated_by', '=', 'uu.id')
+        ->select([
             'a.IdAssociazione',
             'a.Associazione',
             'a.email',
@@ -46,70 +32,71 @@ public static function getAll(Request $request): array
             'a.citta',
             'a.cap',
             'a.indirizzo',
-            'a.active'
-        );
-
-    // ---- QUERY ESTERNA: QUI AGGIUNGIAMO created_by / updated_by ----
-    $base = DB::table(DB::raw("({$sub->toSql()}) as t"))
-        ->mergeBindings($sub)
-        ->leftJoin('associazioni as a', 'a.IdAssociazione', '=', 't.IdAssociazione')
-        ->leftJoin('users as uc', 'a.created_by', '=', 'uc.id')
-        ->leftJoin('users as uu', 'a.updated_by', '=', 'uu.id')
-        ->selectRaw("
-            t.*,
-            a.created_by,
-            a.updated_by,
-            COALESCE(uc.username, '') AS created_by_name,
-            COALESCE(uu.username, '') AS updated_by_name
-        ");
+            'a.active',
+            'a.created_by',
+            'a.updated_by',
+            DB::raw("COALESCE(uc.username, '') AS created_by_name"),
+            DB::raw("COALESCE(uu.username, '') AS updated_by_name"),
+        ])
+        ->whereNull('a.deleted_at');
 
     // ricerca
-    if ($val = trim((string) $request->input('search.value'))) {
-        $base->where(function ($q) use ($val) {
-            $q->where('t.Associazione', 'like', "%{$val}%")
-              ->orWhere('t.email', 'like', "%{$val}%")
-              ->orWhere('t.provincia', 'like', "%{$val}%")
-              ->orWhere('t.citta', 'like', "%{$val}%")
-              ->orWhere('t.cap', 'like', "%{$val}%")
-              ->orWhere('t.indirizzo', 'like', "%{$val}%");
+    if ($search = trim((string)$request->input('search.value'))) {
+        $base->where(function ($q) use ($search) {
+            $q->where('a.Associazione', 'like', "%$search%")
+              ->orWhere('a.email', 'like', "%$search%")
+              ->orWhere('a.provincia', 'like', "%$search%")
+              ->orWhere('a.citta', 'like', "%$search%")
+              ->orWhere('a.cap', 'like', "%$search%")
+              ->orWhere('a.indirizzo', 'like', "%$search%");
         });
     }
 
-    // totali
-    $total = DB::table(self::TABLE)->whereNull('deleted_at')->count();
+    $total = DB::table('associazioni')->whereNull('deleted_at')->count();
     $filtered = (clone $base)->count();
 
     // ordinamento
     $orderable = [
-        'Associazione'     => 't.Associazione',
-        'email'            => 't.email',
-        'provincia'        => 't.provincia',
-        'citta'            => 't.citta',
-        'cap'              => 't.cap',
-        'indirizzo'        => 't.indirizzo',
+        'Associazione'     => 'a.Associazione',
+        'email'            => 'a.email',
+        'provincia'        => 'a.provincia',
+        'citta'            => 'a.citta',
+        'cap'              => 'a.cap',
+        'indirizzo'        => 'a.indirizzo',
         'updated_by_name'  => 'updated_by_name',
     ];
 
     if ($order = $request->input('order.0')) {
         $colKey = $request->input("columns.{$order['column']}.data");
-        $dir    = strtolower($order['dir'] ?? 'asc') === 'desc' ? 'desc' : 'asc';
-        $base->orderBy($orderable[$colKey] ?? 't.Associazione', $dir);
-    } else {
-        $base->orderBy('t.Associazione');
+        $dir = strtolower($order['dir'] ?? 'asc') === 'desc' ? 'desc' : 'asc';
+
+        if (isset($orderable[$colKey])) {
+            $base->orderBy($orderable[$colKey], $dir);
+        }
     }
 
-    // paginazione
-    $start  = max(0, (int) $request->input('start', 0));
-    $length = max(1, (int) $request->input('length', 10));
-    $data   = $base->skip($start)->take($length)->get();
+    // ❌ niente paginazione server-side
+    $rows = $base->get();
+
+    // supervisor_user_id
+    foreach ($rows as $row) {
+        $row->supervisor_user_id = DB::table('users')
+            ->where('IdAssociazione', $row->IdAssociazione)
+            ->whereIn('role_id', $elevatedRoleIds)
+            ->orderBy('id')
+            ->value('id');
+    }
 
     return [
-        'draw'            => (int) $request->input('draw', 1),
+        'draw'            => (int)$request->input('draw', 1),
         'recordsTotal'    => $total,
         'recordsFiltered' => $filtered,
-        'data'            => $data,
+        'data'            => $rows,
     ];
 }
+
+
+
 
 
 
