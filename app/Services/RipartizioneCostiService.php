@@ -1509,67 +1509,63 @@ class RipartizioneCostiService {
      * NB: viene considerata SOLO la convenzione in regime “mezzi sostitutivi”.
      */
     public static function costoNettoMezziSostitutiviByConvenzione(
-    int $idAssociazione,
-    int $anno
-): array {
+        int $idAssociazione,
+        int $anno
+    ): array {
 
-    // tutte le convenzioni
-    $conv = self::convenzioni($idAssociazione, $anno);
-    if (empty($conv)) return [];
+        // tutte le convenzioni
+        $conv = self::convenzioni($idAssociazione, $anno);
+        if (empty($conv)) return [];
 
-    // solo convenzioni in regime MS
-    $convMS = array_filter(
-        array_keys($conv),
-        fn($cid) => self::isRegimeMezziSostitutivi($cid)
-    );
+        // solo convenzioni in regime MS
+        $convMS = array_filter(
+            array_keys($conv),
+            fn($cid) => self::isRegimeMezziSostitutivi($cid)
+        );
 
-    if (empty($convMS)) return [];
+        if (empty($convMS)) return [];
 
-    // Tabella TOTALE = già ripartita come Excel
-    $tabellaTot = self::calcolaTabellaTotale($idAssociazione, $anno);
+        // Tabella TOTALE = già ripartita come Excel
+        $tabellaTot = self::calcolaTabellaTotale($idAssociazione, $anno);
 
-    // Normalizzo descrizioni
-    $target = array_map(fn($s) => self::norm($s), self::VOCI_MEZZI_SOSTITUTIVI);
+        // Normalizzo descrizioni
+        $target = array_map(fn($s) => self::norm($s), self::VOCI_MEZZI_SOSTITUTIVI);
 
-    // name → idConvenzione
-    $nomeById = $conv;
+        // name → idConvenzione
+        $nomeById = $conv;
 
-    $out = array_fill_keys($convMS, 0.0);
+        $out = array_fill_keys($convMS, 0.0);
 
-    foreach ($convMS as $idConv) {
+        foreach ($convMS as $idConv) {
 
-        // mezzo titolare della convenzione
-        $titolare = \App\Models\Convenzione::getMezzoTitolare($idConv);
-        $idTitolare = $titolare?->idAutomezzo ?? null;
+            // mezzo titolare della convenzione
+            $titolare = Convenzione::getMezzoTitolare($idConv);
+            $idTitolare = $titolare?->idAutomezzo ?? null;
 
-        foreach ($tabellaTot as $riga) {
+            foreach ($tabellaTot as $riga) {
 
-            if (empty($riga['voce'])) continue;
+                if (empty($riga['voce'])) continue;
 
-            // prendi solo le voci dei sostitutivi
-            if (!in_array(self::norm($riga['voce']), $target, true)) continue;
+                // prendi solo le voci dei sostitutivi
+                if (!in_array(self::norm($riga['voce']), $target, true)) continue;
 
-            // prendi valore della convenzione
-            $nomeConv = $nomeById[$idConv] ?? null;
-            if (!$nomeConv) continue;
+                // prendi valore della convenzione
+                $nomeConv = $nomeById[$idConv] ?? null;
+                if (!$nomeConv) continue;
 
-            $val = (float)($riga[$nomeConv] ?? 0.0);
-            if ($val <= 0) continue;
+                $val = (float)($riga[$nomeConv] ?? 0.0);
+                if ($val <= 0) continue;
 
-            // somma
-            $out[$idConv] += $val;
+                // somma
+                $out[$idConv] += $val;
+            }
+
+            // arrotonda
+            $out[$idConv] = round($out[$idConv], 2);
         }
 
-        // arrotonda
-        $out[$idConv] = round($out[$idConv], 2);
+        return $out;
     }
-
-    return $out;
-}
-
-
-
-
 
     /** Voci interessate dalla ROTAZIONE (render lato UI) */
     public static function vociRotazioneUI(): array {

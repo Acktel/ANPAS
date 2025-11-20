@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Support\Facades\DB;
+use App\Services\RipartizioneCostiService;
 
 class MezziSostitutivi {
     protected const TABLE = 'mezzi_sostitutivi';
@@ -74,9 +75,11 @@ class MezziSostitutivi {
         // 1️⃣ costo fascia oraria (record tabella mezzi_sostitutivi)
         $rec = self::getByConvenzioneAnno($idConvenzione, $anno);
         $costoFascia = $rec ? (float)$rec->costo_fascia_oraria : 0.0;
-
-        // 2️⃣ costo reale dei mezzi sostitutivi (sommatoria tabella costi_automezzi)
-        $costoSost = self::calcolaCostoSostitutivi($idConvenzione, $anno);
+        $netByConv = RipartizioneCostiService::costoNettoMezziSostitutiviByConvenzione(
+            (int) $conv->idAssociazione,
+            $anno
+        );
+        $costoSost = (float)($netByConv[$idConvenzione] ?? 0.0);
 
         // 3️⃣ totale netto (differenza tra costo fascia oraria e costo mezzi)
         $totaleNetto = max(0, $costoFascia - $costoSost);
