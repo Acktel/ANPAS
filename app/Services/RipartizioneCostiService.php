@@ -1511,69 +1511,45 @@ class RipartizioneCostiService {
         int $idAssociazione,
         int $anno
     ): array {
-        // 1) Convenzioni ordinate
         $conv = self::convenzioni($idAssociazione, $anno);
         if (empty($conv)) return [];
 
-        // 2) Tabella totale legacy (somma di tutti i mezzi) già con riparti corretti
-        $tabellaTot = self::calcolaTabellaTotale($idAssociazione, $anno);
-        // ogni riga: ['voce', 'idAutomezzo', 'totale', '<nome conv>' => importo]
+        // Costi ripartiti PER MEZZO (non per voce!)
+        $riparto = self::calcolaRipartizione($idAssociazione, $anno);
+        // struttura:
+        // [idAutomezzo => [ 'idConvenzione' => X, 'totale' => Y, ... ]]
 
-        // 3) Prepara elenco delle voci da sommare (normalizzate)
-        $target = array_map(fn($s) => self::norm($s), self::VOCI_MEZZI_SOSTITUTIVI);
+        $out = [];
 
-        // 4) Mappa utile: idConv => nomeConv
-        $nomeById = $conv;                 // [id => nome]
-        $idsByNome = array_flip($nomeById);
+        foreach ($conv as $idConv => $nomeConv) {
 
-        // 5) Output inizializzato solo alle convenzioni viste
-        $out = array_fill_keys(array_keys($conv), 0.0);
-
-        // 6) Loop sulle righe della tabella totale
-        foreach ($tabellaTot as $riga) {
-
-            if (empty($riga['voce'])) continue;
-
-            // 6a) Scarta voci che non sono mezzi sostitutivi
-            if (!in_array(self::norm($riga['voce']), $target, true)) continue;
-
-            // 6b) Scarta il MEZZO TITOLARE per ogni convenzione
-            //     (NB: il titolare è specifico per ogni convenzione)
-            //     quindi serve un controllo per tutte le convenzioni MS
-            foreach ($nomeById as $idConv => $nomeConv) {
-
-                // Valuta solo le convenzioni realmente in regime di mezzi sostitutivi
-                if (!self::isRegimeMezziSostitutivi($idConv)) continue;
-
-                // id del mezzo titolare della convenzione attuale
-                $titolare = Convenzione::getMezzoTitolare($idConv);
-                $idTitolare = $titolare?->idAutomezzo ?? null;
-
-                // Se questa riga appartiene al mezzo titolare → skip
-                if ($idTitolare !== null && isset($riga['idAutomezzo']) && (int)$riga['idAutomezzo'] === $idTitolare) {
-                    continue;
-                }
-
-                // 6c) Somma SOLO il valore della convenzione
-                $val = (float)($riga[$nomeConv] ?? 0.0);
-                if ($val !== 0.0) {
-                    $out[$idConv] += $val;
-                }
+            if (!self::isRegimeMezziSostitutivi($idConv)) {
+                continue;
             }
+
+            // identifica mezzo titolare della convenzione
+            $titolare = Convenzione::getMezzoTitolare($idConv);
+            $idMezzoTitolare = $titolare?->idAutomezzo;
+
+            $somma = 0;
+
+            foreach ($riparto as $idAutomezzo => $info) {
+                // skip mezzi NON di questa convenzione
+                if ((int)$info['idConvenzione'] !== (int)$idConv) continue;
+
+                //escludi il titolare
+                if ($idAutomezzo === $idMezzoTitolare) continue;
+
+                // somma costo del mezzo sostitutivo
+                $somma += (float)($info['totale'] ?? 0);
+            }
+
+            $out[$idConv] = round($somma, 2);
         }
 
-        // 7) Arrotondamenti finali
-        foreach ($out as $k => $v) {
-            $out[$k] = round($v, 2);
-        }
-
-        // 8) Mantieni solo le convenzioni in regime mezzi sostitutivi
-        return array_filter(
-            $out,
-            fn($cid) => self::isRegimeMezziSostitutivi($cid),
-            ARRAY_FILTER_USE_KEY
-        );
+        return $out;
     }
+
 
 
     /** Voci interessate dalla ROTAZIONE (render lato UI) */
