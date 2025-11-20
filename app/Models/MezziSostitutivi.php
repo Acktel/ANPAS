@@ -16,7 +16,7 @@ class MezziSostitutivi {
             ->first();
     }
 
-    /** Upsert del costo fascia oraria (SOLO SQL) */
+    /** Upsert del costo fascia oraria */
     public static function upsertCosto(int $idConvenzione, int $anno, float $costo): void {
         DB::table(self::TABLE)->updateOrInsert(
             ['idConvenzione' => $idConvenzione, 'idAnno' => $anno],
@@ -25,63 +25,38 @@ class MezziSostitutivi {
     }
 
     /**
-     * Calcola il COSTO NETTO "mezzi sostitutivi" di una convenzione per l'anno:
-     * somma i costi dei MEZZI collegati alla convenzione (ESCLUSO il titolare),
-     * usando i nomi colonna reali della tabella `costi_automezzi`.
-     *
-     * NOTE: la straordinaria è al netto dei rimborsi assicurativi.
-     *       NON includo Carburanti/Additivi/RimborsiUTF.
+     * Stato mezzi sostitutivi usando SOLO la logica ufficiale
+     * di RipartizioneCostiService (costo netto ripartito).
      */
-    public static function calcolaCostoSostitutivi(int $idConvenzione, int $anno): float {
-        // 1) prendo gli automezzi della convenzione ESCLUSO il titolare
-        $mezzi = DB::select("
-            SELECT ak.idAutomezzo
-            FROM automezzi_km AS ak
-            JOIN automezzi AS a ON a.idAutomezzo = ak.idAutomezzo
-            WHERE ak.idConvenzione = :idConvenzione
-              AND ak.is_titolare = 0
-        ", ['idConvenzione' => $idConvenzione]);
-
-        if (empty($mezzi)) return 0.0;
-
-        $ids = implode(',', array_map(fn($m) => (int)$m->idAutomezzo, $mezzi));
-        if ($ids === '') return 0.0;
-
-        // 2) somma coi nomi CAMPO corretti (vedi screenshot della tabella)
-        $row = DB::selectOne("
-            SELECT COALESCE(SUM(
-                COALESCE(LeasingNoleggio, 0) +
-                COALESCE(Assicurazione, 0) +
-                COALESCE(ManutenzioneOrdinaria, 0) +
-                GREATEST(COALESCE(ManutenzioneStraordinaria, 0) - COALESCE(RimborsiAssicurazione, 0), 0) +
-                COALESCE(PuliziaDisinfezione, 0) +
-                COALESCE(InteressiPassivi, 0) +
-                COALESCE(ManutenzioneSanitaria, 0) +
-                COALESCE(LeasingSanitaria, 0) +
-                COALESCE(AmmortamentoMezzi, 0) +
-                COALESCE(AmmortamentoSanitaria, 0) +
-                COALESCE(AltriCostiMezzi, 0)
-            ), 0) AS tot
-            FROM costi_automezzi
-            WHERE idAnno = :anno
-              AND idAutomezzo IN ($ids)
-        ", ['anno' => $anno]);
-
-        return (float)($row->tot ?? 0.0);
-    }
-
     public static function getStato(int $idConvenzione, int $anno): object
     {
-        // 1️⃣ costo fascia oraria (record tabella mezzi_sostitutivi)
+        // 1️⃣ costo fascia oraria salvato manualmente
         $rec = self::getByConvenzioneAnno($idConvenzione, $anno);
         $costoFascia = $rec ? (float)$rec->costo_fascia_oraria : 0.0;
+
+        // 2️⃣ servono i dati della convenzione
+        $conv = DB::table('convenzioni')
+            ->select('idAssociazione')
+            ->where('idConvenzione', $idConvenzione)
+            ->first();
+
+        if (!$conv) {
+            return (object)[
+                'costo_fascia_oraria'     => $costoFascia,
+                'costo_mezzi_sostitutivi' => 0.0,
+                'totale_netto'            => $costoFascia,
+            ];
+        }
+
+        // 3️⃣ costo netto calcolato dalla ripartizione ufficiale ANPAS
         $netByConv = RipartizioneCostiService::costoNettoMezziSostitutiviByConvenzione(
-            (int) $conv->idAssociazione,
+            (int)$conv->idAssociazione,
             $anno
         );
+
         $costoSost = (float)($netByConv[$idConvenzione] ?? 0.0);
 
-        // 3️⃣ totale netto (differenza tra costo fascia oraria e costo mezzi)
+        // 4️⃣ differenza come da regola
         $totaleNetto = max(0, $costoFascia - $costoSost);
 
         return (object)[
@@ -90,5 +65,4 @@ class MezziSostitutivi {
             'totale_netto'            => $totaleNetto,
         ];
     }
-
 }
