@@ -299,11 +299,6 @@ class RipartizioneCostiService {
                     // % servizi
                     $pesi[$idConv] = (float)($serviziPerConv[$idConv] ?? 0.0);
                 } elseif (in_array($voceLabel, self::VOCI_ROTAZIONE_MEZZI, true) && self::isRegimeRotazione($idConv)) {
-                    // rotazione: KM mezzo / KM tot convenzione
-                    $pesi[$idConv] = (float)($kmPerConv[$idConv] ?? 0.0);
-
-
-                } elseif (in_array($voceLabel, self::VOCI_MEZZI_SOSTITUTIVI, true) && self::isRegimeMezziSostitutivi($idConv)) {
                     // sostitutivi: KM mezzo / KM tot convenzione
                     $totaleKmMezzo = array_sum($kmPerConv);
                     $peso = ($totaleKmMezzo > 0)
@@ -311,6 +306,10 @@ class RipartizioneCostiService {
                         : 0;
 
                     $pesi[$idConv] = $peso;
+                    
+                } elseif (in_array($voceLabel, self::VOCI_MEZZI_SOSTITUTIVI, true) && self::isRegimeMezziSostitutivi($idConv)) {
+                    // sostitutivi: KM mezzo / KM tot convenzione
+                    $pesi[$idConv] = (float)($kmPerConv[$idConv] ?? 0.0);
                 } else {
                     // default: % km del mezzo nell’anno
                     $pesi[$idConv] = (float)($kmPerConv[$idConv] ?? 0.0);
