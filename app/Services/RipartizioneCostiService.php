@@ -411,6 +411,7 @@ class RipartizioneCostiService {
 
             foreach ($tabella as $riga) {
                 $voce = $riga['voce'];
+                $riga['idAutomezzo'] = $idAutomezzo;
                 if (!isset($tot[$voce])) {
                     $tot[$voce] = ['voce' => $voce, 'totale' => 0.0];
                     foreach ($convenzioni as $convName) $tot[$voce][$convName] = 0.0;
@@ -1511,44 +1512,60 @@ class RipartizioneCostiService {
         int $idAssociazione,
         int $anno
     ): array {
+
+        // convenzioni
         $conv = self::convenzioni($idAssociazione, $anno);
         if (empty($conv)) return [];
 
-        // Costi ripartiti PER MEZZO (non per voce!)
-        $riparto = self::calcolaRipartizione($idAssociazione, $anno);
-        // struttura:
-        // [idAutomezzo => [ 'idConvenzione' => X, 'totale' => Y, ... ]]
+        // tabella totale con idAutomezzo aggiunto
+        $tabellaTot = self::calcolaTabellaTotale($idAssociazione, $anno);
 
-        $out = [];
+        // nomi normalizzati delle voci da considerare
+        $target = array_map(fn($s) => self::norm($s), self::VOCI_MEZZI_SOSTITUTIVI);
 
-        foreach ($conv as $idConv => $nomeConv) {
+        // id → nome
+        $nomeById  = $conv;
+        $idsByNome = array_flip($nomeById);
 
-            if (!self::isRegimeMezziSostitutivi($idConv)) {
-                continue;
-            }
+        $out = array_fill_keys(array_keys($conv), 0.0);
 
-            // identifica mezzo titolare della convenzione
-            $titolare = Convenzione::getMezzoTitolare($idConv);
-            $idMezzoTitolare = $titolare?->idAutomezzo;
-
-            $somma = 0;
-
-            foreach ($riparto as $idAutomezzo => $info) {
-                // skip mezzi NON di questa convenzione
-                if ((int)$info['idConvenzione'] !== (int)$idConv) continue;
-
-                //escludi il titolare
-                if ($idAutomezzo === $idMezzoTitolare) continue;
-
-                // somma costo del mezzo sostitutivo
-                $somma += (float)($info['totale'] ?? 0);
-            }
-
-            $out[$idConv] = round($somma, 2);
+        // per ogni convenzione: trova il titolare
+        $titolari = [];
+        foreach ($conv as $idConv => $nome) {
+            $mezzo = \App\Models\Convenzione::getMezzoTitolare($idConv);
+            $titolari[$idConv] = $mezzo?->idAutomezzo;
         }
 
-        return $out;
+        // somma solo le voci target e SOLO quelle non del titolare
+        foreach ($tabellaTot as $riga) {
+
+            if (!in_array(self::norm($riga['voce']), $target, true)) continue;
+
+            $idAutomezzo = (int)($riga['idAutomezzo'] ?? 0);
+
+            foreach ($nomeById as $idConv => $nomeConv) {
+
+                if (!self::isRegimeMezziSostitutivi($idConv)) continue;
+
+                if ($idAutomezzo === (int)$titolari[$idConv]) continue;
+
+                $val = (float)($riga[$nomeConv] ?? 0.0);
+                if ($val !== 0.0) $out[$idConv] += $val;
+            }
+        }
+
+        // arrotonda
+        foreach ($out as $k => $v) {
+            $out[$k] = round($v, 2);
+        }
+
+        return array_filter(
+            $out,
+            fn($cid) => self::isRegimeMezziSostitutivi($cid),
+            ARRAY_FILTER_USE_KEY
+        );
     }
+
 
 
 
