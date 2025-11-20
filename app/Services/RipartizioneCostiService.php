@@ -1509,57 +1509,63 @@ class RipartizioneCostiService {
      * NB: viene considerata SOLO la convenzione in regime “mezzi sostitutivi”.
      */
     public static function costoNettoMezziSostitutiviByConvenzione(
-        int $idAssociazione,
-        int $anno
-    ): array {
+    int $idAssociazione,
+    int $anno
+): array {
 
-        $conv = self::convenzioni($idAssociazione, $anno);
-        if (empty($conv)) return [];
+    // tutte le convenzioni
+    $conv = self::convenzioni($idAssociazione, $anno);
+    if (empty($conv)) return [];
 
-        // tutte le convenzioni in regime sostitutivi
-        $convMS = array_filter(
-            array_keys($conv),
-            fn($cid) => self::isRegimeMezziSostitutivi($cid)
-        );
+    // solo convenzioni in regime MS
+    $convMS = array_filter(
+        array_keys($conv),
+        fn($cid) => self::isRegimeMezziSostitutivi($cid)
+    );
 
-        if (empty($convMS)) return [];
+    if (empty($convMS)) return [];
 
-        // tabella base km per mezzo e convenzione
-        $km = self::kmPerMezzoEConvenzione($idAssociazione, $anno);
+    // Tabella TOTALE = già ripartita come Excel
+    $tabellaTot = self::calcolaTabellaTotale($idAssociazione, $anno);
 
-        // costi per mezzo (solo voci sostitutivi)
-        $costi = self::costiPerMezzoSoloSostitutivi($anno);
+    // Normalizzo descrizioni
+    $target = array_map(fn($s) => self::norm($s), self::VOCI_MEZZI_SOSTITUTIVI);
 
-        $out = array_fill_keys($convMS, 0.0);
+    // name → idConvenzione
+    $nomeById = $conv;
 
-        foreach ($convMS as $idConv) {
+    $out = array_fill_keys($convMS, 0.0);
 
-            $titolare = \App\Models\Convenzione::getMezzoTitolare($idConv);
-            $idTitolare = $titolare?->idAutomezzo ?? null;
+    foreach ($convMS as $idConv) {
 
-            // km totali della convenzione
-            $kmTotConv = array_sum($km['conv'][$idConv] ?? []);
+        // mezzo titolare della convenzione
+        $titolare = \App\Models\Convenzione::getMezzoTitolare($idConv);
+        $idTitolare = $titolare?->idAutomezzo ?? null;
 
-            if ($kmTotConv <= 0) continue;
+        foreach ($tabellaTot as $riga) {
 
-            foreach ($km['conv'][$idConv] as $idMezzo => $kmMezzo) {
+            if (empty($riga['voce'])) continue;
 
-                if ($idMezzo == $idTitolare) continue; // escludi titolare
-                if ($kmMezzo <= 0) continue;
+            // prendi solo le voci dei sostitutivi
+            if (!in_array(self::norm($riga['voce']), $target, true)) continue;
 
-                $costoTotaleMezzo = $costi[$idMezzo] ?? 0.0;
+            // prendi valore della convenzione
+            $nomeConv = $nomeById[$idConv] ?? null;
+            if (!$nomeConv) continue;
 
-                // quota del mezzo sulla convenzione (km proporzionale)
-                $quota = $costoTotaleMezzo * ($kmMezzo / $kmTotConv);
+            $val = (float)($riga[$nomeConv] ?? 0.0);
+            if ($val <= 0) continue;
 
-                $out[$idConv] += $quota;
-            }
-
-            $out[$idConv] = round($out[$idConv], 2);
+            // somma
+            $out[$idConv] += $val;
         }
 
-        return $out;
+        // arrotonda
+        $out[$idConv] = round($out[$idConv], 2);
     }
+
+    return $out;
+}
 
 
 
