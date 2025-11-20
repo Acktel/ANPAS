@@ -306,7 +306,6 @@ class RipartizioneCostiService {
                         : 0;
 
                     $pesi[$idConv] = $peso;
-                    
                 } elseif (in_array($voceLabel, self::VOCI_MEZZI_SOSTITUTIVI, true) && self::isRegimeMezziSostitutivi($idConv)) {
                     // sostitutivi: KM mezzo / KM tot convenzione
                     $pesi[$idConv] = (float)($kmPerConv[$idConv] ?? 0.0);
@@ -1051,7 +1050,7 @@ class RipartizioneCostiService {
     public static function consuntiviPerVoceByConvenzione(int $idAssociazione, int $anno): array {
         $conv = self::convenzioni($idAssociazione, $anno);
         $dist = self::distintaImputazioneData($idAssociazione, $anno);
-        
+
         $righe = $dist['data'] ?? [];
 
         $out = [];
@@ -1517,37 +1516,65 @@ class RipartizioneCostiService {
         if (empty($conv)) return [];
 
         // 2) Tabella totale legacy (somma di tutti i mezzi) già con riparti corretti
-        $tabellaTot = self::calcolaTabellaTotale($idAssociazione, $anno); // array di righe: ['voce', 'totale', '<nomeConv>' => importo]
+        $tabellaTot = self::calcolaTabellaTotale($idAssociazione, $anno);
+        // ogni riga: ['voce', 'idAutomezzo', 'totale', '<nome conv>' => importo]
 
-        // 3) Normalizza descrizioni per il match con le voci sostitutive
+        // 3) Prepara elenco delle voci da sommare (normalizzate)
         $target = array_map(fn($s) => self::norm($s), self::VOCI_MEZZI_SOSTITUTIVI);
 
-        // 4) Mappa nome convenzione per lookup rapido
+        // 4) Mappa utile: idConv => nomeConv
         $nomeById = $conv;                 // [id => nome]
-        $idsByNome = array_flip($nomeById); // [nome => id]
+        $idsByNome = array_flip($nomeById);
 
-        // 5) Inizializza output a zero
+        // 5) Output inizializzato solo alle convenzioni viste
         $out = array_fill_keys(array_keys($conv), 0.0);
 
-        // 6) Somma solo le righe target, e solo per convenzioni in regime “mezzi sostitutivi”
+        // 6) Loop sulle righe della tabella totale
         foreach ($tabellaTot as $riga) {
+
             if (empty($riga['voce'])) continue;
+
+            // 6a) Scarta voci che non sono mezzi sostitutivi
             if (!in_array(self::norm($riga['voce']), $target, true)) continue;
 
+            // 6b) Scarta il MEZZO TITOLARE per ogni convenzione
+            //     (NB: il titolare è specifico per ogni convenzione)
+            //     quindi serve un controllo per tutte le convenzioni MS
             foreach ($nomeById as $idConv => $nomeConv) {
-                if (!self::isRegimeMezziSostitutivi($idConv)) continue; // mostra/valuta solo se in regime MS
 
+                // Valuta solo le convenzioni realmente in regime di mezzi sostitutivi
+                if (!self::isRegimeMezziSostitutivi($idConv)) continue;
+
+                // id del mezzo titolare della convenzione attuale
+                $titolare = Convenzione::getMezzoTitolare($idConv);
+                $idTitolare = $titolare?->idAutomezzo ?? null;
+
+                // Se questa riga appartiene al mezzo titolare → skip
+                if ($idTitolare !== null && (int)$riga['idAutomezzo'] === $idTitolare) {
+                    continue;
+                }
+
+                // 6c) Somma SOLO il valore della convenzione
                 $val = (float)($riga[$nomeConv] ?? 0.0);
-                if ($val !== 0.0) $out[$idConv] += $val;
+                if ($val !== 0.0) {
+                    $out[$idConv] += $val;
+                }
             }
         }
 
-        // Arrotonda
-        foreach ($out as $k => $v) $out[$k] = round($v, 2);
+        // 7) Arrotondamenti finali
+        foreach ($out as $k => $v) {
+            $out[$k] = round($v, 2);
+        }
 
-        // Filtra eventuali convenzioni NON in regime MS (teniamo solo quelle attive)
-        return array_filter($out, fn($cid) => self::isRegimeMezziSostitutivi($cid), ARRAY_FILTER_USE_KEY);
+        // 8) Mantieni solo le convenzioni in regime mezzi sostitutivi
+        return array_filter(
+            $out,
+            fn($cid) => self::isRegimeMezziSostitutivi($cid),
+            ARRAY_FILTER_USE_KEY
+        );
     }
+
 
     /** Voci interessate dalla ROTAZIONE (render lato UI) */
     public static function vociRotazioneUI(): array {

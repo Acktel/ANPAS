@@ -252,8 +252,8 @@ class Convenzione {
         JOIN convenzioni c ON c.idConvenzione = k.idConvenzione
         WHERE k.idConvenzione = :idConvenzione
           AND k.is_titolare = 1
-        LIMIT 1
-    ";
+        LIMIT 1";
+
         $titolare = DB::selectOne($sql, ['idConvenzione' => $idConvenzione]);
         if (!$titolare) return null;
 
@@ -261,8 +261,7 @@ class Convenzione {
         $totConv = DB::selectOne("
         SELECT COALESCE(SUM(KMPercorsi),0) AS km_totali_conv
         FROM automezzi_km
-        WHERE idConvenzione = :idConvenzione
-    ", ['idConvenzione' => $idConvenzione]);
+        WHERE idConvenzione = :idConvenzione", ['idConvenzione' => $idConvenzione]);
 
         $kmTotaliConv = (float) ($totConv->km_totali_conv ?? 0);
         $percentRot   = $kmTotaliConv > 0
@@ -275,8 +274,7 @@ class Convenzione {
         FROM automezzi_km k
         JOIN convenzioni c ON c.idConvenzione = k.idConvenzione
         WHERE k.idAutomezzo = :idAutomezzo
-          AND c.idAnno = :idAnno
-    ", ['idAutomezzo' => $titolare->idAutomezzo, 'idAnno' => (int)$titolare->idAnno]);
+          AND c.idAnno = :idAnno", ['idAutomezzo' => $titolare->idAutomezzo, 'idAnno' => (int)$titolare->idAnno]);
 
         $kmTotaliMezzo = (float) ($totMezzo->km_totali_mezzo ?? 0);
         $percentTrad   = $kmTotaliMezzo > 0
