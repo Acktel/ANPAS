@@ -1906,8 +1906,6 @@ class RipartizioneCostiService {
         return $out;
     }
 
-
-
     /** Voci interessate dalla ROTAZIONE (render lato UI) */
     public static function vociRotazioneUI(): array {
         return [
