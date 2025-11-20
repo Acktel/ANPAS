@@ -1818,9 +1818,7 @@ class RipartizioneCostiService {
 
         foreach ($convMS as $idConv) {
 
-            /* -----------------------------------------------------------
-         * 1) Recupero il MEZZO TITOLARE della convenzione
-         * ----------------------------------------------------------- */
+            // 1) MEZZO TITOLARE
             $tit = DB::table('automezzi_km')
                 ->select('idAutomezzo')
                 ->where('idConvenzione', $idConv)
@@ -1834,10 +1832,7 @@ class RipartizioneCostiService {
 
             $idTitolare = (int)$tit->idAutomezzo;
 
-            /* -----------------------------------------------------------
-         * 2) Mezzi che hanno VIAGGIATO sulla convenzione (km > 0)
-         *    ESCLUSO il titolare
-         * ----------------------------------------------------------- */
+            // 2) MEZZI CHE HANNO VIAGGIATO (ESCLUSO TUTOLARE)
             $mezzi = DB::table('automezzi_km')
                 ->where('idConvenzione', $idConv)
                 ->where('KMPercorsi', '>', 0)
@@ -1851,9 +1846,7 @@ class RipartizioneCostiService {
                 continue;
             }
 
-            /* -----------------------------------------------------------
-         * 3) Sommo SOLO le voci sostitutive da costi_automezzi
-         * ----------------------------------------------------------- */
+            // 3) SOMMA COSTI SOSTITUTIVI REALI
             $voci = [
                 'LeasingNoleggio',
                 'Assicurazione',
@@ -1885,15 +1878,13 @@ class RipartizioneCostiService {
                     $tot += (float)($c->$col ?? 0);
                 }
 
-                // Manutenzione straordinaria netta da rimborsi
+                // Manutenzione straordinaria netta
                 $tot -= (float)($c->RimborsiAssicurazione ?? 0);
             }
 
             $tot = max(0.0, round($tot, 2));
 
-            /* -----------------------------------------------------------
-         * 4) Applicazione MASSIMALE: 7.000 / 3.500 / ecc.
-         * ----------------------------------------------------------- */
+            // 4) MASSIMALE 7.000 / 3.500 / proporzionale
             $h = (int)DB::table('convenzioni')
                 ->where('idConvenzione', $idConv)
                 ->value('oreServizioGiornaliere');
@@ -1903,20 +1894,18 @@ class RipartizioneCostiService {
             } elseif ($h >= 12) {
                 $limite = 3500.00;
             } else {
-                // riparametro proporzionalmente
                 $limite = ($h / 24) * 7000.00;
             }
 
             $eccedenza = max(0.0, round($tot - $limite, 2));
 
-            /* -----------------------------------------------------------
-         * RISULTATO: ECCEDENZA DA DECURTARE AL CONSUNTIVO
-         * ----------------------------------------------------------- */
+            // RISULTATO
             $out[$idConv] = $eccedenza;
         }
 
         return $out;
     }
+
 
 
     /** Voci interessate dalla ROTAZIONE (render lato UI) */
