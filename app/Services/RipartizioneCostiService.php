@@ -1550,7 +1550,7 @@ class RipartizioneCostiService {
                 $idTitolare = $titolare?->idAutomezzo ?? null;
 
                 // Se questa riga appartiene al mezzo titolare → skip
-                if ($idTitolare !== null && (int)$riga['idAutomezzo'] === $idTitolare) {
+                if ($idTitolare !== null && isset($riga['idAutomezzo']) && (int)$riga['idAutomezzo'] === $idTitolare) {
                     continue;
                 }
 
