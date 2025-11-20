@@ -301,9 +301,16 @@ class RipartizioneCostiService {
                 } elseif (in_array($voceLabel, self::VOCI_ROTAZIONE_MEZZI, true) && self::isRegimeRotazione($idConv)) {
                     // rotazione: KM mezzo / KM tot convenzione
                     $pesi[$idConv] = (float)($kmPerConv[$idConv] ?? 0.0);
+
+
                 } elseif (in_array($voceLabel, self::VOCI_MEZZI_SOSTITUTIVI, true) && self::isRegimeMezziSostitutivi($idConv)) {
                     // sostitutivi: KM mezzo / KM tot convenzione
-                    $pesi[$idConv] = (float)($kmPerConv[$idConv] ?? 0.0);
+                    $totaleKmMezzo = array_sum($kmPerConv);
+                    $peso = ($totaleKmMezzo > 0)
+                        ? (($kmPerConv[$idConv] ?? 0) / $totaleKmMezzo)
+                        : 0;
+
+                    $pesi[$idConv] = $peso;
                 } else {
                     // default: % km del mezzo nell’anno
                     $pesi[$idConv] = (float)($kmPerConv[$idConv] ?? 0.0);
