@@ -60,11 +60,8 @@ class MezziSostitutiviController extends Controller
             $costoFascia = $row ? (float)$row->costo_fascia_oraria : 0.0;
 
             // 2) Costo reale mezzi sostitutivi (dal SERVICE)
-            $netByConv = RipartizioneCostiService::costoNettoMezziSostitutiviByConvenzione(
-                (int)$conv->idAssociazione,
-                $anno
-            );
-            $costoSost = (float)($netByConv[$idConv] ?? 0.0);
+            $stato = MezziSostitutivi::getStato($idConv, $anno);
+            $costoSost = $stato->costo_mezzi_sostitutivi;
         }
 
         return response()->json([
