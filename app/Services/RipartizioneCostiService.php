@@ -1513,58 +1513,54 @@ class RipartizioneCostiService {
         int $anno
     ): array {
 
-        // convenzioni
         $conv = self::convenzioni($idAssociazione, $anno);
         if (empty($conv)) return [];
 
-        // tabella totale con idAutomezzo aggiunto
-        $tabellaTot = self::calcolaTabellaTotale($idAssociazione, $anno);
-
-        // nomi normalizzati delle voci da considerare
-        $target = array_map(fn($s) => self::norm($s), self::VOCI_MEZZI_SOSTITUTIVI);
-
-        // id → nome
-        $nomeById  = $conv;
-        $idsByNome = array_flip($nomeById);
-
-        $out = array_fill_keys(array_keys($conv), 0.0);
-
-        // per ogni convenzione: trova il titolare
-        $titolari = [];
-        foreach ($conv as $idConv => $nome) {
-            $mezzo = \App\Models\Convenzione::getMezzoTitolare($idConv);
-            $titolari[$idConv] = $mezzo?->idAutomezzo;
-        }
-
-        // somma solo le voci target e SOLO quelle non del titolare
-        foreach ($tabellaTot as $riga) {
-
-            if (!in_array(self::norm($riga['voce']), $target, true)) continue;
-
-            $idAutomezzo = (int)($riga['idAutomezzo'] ?? 0);
-
-            foreach ($nomeById as $idConv => $nomeConv) {
-
-                if (!self::isRegimeMezziSostitutivi($idConv)) continue;
-
-                if ($idAutomezzo === (int)$titolari[$idConv]) continue;
-
-                $val = (float)($riga[$nomeConv] ?? 0.0);
-                if ($val !== 0.0) $out[$idConv] += $val;
-            }
-        }
-
-        // arrotonda
-        foreach ($out as $k => $v) {
-            $out[$k] = round($v, 2);
-        }
-
-        return array_filter(
-            $out,
-            fn($cid) => self::isRegimeMezziSostitutivi($cid),
-            ARRAY_FILTER_USE_KEY
+        // tutte le convenzioni in regime sostitutivi
+        $convMS = array_filter(
+            array_keys($conv),
+            fn($cid) => self::isRegimeMezziSostitutivi($cid)
         );
+
+        if (empty($convMS)) return [];
+
+        // tabella base km per mezzo e convenzione
+        $km = self::kmPerMezzoEConvenzione($idAssociazione, $anno);
+
+        // costi per mezzo (solo voci sostitutivi)
+        $costi = self::costiPerMezzoSoloSostitutivi($anno);
+
+        $out = array_fill_keys($convMS, 0.0);
+
+        foreach ($convMS as $idConv) {
+
+            $titolare = \App\Models\Convenzione::getMezzoTitolare($idConv);
+            $idTitolare = $titolare?->idAutomezzo ?? null;
+
+            // km totali della convenzione
+            $kmTotConv = array_sum($km['conv'][$idConv] ?? []);
+
+            if ($kmTotConv <= 0) continue;
+
+            foreach ($km['conv'][$idConv] as $idMezzo => $kmMezzo) {
+
+                if ($idMezzo == $idTitolare) continue; // escludi titolare
+                if ($kmMezzo <= 0) continue;
+
+                $costoTotaleMezzo = $costi[$idMezzo] ?? 0.0;
+
+                // quota del mezzo sulla convenzione (km proporzionale)
+                $quota = $costoTotaleMezzo * ($kmMezzo / $kmTotConv);
+
+                $out[$idConv] += $quota;
+            }
+
+            $out[$idConv] = round($out[$idConv], 2);
+        }
+
+        return $out;
     }
+
 
 
 
@@ -1699,5 +1695,102 @@ class RipartizioneCostiService {
             }
         }
         return $pesi;
+    }
+
+    private static function kmPerMezzoEConvenzione(int $idAssociazione, int $anno): array {
+
+        $rows = DB::table('automezzi_km AS ak')
+            ->join('convenzioni AS c', 'c.idConvenzione', '=', 'ak.idConvenzione')
+            ->select('ak.idAutomezzo', 'ak.idConvenzione', DB::raw('SUM(ak.KMPercorsi) AS km'))
+            ->where('c.idAssociazione', $idAssociazione)
+            ->where('c.idAnno', $anno)
+            ->groupBy('ak.idAutomezzo', 'ak.idConvenzione')
+            ->get();
+
+        $out = ['conv' => []];
+
+        foreach ($rows as $r) {
+            $idConv   = (int)$r->idConvenzione;
+            $idMezzo  = (int)$r->idAutomezzo;
+            $km       = (float)$r->km;
+
+            $out['conv'][$idConv][$idMezzo] = $km;
+        }
+
+        return $out;
+    }
+
+    private static function costiPerMezzoSoloSostitutivi(int $anno): array {
+
+        $target = array_map(fn($s) => self::norm($s), self::VOCI_MEZZI_SOSTITUTIVI);
+
+        // mappa voce → colonna DB (tutte le colonne reali del mezzo)
+        $colonne = [
+            'LEASING/NOLEGGIO A LUNGO TERMINE'                  => 'LeasingNoleggio',
+            'ASSICURAZIONI'                                    => 'Assicurazione',
+            'MANUTENZIONE ORDINARIA'                           => 'ManutenzioneOrdinaria',
+            'MANUTENZIONE STRAORDINARIA AL NETTO RIMBORSI ASSICURATIVI' => null, // caso speciale
+            'PULIZIA E DISINFEZIONE'                           => 'PuliziaDisinfezione',
+            'INTERESSI PASS. F.TO, LEASING, NOL.'              => 'InteressiPassivi',
+            'MANUTENZIONE ATTREZZATURA SANITARIA'              => 'ManutenzioneSanitaria',
+            'LEASING ATTREZZATURA SANITARIA'                   => 'LeasingSanitaria',
+            'AMMORTAMENTO AUTOMEZZI'                           => 'AmmortamentoMezzi',
+            'AMMORTAMENTO ATTREZZATURA SANITARIA'              => 'AmmortamentoSanitaria',
+            'ALTRI COSTI MEZZI'                                => 'AltriCostiMezzi',
+        ];
+
+        // costi base mezzi
+        $rows = DB::table('costi_automezzi')
+            ->join('automezzi', 'automezzi.idAutomezzo', '=', 'costi_automezzi.idAutomezzo')
+            ->select('costi_automezzi.*', 'automezzi.idAssociazione')
+            ->where('costi_automezzi.idAnno', $anno)
+            ->get();
+
+        // costi radio per associazione
+        $radio = DB::table('costi_radio')
+            ->where('idAnno', $anno)
+            ->get()
+            ->keyBy('idAssociazione');
+
+        $out = [];
+
+        foreach ($rows as $r) {
+
+            $idMezzo = (int)$r->idAutomezzo;
+            $idAss   = (int)$r->idAssociazione;
+
+            $radioRow = $radio[$idAss] ?? null;
+
+            $tot = 0;
+
+            foreach (self::VOCI_MEZZI_SOSTITUTIVI as $voce) {
+
+                $vNorm = self::norm($voce);
+                if (!in_array($vNorm, $target, true)) continue;
+
+                $colDB = $colonne[$voce] ?? null;
+
+                // voce speciale
+                if ($voce === 'MANUTENZIONE STRAORDINARIA AL NETTO RIMBORSI ASSICURATIVI') {
+                    $val = (float)$r->ManutenzioneStraordinaria - (float)$r->RimborsiAssicurazione;
+                } else {
+                    $val = $colDB ? (float)($r->$colDB ?? 0) : 0.0;
+                }
+
+                // aggiungi eventuali voci radio attinenti
+                if ($voce === 'MANUTENZIONE ATTREZZATURA SANITARIA') {
+                    $val += (float)($radioRow->ManutenzioneApparatiRadio ?? 0);
+                }
+                if ($voce === 'LEASING ATTREZZATURA SANITARIA') {
+                    $val += (float)($radioRow->MontaggioSmontaggioRadio118 ?? 0);
+                }
+
+                $tot += max(0, $val);
+            }
+
+            $out[$idMezzo] = round($tot, 2);
+        }
+
+        return $out;
     }
 }
