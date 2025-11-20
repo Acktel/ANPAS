@@ -13,8 +13,7 @@ use App\Models\RipartizioneMaterialeSanitario;
 use App\Models\RipartizioneOssigeno;
 use App\Models\RipartizioneServizioCivile;
 
-class RipartizioneCostiService
-{
+class RipartizioneCostiService {
     /* Whitelist bilancio manuale (voci editabili per sezione) */
     private const SEZIONI_BILANCIO_EDITABILE = [5, 6, 8, 9, 10, 11];
 
@@ -71,8 +70,7 @@ class RipartizioneCostiService
 
     /* ========================= MATERIALE SANITARIO / AUTOMEZZI / RADIO ========================= */
 
-    public static function getMaterialiSanitariConsumo(int $idAssociazione, int $idAnno, int $idAutomezzo): float
-    {
+    public static function getMaterialiSanitariConsumo(int $idAssociazione, int $idAnno, int $idAutomezzo): float {
         $totaleBilancio = CostoMaterialeSanitario::getTotale($idAssociazione, $idAnno);
         if ($totaleBilancio <= 0) {
             return 0.0;
@@ -356,8 +354,8 @@ class RipartizioneCostiService
                 if ($voceLabel === 'AMMORTAMENTO ATTREZZATURA SANITARIA') {
                     // % servizi
                     $pesi[$idConv] = (float)($serviziPerConv[$idConv] ?? 0.0);
-
-                } elseif (in_array($voceLabel, self::VOCI_ROTAZIONE_MEZZI, true)
+                } elseif (
+                    in_array($voceLabel, self::VOCI_ROTAZIONE_MEZZI, true)
                     && self::isRegimeRotazione($idConv)
                 ) {
                     // rotazione: pesi proporzionali ai km del mezzo nella convenzione
@@ -367,13 +365,12 @@ class RipartizioneCostiService
                         : 0;
 
                     $pesi[$idConv] = $peso;
-
-                } elseif (in_array($voceLabel, self::VOCI_MEZZI_SOSTITUTIVI, true)
+                } elseif (
+                    in_array($voceLabel, self::VOCI_MEZZI_SOSTITUTIVI, true)
                     && self::isRegimeMezziSostitutivi($idConv)
                 ) {
                     // mezzi sostitutivi: pesi = km mezzo per convenzione
                     $pesi[$idConv] = (float)($kmPerConv[$idConv] ?? 0.0);
-
                 } else {
                     // default: % km del mezzo nell’anno
                     $pesi[$idConv] = (float)($kmPerConv[$idConv] ?? 0.0);
@@ -464,8 +461,7 @@ class RipartizioneCostiService
         return $tabella;
     }
 
-    public static function calcolaTabellaTotale(int $idAssociazione, int $anno): array
-    {
+    public static function calcolaTabellaTotale(int $idAssociazione, int $anno): array {
         // *** usa TUTTI i mezzi, non solo incluso_riparto ***
         $automezzi = DB::table('automezzi')
             ->where('idAssociazione', $idAssociazione)
@@ -613,8 +609,7 @@ class RipartizioneCostiService
         return $out;
     }
 
-    public static function getCostiDiretti(int $idAssociazione, int $anno): array
-    {
+    public static function getCostiDiretti(int $idAssociazione, int $anno): array {
         return DB::table('costi_diretti')
             ->where('idAssociazione', $idAssociazione)
             ->where('idAnno', $anno)
@@ -655,8 +650,7 @@ class RipartizioneCostiService
     }
 
     /** Convenzioni (id => nome) ordinate stabilmente */
-    public static function convenzioni(int $idAssociazione, int $anno): array
-    {
+    public static function convenzioni(int $idAssociazione, int $anno): array {
         return DB::table('convenzioni')
             ->where('idAssociazione', $idAssociazione)
             ->where('idAnno', $anno)
@@ -749,8 +743,7 @@ class RipartizioneCostiService
     }
 
     /** Normalizzatore */
-    private static function norm(?string $s): string
-    {
+    private static function norm(?string $s): string {
         $s = (string)$s;
         return mb_strtoupper(preg_replace('/\s+/u', ' ', trim($s)), 'UTF-8');
     }
@@ -925,8 +918,7 @@ class RipartizioneCostiService
 
     /* ========================= DISTINTA IMPUTAZIONE COSTI ========================= */
 
-    public static function distintaImputazioneData(int $idAssociazione, int $anno): array
-    {
+    public static function distintaImputazioneData(int $idAssociazione, int $anno): array {
         // ------------------------------------------------------------
         // 0) Convenzioni (id => nome)
         // ------------------------------------------------------------
@@ -1266,8 +1258,7 @@ class RipartizioneCostiService
         return $out;
     }
 
-    public static function getOssigenoConsumo(int $idAssociazione, int $idAnno, int $idAutomezzo): float
-    {
+    public static function getOssigenoConsumo(int $idAssociazione, int $idAnno, int $idAutomezzo): float {
         $totaleBilancio = CostoOssigeno::getTotale($idAssociazione, $idAnno);
         if ($totaleBilancio <= 0) {
             return 0.0;
@@ -1725,8 +1716,7 @@ class RipartizioneCostiService
      *  - esiste un mezzo con is_titolare = 1
      *  - % TRADIZIONALE del titolare (km mezzo su conv / km totali mezzo) >= 98
      */
-    private static function isRegimeMezziSostitutivi(int $idConv): bool
-    {
+    private static function isRegimeMezziSostitutivi(int $idConv): bool {
         $conv = DB::table('convenzioni')
             ->where('idConvenzione', $idConv)
             ->where('abilita_rot_sost', 1)
@@ -1765,8 +1755,7 @@ class RipartizioneCostiService
      *  - esiste un mezzo con is_titolare = 1
      *  - % TRADIZIONALE del titolare < 98
      */
-    public static function isRegimeRotazione(int $idConv): bool
-    {
+    public static function isRegimeRotazione(int $idConv): bool {
         $conv = DB::table('convenzioni')
             ->where('idConvenzione', $idConv)
             ->where('abilita_rot_sost', 1)
@@ -1810,12 +1799,12 @@ class RipartizioneCostiService
         int $idAssociazione,
         int $anno
     ): array {
+        // Convenzioni in regime MEZZI SOSTITUTIVI
         $conv = self::convenzioni($idAssociazione, $anno);
         if (empty($conv)) {
             return [];
         }
 
-        // Convenzioni in regime mezzi sostitutivi
         $convMS = array_filter(
             array_keys($conv),
             fn($cid) => self::isRegimeMezziSostitutivi($cid)
@@ -1825,43 +1814,113 @@ class RipartizioneCostiService
             return [];
         }
 
-        // Tabella totale
-        $tabellaTot = self::calcolaTabellaTotale($idAssociazione, $anno);
-
-        // target SOLO le 11 voci mezzi, nessun alias
-        $target = array_map(fn($s) => self::norm($s), self::VOCI_SOST_DA_TABELLATOTALE);
-
-        $out = array_fill_keys($convMS, 0.0);
+        $out = [];
 
         foreach ($convMS as $idConv) {
-            $nomeConv = $conv[$idConv] ?? null;
-            if (!$nomeConv) {
+
+            /* -----------------------------------------------------------
+         * 1) Recupero il MEZZO TITOLARE della convenzione
+         * ----------------------------------------------------------- */
+            $tit = DB::table('automezzi_km')
+                ->select('idAutomezzo')
+                ->where('idConvenzione', $idConv)
+                ->where('is_titolare', 1)
+                ->first();
+
+            if (!$tit) {
+                $out[$idConv] = 0.0;
                 continue;
             }
 
-            foreach ($tabellaTot as $riga) {
-                $voceNorm = self::norm($riga['voce'] ?? '');
-                if (!in_array($voceNorm, $target, true)) {
-                    continue;
-                }
+            $idTitolare = (int)$tit->idAutomezzo;
 
-                $val = (float)($riga[$nomeConv] ?? 0.0);
-                if ($val <= 0) {
-                    continue;
-                }
+            /* -----------------------------------------------------------
+         * 2) Mezzi che hanno VIAGGIATO sulla convenzione (km > 0)
+         *    ESCLUSO il titolare
+         * ----------------------------------------------------------- */
+            $mezzi = DB::table('automezzi_km')
+                ->where('idConvenzione', $idConv)
+                ->where('KMPercorsi', '>', 0)
+                ->where('idAutomezzo', '<>', $idTitolare)
+                ->pluck('idAutomezzo')
+                ->map(fn($v) => (int)$v)
+                ->all();
 
-                $out[$idConv] += $val;
+            if (empty($mezzi)) {
+                $out[$idConv] = 0.0;
+                continue;
             }
 
-            $out[$idConv] = round($out[$idConv], 2);
+            /* -----------------------------------------------------------
+         * 3) Sommo SOLO le voci sostitutive da costi_automezzi
+         * ----------------------------------------------------------- */
+            $voci = [
+                'LeasingNoleggio',
+                'Assicurazione',
+                'ManutenzioneOrdinaria',
+                'ManutenzioneStraordinaria',
+                'PuliziaDisinfezione',
+                'InteressiPassivi',
+                'ManutenzioneSanitaria',
+                'LeasingSanitaria',
+                'AmmortamentoMezzi',
+                'AmmortamentoSanitaria',
+                'AltriCostiMezzi',
+            ];
+
+            $tot = 0.0;
+
+            foreach ($mezzi as $idMezzo) {
+
+                $c = DB::table('costi_automezzi')
+                    ->where('idAutomezzo', $idMezzo)
+                    ->where('idAnno', $anno)
+                    ->first();
+
+                if (!$c) {
+                    continue;
+                }
+
+                foreach ($voci as $col) {
+                    $tot += (float)($c->$col ?? 0);
+                }
+
+                // Manutenzione straordinaria netta da rimborsi
+                $tot -= (float)($c->RimborsiAssicurazione ?? 0);
+            }
+
+            $tot = max(0.0, round($tot, 2));
+
+            /* -----------------------------------------------------------
+         * 4) Applicazione MASSIMALE: 7.000 / 3.500 / ecc.
+         * ----------------------------------------------------------- */
+            $h = (int)DB::table('convenzioni')
+                ->where('idConvenzione', $idConv)
+                ->value('oreServizioGiornaliere');
+
+            if ($h >= 24) {
+                $limite = 7000.00;
+            } elseif ($h >= 12) {
+                $limite = 3500.00;
+            } else {
+                // riparametro proporzionalmente
+                $limite = ($h / 24) * 7000.00;
+            }
+
+            $eccedenza = max(0.0, round($tot - $limite, 2));
+
+            /* -----------------------------------------------------------
+         * RISULTATO: ECCEDENZA DA DECURTARE AL CONSUNTIVO
+         * ----------------------------------------------------------- */
+            $out[$idConv] = $eccedenza;
         }
 
         return $out;
     }
 
+
     /** Voci interessate dalla ROTAZIONE (render lato UI) */
-    public static function vociRotazioneUI(): array
-    {
+    public static function vociRotazioneUI(): array {
         return [
             'LEASING/NOLEGGIO A LUNGO TERMINE',
             'ASSICURAZIONI',
@@ -1875,8 +1934,7 @@ class RipartizioneCostiService
     }
 
     /** Voci interessate dai MEZZI SOSTITUTIVI (render lato UI) */
-    public static function vociSostitutiviUI(): array
-    {
+    public static function vociSostitutiviUI(): array {
         return [
             'LEASING/NOLEGGIO A LUNGO TERMINE',
             'ASSICURAZIONI',
@@ -1893,8 +1951,7 @@ class RipartizioneCostiService
     }
 
     /** Mappa convenzioni per regime (id=>nome), indipendente dal mezzo */
-    public static function convenzioniPerRegime(int $idAssociazione, int $anno): array
-    {
+    public static function convenzioniPerRegime(int $idAssociazione, int $anno): array {
         $conv = self::convenzioni($idAssociazione, $anno); // [id=>nome]
         $rot  = [];
         $sost = [];
@@ -1915,8 +1972,7 @@ class RipartizioneCostiService
     }
 
     /** Somma senza arrotondare sugli addendi; arrotonda SOLO alla fine. */
-    private static function sumLateRound(array $vals): float
-    {
+    private static function sumLateRound(array $vals): float {
         $sum = 0.0;
         foreach ($vals as $v) {
             $sum += (float)$v;
@@ -1930,8 +1986,7 @@ class RipartizioneCostiService
      * $weights:   [chiave => peso non normalizzato] (km, servizi, ricavi, ecc.)
      * Ritorna     [chiave => euro con 2 decimali], somma esatta = $totalEuro.
      */
-    private static function splitByWeightsCents(float $totalEuro, array $weights): array
-    {
+    private static function splitByWeightsCents(float $totalEuro, array $weights): array {
         $keys = array_keys($weights);
         if ($totalEuro <= 0 || empty($keys)) {
             return array_fill_keys($keys, 0.0);
@@ -1981,8 +2036,7 @@ class RipartizioneCostiService
     }
 
     // in RipartizioneCostiService (o helper condiviso)
-    private static function carburantiNetti(object $costi = null): float
-    {
+    private static function carburantiNetti(object $costi = null): float {
         $carb = (float)($costi->Carburanti ?? 0);
         $utf  = (float)($costi->RimborsiUTF ?? 0);
 
@@ -2032,8 +2086,7 @@ class RipartizioneCostiService
         return $pesi;
     }
 
-    private static function kmPerMezzoEConvenzione(int $idAssociazione, int $anno): array
-    {
+    private static function kmPerMezzoEConvenzione(int $idAssociazione, int $anno): array {
         $rows = DB::table('automezzi_km AS ak')
             ->join('convenzioni AS c', 'c.idConvenzione', '=', 'ak.idConvenzione')
             ->select('ak.idAutomezzo', 'ak.idConvenzione', DB::raw('SUM(ak.KMPercorsi) AS km'))
@@ -2057,8 +2110,7 @@ class RipartizioneCostiService
         return $out;
     }
 
-    private static function costiPerMezzoSoloSostitutivi(int $anno): array
-    {
+    private static function costiPerMezzoSoloSostitutivi(int $anno): array {
         $target = array_map(fn($s) => self::norm($s), self::VOCI_MEZZI_SOSTITUTIVI);
 
         // mappa voce → colonna DB (tutte le colonne reali del mezzo)

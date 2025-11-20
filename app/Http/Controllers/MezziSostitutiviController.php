@@ -54,14 +54,21 @@ class MezziSostitutiviController extends Controller
         $costoFascia = 0.0;
         $costoSost   = 0.0;
 
+        $differenza = 0;
+
         if ($modalita === 'sostitutivi') {
-            // 1) Importo fascia oraria
             $row = MezziSostitutivi::getByConvenzioneAnno($idConv, $anno);
             $costoFascia = $row ? (float)$row->costo_fascia_oraria : 0.0;
 
-            // 2) Costo reale mezzi sostitutivi (dal SERVICE)
+            // costo reale dei mezzi sostitutivi
             $stato = MezziSostitutivi::getStato($idConv, $anno);
             $costoSost = $stato->costo_mezzi_sostitutivi;
+
+            // MASSIMALE (non fascia!)
+            $massimale = $this->calcolaMassimaleConvenzione($idConv); // es. 7000 / 3500
+
+            // eccedenza da decurtare dal consuntivo
+            $differenza = max(0, $costoSost - $massimale);
         }
 
         return response()->json([
@@ -75,7 +82,7 @@ class MezziSostitutiviController extends Controller
             'km_tot_mezzo'            => (float) ($titolare->km_totali_mezzo ?? 0.0),
             'costo_fascia_oraria'     => $costoFascia,
             'costo_mezzi_sostitutivi' => $costoSost,
-            'differenza_netto'        => max(0.0, $costoSost - $costoFascia),
+            'differenza_netto'        => $differenza
         ]);
     }
 
