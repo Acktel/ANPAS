@@ -76,7 +76,7 @@ class MezziSostitutivi
             WHERE idAnno = :anno
               AND idAutomezzo IN ($ids)
         ", ['anno' => $anno]);
-
+        
         return (float)($row->tot ?? 0.0);
     }
 
