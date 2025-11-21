@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Support\Facades\DB;
+use App\Services\RipartizioneCostiService;
 
 class RipartizioneCostiAutomezziSanitari
 {
@@ -91,5 +92,22 @@ class RipartizioneCostiAutomezziSanitari
                 'is_totale' => $etichetta === 'TOTALI'
             ];
         }, $etichette);
+    }
+
+    public static function calcolaSoloVociMezziSostitutivi(int $idMezzo, int $anno): float
+    {
+        $dett = self::calcola($idMezzo, $anno);
+        $vociAmmesse = array_map('strtoupper', RipartizioneCostiService::VOCI_MEZZI_SOSTITUTIVI);
+
+        $totale = 0.0;
+
+        foreach ($dett as $r) {
+            $voce = strtoupper(trim($r['voce'] ?? ''));
+            if (in_array($voce, $vociAmmesse, true)) {
+                $totale += (float)($r['totale'] ?? 0);
+            }
+        }
+        
+        return round($totale, 2);
     }
 }

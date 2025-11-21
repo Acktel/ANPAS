@@ -39,7 +39,7 @@ class RipartizioneCostiService {
         'ALTRI COSTI MEZZI',
     ];
 
-    private const VOCI_MEZZI_SOSTITUTIVI  = [
+    public const VOCI_MEZZI_SOSTITUTIVI  = [
         'LEASING/NOLEGGIO A LUNGO TERMINE',
         'ASSICURAZIONI',
         'MANUTENZIONE ORDINARIA',
@@ -1828,15 +1828,7 @@ class RipartizioneCostiService {
             $tot = 0.0;
 
             foreach ($mezzi as $idMezzo) {
-                $dett = RipartizioneCostiAutomezziSanitari::calcola($idMezzo, $anno);
-
-                foreach ($dett as $r) {
-                    $voce = strtoupper(trim($r['voce'] ?? ''));
-
-                    if (in_array($voce, RipartizioneCostiService::VOCI_MEZZI_SOSTITUTIVI, true)) {
-                        $tot += (float)($r['totale'] ?? 0);
-                    }
-                }
+                $tot += RipartizioneCostiAutomezziSanitari::calcolaSoloVociMezziSostitutivi($idMezzo, $anno);
             }
 
             $out[$idConv] = round($tot, 2);

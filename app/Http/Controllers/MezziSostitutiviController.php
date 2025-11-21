@@ -59,7 +59,7 @@ class MezziSostitutiviController extends Controller {
 
         if ($modalita === 'sostitutivi') {
 
-            // 1️⃣ MASSIMALE INSERITO DALL’UTENTE
+            // MASSIMALE INSERITO DALL’UTENTE
             $row = MezziSostitutivi::getByConvenzioneAnno($idConv, $anno);
             $costoFascia = $row ? (float)$row->costo_fascia_oraria : 0.0;
 
