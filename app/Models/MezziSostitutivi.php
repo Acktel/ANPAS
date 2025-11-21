@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Support\Facades\DB;
+use App\Services\RipartizioneCostiService;
 
 class MezziSostitutivi
 {
@@ -67,7 +68,7 @@ class MezziSostitutivi
         }
 
         // ottiene array: [ idConv => eccedenza ]
-        $eccedenze = \App\Services\RipartizioneCostiService::costoNettoMezziSostitutiviByConvenzione(
+        $eccedenze = RipartizioneCostiService::costoNettoMezziSostitutiviByConvenzione(
             (int)$idAss,
             $anno
         );

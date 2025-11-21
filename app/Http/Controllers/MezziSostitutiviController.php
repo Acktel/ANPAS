@@ -29,7 +29,7 @@ class MezziSostitutiviController extends Controller {
             return response()->json(['ok' => false, 'message' => 'Convenzione non trovata'], 404);
         }
 
-        // Funzionalità disattivata
+        // Funzione disattivata per questa convenzione
         if ((int)($conv->abilita_rot_sost ?? 0) !== 1) {
             return response()->json([
                 'ok'          => true,
@@ -48,33 +48,28 @@ class MezziSostitutiviController extends Controller {
             ]);
         }
 
-        // Regola ufficiale: SOLO % tradizionale
+        // Regola ANPAS: % tradizionale >= 98 → mezzi sostitutivi
         $percTrad = (float) ($titolare->percent_trad ?? 0.0);
         $modalita = $percTrad >= 98.0 ? 'sostitutivi' : 'rotazione';
 
         // Default
-        $costoFascia = 0.0;
-        $costoSost   = 0.0;
-        $differenza  = 0.0;
+        $costoFascia = 0.0; // massimale inserito utente
+        $costoSost   = 0.0; // costi reali mezzi sostitutivi
+        $differenza  = 0.0; // eccedenza
 
         if ($modalita === 'sostitutivi') {
 
-            // 1) massimale impostato dall’utente
+            // 1️⃣ MASSIMALE INSERITO DALL’UTENTE
             $row = MezziSostitutivi::getByConvenzioneAnno($idConv, $anno);
             $costoFascia = $row ? (float)$row->costo_fascia_oraria : 0.0;
 
-            // 2) calcolo dei costi dei mezzi sostitutivi (solo mezzi ≠ titolare)
+            // 2️⃣ COSTO REALE MEZZI SOSTITUTIVI
             $costoSost = MezziSostitutivi::calcolaCostoSostitutivi($idConv, $anno);
 
-            // ECCEDENZA sopra il massimale
-            $eccedenza = 0;
-
-            if ($costoSost > $costoFascia) {
-                $eccedenza = $costoSost - $costoFascia;
-            }
-
-            // differenza_netto = ciò che va SOTTRATTO dal consuntivo
-            $differenza = $eccedenza;
+            // 3️⃣ ECCEDENZA DA DECURTARE DAL CONSUNTIVO
+            $differenza = $costoSost > $costoFascia
+                ? $costoSost - $costoFascia
+                : 0.0;
         }
 
         return response()->json([
@@ -86,12 +81,15 @@ class MezziSostitutiviController extends Controller {
             'km_titolare'             => (float) ($titolare->km_titolare ?? 0.0),
             'km_tot_conv'             => (float) ($titolare->km_totali_conv ?? 0.0),
             'km_tot_mezzo'            => (float) ($titolare->km_totali_mezzo ?? 0.0),
-            'costo_fascia_oraria'     => $costoFascia,
-            'costo_mezzi_sostitutivi' => $costoSost,
-            'differenza_netto'        => $differenza
+
+            // valori chiave
+            'costo_fascia_oraria'     => $costoFascia, // massimale inserito
+            'costo_mezzi_sostitutivi' => $costoSost,   // costi reali
+            'differenza_netto'        => $differenza,  // eccedenza
         ]);
     }
- 
+
+
     /**
      * Salva il costo fascia oraria.
      */

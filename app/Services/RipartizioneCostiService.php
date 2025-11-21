@@ -12,6 +12,7 @@ use App\Models\CostoOssigeno;
 use App\Models\RipartizioneMaterialeSanitario;
 use App\Models\RipartizioneOssigeno;
 use App\Models\RipartizioneServizioCivile;
+use App\Models\RipartizioneCostiAutomezziSanitari;
 
 class RipartizioneCostiService {
     /* Whitelist bilancio manuale (voci editabili per sezione) */
@@ -27,22 +28,6 @@ class RipartizioneCostiService {
     ];
 
     private const IDS_VOLONTARI_RICAVI = [6007, 6008, 6009, 6013, 6014];
-
-    // voci a cui applicare la regola Rotazione/Sostitutivi (quelle “azzurre”)
-    private const VOCI_MEZZI_SOSTITUTIVI = [
-        'LEASING/NOLEGGIO A LUNGO TERMINE',
-        'ASSICURAZIONI',
-        'MANUTENZIONE ORDINARIA',
-        'MANUTENZIONE STRAORDINARIA AL NETTO RIMBORSI ASSICURATIVI',
-        'PULIZIA E DISINFEZIONE',
-        'INTERESSI PASS. F.TO, LEASING, NOL.',
-        'MANUTENZIONE ATTREZZATURA SANITARIA',
-        'LEASING ATTREZZATURA SANITARIA',
-        'AMMORTAMENTO AUTOMEZZI',
-        'AMMORTAMENTO ATTREZZATURA SANITARIA',
-        'ALTRI COSTI MEZZI',
-    ];
-
     private const VOCI_ROTAZIONE_MEZZI = [
         'LEASING/NOLEGGIO A LUNGO TERMINE',
         'ASSICURAZIONI',
@@ -54,7 +39,7 @@ class RipartizioneCostiService {
         'ALTRI COSTI MEZZI',
     ];
 
-    private const VOCI_SOST_DA_TABELLATOTALE = [
+    private const VOCI_MEZZI_SOSTITUTIVI  = [
         'LEASING/NOLEGGIO A LUNGO TERMINE',
         'ASSICURAZIONI',
         'MANUTENZIONE ORDINARIA',
@@ -1798,83 +1783,67 @@ class RipartizioneCostiService {
     public static function costoNettoMezziSostitutiviByConvenzione(
     int $idAssociazione,
     int $anno
-): array {
+    ): array {
 
-    // Mappa convenzioni [id => nome]
-    $conv = self::convenzioni($idAssociazione, $anno);
-    if (!$conv) return [];
+        $conv = self::convenzioni($idAssociazione, $anno);
+        if (!$conv) return [];
 
-    $out = [];
+        $out = [];
 
-    foreach ($conv as $idConv => $nomeConv) {
+        foreach ($conv as $idConv => $nomeConv) {
 
-        // È in regime mezzi sostitutivi?
-        if (!self::isRegimeMezziSostitutivi($idConv)) {
-            $out[$idConv] = 0.0;
-            continue;
-        }
+            if (!self::isRegimeMezziSostitutivi($idConv)) {
+                $out[$idConv] = 0.0;
+                continue;
+            }
 
-        // Mezzo titolare
-        $tit = DB::table('automezzi_km')
-            ->where('idConvenzione', $idConv)
-            ->where('is_titolare', 1)
-            ->first();
+            // mezzo titolare
+            $tit = DB::table('automezzi_km')
+                ->where('idConvenzione', $idConv)
+                ->where('is_titolare', 1)
+                ->first();
 
-        if (!$tit) {
-            $out[$idConv] = 0.0;
-            continue;
-        }
+            if (!$tit) {
+                $out[$idConv] = 0.0;
+                continue;
+            }
 
-        $idTitolare = (int)$tit->idAutomezzo;
+            $idTitolare = (int)$tit->idAutomezzo;
 
-        // Mezzi della convenzione con km > 0 (ESCLUSO titolare)
-        $mezzi = DB::table('automezzi_km')
-            ->where('idConvenzione', $idConv)
-            ->where('KMPercorsi', '>', 0)
-            ->where('idAutomezzo', '<>', $idTitolare)
-            ->pluck('idAutomezzo')
-            ->map(fn($v) => (int)$v)
-            ->all();
+            // mezzi sostitutivi reali
+            $mezzi = DB::table('automezzi_km')
+                ->where('idConvenzione', $idConv)
+                ->where('KMPercorsi', '>', 0)
+                ->where('idAutomezzo', '<>', $idTitolare)
+                ->pluck('idAutomezzo')
+                ->map(fn($v) => (int)$v)
+                ->all();
 
-        if (!$mezzi) {
-            $out[$idConv] = 0.0;
-            continue;
-        }
+            if (!$mezzi) {
+                $out[$idConv] = 0.0;
+                continue;
+            }
 
-        // Somma dei costi reali dei mezzi sostitutivi
-        $tot = 0.0;
+            // SOMMA DEI COSTI REALI
+            $tot = 0.0;
 
-        foreach ($mezzi as $idMezzo) {
+            foreach ($mezzi as $idMezzo) {
+                $dett = RipartizioneCostiAutomezziSanitari::calcola($idMezzo, $anno);
 
-            // Costo reale del mezzo (tutte le voci già giuste!)
-            $dett = \App\Models\RipartizioneCostiAutomezziSanitari::calcola($idMezzo, $anno);
+                foreach ($dett as $r) {
+                    $voce = strtoupper(trim($r['voce'] ?? ''));
 
-            foreach ($dett as $r) {
-                $voce = strtoupper(trim($r['voce'] ?? ''));
-
-                // voci valide per Mezzi Sostitutivi
-                if (in_array($voce, RipartizioneCostiService::VOCI_MEZZI_SOSTITUTIVI, true)) {
-                    $tot += (float)($r['totale'] ?? 0);
+                    if (in_array($voce, RipartizioneCostiService::VOCI_MEZZI_SOSTITUTIVI, true)) {
+                        $tot += (float)($r['totale'] ?? 0);
+                    }
                 }
             }
+
+            $out[$idConv] = round($tot, 2);
         }
 
-        // MASSIMALE (7000 / 3500 / proporzionale)
-        $h = (int)DB::table('convenzioni')
-            ->where('idConvenzione', $idConv)
-            ->value('oreServizioGiornaliere');
-
-        if ($h >= 24)      $limite = 7000;
-        elseif ($h >= 12)  $limite = 3500;
-        else               $limite = ($h / 24) * 7000;
-
-        // Eccedenza da decurtare
-        $out[$idConv] = max(0, round($tot - $limite, 2));
+        return $out;
     }
-
-    return $out;
-}
-
 
     /** Voci interessate dalla ROTAZIONE (render lato UI) */
     public static function vociRotazioneUI(): array {
