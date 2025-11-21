@@ -1772,71 +1772,6 @@ class RipartizioneCostiService {
         return $percTrad < 98.0;
     }
 
-    /**
-     * Calcola il COSTO NETTO MEZZI SOSTITUTIVI per ciascuna convenzione:
-     * somma, per convenzione, delle voci in VOCI_MEZZI_SOSTITUTIVI così come ripartite
-     * dalla tabella finale (regole già applicate: km, servizi, rotazione…).
-     *
-     * Ritorna: [ idConvenzione => importo_netto, ... ]
-     * NB: viene considerata SOLO la convenzione in regime “mezzi sostitutivi”.
-     */
-    public static function costoNettoMezziSostitutiviByConvenzione(
-    int $idAssociazione,
-    int $anno
-    ): array {
-
-        $conv = self::convenzioni($idAssociazione, $anno);
-        if (!$conv) return [];
-
-        $out = [];
-
-        foreach ($conv as $idConv => $nomeConv) {
-
-            if (!self::isRegimeMezziSostitutivi($idConv)) {
-                $out[$idConv] = 0.0;
-                continue;
-            }
-
-            // mezzo titolare
-            $tit = DB::table('automezzi_km')
-                ->where('idConvenzione', $idConv)
-                ->where('is_titolare', 1)
-                ->first();
-
-            if (!$tit) {
-                $out[$idConv] = 0.0;
-                continue;
-            }
-
-            $idTitolare = (int)$tit->idAutomezzo;
-
-            // mezzi sostitutivi reali
-            $mezzi = DB::table('automezzi_km')
-                ->where('idConvenzione', $idConv)
-                ->where('KMPercorsi', '>', 0)
-                ->where('idAutomezzo', '<>', $idTitolare)
-                ->pluck('idAutomezzo')
-                ->map(fn($v) => (int)$v)
-                ->all();
-
-            if (!$mezzi) {
-                $out[$idConv] = 0.0;
-                continue;
-            }
-
-            // SOMMA DEI COSTI REALI
-            $tot = 0.0;
-
-            foreach ($mezzi as $idMezzo) {
-                $tot += RipartizioneCostiAutomezziSanitari::calcolaSoloVociMezziSostitutivi($idMezzo, $anno);
-            }
-
-            $out[$idConv] = round($tot, 2);
-        }
-
-        return $out;
-    }
-
     /** Voci interessate dalla ROTAZIONE (render lato UI) */
     public static function vociRotazioneUI(): array {
         return [
@@ -2097,6 +2032,43 @@ class RipartizioneCostiService {
             }
 
             $out[$idMezzo] = round($tot, 2);
+        }
+
+        return $out;
+    }
+
+    public static function costoNettoMezziSostitutiviFromDistinta(int $idAssociazione, int $anno): array {
+        $distinta = self::distintaImputazioneData($idAssociazione, $anno);
+        $voci     = self::VOCI_MEZZI_SOSTITUTIVI;
+        $data     = $distinta['data'] ?? [];
+        $convNomi = $distinta['convenzioni'] ?? [];
+
+        $out = [];
+
+        foreach ($data as $riga) {
+            $voce = strtoupper(trim($riga['voce'] ?? ''));
+
+            if (!in_array($voce, $voci, true)) {
+                continue;
+            }
+
+            foreach ($convNomi as $nomeConv) {
+                $dir    = (float)($riga[$nomeConv]['diretti']      ?? 0.0);
+                $amm    = (float)($riga[$nomeConv]['ammortamento'] ?? 0.0);
+                $ind    = (float)($riga[$nomeConv]['indiretti']    ?? 0.0);
+                $netto  = $dir - $amm + $ind;
+
+                if (!isset($out[$nomeConv])) {
+                    $out[$nomeConv] = 0.0;
+                }
+
+                $out[$nomeConv] += $netto;
+            }
+        }
+
+        // Arrotonda tutti i valori finali
+        foreach ($out as $conv => $val) {
+            $out[$conv] = round($val, 2);
         }
 
         return $out;

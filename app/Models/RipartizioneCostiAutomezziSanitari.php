@@ -5,10 +5,8 @@ namespace App\Models;
 use Illuminate\Support\Facades\DB;
 use App\Services\RipartizioneCostiService;
 
-class RipartizioneCostiAutomezziSanitari
-{
-    public static function calcola(int $idAutomezzo, int $anno): array
-    {
+class RipartizioneCostiAutomezziSanitari {
+    public static function calcola(int $idAutomezzo, int $anno): array {
         // Recupera i costi dell'automezzo
         $costi = DB::table('costi_automezzi')
             ->where('idAutomezzo', $idAutomezzo)
@@ -24,7 +22,7 @@ class RipartizioneCostiAutomezziSanitari
             ->where('idAssociazione', $idAssociazione)
             ->where('idAnno', $anno)
             ->first();
-            
+
 
         if (!$costi) {
             // Restituisci tutto a zero
@@ -65,8 +63,7 @@ class RipartizioneCostiAutomezziSanitari
         return $output;
     }
 
-    private static function vociVuote(): array
-    {
+    private static function vociVuote(): array {
         $etichette = [
             'ASSICURAZIONI',
             'MANUTENZIONE ORDINARIA',
@@ -94,20 +91,58 @@ class RipartizioneCostiAutomezziSanitari
         }, $etichette);
     }
 
-    public static function calcolaSoloVociMezziSostitutivi(int $idMezzo, int $anno): float
-    {
-        $dett = self::calcola($idMezzo, $anno);
-        $vociAmmesse = array_map('strtoupper', RipartizioneCostiService::VOCI_MEZZI_SOSTITUTIVI);
+    public static function calcolaQuotaSostitutivaPerConvenzione(
+        int $idMezzo,
+        int $idConvenzione,
+        int $anno
+    ): float {
 
-        $totale = 0.0;
+        // 1️⃣ Recupero costi annuali del mezzo
+        $c = DB::table('costi_automezzi')
+            ->where('idAutomezzo', $idMezzo)
+            ->where('idAnno', $anno)
+            ->first();
 
-        foreach ($dett as $r) {
-            $voce = strtoupper(trim($r['voce'] ?? ''));
-            if (in_array($voce, $vociAmmesse, true)) {
-                $totale += (float)($r['totale'] ?? 0);
-            }
+        if (!$c) {
+            return 0.0;
         }
-        
-        return round($totale, 2);
+
+        // 2️⃣ Recupero KM totali del mezzo
+        $kmTot = (float) DB::table('automezzi_km')
+            ->where('idAutomezzo', $idMezzo)
+            ->sum('KMPercorsi');
+
+        if ($kmTot <= 0) {
+            return 0.0;
+        }
+
+        // 3️⃣ Recupero KM del mezzo sulla CONVENZIONE
+        $kmConv = (float) DB::table('automezzi_km')
+            ->where('idAutomezzo', $idMezzo)
+            ->where('idConvenzione', $idConvenzione)
+            ->sum('KMPercorsi');
+
+        if ($kmConv <= 0) {
+            return 0.0;
+        }
+
+        // 4️⃣ Costi annuali - SOLO le voci ammesse ANPAS
+        $costo_annuo =
+            (float) $c->LeasingNoleggio
+            + (float) $c->Assicurazione
+            + (float) $c->ManutenzioneOrdinaria
+            + ((float)$c->ManutenzioneStraordinaria - (float)$c->RimborsiAssicurazione)
+            + (float) $c->PuliziaDisinfezione
+            + (float) $c->InteressiPassivi
+            + (float) $c->ManutenzioneSanitaria
+            + (float) $c->LeasingSanitaria
+            + (float) $c->AmmortamentoMezzi
+            + (float) $c->AmmortamentoSanitaria
+            + (float) $c->AltriCostiMezzi;
+
+        // 5️⃣ Quota proporzionale da imputare alla convenzione
+        $quota = $costo_annuo * ($kmConv / $kmTot);
+
+        return round($quota, 2);
     }
 }

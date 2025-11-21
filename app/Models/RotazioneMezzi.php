@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Support\Facades\DB;
+use App\Services\RipartizioneCostiService;
 
 class RotazioneMezzi {
     public static function getConvRotazione(int $idAssociazione, int $idAnno)
@@ -15,11 +16,7 @@ class RotazioneMezzi {
             ->orderBy('ordinamento')->orderBy('idConvenzione')
             ->get();
 
-        return $rows->filter(fn($c) => \App\Services\RipartizioneCostiService::isRegimeRotazione((int)$c->idConvenzione))
+        return $rows->filter(fn($c) => RipartizioneCostiService::isRegimeRotazione((int)$c->idConvenzione))
                     ->values();
-    }
-
-
-    
-
+    }   
 }
