@@ -59,19 +59,22 @@ class MezziSostitutiviController extends Controller {
 
         if ($modalita === 'sostitutivi') {
 
-            // 1) Valore manuale salvato
-            $rec = MezziSostitutivi::getByConvenzioneAnno($idConv, $anno);
-            $costoFascia = $rec ? (float)$rec->costo_fascia_oraria : 0.0;
+            // 1) massimale impostato dall’utente
+            $row = MezziSostitutivi::getByConvenzioneAnno($idConv, $anno);
+            $costoFascia = $row ? (float)$row->costo_fascia_oraria : 0.0;
 
-            // 2) Valore reale calcolato dal SERVICE (già con massimale applicato)
-            $stato = MezziSostitutivi::getStato($idConv, $anno);
+            // 2) calcolo dei costi dei mezzi sostitutivi (solo mezzi ≠ titolare)
+            $costoSost = MezziSostitutivi::calcolaCostoSostitutivi($idConv, $anno);
 
-            // Questo valore è già la ECCEDENZA sopra il massimale
-            $costoSost = $stato->costo_mezzi_sostitutivi;
+            // ECCEDENZA sopra il massimale
+            $eccedenza = 0;
 
-            // differenza = eccedenza - fascia oraria
-            // (Regola ANPAS: si sottrae SOLO se eccedenza supera fascia)
-            $differenza = max(0, $costoSost - $costoFascia);
+            if ($costoSost > $costoFascia) {
+                $eccedenza = $costoSost - $costoFascia;
+            }
+
+            // differenza_netto = ciò che va SOTTRATTO dal consuntivo
+            $differenza = $eccedenza;
         }
 
         return response()->json([
