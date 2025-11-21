@@ -68,7 +68,7 @@ class MezziSostitutiviController extends Controller {
 
             // Questo valore è già la ECCEDENZA sopra il massimale
             $costoSost = $stato->costo_mezzi_sostitutivi;
-            
+
             // differenza = eccedenza - fascia oraria
             // (Regola ANPAS: si sottrae SOLO se eccedenza supera fascia)
             $differenza = max(0, $costoSost - $costoFascia);
@@ -88,8 +88,7 @@ class MezziSostitutiviController extends Controller {
             'differenza_netto'        => $differenza
         ]);
     }
-
-
+ 
     /**
      * Salva il costo fascia oraria.
      */
