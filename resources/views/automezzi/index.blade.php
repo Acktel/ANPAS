@@ -6,11 +6,11 @@ use App\Http\Controllers\ConfigurazioneVeicoliController;
 $user = auth()->user();
 $selectedAssoc = session('associazione_selezionata') ?? $user->IdAssociazione;
 
-$configVeicoli = ConfigurazioneVeicoliController::getConfigurazioneVeicoli();
+{
+    if ($key == 'vehicleTypes' && size$configVeicoli = ConfigurazioneVeicoliController::getConfigurazioneVeicoli();
 $config = true;
 
-foreach ($configVeicoli as $key => $value) {
-    if ($key == 'vehicleTypes' && sizeof($value) <= 0) {
+foreach ($configVeicoli as $key => $value) of($value) <= 0) {
         $config = false;
         $testo = 'Mancano le configurazioni riguardanti i tipi di veicolo.';
         $link = route('configurazioni.veicoli');

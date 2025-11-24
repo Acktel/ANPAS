@@ -97,16 +97,18 @@
                 @if(!$imp)
                 <li class="nav-item"><a class="nav-link" href="{{ route('associazioni.index') }}">Associazioni</a></li>
                 <li class="nav-item"><a class="nav-link" href="{{ route('all-users.index') }}">Utenti</a></li>
-                <li class="nav-item"><a class="nav-link" href="{{ route('aziende-sanitarie.index') }}">Aziende Sanitarie</a></li>
-                @endif
-                <li class="nav-item"><a class="nav-link" href="{{ route('convenzioni.index') }}">Convenzioni</a></li>
-            @endcan
+               @endif
+           @endcan
 
             {{-- UTENTI PROPRI --}}
             @can('manage-own-association')
                 <li class="nav-item"><a class="nav-link" href="{{ route('my-users.index') }}">Utenti</a></li>
             @endcan
-
+            {{-- AZIENDE SANITARIE --}}
+            <li class="nav-item"><a class="nav-link" href="{{ route('aziende-sanitarie.index') }}">Aziende Sanitarie</a></li>
+            {{-- CONVENZIONI --}}
+            <li class="nav-item"><a class="nav-link" href="{{ route('convenzioni.index') }}">Convenzioni</a></li>
+         
             {{-- AUTOMEZZI --}}
             <li class="nav-item dropdown dropdown-hover">
                 <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">Automezzi</a>

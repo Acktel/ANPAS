@@ -5,13 +5,11 @@ namespace App\Models;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Collection;
 
-class LottoAziendaSanitaria
-{
+class LottoAziendaSanitaria {
     protected static string $table = 'aziende_sanitarie_lotti';
 
-    public static function allWithAziende(?int $idAziendaSanitaria = null): Collection
-    {
-        $q = DB::table(self::$table.' as l')
+    public static function allWithAziende(?int $idAziendaSanitaria = null): Collection {
+        $q = DB::table(self::$table . ' as l')
             ->join('aziende_sanitarie as a', 'l.idAziendaSanitaria', '=', 'a.idAziendaSanitaria')
             ->select('l.id', 'l.nomeLotto', 'l.descrizione', 'l.idAziendaSanitaria', 'a.Nome as nomeAzienda')
             ->orderBy('a.Nome')
@@ -24,16 +22,14 @@ class LottoAziendaSanitaria
         return $q->get();
     }
 
-    public static function getByAzienda(int $idAziendaSanitaria): Collection
-    {
+    public static function getByAzienda(int $idAziendaSanitaria): Collection {
         return DB::table(self::$table)
             ->where('idAziendaSanitaria', $idAziendaSanitaria)
             ->orderBy('nomeLotto')
             ->get();
     }
 
-    public static function create(array $data): int
-    {
+    public static function create(array $data): int {
         return DB::table(self::$table)->insertGetId([
             'idAziendaSanitaria' => $data['idAziendaSanitaria'],
             'nomeLotto'          => $data['nomeLotto'],
@@ -43,8 +39,7 @@ class LottoAziendaSanitaria
         ]);
     }
 
-    public static function updateById(int $id, array $data): int
-    {
+    public static function updateById(int $id, array $data): int {
         return DB::table(self::$table)->where('id', $id)->update([
             'nomeLotto'   => $data['nomeLotto'],
             'descrizione' => $data['descrizione'] ?? null,
@@ -52,16 +47,14 @@ class LottoAziendaSanitaria
         ]);
     }
 
-    public static function deleteById(int $id): int
-    {
+    public static function deleteById(int $id): int {
         return DB::table(self::$table)->where('id', $id)->delete();
     }
 
-    public static function deleteByAziendaExceptIds(int $idAziendaSanitaria, array $keepIds): int
-    {
+    public static function deleteByAziendaExceptIds(int $idAziendaSanitaria, array $keepIds): int {
         return DB::table(self::$table)
             ->where('idAziendaSanitaria', $idAziendaSanitaria)
-            ->when(!empty($keepIds), fn($q)=>$q->whereNotIn('id', $keepIds))
+            ->when(!empty($keepIds), fn($q) => $q->whereNotIn('id', $keepIds))
             ->delete();
     }
 
@@ -73,37 +66,53 @@ class LottoAziendaSanitaria
      *   ... (quelli non presenti verranno eliminati)
      * ]
      */
-    public static function syncForAzienda(int $idAziendaSanitaria, array $payload): void
-    {
+    public static function syncForAzienda(int $idAziendaSanitaria, array $payload): void {
         $now = now();
-        $keepIds = [];
 
         foreach ($payload as $row) {
-            $nome   = trim((string)($row['nomeLotto'] ?? ''));
-            $delete = (bool)($row['_delete'] ?? false);
-            if ($delete || $nome === '') continue;
 
-            $data = [
-                'nomeLotto'   => $nome,
-                'descrizione' => $row['descrizione'] ?? null,
-            ];
+            $id       = isset($row['id']) ? (int)$row['id'] : null;
+            $nome     = trim((string)($row['nomeLotto'] ?? ''));
+            $desc     = $row['descrizione'] ?? null;
+            $toDelete = (bool)($row['_delete'] ?? false);
 
-            if (!empty($row['id'])) {
-                self::updateById((int)$row['id'], $data);
-                $keepIds[] = (int)$row['id'];
-            } else {
-                $id = DB::table(self::$table)->insertGetId([
+            // 1) Se devo cancellare → cancello e basta
+            if ($toDelete && $id) {
+                DB::table(self::$table)->where('id', $id)->delete();
+                continue;
+            }
+
+            // 2) Se non c’è nome lotto → ignoro (non creo nulla)
+            if ($nome === '') {
+                continue;
+            }
+
+            // 3) UPDATE
+            if ($id) {
+                DB::table(self::$table)
+                    ->where('id', $id)
+                    ->update([
+                        'nomeLotto'   => $nome,
+                        'descrizione' => $desc,
+                        'updated_at'  => $now,
+                    ]);
+            }
+
+            // 4) INSERT
+            else {
+                DB::table(self::$table)->insert([
                     'idAziendaSanitaria' => $idAziendaSanitaria,
-                    'nomeLotto'          => $data['nomeLotto'],
-                    'descrizione'        => $data['descrizione'],
+                    'nomeLotto'          => $nome,
+                    'descrizione'        => $desc,
                     'created_at'         => $now,
                     'updated_at'         => $now,
                 ]);
-                $keepIds[] = $id;
             }
         }
 
-        // elimina ciò che non è nel payload
-        self::deleteByAziendaExceptIds($idAziendaSanitaria, $keepIds);
+        // NOTA IMPORTANTE:
+        // NON cancelliamo automaticamente tutti gli altri,
+        // perché il form non spedisce tutte le righe, solo quelle visibili
+        // (e quelle nascoste col _delete manuale)
     }
 }

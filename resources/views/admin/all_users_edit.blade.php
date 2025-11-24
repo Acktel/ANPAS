@@ -68,7 +68,21 @@
             @foreach ($ruoli as $r)
               @if($isElevated || in_array($r->name, ['AdminUser', 'User']))
                 <option value="{{ $r->name }}" {{ old('role', $user->role_name) == $r->name ? 'selected' : '' }}>
-                  {{ $r->name }}
+                  @php
+                  $roleDescription = '';
+                  if($r->name == 'SuperAdmin') {
+                    $roleDescription = 'Super Amministratore';
+                  } elseif($r->name == 'Admin') {
+                    $roleDescription = 'Amministratore';
+                  } elseif($r->name == 'Supervisor') {
+                    $roleDescription = 'Supervisore';
+                  } elseif($r->name == 'AdminUser') {
+                    $roleDescription = 'Amministratore Associazione';
+                  } else {
+                    $roleDescription = 'Utente Standard';
+                  }
+                  @endphp
+                  {{ $roleDescription  }}
                 </option>
               @endif
             @endforeach

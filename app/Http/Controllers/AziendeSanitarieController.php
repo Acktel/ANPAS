@@ -6,63 +6,119 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\Auth;
 
 use App\Models\AziendaSanitaria;
 use App\Models\LottoAziendaSanitaria;
 use App\Models\Cities;
+use App\Models\Convenzione;
 
-class AziendeSanitarieController extends Controller
-{
-    public function __construct()
-    {
+class AziendeSanitarieController extends Controller {
+    public function __construct() {
         $this->middleware('auth');
     }
 
     /** Utility: idAnno dal session('anno_riferimento'). */
-    private function idAnnoCorrente(): int
-    {
+    private function idAnnoCorrente(): int {
         $anno = (int) session('anno_riferimento', now()->year);
         return AziendaSanitaria::resolveIdAnno($anno);
     }
 
-    public function index(Request $request)
-    {
-        $anno   = (int) session('anno_riferimento', now()->year);
-        $idAnno = $this->idAnnoCorrente();
+    public function index(Request $request) {
+        $anno = session('anno_riferimento', now()->year);
+        $user = Auth::user();
+        $isElevato = $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor']);
 
-        // lista convenzioni per anno selezionato
+        // =====================================================================================
+        // RUOLI ELEVATI → VEDONO TUTTO, SENZA SELECT, SENZA FILTRI
+        // =====================================================================================
+        if ($isElevato) {
+
+            // niente select associazioni né convenzioni
+            $associazioni = collect();
+            $selectedAssoc = null;
+
+            $convenzioni = collect();
+            $selectedConv = 0; // forza la view a rendere la tabella
+
+            // TUTTE le aziende dell’anno
+            $aziende = AziendaSanitaria::getAllSenzaFiltri($anno);
+
+            return view('aziende_sanitarie.index', compact(
+                'anno',
+                'isElevato',
+                'associazioni',
+                'selectedAssoc',
+                'convenzioni',
+                'selectedConv',
+                'aziende'
+            ));
+        }
+
+
+        // =====================================================================================
+        // UTENTI NORMALI → FILTRI PER ASSOCIAZIONE E CONVENZIONE
+        // =====================================================================================
+        $associazioni = collect();
+        $selectedAssoc = (int) $user->IdAssociazione;
+
         $convenzioni = DB::table('convenzioni')
             ->select('idConvenzione', 'Convenzione')
-            ->where('idAnno', $idAnno)
-            ->orderBy('Convenzione')
+            ->where('idAssociazione', $selectedAssoc)
+            ->where('idAnno', $anno)
+            ->orderBy('ordinamento')
             ->get();
 
-        // valore selezionato (request -> session -> null)
-        if ($request->has('idConvenzione')) {
-            session(['convenzione_selezionata' => $request->idConvenzione]);
-        }
-        $selectedConvenzione = session('convenzione_selezionata') ?? null;
+        if ($convenzioni->isEmpty()) {
+            $selectedConv = null;
+            $aziende = [];
+        } else {
+            $selectedConv = session('convenzione_selezionata') ?? (int) $convenzioni->first()->idConvenzione;
+            session(['convenzione_selezionata' => $selectedConv]);
 
-        // carico le aziende per l'anno corrente
-        $aziende = AziendaSanitaria::getAllWithConvenzioni($selectedConvenzione);
-        
+            $aziende = AziendaSanitaria::getAllWithConvenzioni($selectedConv);
+        }
+
         return view('aziende_sanitarie.index', compact(
             'anno',
+            'isElevato',
+            'associazioni',
+            'selectedAssoc',
             'convenzioni',
-            'selectedConvenzione',
+            'selectedConv',
             'aziende'
         ));
     }
 
-    public function getData(Request $request): JsonResponse
-    {
-        $idConvenzione = $request->input('idConvenzione') ?? session('convenzione_selezionata');
-        $data = AziendaSanitaria::getAllWithConvenzioni($idConvenzione);
+    public function getData(Request $request): JsonResponse {
+
+        // GET ha priorità
+        $idConvenzione = $request->input('idConvenzione');
+
+        if ($idConvenzione !== null && $idConvenzione !== '') {
+            $idConvenzione = (int) $idConvenzione;
+            session(['convenzione_selezionata' => $idConvenzione]);
+        } else {
+            // fallback: session
+            $idConvenzione = session('convenzione_selezionata');
+        }
+
+        // ======================================================
+        // CARICA AZIENDE FILTRATE
+        // ======================================================
+        if ($idConvenzione == null) {
+            $data = [];
+        } else {
+            $data = AziendaSanitaria::getAllWithConvenzioni(
+                $idConvenzione ?: null
+            );
+        }
+
         return response()->json(['data' => $data]);
     }
 
-    public function create()
-    {
+
+    public function create() {
         $anni = DB::table('anni')->orderBy('anno', 'desc')->get();
 
         $associazioni = DB::table('associazioni')
@@ -91,181 +147,271 @@ class AziendeSanitarieController extends Controller
         ));
     }
 
-    public function store(Request $request)
-    {
+    public function store(Request $request) {
         $anno = (int) session('anno_riferimento', now()->year);
+        $user = Auth::user();
+        $isElevato = $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor']);
 
-        // Regole base
+        // -------------------------------
+        // VALIDAZIONE BASE
+        // -------------------------------
         $rules = [
-            'Nome'           => 'required|string|max:150',
-            'Indirizzo'      => 'nullable|string|max:255',
-            'provincia'      => 'nullable|string|exists:ter_cities,sigla_provincia',
-            'citta'          => 'nullable|string|max:100',
-            'cap'            => ['nullable','string','size:5'], // vincolo exists aggiunto sotto se ho prov+città
-            'mail'           => 'nullable|email|max:150',
-            'note'           => 'nullable|string',
+            'Nome'            => 'required|string|max:150',
+            'Indirizzo'       => 'nullable|string|max:255',
+            'provincia'       => 'nullable|string|exists:ter_cities,sigla_provincia',
+            'citta'           => 'nullable|string|max:100',
+            'cap'             => ['nullable', 'string', 'size:5'],
+            'mail'            => 'nullable|email|max:150',
+            'note'            => 'nullable|string',
 
-            'lotti_presenti' => 'nullable|in:0,1',
-
-            'lotti'               => 'nullable|array',
+            'lotti_presenti'  => 'required|in:0,1',
+            'lotti'           => 'nullable|array',
             'lotti.*.nomeLotto'   => 'nullable|string|max:255',
             'lotti.*.descrizione' => 'nullable|string',
-
-            'conv_assoc'     => 'nullable|array',
-            'conv_assoc.*'   => 'nullable|array',
-            'conv_assoc.*.*' => 'integer|exists:associazioni,idAssociazione',
-
-            'convenzioni'    => 'nullable|array',
-            'convenzioni.*'  => 'integer|exists:convenzioni,idConvenzione',
         ];
 
-        // Se provincia + città sono presenti, il CAP deve esistere per quella coppia
         if ($request->filled('provincia') && $request->filled('citta')) {
-            $rules['cap'][] = Rule::exists('ter_cities_cap', 'cap')->where(function ($q) use ($request) {
-                $q->where('sigla_provincia', $request->input('provincia'))
-                  ->where('denominazione_ita', $request->input('citta'));
-            });
+            $rules['cap'][] = Rule::exists('ter_cities_cap', 'cap')
+                ->where(fn($q) => $q->where('sigla_provincia', $request->provincia)
+                    ->where('denominazione_ita', $request->citta));
+        }
+
+        if ($isElevato) {
+            $rules['conv_assoc'] = 'nullable|array';
+            $rules['conv_assoc.*'] = 'nullable|array';
+            $rules['conv_assoc.*.*'] = 'integer|exists:associazioni,idAssociazione';
         }
 
         $validated = $request->validate($rules);
 
-        return DB::transaction(function () use ($validated, $anno) {
-            // Helper: nome convenzione in base al lotto
-            $buildConvName = static function (string $nomeAzienda, ?string $lottoName): string {
-                $ln = trim((string) $lottoName);
-                return ($ln === '' || strcasecmp($ln, 'LOTTI NON PRESENTI') === 0)
-                    ? $nomeAzienda
-                    : ($nomeAzienda . ' - ' . $ln);
-            };
+        // -------------------------------
+        // TRANSAZIONE
+        // -------------------------------
+        return DB::transaction(function () use ($validated, $anno, $isElevato, $user) {
 
-            // 1) Crea Azienda (forzo anno corrente dentro ai dati)
-            $idAzienda = AziendaSanitaria::createSanitaria($validated + ['anno_riferimento' => $anno]);
+            // 1) CREA AZIENDA
+            $idAzienda = AziendaSanitaria::createSanitaria(
+                $validated + ['anno_riferimento' => $anno]
+            );
 
-            // 2) Crea Lotti (se presenti)
-            foreach ($validated['lotti'] ?? [] as $lotto) {
-                if (trim((string) ($lotto['nomeLotto'] ?? '')) === '' && ($validated['lotti_presenti'] ?? '1') === '1') {
-                    continue;
+            // 2) CREA LOTTI (semplici)
+            $lottiInput = $validated['lotti'] ?? [];
+            $createdLotti = [];  // idx → nome lotto
+
+            if ($validated['lotti_presenti'] === '1') {
+                foreach ($lottiInput as $idx => $lotto) {
+
+                    $nome = trim($lotto['nomeLotto'] ?? '');
+                    if ($nome === '') continue;
+
+                    DB::table('aziende_sanitarie_lotti')->insert([
+                        'idAziendaSanitaria' => $idAzienda,
+                        'nomeLotto'          => $nome,
+                        'descrizione'        => $lotto['descrizione'] ?? null,
+                        'created_at'         => now(),
+                        'updated_at'         => now(),
+                    ]);
+
+                    $createdLotti[$idx] = $nome;  // INDICE CORRETTO
                 }
-                DB::table('aziende_sanitarie_lotti')->insert([
-                    'idAziendaSanitaria' => $idAzienda,
-                    'nomeLotto'          => $lotto['nomeLotto'] ?? null,
-                    'descrizione'        => $lotto['descrizione'] ?? null,
-                    'created_at'         => now(),
-                    'updated_at'         => now(),
-                ]);
             }
 
-            // 3) Crea/riusa Convenzioni
-            $idAnno        = $this->idAnnoCorrente();
-            $convAssoc     = $validated['conv_assoc'] ?? [];
-            $nomeAzienda   = $validated['Nome'];
+            // 3) CONVENZIONI
+            $nomeAzienda = $validated['Nome'];
+            $idAnno      = AziendaSanitaria::resolveIdAnno($anno);
             $createdConvIds = [];
 
-            $hasRealLotti = collect($validated['lotti'] ?? [])
-                ->contains(fn($r) => trim((string) ($r['nomeLotto'] ?? '')) !== '');
+            // UTENTE NON ELEVATO ==========================
+            if (!$isElevato) {
 
-            if (($validated['lotti_presenti'] ?? '1') === '0' && !$hasRealLotti) {
-                // Modalità NO: conv = solo nome azienda
-                $assIds = array_unique(array_map('intval', $convAssoc[0] ?? []));
-                if (!empty($assIds)) {
-                    $convName = $buildConvName($nomeAzienda, null);
-                    foreach ($assIds as $idAss) {
-                        $existingId = DB::table('convenzioni')
+                $idAss = $user->IdAssociazione;
+
+                if ($validated['lotti_presenti'] === '0' || empty($createdLotti)) {
+                    // SOLO 1 convenzione
+                    $convName = $nomeAzienda;
+
+                    $idConv = DB::table('convenzioni')->updateOrInsert(
+                        [
+                            'Convenzione' => $convName,
+                            'idAssociazione' => $idAss,
+                            'idAnno' => $idAnno
+                        ],
+                        ['updated_at' => now()]
+                    );
+
+                    $createdConvIds[] = DB::table('convenzioni')
+                        ->where('Convenzione', $convName)
+                        ->where('idAssociazione', $idAss)
+                        ->where('idAnno', $idAnno)
+                        ->value('idConvenzione');
+                } else {
+                    // 1 PER LOTTO
+                    foreach ($createdLotti as $idx => $lottoName) {
+
+                        $convName = $nomeAzienda . " - " . $lottoName;
+
+                        DB::table('convenzioni')->updateOrInsert(
+                            [
+                                'Convenzione' => $convName,
+                                'idAssociazione' => $idAss,
+                                'idAnno' => $idAnno
+                            ],
+                            ['updated_at' => now()]
+                        );
+
+                        $createdConvIds[] = DB::table('convenzioni')
                             ->where('Convenzione', $convName)
                             ->where('idAssociazione', $idAss)
                             ->where('idAnno', $idAnno)
                             ->value('idConvenzione');
-
-                        $idConv = $existingId ? (int) $existingId : DB::table('convenzioni')->insertGetId([
-                            'Convenzione'    => $convName,
-                            'idAssociazione' => $idAss,
-                            'idAnno'         => $idAnno,
-                            'ordinamento'    => 0,
-                            'created_at'     => now(),
-                            'updated_at'     => now(),
-                        ], 'idConvenzione');
-
-                        $createdConvIds[] = $idConv;
                     }
+                }
+
+                AziendaSanitaria::syncConvenzioni($idAzienda, $createdConvIds);
+                return redirect()->route('aziende-sanitarie.index')
+                    ->with('success', 'Azienda creata correttamente.');
+            }
+
+            // UTENTE ELEVATO ================================
+            $convAssoc = $validated['conv_assoc'] ?? [];
+
+            if ($validated['lotti_presenti'] === '0' || empty($createdLotti)) {
+
+                $assList = $convAssoc[0] ?? [];
+
+                foreach ($assList as $idAss) {
+                    DB::table('convenzioni')->updateOrInsert(
+                        [
+                            'Convenzione' => $nomeAzienda,
+                            'idAssociazione' => $idAss,
+                            'idAnno' => $idAnno
+                        ],
+                        ['updated_at' => now()]
+                    );
+
+                    $createdConvIds[] = DB::table('convenzioni')
+                        ->where('Convenzione', $nomeAzienda)
+                        ->where('idAssociazione', $idAss)
+                        ->where('idAnno', $idAnno)
+                        ->value('idConvenzione');
                 }
             } else {
-                // Modalità SÌ: una convenzione per lotto
-                foreach (($validated['lotti'] ?? []) as $idx => $lotto) {
-                    $lottoName = trim((string) ($lotto['nomeLotto'] ?? ''));
-                    if ($lottoName === '') continue;
+                // 1 CONVENZIONE PER INDICE LOTTO REAL
+                foreach ($createdLotti as $idx => $lottoName) {
 
-                    $assIds = array_unique(array_map('intval', $convAssoc[$idx] ?? []));
-                    if (empty($assIds)) continue;
+                    $assList = $convAssoc[$idx] ?? [];
+                    $convName = $nomeAzienda . " - " . $lottoName;
 
-                    $convName = $buildConvName($nomeAzienda, $lottoName);
+                    foreach ($assList as $idAss) {
 
-                    foreach ($assIds as $idAss) {
-                        $existingId = DB::table('convenzioni')
+                        DB::table('convenzioni')->updateOrInsert(
+                            [
+                                'Convenzione' => $convName,
+                                'idAssociazione' => $idAss,
+                                'idAnno' => $idAnno
+                            ],
+                            ['updated_at' => now()]
+                        );
+
+                        $createdConvIds[] = DB::table('convenzioni')
                             ->where('Convenzione', $convName)
                             ->where('idAssociazione', $idAss)
                             ->where('idAnno', $idAnno)
                             ->value('idConvenzione');
-
-                        $idConv = $existingId ? (int) $existingId : DB::table('convenzioni')->insertGetId([
-                            'Convenzione'    => $convName,
-                            'idAssociazione' => $idAss,
-                            'idAnno'         => $idAnno,
-                            'ordinamento'    => 0,
-                            'created_at'     => now(),
-                            'updated_at'     => now(),
-                        ], 'idConvenzione');
-
-                        $createdConvIds[] = $idConv;
                     }
                 }
             }
 
-            // 4) Pivot finale
-            $mergeExisting = array_map('intval', $validated['convenzioni'] ?? []);
-            $allConv = array_values(array_unique(array_merge($createdConvIds, $mergeExisting)));
-            if (!empty($allConv)) {
-                AziendaSanitaria::syncConvenzioni($idAzienda, $allConv);
-            }
+            AziendaSanitaria::syncConvenzioni($idAzienda, $createdConvIds);
 
             return redirect()->route('aziende-sanitarie.index')
-                ->with('success', 'Azienda, lotti e convenzioni creati.');
+                ->with('success', 'Azienda creata correttamente.');
         });
     }
 
-    public function edit(int $id)
-    {
-        $azienda = DB::table('aziende_sanitarie')->where('idAziendaSanitaria', $id)->first();
+
+
+
+    public function edit(int $id) {
+        $user = Auth::user();
+        $isElevato = $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor']);
+
+        $azienda = DB::table('aziende_sanitarie')
+            ->where('idAziendaSanitaria', $id)
+            ->first();
+
         abort_if(!$azienda, 404);
 
-        $convenzioni = DB::table('convenzioni')
-            ->select('idConvenzione', 'Convenzione')
-            ->where('idAnno', $this->idAnnoCorrente())
-            ->orderBy('Convenzione')
-            ->get();
+        $idAnno = $this->idAnnoCorrente();
 
-        $convenzioniSelezionate = DB::table('azienda_sanitaria_convenzione')
-            ->where('idAziendaSanitaria', $id)
-            ->pluck('idConvenzione')
-            ->toArray();
+        // ============================================================
+        //  UTENTE NON ELEVATO → può accedere SOLO se l’azienda
+        //  è legata ad ALMENO UNA convenzione della SUA associazione
+        // ============================================================
+        if (!$isElevato) {
 
+            $convUser = DB::table('convenzioni')
+                ->where('idAssociazione', $user->IdAssociazione)
+                ->where('idAnno', $idAnno)
+                ->pluck('idConvenzione')
+                ->toArray();
+
+            $convAzienda = DB::table('azienda_sanitaria_convenzione')
+                ->where('idAziendaSanitaria', $id)
+                ->pluck('idConvenzione')
+                ->toArray();
+
+            $match = array_intersect($convUser, $convAzienda);
+
+            if (empty($match)) {
+                abort(403, 'Non hai accesso a questa azienda sanitaria.');
+            }
+
+            // ============================================================
+            //  QUI LA TUA RICHIESTA:
+            //  NIENTE SELECT → L’UTENTE VEDE SOLO LA SUA CONVENZIONE
+            // ============================================================
+
+            $convenzioni = collect();                     // niente dropdown
+            $convenzioniSelezionate = $match;             // SOLO le sue
+        } else {
+            // ============================================================
+            //   SUPERADMIN, ADMIN, SUPERVISOR → vedono tutto
+            // ============================================================
+            $convenzioni = DB::table('convenzioni')
+                ->select('idConvenzione', 'Convenzione')
+                ->where('idAnno', $idAnno)
+                ->orderBy('Convenzione')
+                ->get();
+
+            $convenzioniSelezionate = DB::table('azienda_sanitaria_convenzione')
+                ->where('idAziendaSanitaria', $id)
+                ->pluck('idConvenzione')
+                ->toArray();
+        }
+
+        // Lotti
         $lotti = LottoAziendaSanitaria::getByAzienda($id);
 
+        // Associazioni (visibili solo ai ruoli elevati, ma non rompono nulla)
         $associazioni = DB::table('associazioni')
             ->select('idAssociazione', 'Associazione')
             ->whereNull('deleted_at')
             ->orderBy('Associazione')
             ->get();
 
-        // Preselezioni per tab 3, per l'anno corrente
+        // Preselezioni tab-3 solo elevati
         $convAssocByLotto = [];
-        foreach ($lotti as $lotto) {
-            $convName  = $azienda->Nome . ' - ' . $lotto->nomeLotto;
-            $assocIds  = DB::table('convenzioni')
-                ->where('Convenzione', $convName)
-                ->where('idAnno', $this->idAnnoCorrente())
-                ->pluck('idAssociazione')
-                ->toArray();
-            $convAssocByLotto[$lotto->id] = $assocIds;
+        if ($isElevato) {
+            foreach ($lotti as $lotto) {
+                $convName = $azienda->Nome . ' - ' . $lotto->nomeLotto;
+                $assocIds = DB::table('convenzioni')
+                    ->where('Convenzione', $convName)
+                    ->where('idAnno', $idAnno)
+                    ->pluck('idAssociazione')
+                    ->toArray();
+                $convAssocByLotto[$lotto->id] = $assocIds;
+            }
         }
 
         $cities = Cities::getAll();
@@ -279,25 +425,30 @@ class AziendeSanitarieController extends Controller
             'associazioni',
             'convAssocByLotto',
             'cities',
-            'caps'
+            'caps',
+            'isElevato'
         ));
     }
 
-    public function update(Request $request, int $id)
-    {
+    public function update(Request $request, int $id) {
+        $user = Auth::user();
+        $isElevato = $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor']);
         $anno = (int) session('anno_riferimento', now()->year);
+        $idAnno = AziendaSanitaria::resolveIdAnno($anno);
 
-        // Regole base
+        // -----------------
+        // VALIDAZIONE
+        // -----------------
         $rules = [
-            'Nome'           => 'required|string|max:150',
-            'Indirizzo'      => 'nullable|string|max:255',
-            'provincia'      => 'nullable|string|exists:ter_cities,sigla_provincia',
-            'citta'          => 'nullable|string|max:100',
-            'cap'            => ['nullable','string','size:5'],
-            'mail'           => 'nullable|email|max:150',
-            'note'           => 'nullable|string',
+            'Nome'            => 'required|string|max:150',
+            'Indirizzo'       => 'nullable|string|max:255',
+            'provincia'       => 'nullable|string|exists:ter_cities,sigla_provincia',
+            'citta'           => 'nullable|string|max:100',
+            'cap'             => ['nullable', 'string', 'size:5'],
+            'mail'            => 'nullable|email|max:150',
+            'note'            => 'nullable|string',
 
-            'lotti_presenti' => 'nullable|in:0,1',
+            'lotti_presenti'  => 'nullable|in:0,1',
 
             'lotti'               => 'nullable|array',
             'lotti.*.id'          => 'nullable|integer',
@@ -305,220 +456,265 @@ class AziendeSanitarieController extends Controller
             'lotti.*.descrizione' => 'nullable|string',
             'lotti.*._delete'     => 'nullable|boolean',
 
-            'conv_assoc'     => 'nullable|array',
-            'conv_assoc.*'   => 'nullable|array',
-            'conv_assoc.*.*' => 'integer|exists:associazioni,idAssociazione',
-
-            'convenzioni'    => 'nullable|array',
-            'convenzioni.*'  => 'integer|exists:convenzioni,idConvenzione',
+            'convenzioni'        => 'nullable|array',
+            'convenzioni.*'      => 'integer|exists:convenzioni,idConvenzione',
         ];
 
+        if ($isElevato) {
+            $rules['conv_assoc'] = 'nullable|array';
+            $rules['conv_assoc.*'] = 'nullable|array';
+            $rules['conv_assoc.*.*'] = 'integer|exists:associazioni,idAssociazione';
+        }
+
         if ($request->filled('provincia') && $request->filled('citta')) {
-            $rules['cap'][] = Rule::exists('ter_cities_cap', 'cap')->where(function ($q) use ($request) {
-                $q->where('sigla_provincia', $request->input('provincia'))
-                  ->where('denominazione_ita', $request->input('citta'));
-            });
+            $rules['cap'][] = Rule::exists('ter_cities_cap', 'cap')
+                ->where(fn($q) => $q->where('sigla_provincia', $request->provincia)
+                    ->where('denominazione_ita', $request->citta));
         }
 
         $validated = $request->validate($rules);
 
-        return DB::transaction(function () use ($validated, $id, $anno) {
-            // Helper
-            $buildConvName = static function (string $nomeAzienda, ?string $lottoName): string {
-                $ln = trim((string) $lottoName);
-                return ($ln === '' || strcasecmp($ln, 'LOTTI NON PRESENTI') === 0)
-                    ? $nomeAzienda
-                    : ($nomeAzienda . ' - ' . $ln);
-            };
+        return DB::transaction(function () use ($validated, $id, $user, $isElevato, $idAnno) {
 
+            // 1) Aggiorna anagrafica
             AziendaSanitaria::updateSanitaria($id, $validated);
-            $nomeAzienda = $validated['Nome'];
-            $idAnno      = $this->idAnnoCorrente();
 
-            // Duplicati lotti (solo su quelli non _delete e con nome valorizzato)
-            $names = [];
-            foreach (($validated['lotti'] ?? []) as $row) {
-                if (!empty($row['_delete'])) continue;
-                $name = trim((string) ($row['nomeLotto'] ?? ''));
-                if ($name === '') continue;
-                $k = mb_strtolower($name);
-                if (isset($names[$k])) {
-                    abort(422, "Nome lotto duplicato: '{$name}'");
+            // 2) Update Lotti
+            $lottiInput = $validated['lotti'] ?? [];
+            LottoAziendaSanitaria::syncForAzienda($id, $lottiInput);
+
+            // RESYNC Lotti dopo sync
+            $lottiDb = LottoAziendaSanitaria::getByAzienda($id)
+                ->keyBy('id'); // id lotto → lotto
+
+            // Mappa idx form → nome lotto
+            $idxToLottoName = [];
+            foreach ($lottiInput as $idx => $r) {
+                if (empty($r['_delete']) && trim($r['nomeLotto'] ?? '') !== '') {
+                    $idxToLottoName[$idx] = trim($r['nomeLotto']);
                 }
-                $names[$k] = true;
             }
 
-            // Sincronizza lotti
-            LottoAziendaSanitaria::syncForAzienda($id, $validated['lotti'] ?? []);
+            $nomeAzienda = $validated['Nome'];
 
-            // ===== A) Elimina convenzioni deselezionate (per anno corrente) =====
+            // =============================
+            // UTENTE NON ELEVATO
+            // =============================
+            if (!$isElevato) {
+
+                $idAss = $user->IdAssociazione;
+
+                // Elimina convenzioni non della sua associazione
+                DB::table('azienda_sanitaria_convenzione AS asc')
+                    ->join('convenzioni AS c', 'c.idConvenzione', '=', 'asc.idConvenzione')
+                    ->where('asc.idAziendaSanitaria', $id)
+                    ->where('c.idAnno', $idAnno)
+                    ->where('c.idAssociazione', '!=', $idAss)
+                    ->delete();
+
+                $newConvIds = [];
+
+                // Nessun lotto → unica convenzione
+                if ($validated['lotti_presenti'] == '0' || empty($idxToLottoName)) {
+
+                    $convName = $nomeAzienda;
+
+                    $idConv = DB::table('convenzioni')
+                        ->where('Convenzione', $convName)
+                        ->where('idAssociazione', $idAss)
+                        ->where('idAnno', $idAnno)
+                        ->value('idConvenzione');
+
+                    if (!$idConv) {
+                        $idConv = DB::table('convenzioni')->insertGetId([
+                            'Convenzione' => $convName,
+                            'idAssociazione' => $idAss,
+                            'idAnno' => $idAnno,
+                            'ordinamento' => 0,
+                            'created_at' => now(),
+                            'updated_at' => now(),
+                        ], 'idConvenzione');
+                    }
+
+                    $newConvIds[] = $idConv;
+                } else {
+                    // 1 convenzione per lotto
+                    foreach ($idxToLottoName as $idx => $lottoName) {
+
+                        $convName = "$nomeAzienda - $lottoName";
+
+                        $idConv = DB::table('convenzioni')
+                            ->where('Convenzione', $convName)
+                            ->where('idAssociazione', $idAss)
+                            ->where('idAnno', $idAnno)
+                            ->value('idConvenzione');
+
+                        if (!$idConv) {
+                            $idConv = DB::table('convenzioni')->insertGetId([
+                                'Convenzione' => $convName,
+                                'idAssociazione' => $idAss,
+                                'idAnno' => $idAnno,
+                                'ordinamento' => 0,
+                                'created_at' => now(),
+                                'updated_at' => now(),
+                            ], 'idConvenzione');
+                        }
+
+                        $newConvIds[] = $idConv;
+                    }
+                }
+
+                AziendaSanitaria::syncConvenzioni($id, $newConvIds);
+
+                return redirect()->route('aziende-sanitarie.index')
+                    ->with('success', 'Azienda aggiornata.');
+            }
+
+            // =============================
+            // UTENTE ELEVATO
+            // =============================
             $convAssoc = $validated['conv_assoc'] ?? [];
-            $toDeleteConvIds = [];
+            $created = [];
 
-            $hasRealLotti = collect($validated['lotti'] ?? [])
-                ->contains(fn($r) => empty($r['_delete']) && trim((string) ($r['nomeLotto'] ?? '')) !== '');
+            $noLotti = ($validated['lotti_presenti'] == '0' || empty($idxToLottoName));
 
-            if (($validated['lotti_presenti'] ?? '1') === '0' && !$hasRealLotti) {
-                // Modalità NO: gestiamo la convenzione "<Azienda>" unica
+            // 1) Elimina convenzioni disassociate
+            $toDelete = [];
+
+            if ($noLotti) {
+
                 $existing = DB::table('convenzioni')
                     ->where('Convenzione', $nomeAzienda)
                     ->where('idAnno', $idAnno)
-                    ->get(['idConvenzione', 'idAssociazione']);
+                    ->get();
 
-                $selectedAss  = array_unique(array_map('intval', $convAssoc[0] ?? []));
-                $existingByAss = $existing->groupBy('idAssociazione');
+                $selected = array_map('intval', $convAssoc[0] ?? []);
 
-                foreach ($existingByAss as $assId => $rows) {
-                    if (!in_array((int) $assId, $selectedAss, true)) {
-                        foreach ($rows as $r) $toDeleteConvIds[] = (int) $r->idConvenzione;
+                foreach ($existing as $e) {
+                    if (!in_array($e->idAssociazione, $selected, true)) {
+                        $toDelete[] = $e->idConvenzione;
                     }
                 }
             } else {
-                // Modalità SÌ: una convenzione per ogni lotto gestito
-                foreach (($validated['lotti'] ?? []) as $idx => $row) {
-                    $lottoName = trim((string) ($row['nomeLotto'] ?? ''));
-                    if ($lottoName === '') continue;
 
-                    $convName = $buildConvName($nomeAzienda, $lottoName);
+                foreach ($idxToLottoName as $idx => $lottoName) {
+
+                    $convName = "$nomeAzienda - $lottoName";
 
                     $existing = DB::table('convenzioni')
                         ->where('Convenzione', $convName)
                         ->where('idAnno', $idAnno)
-                        ->get(['idConvenzione', 'idAssociazione']);
+                        ->get();
 
-                    if ($existing->isEmpty()) continue;
+                    $selected = array_map('intval', $convAssoc[$idx] ?? []);
 
-                    $selectedAss = !empty($row['_delete'])
-                        ? []
-                        : array_unique(array_map('intval', $convAssoc[$idx] ?? []));
-
-                    $existingByAss = $existing->groupBy('idAssociazione');
-                    foreach ($existingByAss as $assId => $rows) {
-                        if (!in_array((int) $assId, $selectedAss, true)) {
-                            foreach ($rows as $r) $toDeleteConvIds[] = (int) $r->idConvenzione;
+                    foreach ($existing as $e) {
+                        if (!in_array($e->idAssociazione, $selected, true)) {
+                            $toDelete[] = $e->idConvenzione;
                         }
                     }
                 }
             }
 
-            $toDeleteConvIds = array_values(array_unique($toDeleteConvIds));
-            if (!empty($toDeleteConvIds)) {
+            $toDelete = array_unique($toDelete);
+
+            if ($toDelete) {
                 DB::table('azienda_sanitaria_convenzione')
-                    ->whereIn('idConvenzione', $toDeleteConvIds)
+                    ->whereIn('idConvenzione', $toDelete)
                     ->delete();
 
                 DB::table('convenzioni')
-                    ->whereIn('idConvenzione', $toDeleteConvIds)
+                    ->whereIn('idConvenzione', $toDelete)
                     ->delete();
             }
 
-            // ===== B) Crea/riusa convenzioni selezionate =====
-            $createdOrEnsuredConvIds = [];
+            // 2) CREA convenzioni nuove
+            if ($noLotti) {
 
-            if (($validated['lotti_presenti'] ?? '1') === '0' && !$hasRealLotti) {
-                // NO: unica convenzione "<Azienda>"
-                $assIds = array_unique(array_map('intval', $convAssoc[0] ?? []));
-                if (!empty($assIds)) {
-                    $convName = $buildConvName($nomeAzienda, null);
-                    foreach ($assIds as $idAss) {
+                $selected = array_map('intval', $convAssoc[0] ?? []);
+
+                foreach ($selected as $idAss) {
+                    $existingId = DB::table('convenzioni')
+                        ->where('Convenzione', $nomeAzienda)
+                        ->where('idAssociazione', $idAss)
+                        ->where('idAnno', $idAnno)
+                        ->value('idConvenzione');
+
+                    $cid = $existingId ?: DB::table('convenzioni')->insertGetId([
+                        'Convenzione' => $nomeAzienda,
+                        'idAssociazione' => $idAss,
+                        'idAnno' => $idAnno,
+                        'ordinamento' => 0,
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ], 'idConvenzione');
+
+                    $created[] = $cid;
+                }
+            } else {
+
+                foreach ($idxToLottoName as $idx => $lottoName) {
+                    $convName = "$nomeAzienda - $lottoName";
+                    $selected = array_map('intval', $convAssoc[$idx] ?? []);
+
+                    foreach ($selected as $idAss) {
+
                         $existingId = DB::table('convenzioni')
                             ->where('Convenzione', $convName)
                             ->where('idAssociazione', $idAss)
                             ->where('idAnno', $idAnno)
                             ->value('idConvenzione');
 
-                        $idConv = $existingId ? (int) $existingId : DB::table('convenzioni')->insertGetId([
-                            'Convenzione'    => $convName,
+                        $cid = $existingId ?: DB::table('convenzioni')->insertGetId([
+                            'Convenzione' => $convName,
                             'idAssociazione' => $idAss,
-                            'idAnno'         => $idAnno,
-                            'ordinamento'    => 0,
-                            'created_at'     => now(),
-                            'updated_at'     => now(),
+                            'idAnno' => $idAnno,
+                            'ordinamento' => 0,
+                            'created_at' => now(),
+                            'updated_at' => now(),
                         ], 'idConvenzione');
 
-                        $createdOrEnsuredConvIds[] = $idConv;
-                    }
-                }
-            } else {
-                // SÌ: convenzioni per lotti
-                foreach (($validated['lotti'] ?? []) as $idx => $row) {
-                    if (!empty($row['_delete'])) continue;
-                    $lottoName = trim((string) ($row['nomeLotto'] ?? ''));
-                    if ($lottoName === '') continue;
-
-                    $assIds = array_unique(array_map('intval', $convAssoc[$idx] ?? []));
-                    if (empty($assIds)) continue;
-
-                    $convName = $buildConvName($nomeAzienda, $lottoName);
-
-                    foreach ($assIds as $idAss) {
-                        $existingId = DB::table('convenzioni')
-                            ->where('Convenzione', $convName)
-                            ->where('idAssociazione', $idAss)
-                            ->where('idAnno', $idAnno)
-                            ->value('idConvenzione');
-
-                        $idConv = $existingId ? (int) $existingId : DB::table('convenzioni')->insertGetId([
-                            'Convenzione'    => $convName,
-                            'idAssociazione' => $idAss,
-                            'idAnno'         => $idAnno,
-                            'ordinamento'    => 0,
-                            'created_at'     => now(),
-                            'updated_at'     => now(),
-                        ], 'idConvenzione');
-
-                        $createdOrEnsuredConvIds[] = $idConv;
+                        $created[] = $cid;
                     }
                 }
             }
 
-            $createdOrEnsuredConvIds = array_values(array_unique($createdOrEnsuredConvIds));
+            $created = array_unique($created);
 
-            // ===== C) Pivot finale: preserva convenzioni non gestite dal wizard,
-            // aggiungi nuove, + extra selezionate
-            $managedNames = [];
-            if (($validated['lotti_presenti'] ?? '1') === '0' && !$hasRealLotti) {
-                $managedNames = [$nomeAzienda]; // solo "<Azienda>"
-            } else {
-                $managedNames = collect($validated['lotti'] ?? [])
-                    ->filter(fn($r) => empty($r['_delete']) && isset($r['nomeLotto']))
-                    ->map(fn($r) => $buildConvName($nomeAzienda, $r['nomeLotto']))
-                    ->values()
-                    ->all();
-            }
+            // 3) Mantieni convenzioni non gestite dal wizard
+            $managedNames = $noLotti
+                ? [$nomeAzienda]
+                : array_map(fn($n) => "$nomeAzienda - $n", $idxToLottoName);
 
-            $otherPivot = DB::table('azienda_sanitaria_convenzione as asc')
-                ->join('convenzioni as c', 'c.idConvenzione', '=', 'asc.idConvenzione')
+            $other = DB::table('azienda_sanitaria_convenzione AS asc')
+                ->join('convenzioni AS c', 'c.idConvenzione', '=', 'asc.idConvenzione')
                 ->where('asc.idAziendaSanitaria', $id)
-                ->when(!empty($managedNames), fn($q) => $q->whereNotIn('c.Convenzione', $managedNames))
+                ->whereNotIn('c.Convenzione', $managedNames)
                 ->pluck('c.idConvenzione')
-                ->map(fn($v) => (int) $v)
+                ->map(fn($v) => (int)$v)
                 ->toArray();
 
-            $extraFromSelect = array_map('intval', $validated['convenzioni'] ?? []);
+            $extra = array_map('intval', $validated['convenzioni'] ?? []);
 
-            $finalPivot = array_values(array_unique(array_merge(
-                $otherPivot,
-                $createdOrEnsuredConvIds,
-                $extraFromSelect
-            )));
+            $final = array_unique(array_merge($other, $created, $extra));
 
-            AziendaSanitaria::syncConvenzioni($id, $finalPivot);
+            AziendaSanitaria::syncConvenzioni($id, $final);
 
             return redirect()->route('aziende-sanitarie.index')
-                ->with('success', 'Azienda aggiornata. Convenzioni deselezionate eliminate, collegamenti sincronizzati.');
+                ->with('success', 'Azienda aggiornata correttamente.');
         });
     }
 
-    public function destroy(int $id)
-    {
+
+
+
+    public function destroy(int $id) {
         AziendaSanitaria::deleteSanitaria($id);
         return redirect()->route('aziende-sanitarie.index')->with('success', 'Azienda eliminata.');
     }
 
     /** === DUPLICAZIONE PER ANNO === */
-    public function checkDuplicazioneDisponibile(): JsonResponse
-    {
+    public function checkDuplicazioneDisponibile(): JsonResponse {
         $anno     = (int) session('anno_riferimento', now()->year);
         $annoPrec = $anno - 1;
 
@@ -533,8 +729,7 @@ class AziendeSanitarieController extends Controller
     }
 
     /** Duplica aziende, lotti, convenzioni e pivot dall’anno precedente all’anno corrente. */
-    public function duplicaAnnoPrecedente(): JsonResponse
-    {
+    public function duplicaAnnoPrecedente(): JsonResponse {
         $anno     = (int) session('anno_riferimento', now()->year);
         $annoPrec = $anno - 1;
 
