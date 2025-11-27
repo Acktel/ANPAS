@@ -3909,6 +3909,7 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
 
 
 
+
     /** Converte '12,34%' | '12.34%' | '12.34' in 0.1234 */
     /** Converte input in frazione (0..1). Gestisce %, punti percentuali e basis points. */
     private function percentToFloat($v): float {
