@@ -153,7 +153,16 @@ document.addEventListener('DOMContentLoaded', function () {
         stateSave: false,
         language: { url: '/js/i18n/Italian.json' },
         stripeClasses: ['table-white', 'table-striped-anpas'],
-
+        language: {
+            url: '/js/i18n/Italian.json',
+            paginate: {
+                first: '<i class="fas fa-angle-double-left"></i>',
+                last: '<i class="fas fa-angle-double-right"></i>',
+                next: '<i class="fas fa-angle-right"></i>',
+                previous: '<i class="fas fa-angle-left"></i>'
+            }
+        },
+        order: [[0, 'asc']],
         @if(!$isElevato)
         ajax: {
             url: '{{ route("aziende-sanitarie.data") }}',

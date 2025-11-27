@@ -229,13 +229,15 @@ body {
   background-color: var(--anpas-green-dark);
 }
 
-.active>.page-link, .page-link.active{
-  background-color: var(--anpas-green)!important;
-  color: var(--anpas-white)!important;
+.active>.page-link,
+.page-link.active {
+  background-color: var(--anpas-green) !important;
+  color: var(--anpas-white) !important;
 }
 
-.active>.page-link:hover, .page-link.active:hover{
-  background-color: var(--anpas-green-dark)!important;
+.active>.page-link:hover,
+.page-link.active:hover {
+  background-color: var(--anpas-green-dark) !important;
 }
 
 
@@ -301,11 +303,11 @@ h1.fw-bolder {
 
 /* Header table: verde chiaro opacità 15% */
 /* .thead-anpas th { */
-  /* background-color: rgba(0, 133, 62, 0.15) !important; */
-  /* color: var(--anpas-green) !important; */
-  /* rimuovo bordi verticali e lascio solo bottom verde */
-  /* border-left: none !important; */
-  /* border-right: none !important; */
+/* background-color: rgba(0, 133, 62, 0.15) !important; */
+/* color: var(--anpas-green) !important; */
+/* rimuovo bordi verticali e lascio solo bottom verde */
+/* border-left: none !important; */
+/* border-right: none !important; */
 /* } */
 
 /* Zebra‐striping: righe alternate più tenue */
@@ -524,9 +526,9 @@ button.btn-qualifica:hover {
   color: var(--anpas-green) !important;
 }
 
-.btn-anpas-green-active{
-  background-color: var(--anpas-green-dark)!important;
-  color: white!important;
+.btn-anpas-green-active {
+  background-color: var(--anpas-green-dark) !important;
+  color: white !important;
 }
 
 div#associazioniTable_wrapper {
@@ -609,28 +611,28 @@ td.col-actions {
 }
 
 .btn-qualifica {
-    margin-top: 10px;
+  margin-top: 10px;
 }
 
 .text-end.container-warning-create {
-    margin-top: 10px;
+  margin-top: 10px;
 }
 
-.container-livello-mansione{
-  margin-top: 25px!important;
+.container-livello-mansione {
+  margin-top: 25px !important;
 }
 
 select#dt-length-0 {
-    padding: 5px;
-    border-radius: 3px;
+  padding: 5px;
+  border-radius: 3px;
 }
 
 input#dt-search-0 {
-    padding: 5px;
-    border-radius: 3px;
+  padding: 5px;
+  border-radius: 3px;
 }
 
-input#dt-search-0:active{
+input#dt-search-0:active {
   border: 2px solid red;
 }
 
@@ -657,6 +659,7 @@ input#dt-search-0:active{
 .table-striped-anpas tbody tr.odd {
   background-color: rgba(0, 133, 62, 0.05) !important;
 }
+
 .table-striped-anpas tbody tr.even {
   background-color: #ffffff !important;
 }
@@ -683,35 +686,51 @@ tbody tr.dragging {
 
 
 #citta_list {
-    max-height: 200px;
-    overflow-y: scroll;
-    scrollbar-width: none; /* Firefox */
+  max-height: 200px;
+  overflow-y: scroll;
+  scrollbar-width: none;
+  /* Firefox */
 }
 
 #citta_list::-webkit-scrollbar {
-    display: none; /* Chrome, Edge, Safari */
+  display: none;
+  /* Chrome, Edge, Safari */
 }
 
 #citta_list li {
-    cursor: pointer;
-    background-color: #ffffff; /* stesso hover di bootstrap */
+  cursor: pointer;
+  background-color: #ffffff;
+  /* stesso hover di bootstrap */
 }
 
 /* Rotazione mezzi*/
-  .badge-km {
-    display:inline-block; padding:.35rem .5rem; border-radius:.5rem;
-    background:#eef3f0; border:1px solid #d5e6df;
-  }
-  .badge-tit {
-    display:inline-block; padding:.35rem .5rem; border-radius:.5rem;
-    background:#fff3cd; border:1px solid #ffe69c; /* giallo tenue */
-    font-weight:600;
-  }
-  .fa-star { color:#d39e00; } /* giallo bronzato */
+.badge-km {
+  display: inline-block;
+  padding: .35rem .5rem;
+  border-radius: .5rem;
+  background: #eef3f0;
+  border: 1px solid #d5e6df;
+}
 
-/*====DATATABLE====*/  
-  div#docsTable_length {
-    margin-bottom: 25px;
+.badge-tit {
+  display: inline-block;
+  padding: .35rem .5rem;
+  border-radius: .5rem;
+  background: #fff3cd;
+  border: 1px solid #ffe69c;
+  /* giallo tenue */
+  font-weight: 600;
+}
+
+.fa-star {
+  color: #d39e00;
+}
+
+/* giallo bronzato */
+
+/*====DATATABLE====*/
+div#docsTable_length {
+  margin-bottom: 25px;
 }
 
 /*====LOADER====*/
@@ -740,88 +759,137 @@ tbody tr.dragging {
 }
 
 /*======RIAPARTIZIONE COSTI AUTOMEZZI E RADIO - ROTAZIONE MEZZI/MEZZI SOSTITUTIVI ======*/
-  .cell-rotazione   { background: rgba(13,110,253,.08)!important;; }    /* azzurrino */
-  .cell-sostitutivi { background: rgba(25,135,84,.10)!important;; }     /* verdino */
-  .th-rotazione     { border-bottom: 3px solid #fd0d8d !important; }
-  .th-sostitutivi   { border-bottom: 3px solid #198754 !important; }
+.cell-rotazione {
+  background: rgba(13, 110, 253, .08) !important;
+  ;
+}
+
+/* azzurrino */
+.cell-sostitutivi {
+  background: rgba(25, 135, 84, .10) !important;
+  ;
+}
+
+/* verdino */
+.th-rotazione {
+  border-bottom: 3px solid #fd0d8d !important;
+}
+
+.th-sostitutivi {
+  border-bottom: 3px solid #198754 !important;
+}
 
 
 /*=======AGGIUSTAMENTI GLOBALI=======*/
 .row.mt-2.justify-content-between {
-    margin-top: 30px !important;
-}  
-
-.text-center {
-    text-align: center !important;
-    padding: 10px;
-    border: 1px solid #dce1e7;
-    border-radius: var(--tblr-border-radius);
-    box-sizing: border-box;
+  margin-top: 30px !important;
 }
 
-.myborder-button{
-    text-align: center !important;
-    padding: 10px;
-    border: 1px solid #dce1e7;
-    border-radius: var(--tblr-border-radius);
-    box-sizing: border-box;
+.text-center {
+  text-align: center !important;
+  padding: 10px;
+  border: 1px solid #dce1e7;
+  border-radius: var(--tblr-border-radius);
+  box-sizing: border-box;
+}
+
+.myborder-button {
+  text-align: center !important;
+  padding: 10px;
+  border: 1px solid #dce1e7;
+  border-radius: var(--tblr-border-radius);
+  box-sizing: border-box;
 }
 
 /*========PAGINA DOWNLAOD=======*/
 /* ====== DOWNLOAD & BADGE (ANPAS) — Registro documenti ====== */
 
 /* Download primario: verde brand */
-.btn-anpas-download{
+.btn-anpas-download {
   background-color: var(--anpas-green) !important;
   color: var(--anpas-white) !important;
   border: 1px solid var(--anpas-green-dark) !important;
   padding: .32rem .6rem !important;
   border-radius: .35rem !important;
   font-weight: 600;
-  display: inline-flex; align-items: center; gap:.35rem;
-  box-shadow: 0 1px 2px rgba(0,0,0,.06);
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, .06);
 }
-.btn-anpas-download:hover{ background-color: var(--anpas-green-dark) !important; }
+
+.btn-anpas-download:hover {
+  background-color: var(--anpas-green-dark) !important;
+}
 
 /* Allineamento contenuti cella Azioni */
-td.col-actions .btn, td.col-actions .badge { vertical-align: middle; }
+td.col-actions .btn,
+td.col-actions .badge {
+  vertical-align: middle;
+}
 
 /* Badge stato coerenti con palette ANPAS */
-.badge-anpas-queued{
-  background: rgba(253, 126, 20, .12) !important; /* arancione tenue */
-  color: #8a4b00 !important;                      /* testo arancio/bruno leggibile */
+.badge-anpas-queued {
+  background: rgba(253, 126, 20, .12) !important;
+  /* arancione tenue */
+  color: #8a4b00 !important;
+  /* testo arancio/bruno leggibile */
   border: 1px solid rgba(253, 126, 20, .35) !important;
   padding: .35rem .5rem;
   border-radius: .5rem;
   font-weight: 600;
 }
 
-.badge-anpas-processing{
-  background: rgba(0,133,62,.10) !important; color: var(--anpas-green) !important;
-  border: 1px solid rgba(0,133,62,.30) !important;
-  padding:.35rem .5rem; border-radius:.5rem; font-weight:600;
+.badge-anpas-processing {
+  background: rgba(0, 133, 62, .10) !important;
+  color: var(--anpas-green) !important;
+  border: 1px solid rgba(0, 133, 62, .30) !important;
+  padding: .35rem .5rem;
+  border-radius: .5rem;
+  font-weight: 600;
 }
-.badge-anpas-ready{
-  background: rgba(0,133,62,.15) !important; color: var(--anpas-green) !important;
+
+.badge-anpas-ready {
+  background: rgba(0, 133, 62, .15) !important;
+  color: var(--anpas-green) !important;
   border: 1px solid var(--anpas-green) !important;
-  padding:.35rem .5rem; border-radius:.5rem; font-weight:700;
+  padding: .35rem .5rem;
+  border-radius: .5rem;
+  font-weight: 700;
 }
-.badge-anpas-error{
-  background: rgba(227,6,19,.12) !important; color: var(--anpas-red) !important;
+
+.badge-anpas-error {
+  background: rgba(227, 6, 19, .12) !important;
+  color: var(--anpas-red) !important;
   border: 1px solid var(--anpas-red) !important;
-  padding:.35rem .5rem; border-radius:.5rem; font-weight:700;
+  padding: .35rem .5rem;
+  border-radius: .5rem;
+  font-weight: 700;
 }
 
 /* Tabella: header verde chiaro e zebra coerente */
-#docsTable thead th{
-  background-color: rgba(0,133,62,.12) !important;
+#docsTable thead th {
+  background-color: rgba(0, 133, 62, .12) !important;
   color: var(--anpas-green) !important;
-  border-left: .5px solid rgba(0,0,0,.08) !important;
-  border-right:.5px solid rgba(0,0,0,.08) !important;
+  border-left: .5px solid rgba(0, 0, 0, .08) !important;
+  border-right: .5px solid rgba(0, 0, 0, .08) !important;
 }
-#docsTable tbody tr:nth-of-type(odd){ background-color: rgba(0,133,62,.05) !important; }
-#docsTable tbody tr:nth-of-type(even){ background-color: #ffffff !important; }
 
+#docsTable tbody tr:nth-of-type(odd) {
+  background-color: rgba(0, 133, 62, .05) !important;
+}
+
+#docsTable tbody tr:nth-of-type(even) {
+  background-color: #ffffff !important;
+}
+
+.ellipsis-cell {
+  max-width: 280px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+}
 /*!
  * Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com
  * License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License)

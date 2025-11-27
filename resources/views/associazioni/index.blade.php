@@ -81,7 +81,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
                 if (!json || !Array.isArray(json.data)) return [];
 
-                // 🔥 FILTRO → i NON-SUPERADMIN NON devono vedere GOD o ANPAS
+                //FILTRO → i NON-SUPERADMIN NON devono vedere GOD o ANPAS
                 if (!isSuperAdmin) {
                     return json.data.filter(r =>
                         r.Associazione !== 'Associazione GOD' &&
