@@ -83,10 +83,7 @@ class RapportiRicaviController extends Controller {
             ->where('rr.idAssociazione', $idAssociazione)
             ->get();
 
-            
-        $totale = $ricavi->sum(function ($r) {
-            return $this->euroToFloat($r->Rimborso);
-        });
+        $totale = (float) $ricavi->sum('Rimborso');
 
         $riga = [
             'idAssociazione'  => $idAssociazione,
@@ -220,19 +217,6 @@ class RapportiRicaviController extends Controller {
             'associazione',
             'anno'
         ));
-    }
-
-    private function euroToFloat($value)
-    {
-        if ($value === null || $value === '') return 0;
-
-        // togli i punti (migliaia)
-        $value = str_replace('.', '', $value);
-
-        // converti virgola in punto
-        $value = str_replace(',', '.', $value);
-
-        return (float) $value;
     }
 
     public function update(Request $request, int $idAssociazione) {
