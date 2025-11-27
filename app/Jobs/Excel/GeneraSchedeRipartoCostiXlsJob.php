@@ -3776,7 +3776,7 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
         int $idConvenzione
     ): void {
 
-        // Inserimento tabella sotto la prima
+        // Punto di inserimento
         $startRow = $ws->getHighestDataRow() + 2;
 
         // Titolo
@@ -3794,7 +3794,7 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
         $startRow++;
         $firstDataRow = $startRow;
 
-        // Mappa tipologie
+        // Etichette delle tipologie 2..10
         $mapSezioni = [
             2  => 'Automezzi',
             3  => 'Attrezzatura Sanitaria',
@@ -3804,68 +3804,76 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
             7  => 'Materiale sanitario di consumo',
             8  => 'Costi amministrativi',
             9  => 'Quote di ammortamento',
-            10 => 'Beni Strumentali inferiori a 516,00 €',
+            10 => 'Beni Strumentali < 516,00 €',
         ];
 
         /* ==========================
-        *   CICLO SU TIPOLOGIE 2..10
-        * ========================== */
+     *   TIPOLOGIE 2..10
+     * ========================== */
         foreach ($mapSezioni as $tipologia => $label) {
 
-            // Titolo sezione
-            $ws->setCellValue("A{$startRow}", $label);
-            $ws->mergeCells("A{$startRow}:D{$startRow}");
-            $ws->getStyle("A{$startRow}:D{$startRow}")->getFont()->setBold(true);
-            $ws->getStyle("A{$startRow}:D{$startRow}")
-                ->getFill()->setFillType(Fill::FILL_SOLID)
-                ->getStartColor()->setARGB('FFEFEFEF');
-            $startRow++;
-
-            // Carica righe per tipologia
             $rows = RiepilogoCosti::getByTipologia($tipologia, $anno, $idAssociazione, $idConvenzione);
 
-            // Prima riga della tipologia (serve per totale)
-            $sectionStart = $startRow;
+            if (!$rows || count($rows) === 0) {
+                continue;
+            }
 
-            // --- Righe singole ---
+            // Calcolo totale tipologia
+            $totPrev = 0;
+            $totCons = 0;
             foreach ($rows as $r) {
-                $descr = (string)($r->descrizione ?? '');
+                $totPrev += (float)($r->preventivo ?? 0);
+                $totCons += (float)($r->consuntivo ?? 0);
+            }
+
+            /* ==========================
+         * 1) RIGA TOTALE IN TESTA
+         * ========================== */
+            $ws->setCellValue("A{$startRow}", $label);
+            $ws->getStyle("A{$startRow}")->getFont()->setBold(true);
+
+            $ws->setCellValue("B{$startRow}", $totPrev);
+            $ws->setCellValue("C{$startRow}", $totCons);
+            $ws->setCellValue("D{$startRow}", "=IF(B{$startRow}=0,0,(C{$startRow}-B{$startRow})/B{$startRow})");
+
+            $ws->getStyle("B{$startRow}:C{$startRow}")
+                ->getNumberFormat()->setFormatCode('#,##0.00');
+            $ws->getStyle("D{$startRow}")
+                ->getNumberFormat()->setFormatCode(NumberFormat::FORMAT_PERCENTAGE_00);
+
+            $ws->getStyle("A{$startRow}:D{$startRow}")->getFont()->setBold(true);
+
+            $startRow++;
+
+            /* ==========================
+         * 2) RIGHE VOCI INDENTATE
+         * ========================== */
+            foreach ($rows as $r) {
+
+                $descr = "    " . (string)($r->descrizione ?? '');
                 $prev  = (float)($r->preventivo ?? 0);
                 $cons  = (float)($r->consuntivo ?? 0);
 
                 $ws->setCellValue("A{$startRow}", $descr);
                 $ws->setCellValueExplicit("B{$startRow}", $prev, DataType::TYPE_NUMERIC);
                 $ws->setCellValueExplicit("C{$startRow}", $cons, DataType::TYPE_NUMERIC);
-
                 $ws->setCellValue("D{$startRow}", "=IF(B{$startRow}=0,0,(C{$startRow}-B{$startRow})/B{$startRow})");
 
-                $ws->getStyle("B{$startRow}:C{$startRow}")->getNumberFormat()->setFormatCode('#,##0.00');
-                $ws->getStyle("D{$startRow}")->getNumberFormat()->setFormatCode(NumberFormat::FORMAT_PERCENTAGE_00);
+                $ws->getStyle("B{$startRow}:C{$startRow}")
+                    ->getNumberFormat()->setFormatCode('#,##0.00');
+                $ws->getStyle("D{$startRow}")
+                    ->getNumberFormat()->setFormatCode(NumberFormat::FORMAT_PERCENTAGE_00);
 
                 $startRow++;
             }
 
-            // --- RIGA TOTALE PARZIALE ---
-            $totRow = $startRow;
-
-            $ws->setCellValue("A{$totRow}", "Totale {$label}");
-            $ws->getStyle("A{$totRow}")->getFont()->setBold(true);
-
-            // formule somma
-            $ws->setCellValue("B{$totRow}", "=SUM(B{$sectionStart}:B" . ($totRow - 1) . ")");
-            $ws->setCellValue("C{$totRow}", "=SUM(C{$sectionStart}:C" . ($totRow - 1) . ")");
-            $ws->setCellValue("D{$totRow}", "=IF(B{$totRow}=0,0,(C{$totRow}-B{$totRow})/B{$totRow})");
-
-            $ws->getStyle("B{$totRow}:C{$totRow}")->getNumberFormat()->setFormatCode('#,##0.00');
-            $ws->getStyle("D{$totRow}")->getNumberFormat()->setFormatCode(NumberFormat::FORMAT_PERCENTAGE_00);
-            $ws->getStyle("A{$totRow}:D{$totRow}")->getFont()->setBold(true);
-
-            $startRow += 2;
+            // spazio tra categorie
+            $startRow++;
         }
 
         /* ==========================
-        *         TOTALE GENERALE
-        * ========================== */
+     *   TOTALE GENERALE (TIPOLOGIA 11)
+     * ========================== */
         $ws->setCellValue("A{$startRow}", "Totale generale");
         $ws->mergeCells("A{$startRow}:D{$startRow}");
         $ws->getStyle("A{$startRow}:D{$startRow}")->getFont()->setBold(true)->setSize(11);
@@ -3874,7 +3882,7 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
             ->getStartColor()->setARGB('FFE0E0E0');
         $startRow++;
 
-        $rows = RiepilogiCosti::getByTipologia(11, $anno, $idAssociazione, $idConvenzione);
+        $rows = RiepilogoCosti::getByTipologia(11, $anno, $idAssociazione, $idConvenzione);
 
         foreach ($rows as $r) {
             $descr = (string)$r->descrizione;
@@ -3888,13 +3896,18 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
 
             $ws->getStyle("B{$startRow}:C{$startRow}")->getNumberFormat()->setFormatCode('#,##0.00');
             $ws->getStyle("D{$startRow}")->getNumberFormat()->setFormatCode(NumberFormat::FORMAT_PERCENTAGE_00);
+
             $ws->getStyle("A{$startRow}:D{$startRow}")->getFont()->setBold(true);
 
             $startRow++;
         }
-        // Bordature finali
+
+        // Bordatura finale
         $this->applyGridWithOuterBorder($ws, "A" . ($firstDataRow - 2) . ":D" . ($startRow - 1));
     }
+
+
+
 
     /** Converte '12,34%' | '12.34%' | '12.34' in 0.1234 */
     /** Converte input in frazione (0..1). Gestisce %, punti percentuali e basis points. */
