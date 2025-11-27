@@ -57,7 +57,7 @@ class RiepilogoVociConfigSeeder extends Seeder {
                 'pulizia e disinfezione automezzi',
                 'carburanti',
                 'additivi',
-                'interessi pass. f.to, leasing, nol.',
+                'interessi passivi da finanziamento e costi per finanziamento/leasing/noleggio a lungo termine',
                 'altri costi mezzi',
             ],
 

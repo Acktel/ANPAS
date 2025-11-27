@@ -973,7 +973,7 @@ class RipartizioneCostiService {
             'pulizia e disinfezione automezzi'    => 'PULIZIA E DISINFEZIONE',
             'carburanti'                          => 'CARBURANTI AL NETTO RIMBORSI UTF',
             'additivi'                            => 'ADDITIVI',
-            'interessi pass. f.to, leasing, nol.' => 'INTERESSI PASS. F.TO, LEASING, NOL.',
+            'interessi passivi da finanziamento e costi per finanziamento/leasing/noleggio a lungo termine' => 'INTERESSI PASS. F.TO, LEASING, NOL.',
             'altri costi mezzi'                   => 'ALTRI COSTI MEZZI',
             'manutenzione attrezzatura sanitaria' => 'MANUTENZIONE ATTREZZATURA SANITARIA',
             'leasing attrezzatura sanitaria'      => 'LEASING ATTREZZATURA SANITARIA',

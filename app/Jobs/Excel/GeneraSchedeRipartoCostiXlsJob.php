@@ -3789,7 +3789,7 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
         $startRow += 2;
 
         // Header
-        $ws->fromArray(['Voce', 'PREVENTIVO', 'CONSUNTIVO', 'SCOSTAMENTO'], null, "A{$startRow}");
+        $ws->fromArray(['Voce', 'PREVENTIVO', 'CONSUNTIVO', 'SCOSTAMENTO %'], null, "A{$startRow}");
         $ws->getStyle("A{$startRow}:D{$startRow}")->getFont()->setBold(true);
         $ws->getStyle("A{$startRow}:D{$startRow}")
             ->getBorders()->getBottom()->setBorderStyle(Border::BORDER_MEDIUM);
