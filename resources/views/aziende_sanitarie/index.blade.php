@@ -166,9 +166,20 @@ document.addEventListener('DOMContentLoaded', function () {
             { data: 'mail' },
             {
                 data: 'Lotti',
-                render: d => Array.isArray(d) && d.length
-                    ? d.join(', ')
-                    : '<span class="text-muted">—</span>'
+                render: function (d, type, row) {
+
+                    if (!Array.isArray(d) || d.length === 0)
+                        return '<span class="text-muted">—</span>';
+
+                    const full = d.join(', ');
+                    const maxLen = 80; // lunghezza massima visibile
+
+                    let shortened = full.length > maxLen
+                        ? full.substring(0, maxLen) + '…'
+                        : full;
+
+                    return `<span title="${full}" style="cursor:pointer;">${shortened}</span>`;
+                }
             },
             {
                 data: 'idAziendaSanitaria',
