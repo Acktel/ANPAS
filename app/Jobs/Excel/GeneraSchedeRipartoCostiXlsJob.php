@@ -153,7 +153,7 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
          * ====================================================== */
 
             // ---- [B1] KM ------------------------------------------------
-            $kmMeta = $this->appendTemplate($sheet, $disk->path('documenti/template_excel/KmPercorsi.xlsx'));
+/*            $kmMeta = $this->appendTemplate($sheet, $disk->path('documenti/template_excel/KmPercorsi.xlsx'));
             $this->reinsertTemplateLogos($sheet, $kmMeta);
             $this->replacePlaceholdersEverywhere($sheet, $phBase);
             $endKm = $this->blockKm($sheet, $kmMeta, $automezzi, $convenzioni, $noLogos);
@@ -206,12 +206,12 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                 $this->BlockRotazioneMezzi($sheet, $rotMeta, $automezzi, $convenzioni, $this->idAssociazione, $this->anno);
             }
 
-            /* ======================================================
-         * FOGLIO 2 → 4
-         * ====================================================== */
+            /*======================================================
+             FOGLIO 2 → 4
+             ====================================================== */
 
             // ---- [F2] COSTI DIPENDENTI ---------------------------------
-            $sheetRip = $spreadsheet->createSheet();
+/*            $sheetRip = $spreadsheet->createSheet();
             $sheetRip->setTitle('DIST.RIPARTO COSTI DIPENDENTI');
 
             // A&B (prima tabella)
@@ -274,7 +274,7 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
             /* ======================================================
          * FOGLI EXTRA E CONSUNTIVI
          * ====================================================== */
-
+/*
             // Imputazione Sanitario
             $this->safeCall(
                 'Imputazione Sanitario',
@@ -333,7 +333,7 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                     );
                 }
             });
-
+*/
             // Fogli per convenzione (TAB.1 + TAB.2)
             $this->safeCall('Fogli per convenzione (Tabella 1 + 2)', function () use ($spreadsheet, $nomeAss) {
                 $tplConvenzionePath = public_path('storage/documenti/template_excel/RiepilogoDati.xlsx');
