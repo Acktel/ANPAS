@@ -3782,6 +3782,12 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
     }
 
 
+/**
+ * Inserisce la tabella "RIEPILOGO COSTI" immediatamente sotto la prima tabella
+ * usando il layout: Voce | PREVENTIVO | CONSUNTIVO | SCOSTAMENTO.
+ *
+ * Legge i dati ESCLUSIVAMENTE da RiepilogoCosti::getByTipologia().
+ */
 private function fillRiepilogoCostiSottoPrimaTabella(
     Worksheet $ws,
     int $idAssociazione,
@@ -3789,32 +3795,42 @@ private function fillRiepilogoCostiSottoPrimaTabella(
     int $idConvenzione
 ): void {
 
-    // Punto di inserimento sotto la prima tabella
+    /* ============================================================
+       1) PUNTO DI INSERIMENTO — sotto la prima tabella del foglio
+       ============================================================ */
     $startRow = $ws->getHighestDataRow() + 2;
 
-    // Titolo
+    /* ============================================================
+       2) TITOLO BLOCCO
+       ============================================================ */
     $ws->setCellValue("A{$startRow}", 'RIEPILOGO COSTI');
-    $ws->mergeCells("A{$startRow}:E{$startRow}");
-    $ws->getStyle("A{$startRow}:E{$startRow}")
+    $ws->mergeCells("A{$startRow}:D{$startRow}");
+    $ws->getStyle("A{$startRow}:D{$startRow}")
         ->getFont()->setBold(true)->setSize(12);
+
     $startRow += 2;
 
-    // Header (A–E)
-    $headerRow = $startRow;
+    /* ============================================================
+       3) HEADER COLONNE
+       ============================================================ */
     $ws->fromArray(
-        ['Voce', '', 'PREVENTIVO', 'CONSUNTIVO', '% SCOSTAMENTO'],
+        ['Voce', 'PREVENTIVO', 'CONSUNTIVO', 'SCOSTAMENTO'],
         null,
-        "A{$headerRow}"
+        "A{$startRow}"
     );
 
-    $ws->getStyle("A{$headerRow}:E{$headerRow}")->getFont()->setBold(true);
-    $ws->getStyle("A{$headerRow}:E{$headerRow}")
+    $ws->getStyle("A{$startRow}:D{$startRow}")
+        ->getFont()->setBold(true);
+
+    $ws->getStyle("A{$startRow}:D{$startRow}")
         ->getBorders()->getBottom()->setBorderStyle(Border::BORDER_MEDIUM);
 
-    $startRow = $headerRow + 1;
+    $startRow++;
     $firstDataRow = $startRow;
 
-    // Mappa tipologie
+    /* ============================================================
+       4) MAPPA SEZIONI 2..11 (quelle effettivamente stampate)
+       ============================================================ */
     $mapSezioni = [
         2  => 'Automezzi',
         3  => 'Attrezzatura Sanitaria',
@@ -3824,91 +3840,96 @@ private function fillRiepilogoCostiSottoPrimaTabella(
         7  => 'Materiale sanitario di consumo',
         8  => 'Costi amministrativi',
         9  => 'Quote di ammortamento',
-        10 => 'Beni strumentali <= 516€',
+        10 => 'Beni Strumentali < 516,00 €',
+        11 => 'Altri Costi',
     ];
 
-    /* ======================================================
-       CICLO SEZIONI 2–10
-       ====================================================== */
-    foreach ($mapSezioni as $tipologia => $label) {
+    /* ============================================================
+       5) SEZIONI 2..11 — loop completo
+       ============================================================ */
+    foreach (range(2, 11) as $tipologia) {
 
-        $rows = RiepilogoCosti::getByTipologia(
-            $tipologia, $anno, $idAssociazione, $idConvenzione
-        );
+        // intestazione sezione
+        $ws->setCellValue("A{$startRow}", $mapSezioni[$tipologia]);
+        $ws->mergeCells("A{$startRow}:D{$startRow}");
 
-        $sumPrev = array_sum(array_column($rows, 'preventivo'));
-        $sumCons = array_sum(array_column($rows, 'consuntivo'));
+        $ws->getStyle("A{$startRow}:D{$startRow}")
+            ->getFont()->setBold(true);
 
-        // Riga categoria (A–E)
-        $ws->setCellValue("A{$startRow}", $label);
-        $ws->setCellValue("C{$startRow}", $sumPrev);
-        $ws->setCellValue("D{$startRow}", $sumCons);
-        $ws->setCellValue("E{$startRow}", "=IF(C{$startRow}=0,0,(D{$startRow}-C{$startRow})/C{$startRow})");
-
-        $ws->getStyle("A{$startRow}:E{$startRow}")->getFont()->setBold(true);
-        $ws->getStyle("C{$startRow}:D{$startRow}")
-            ->getNumberFormat()->setFormatCode('#,##0.00');
-        $ws->getStyle("E{$startRow}")
-            ->getNumberFormat()->setFormatCode(NumberFormat::FORMAT_PERCENTAGE_00);
+        $ws->getStyle("A{$startRow}:D{$startRow}")
+            ->getFill()->setFillType(Fill::FILL_SOLID)
+            ->getStartColor()->setARGB('FFEFEFEF');
 
         $startRow++;
 
-        // DETTAGLIO voci
+        // dati della sezione (dal MODEL corretto)
+        $rows = RiepilogoCosti::getByTipologia(
+            $tipologia,
+            $anno,
+            $idAssociazione,
+            $idConvenzione
+        );
+
         foreach ($rows as $r) {
+            $descr = (string)($r->descrizione ?? '');
+            $prev  = is_numeric($r->preventivo) ? (float)$r->preventivo : 0.0;
+            $cons  = is_numeric($r->consuntivo) ? (float)$r->consuntivo : 0.0;
 
-            $ws->setCellValue("A{$startRow}", $r->descrizione);
-            $ws->setCellValue("C{$startRow}", $r->preventivo ?? 0);
-            $ws->setCellValue("D{$startRow}", $r->consuntivo ?? 0);
-            $ws->setCellValue("E{$startRow}", "=IF(C{$startRow}=0,0,(D{$startRow}-C{$startRow})/C{$startRow})");
+            $ws->setCellValue("A{$startRow}", $descr);
+            $ws->setCellValueExplicit("B{$startRow}", $prev, DataType::TYPE_NUMERIC);
+            $ws->setCellValueExplicit("C{$startRow}", $cons, DataType::TYPE_NUMERIC);
 
-            $ws->getStyle("C{$startRow}:D{$startRow}")
+            // formula scostamento percentuale
+            $ws->setCellValue(
+                "D{$startRow}",
+                "=IF(B{$startRow}=0,0,(C{$startRow}-B{$startRow})/B{$startRow})"
+            );
+
+            // formati numerici
+            $ws->getStyle("B{$startRow}:C{$startRow}")
                 ->getNumberFormat()->setFormatCode('#,##0.00');
-            $ws->getStyle("E{$startRow}")
+
+            $ws->getStyle("D{$startRow}")
                 ->getNumberFormat()->setFormatCode(NumberFormat::FORMAT_PERCENTAGE_00);
 
             $startRow++;
         }
 
-        $startRow++;
-    }
-
-    /* ======================================================
-       TOTALE GENERALE (tipologia 11)
-       ====================================================== */
-    $ws->setCellValue("A{$startRow}", "Totale generale");
-    $ws->mergeCells("A{$startRow}:E{$startRow}");
-    $ws->getStyle("A{$startRow}:E{$startRow}")->getFont()->setBold(true)->setSize(11);
-    $startRow++;
-
-    $rowsTot = RiepilogoCosti::getByTipologia(11, $anno, $idAssociazione, $idConvenzione);
-
-    foreach ($rowsTot as $r) {
-        $ws->setCellValue("A{$startRow}", $r->descrizione);
-        $ws->setCellValue("C{$startRow}", $r->preventivo ?? 0);
-        $ws->setCellValue("D{$startRow}", $r->consuntivo ?? 0);
-        $ws->setCellValue("E{$startRow}", "=IF(C{$startRow}=0,0,(D{$startRow}-C{$startRow})/C{$startRow})");
-
-        $ws->getStyle("A{$startRow}:E{$startRow}")->getFont()->setBold(true);
-        $ws->getStyle("C{$startRow}:D{$startRow}")
-            ->getNumberFormat()->setFormatCode('#,##0.00');
-        $ws->getStyle("E{$startRow}")
-            ->getNumberFormat()->setFormatCode(NumberFormat::FORMAT_PERCENTAGE_00);
-
+        // riga vuota di separazione
         $startRow++;
     }
 
     $lastDataRow = $startRow - 1;
 
-    // Allineamento numeri
-    $ws->getStyle("C{$firstDataRow}:E{$lastDataRow}")
+    /* ============================================================
+       6) FORMATTAZIONE FINALE
+       ============================================================ */
+
+    // numeri allineati a destra
+    $ws->getStyle("B{$firstDataRow}:D{$lastDataRow}")
         ->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
 
-    // Bordo finale
+    // border grid completo
     $this->applyGridWithOuterBorder(
         $ws,
-        "A{$headerRow}:E{$lastDataRow}"
+        "A" . ($firstDataRow - 2) . ":D{$lastDataRow}"
     );
+
+    // forza colonne visibili & larghezza utile
+    foreach (['A', 'B', 'C', 'D'] as $col) {
+        $dim = $ws->getColumnDimension($col);
+        $dim->setVisible(true);
+        if (($dim->getWidth() ?? 0) <= 0) {
+            $dim->setAutoSize(false);
+            $dim->setWidth(16);
+        }
+    }
 }
+
+
+
+
+
 
 
 
