@@ -6,24 +6,35 @@ use App\Http\Controllers\ConfigurazioneVeicoliController;
 $user = auth()->user();
 $selectedAssoc = session('associazione_selezionata') ?? $user->IdAssociazione;
 
-{
-    if ($key == 'vehicleTypes' && size$configVeicoli = ConfigurazioneVeicoliController::getConfigurazioneVeicoli();
-$config = true;
+// Recupero configurazioni veicoli
+$configVeicoli = ConfigurazioneVeicoliController::getConfigurazioneVeicoli();
 
-foreach ($configVeicoli as $key => $value) of($value) <= 0) {
+// Valori di default del controllo
+$config = true;
+$testo = '';
+$link = '';
+
+// Controllo configurazioni mancanti
+foreach ($configVeicoli as $key => $value) {
+
+    // TIPI DI VEICOLO
+    if ($key === 'vehicleTypes' && count($value) === 0) {
         $config = false;
         $testo = 'Mancano le configurazioni riguardanti i tipi di veicolo.';
-        $link = route('configurazioni.veicoli');
+        $link  = route('configurazioni.veicoli');
         break;
     }
-    if ($key == 'fuelTypes' && sizeof($value) <= 0) {
+
+    // TIPI DI CARBURANTE
+    if ($key === 'fuelTypes' && count($value) === 0) {
         $config = false;
         $testo = 'Mancano le configurazioni riguardanti i tipi di carburante.';
-        $link = route('configurazioni.veicoli');
+        $link  = route('configurazioni.veicoli');
         break;
     }
 }
 @endphp
+
 
 @section('content')
 <div class="container-fluid container-margin">
