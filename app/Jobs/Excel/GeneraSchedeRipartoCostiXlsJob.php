@@ -153,7 +153,7 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
          * ====================================================== */
 
             // ---- [B1] KM ------------------------------------------------
-/*            $kmMeta = $this->appendTemplate($sheet, $disk->path('documenti/template_excel/KmPercorsi.xlsx'));
+            /*            $kmMeta = $this->appendTemplate($sheet, $disk->path('documenti/template_excel/KmPercorsi.xlsx'));
             $this->reinsertTemplateLogos($sheet, $kmMeta);
             $this->replacePlaceholdersEverywhere($sheet, $phBase);
             $endKm = $this->blockKm($sheet, $kmMeta, $automezzi, $convenzioni, $noLogos);
@@ -211,7 +211,7 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
              ====================================================== */
 
             // ---- [F2] COSTI DIPENDENTI ---------------------------------
-/*            $sheetRip = $spreadsheet->createSheet();
+            /*            $sheetRip = $spreadsheet->createSheet();
             $sheetRip->setTitle('DIST.RIPARTO COSTI DIPENDENTI');
 
             // A&B (prima tabella)
@@ -274,7 +274,7 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
             /* ======================================================
          * FOGLI EXTRA E CONSUNTIVI
          * ====================================================== */
-/*
+            /*
             // Imputazione Sanitario
             $this->safeCall(
                 'Imputazione Sanitario',
@@ -406,8 +406,8 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
 
 
             /* ======================================================
-         * FORMATTAZIONE GENERALE E STAMPA
-         * ====================================================== */
+ * FORMATTAZIONE GENERALE E STAMPA
+ * ====================================================== */
             foreach ($spreadsheet->getAllSheets() as $ws) {
                 try {
                     PrintConfigurator::forceLandscapeCenteredMinScale($ws, 50, true);
@@ -426,6 +426,18 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                         1,    // header da riga 1
                         8,    // header fino a riga 8
                         12.0  // larghezza minima colonna A
+                    );
+
+                    // (3) 🔒 NON TOCCARE LE COLONNE A–D (servono al riepilogo costi)
+                    PrintConfigurator::fitBodyColumns(
+                        $ws,
+                        2,      // corpo (parte da riga 2)
+                        1,      // first col
+                        40,     // last col (larghissimo, non importa)
+                        1.6,    // padding
+                        7.0,    // min width
+                        26.0,   // max width
+                        [1, 2, 3, 4]   // ⛔ ESCLUDI A, B, C, D
                     );
                 } catch (Throwable $e) {
                     Log::warning('[FORMAT] Errore configurazione foglio', [
@@ -3775,27 +3787,48 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
         int $anno,
         int $idConvenzione
     ): void {
-        // Punto di inserimento (dopo la prima tabella)
+
+        /* -----------------------------------------------------
+     * 1) Individua il punto dopo la Tabella 1
+     * ----------------------------------------------------- */
         $startRow = $ws->getHighestDataRow() + 2;
 
-        // Titolo tabella
+        /* -----------------------------------------------------
+     * 2) Titolo sezione
+     * ----------------------------------------------------- */
         $ws->setCellValue("A{$startRow}", 'RIEPILOGO COSTI');
         $ws->mergeCells("A{$startRow}:D{$startRow}");
         $ws->getStyle("A{$startRow}:D{$startRow}")
             ->getFont()->setBold(true)->setSize(12);
         $startRow += 2;
 
-        // Header
+        /* -----------------------------------------------------
+     * 3) Header (Voce | Prev | Cons | Scost.)
+     * ----------------------------------------------------- */
         $headerRow = $startRow;
-        $ws->fromArray(['Voce', 'PREVENTIVO', 'CONSUNTIVO', 'SCOSTAMENTO %'], null, "A{$headerRow}");
+
+        $ws->fromArray(
+            ['Voce', 'PREVENTIVO', 'CONSUNTIVO', '% SCOSTAMENTO'],
+            null,
+            "A{$headerRow}"
+        );
+
         $ws->getStyle("A{$headerRow}:D{$headerRow}")->getFont()->setBold(true);
         $ws->getStyle("A{$headerRow}:D{$headerRow}")
             ->getBorders()->getBottom()->setBorderStyle(Border::BORDER_MEDIUM);
 
+        // Fix colonne — IMPORTANTISSIMO
+        $ws->getColumnDimension('A')->setWidth(45);
+        $ws->getColumnDimension('B')->setWidth(15);
+        $ws->getColumnDimension('C')->setWidth(15);
+        $ws->getColumnDimension('D')->setWidth(15);
+
         $startRow = $headerRow + 1;
         $firstDataRow = $startRow;
 
-        // Tipologie (come da seeder)
+        /* -----------------------------------------------------
+     * 4) Mappatura tipologie
+     * ----------------------------------------------------- */
         $mapSezioni = [
             2  => 'Automezzi',
             3  => 'Attrezzatura Sanitaria',
@@ -3808,26 +3841,26 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
             10 => 'Beni Strumentali inferiori a 516,00 euro',
         ];
 
-        /* ==========================
-     *   CICLO SU TIPOLOGIE 2..10
-     * ========================== */
+        /* -----------------------------------------------------
+     * 5) Ciclo tipologie + voci
+     * ----------------------------------------------------- */
         foreach ($mapSezioni as $tipologia => $label) {
 
-            // Righe per tipologia
-            $rows = RiepilogoCosti::getByTipologia($tipologia, $anno, $idAssociazione, $idConvenzione);
+            $rows = RiepilogoCosti::getByTipologia(
+                $tipologia,
+                $anno,
+                $idAssociazione,
+                $idConvenzione
+            );
 
-            // Somme per riga "Automezzi", "Telecomunicazioni", ecc.
-            $sumPrev = 0.0;
-            $sumCons = 0.0;
-            foreach ($rows as $r) {
-                $sumPrev += (float) ($r->preventivo ?? 0);
-                $sumCons += (float) ($r->consuntivo ?? 0);
-            }
+            // Calcolo totali tipologia
+            $sumPrev = array_sum(array_column($rows, 'preventivo'));
+            $sumCons = array_sum(array_column($rows, 'consuntivo'));
 
-            // --- Riga di categoria CON TOTALI ---
+            /* --- Riga intestazione tipologia --- */
             $ws->setCellValue("A{$startRow}", $label);
-            $ws->setCellValueExplicit("B{$startRow}", $sumPrev, DataType::TYPE_NUMERIC);
-            $ws->setCellValueExplicit("C{$startRow}", $sumCons, DataType::TYPE_NUMERIC);
+            $ws->setCellValue("B{$startRow}", $sumPrev);
+            $ws->setCellValue("C{$startRow}", $sumCons);
             $ws->setCellValue("D{$startRow}", "=IF(B{$startRow}=0,0,(C{$startRow}-B{$startRow})/B{$startRow})");
 
             $ws->getStyle("A{$startRow}:D{$startRow}")->getFont()->setBold(true);
@@ -3838,15 +3871,12 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
 
             $startRow++;
 
-            // --- Righe di dettaglio della tipologia ---
+            /* --- Righe di dettaglio --- */
             foreach ($rows as $r) {
-                $descr = (string) ($r->descrizione ?? '');
-                $prev  = (float) ($r->preventivo ?? 0);
-                $cons  = (float) ($r->consuntivo ?? 0);
 
-                $ws->setCellValue("A{$startRow}", $descr);
-                $ws->setCellValueExplicit("B{$startRow}", $prev, DataType::TYPE_NUMERIC);
-                $ws->setCellValueExplicit("C{$startRow}", $cons, DataType::TYPE_NUMERIC);
+                $ws->setCellValue("A{$startRow}", $r->descrizione);
+                $ws->setCellValue("B{$startRow}", $r->preventivo);
+                $ws->setCellValue("C{$startRow}", $r->consuntivo);
                 $ws->setCellValue("D{$startRow}", "=IF(B{$startRow}=0,0,(C{$startRow}-B{$startRow})/B{$startRow})");
 
                 $ws->getStyle("B{$startRow}:C{$startRow}")
@@ -3857,13 +3887,13 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                 $startRow++;
             }
 
-            // Riga vuota fra le sezioni
+            // Riga vuota tra sezioni
             $startRow++;
         }
 
-        /* ==========================
-     *         TOTALE GENERALE (tipologia 11)
-     * ========================== */
+        /* -----------------------------------------------------
+     * 6) Totale generale (tipo 11)
+     * ----------------------------------------------------- */
         $ws->setCellValue("A{$startRow}", 'Totale generale');
         $ws->mergeCells("A{$startRow}:D{$startRow}");
         $ws->getStyle("A{$startRow}:D{$startRow}")
@@ -3871,18 +3901,21 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
         $ws->getStyle("A{$startRow}:D{$startRow}")
             ->getFill()->setFillType(Fill::FILL_SOLID)
             ->getStartColor()->setARGB('FFE0E0E0');
+
         $startRow++;
 
-        $rowsTot = RiepilogoCosti::getByTipologia(11, $anno, $idAssociazione, $idConvenzione);
+        $rowsTot = RiepilogoCosti::getByTipologia(
+            11,
+            $anno,
+            $idAssociazione,
+            $idConvenzione
+        );
 
         foreach ($rowsTot as $r) {
-            $descr = (string) ($r->descrizione ?? '');
-            $prev  = (float) ($r->preventivo ?? 0);
-            $cons  = (float) ($r->consuntivo ?? 0);
 
-            $ws->setCellValue("A{$startRow}", $descr);
-            $ws->setCellValueExplicit("B{$startRow}", $prev, DataType::TYPE_NUMERIC);
-            $ws->setCellValueExplicit("C{$startRow}", $cons, DataType::TYPE_NUMERIC);
+            $ws->setCellValue("A{$startRow}", $r->descrizione);
+            $ws->setCellValue("B{$startRow}", $r->preventivo);
+            $ws->setCellValue("C{$startRow}", $r->consuntivo);
             $ws->setCellValue("D{$startRow}", "=IF(B{$startRow}=0,0,(C{$startRow}-B{$startRow})/B{$startRow})");
 
             $ws->getStyle("A{$startRow}:D{$startRow}")->getFont()->setBold(true);
@@ -3896,17 +3929,17 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
 
         $lastDataRow = $startRow - 1;
 
-        // Allineamento numeri a destra
+        /* -----------------------------------------------------
+     * 7) Allineamento numeri e bordi tabella
+     * ----------------------------------------------------- */
         $ws->getStyle("B{$firstDataRow}:D{$lastDataRow}")
             ->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
 
-        // Bordatura generale su tutta la tabella (dal titolo in giù)
         $this->applyGridWithOuterBorder(
             $ws,
-            "A" . ($headerRow) . ":D{$lastDataRow}"
+            "A{$headerRow}:D{$lastDataRow}"
         );
     }
-
 
 
     /** Converte '12,34%' | '12.34%' | '12.34' in 0.1234 */
