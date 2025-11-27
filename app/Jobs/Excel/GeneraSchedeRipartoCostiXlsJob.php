@@ -239,7 +239,7 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
             foreach ($mansioniTpl as $idQ => $fileName) {
                 $abs = $disk->path('documenti/template_excel/' . $fileName);
                 if (!is_file($abs)) {
-                    \Log::warning('Template mansione non trovato', ['idQualifica' => $idQ, 'file' => $abs]);
+                    Log::warning('Template mansione non trovato', ['idQualifica' => $idQ, 'file' => $abs]);
                     continue;
                 }
 
@@ -3775,26 +3775,27 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
         int $anno,
         int $idConvenzione
     ): void {
-
-        // Punto di inserimento
+        // Punto di inserimento (dopo la prima tabella)
         $startRow = $ws->getHighestDataRow() + 2;
 
-        // Titolo
+        // Titolo tabella
         $ws->setCellValue("A{$startRow}", 'RIEPILOGO COSTI');
         $ws->mergeCells("A{$startRow}:D{$startRow}");
-        $ws->getStyle("A{$startRow}:D{$startRow}")->getFont()->setBold(true)->setSize(12);
+        $ws->getStyle("A{$startRow}:D{$startRow}")
+            ->getFont()->setBold(true)->setSize(12);
         $startRow += 2;
 
         // Header
-        $ws->fromArray(['Voce', 'PREVENTIVO', 'CONSUNTIVO', 'SCOSTAMENTO %'], null, "A{$startRow}");
-        $ws->getStyle("A{$startRow}:D{$startRow}")->getFont()->setBold(true);
-        $ws->getStyle("A{$startRow}:D{$startRow}")
+        $headerRow = $startRow;
+        $ws->fromArray(['Voce', 'PREVENTIVO', 'CONSUNTIVO', 'SCOSTAMENTO %'], null, "A{$headerRow}");
+        $ws->getStyle("A{$headerRow}:D{$headerRow}")->getFont()->setBold(true);
+        $ws->getStyle("A{$headerRow}:D{$headerRow}")
             ->getBorders()->getBottom()->setBorderStyle(Border::BORDER_MEDIUM);
 
-        $startRow++;
+        $startRow = $headerRow + 1;
         $firstDataRow = $startRow;
 
-        // Etichette delle tipologie 2..10
+        // Tipologie (come da seeder)
         $mapSezioni = [
             2  => 'Automezzi',
             3  => 'Attrezzatura Sanitaria',
@@ -3804,55 +3805,44 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
             7  => 'Materiale sanitario di consumo',
             8  => 'Costi amministrativi',
             9  => 'Quote di ammortamento',
-            10 => 'Beni Strumentali < 516,00 €',
+            10 => 'Beni Strumentali inferiori a 516,00 euro',
         ];
 
         /* ==========================
-     *   TIPOLOGIE 2..10
+     *   CICLO SU TIPOLOGIE 2..10
      * ========================== */
         foreach ($mapSezioni as $tipologia => $label) {
 
+            // Righe per tipologia
             $rows = RiepilogoCosti::getByTipologia($tipologia, $anno, $idAssociazione, $idConvenzione);
 
-            if (!$rows || count($rows) === 0) {
-                continue;
-            }
-
-            // Calcolo totale tipologia
-            $totPrev = 0;
-            $totCons = 0;
+            // Somme per riga "Automezzi", "Telecomunicazioni", ecc.
+            $sumPrev = 0.0;
+            $sumCons = 0.0;
             foreach ($rows as $r) {
-                $totPrev += (float)($r->preventivo ?? 0);
-                $totCons += (float)($r->consuntivo ?? 0);
+                $sumPrev += (float) ($r->preventivo ?? 0);
+                $sumCons += (float) ($r->consuntivo ?? 0);
             }
 
-            /* ==========================
-         * 1) RIGA TOTALE IN TESTA
-         * ========================== */
+            // --- Riga di categoria CON TOTALI ---
             $ws->setCellValue("A{$startRow}", $label);
-            $ws->getStyle("A{$startRow}")->getFont()->setBold(true);
-
-            $ws->setCellValue("B{$startRow}", $totPrev);
-            $ws->setCellValue("C{$startRow}", $totCons);
+            $ws->setCellValueExplicit("B{$startRow}", $sumPrev, DataType::TYPE_NUMERIC);
+            $ws->setCellValueExplicit("C{$startRow}", $sumCons, DataType::TYPE_NUMERIC);
             $ws->setCellValue("D{$startRow}", "=IF(B{$startRow}=0,0,(C{$startRow}-B{$startRow})/B{$startRow})");
 
+            $ws->getStyle("A{$startRow}:D{$startRow}")->getFont()->setBold(true);
             $ws->getStyle("B{$startRow}:C{$startRow}")
                 ->getNumberFormat()->setFormatCode('#,##0.00');
             $ws->getStyle("D{$startRow}")
                 ->getNumberFormat()->setFormatCode(NumberFormat::FORMAT_PERCENTAGE_00);
 
-            $ws->getStyle("A{$startRow}:D{$startRow}")->getFont()->setBold(true);
-
             $startRow++;
 
-            /* ==========================
-         * 2) RIGHE VOCI INDENTATE
-         * ========================== */
+            // --- Righe di dettaglio della tipologia ---
             foreach ($rows as $r) {
-
-                $descr = "    " . (string)($r->descrizione ?? '');
-                $prev  = (float)($r->preventivo ?? 0);
-                $cons  = (float)($r->consuntivo ?? 0);
+                $descr = (string) ($r->descrizione ?? '');
+                $prev  = (float) ($r->preventivo ?? 0);
+                $cons  = (float) ($r->consuntivo ?? 0);
 
                 $ws->setCellValue("A{$startRow}", $descr);
                 $ws->setCellValueExplicit("B{$startRow}", $prev, DataType::TYPE_NUMERIC);
@@ -3867,46 +3857,55 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                 $startRow++;
             }
 
-            // spazio tra categorie
+            // Riga vuota fra le sezioni
             $startRow++;
         }
 
         /* ==========================
-     *   TOTALE GENERALE (TIPOLOGIA 11)
+     *         TOTALE GENERALE (tipologia 11)
      * ========================== */
-        $ws->setCellValue("A{$startRow}", "Totale generale");
+        $ws->setCellValue("A{$startRow}", 'Totale generale');
         $ws->mergeCells("A{$startRow}:D{$startRow}");
-        $ws->getStyle("A{$startRow}:D{$startRow}")->getFont()->setBold(true)->setSize(11);
+        $ws->getStyle("A{$startRow}:D{$startRow}")
+            ->getFont()->setBold(true)->setSize(11);
         $ws->getStyle("A{$startRow}:D{$startRow}")
             ->getFill()->setFillType(Fill::FILL_SOLID)
             ->getStartColor()->setARGB('FFE0E0E0');
         $startRow++;
 
-        $rows = RiepilogoCosti::getByTipologia(11, $anno, $idAssociazione, $idConvenzione);
+        $rowsTot = RiepilogoCosti::getByTipologia(11, $anno, $idAssociazione, $idConvenzione);
 
-        foreach ($rows as $r) {
-            $descr = (string)$r->descrizione;
-            $prev  = (float)($r->preventivo ?? 0);
-            $cons  = (float)($r->consuntivo ?? 0);
+        foreach ($rowsTot as $r) {
+            $descr = (string) ($r->descrizione ?? '');
+            $prev  = (float) ($r->preventivo ?? 0);
+            $cons  = (float) ($r->consuntivo ?? 0);
 
             $ws->setCellValue("A{$startRow}", $descr);
-            $ws->setCellValue("B{$startRow}", $prev);
-            $ws->setCellValue("C{$startRow}", $cons);
+            $ws->setCellValueExplicit("B{$startRow}", $prev, DataType::TYPE_NUMERIC);
+            $ws->setCellValueExplicit("C{$startRow}", $cons, DataType::TYPE_NUMERIC);
             $ws->setCellValue("D{$startRow}", "=IF(B{$startRow}=0,0,(C{$startRow}-B{$startRow})/B{$startRow})");
 
-            $ws->getStyle("B{$startRow}:C{$startRow}")->getNumberFormat()->setFormatCode('#,##0.00');
-            $ws->getStyle("D{$startRow}")->getNumberFormat()->setFormatCode(NumberFormat::FORMAT_PERCENTAGE_00);
-
             $ws->getStyle("A{$startRow}:D{$startRow}")->getFont()->setBold(true);
+            $ws->getStyle("B{$startRow}:C{$startRow}")
+                ->getNumberFormat()->setFormatCode('#,##0.00');
+            $ws->getStyle("D{$startRow}")
+                ->getNumberFormat()->setFormatCode(NumberFormat::FORMAT_PERCENTAGE_00);
 
             $startRow++;
         }
 
-        // Bordatura finale
-        $this->applyGridWithOuterBorder($ws, "A" . ($firstDataRow - 2) . ":D" . ($startRow - 1));
+        $lastDataRow = $startRow - 1;
+
+        // Allineamento numeri a destra
+        $ws->getStyle("B{$firstDataRow}:D{$lastDataRow}")
+            ->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+
+        // Bordatura generale su tutta la tabella (dal titolo in giù)
+        $this->applyGridWithOuterBorder(
+            $ws,
+            "A" . ($headerRow) . ":D{$lastDataRow}"
+        );
     }
-
-
 
 
 
