@@ -8,13 +8,13 @@
   </h1>
 
   @if ($errors->any())
-    <div class="alert alert-danger">
-      <ul class="mb-0">
-        @foreach ($errors->all() as $error)
-          <li>{{ $error }}</li>
-        @endforeach
-      </ul>
-    </div>
+  <div class="alert alert-danger">
+    <ul class="mb-0">
+      @foreach ($errors->all() as $error)
+      <li>{{ $error }}</li>
+      @endforeach
+    </ul>
+  </div>
   @endif
 
   <form method="POST" action="{{ route('rapporti-ricavi.update', ['id' => $idAssociazione]) }}">
@@ -31,34 +31,40 @@
           </tr>
         </thead>
         <tbody>
-          @foreach ($convenzioni as $conv)
-            @php
-              $row = optional($valori->get((int)$conv->idConvenzione));
-              $rimborsoDb = $row->Rimborso ?? null;
-              $notaDb     = $row->note     ?? '';
 
-              $rimborso = old('ricavi.'.$conv->idConvenzione, $rimborsoDb);
-              $nota     = old('note.'.$conv->idConvenzione,   $notaDb);
-            @endphp
-            <tr>
-              <td>{{ $conv->Convenzione }}</td>
-              <td>
-                <input
-                  type="number"
-                  name="ricavi[{{ $conv->idConvenzione }}]"
-                  class="form-control text-end ricavo-input"
-                  value="{{ is_numeric($rimborso) && $rimborso != 0 ? number_format($rimborso, 2, '.', '') : '' }}"
-                  step="0.01" min="0" placeholder="0,00">
-              </td>
-              <td>
-                <textarea
-                  name="note[{{ $conv->idConvenzione }}]"
-                  class="form-control"
-                  rows="2"
-                  placeholder="Annotazioni su questa convenzione...">{{ $nota }}</textarea>
-              </td>
-            </tr>
+          @foreach ($convenzioni as $conv)
+
+          @php
+              $row  = optional($valori->get((int)$conv->idConvenzione));
+              $rimborso = old('ricavi.'.$conv->idConvenzione, $row->Rimborso ?? '');
+              $nota     = old('note.'.$conv->idConvenzione,  $row->note ?? '');
+          @endphp
+
+          <tr>
+            <td>{{ $conv->Convenzione }}</td>
+
+            <!-- INPUT NUMERICO PULITO -->
+            <td>
+              <input
+                type="number"
+                class="form-control text-end ricavo-input"
+                name="ricavi[{{ $conv->idConvenzione }}]"
+                value="{{ $rimborso !== '' ? number_format((float)$rimborso, 2, '.', '') : '' }}"
+                step="0.01"
+                min="0">
+            </td>
+
+            <td>
+              <textarea
+                name="note[{{ $conv->idConvenzione }}]"
+                class="form-control"
+                rows="2"
+              >{{ $nota }}</textarea>
+            </td>
+
+          </tr>
           @endforeach
+
         </tbody>
       </table>
     </div>
@@ -80,25 +86,46 @@
         <i class="fas fa-times me-1"></i> Annulla
       </a>
     </div>
+
   </form>
 </div>
 @endsection
 
+
+
 @push('scripts')
 <script>
-  (function () {
-    function toNumber(v){ if(v==null) return 0; v=String(v).replace(/\./g,'').replace(',', '.'); const n=parseFloat(v); return isNaN(n)?0:n; }
-    function formatEuro(n){ try{ return new Intl.NumberFormat('it-IT',{style:'currency',currency:'EUR'}).format(n);}catch{ return '€ '+(Math.round(n*100)/100).toFixed(2).replace('.',','); } }
-    function recalcTotal(){
-      let sum=0;
-      document.querySelectorAll('.ricavo-input').forEach(inp=>sum+=toNumber(inp.value));
-      document.getElementById('totaleEsercizio').textContent = formatEuro(sum);
-    }
-    document.querySelectorAll('.ricavo-input').forEach(inp=>{
-      inp.addEventListener('input',recalcTotal);
-      inp.addEventListener('change',recalcTotal);
+(function() {
+
+  // converte NUMBER → valuta italiana
+  function formatEuro(n) {
+    return new Intl.NumberFormat('it-IT', {
+      style: 'currency',
+      currency: 'EUR'
+    }).format(n);
+  }
+
+  // ricalcola totale
+  function recalcTotal() {
+    let sum = 0;
+
+    document.querySelectorAll('.ricavo-input').forEach(inp => {
+      const v = parseFloat(inp.value);
+      if (!isNaN(v)) sum += v;
     });
-    recalcTotal();
-  })();
+
+    document.getElementById('totaleEsercizio').textContent = formatEuro(sum);
+  }
+
+  // attiva eventi
+  document.querySelectorAll('.ricavo-input').forEach(inp => {
+    inp.addEventListener('input', recalcTotal);
+    inp.addEventListener('change', recalcTotal);
+  });
+
+  // totale iniziale
+  recalcTotal();
+
+})();
 </script>
 @endpush

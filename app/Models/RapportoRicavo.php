@@ -5,20 +5,17 @@ namespace App\Models;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Collection;
 
-class RapportoRicavo
-{
+class RapportoRicavo {
     protected const TABLE = 'rapporti_ricavi';
 
-    public static function getByAssociazione(int $anno, int $idAssociazione): Collection
-    {
+    public static function getByAssociazione(int $anno, int $idAssociazione): Collection {
         return DB::table(self::TABLE)
             ->where('idAnno', $anno)
             ->where('idAssociazione', $idAssociazione)
-            ->get(); 
+            ->get();
     }
 
-    public static function mapByAssociazione(int $anno, int $idAssociazione): array
-    {
+    public static function mapByAssociazione(int $anno, int $idAssociazione): array {
         return DB::table(self::TABLE)
             ->where('idAnno', $anno)
             ->where('idAssociazione', $idAssociazione)
@@ -26,9 +23,8 @@ class RapportoRicavo
             ->toArray();
     }
 
-    public static function getWithConvenzioni(int $anno, int $idAssociazione): Collection
-    {
-        return DB::table(self::TABLE.' as rr')
+    public static function getWithConvenzioni(int $anno, int $idAssociazione): Collection {
+        return DB::table(self::TABLE . ' as rr')
             ->join('convenzioni as c', 'rr.idConvenzione', '=', 'c.idConvenzione')
             ->select(['rr.idConvenzione', 'c.Convenzione', 'rr.Rimborso', 'rr.note'])
             ->where('rr.idAnno', $anno)
@@ -39,8 +35,7 @@ class RapportoRicavo
     }
 
     /** Inserisce/aggiorna rimborso + nota per (anno, associazione, convenzione) */
-    public static function upsert(int $idConvenzione, int $idAssociazione, int $anno, float $rimborso, ?string $note = null): void
-    {
+    public static function upsert(int $idConvenzione, int $idAssociazione, int $anno, float $rimborso, ?string $note = null): void {
         DB::table(self::TABLE)->updateOrInsert(
             [
                 'idConvenzione'  => $idConvenzione,
@@ -55,17 +50,15 @@ class RapportoRicavo
         );
     }
 
-    public static function deleteByAssociazione(int $idAssociazione, int $anno): void
-    {
+    public static function deleteByAssociazione(int $idAssociazione, int $anno): void {
         DB::table(self::TABLE)
             ->where('idAssociazione', $idAssociazione)
             ->where('idAnno', $anno)
             ->delete();
     }
 
-    public static function getAllByAnno(int $anno, ?int $idAssociazione = null): Collection
-    {
-        $q = DB::table(self::TABLE.' as rr')
+    public static function getAllByAnno(int $anno, ?int $idAssociazione = null): Collection {
+        $q = DB::table(self::TABLE . ' as rr')
             ->join('convenzioni as c', 'rr.idConvenzione', '=', 'c.idConvenzione')
             ->join('associazioni as a', 'rr.idAssociazione', '=', 'a.idAssociazione')
             ->select(['rr.idAssociazione', 'a.Associazione', 'rr.idConvenzione', 'rr.Rimborso', 'rr.note'])
@@ -74,5 +67,28 @@ class RapportoRicavo
         if ($idAssociazione) $q->where('rr.idAssociazione', $idAssociazione);
 
         return collect($q->get());
+    }
+
+    public static function getRicaviPerAssociazione(int $idAssociazione, int $anno) {
+        return DB::table('rapporti_ricavi as rr')
+            ->join('convenzioni as c', 'rr.idConvenzione', '=', 'c.idConvenzione')
+            ->select(
+                'rr.idConvenzione',
+                'c.Convenzione',
+                'rr.Rimborso',
+                'rr.note'
+            )
+            ->where('rr.idAssociazione', $idAssociazione)
+            ->where('rr.idAnno', $anno)
+            ->orderBy('c.ordinamento')
+            ->orderBy('rr.idConvenzione')
+            ->get();
+    }
+
+    public static function getTotaleRicavi(int $idAssociazione, int $anno): float {
+        return (float) DB::table('rapporti_ricavi')
+            ->where('idAssociazione', $idAssociazione)
+            ->where('idAnno', $anno)
+            ->sum('Rimborso');
     }
 }
