@@ -140,8 +140,8 @@ class PrintConfigurator {
         $align->setVertical(Alignment::VERTICAL_TOP);
         $align->setHorizontal(Alignment::HORIZONTAL_LEFT);
         $align->setIndent(0);
-        $align->setWrapText(false);
-        $align->setShrinkToFit(true);
+       $align->setWrapText(true);
+        $align->setShrinkToFit(false);
 
         if ($fontSizeOverridePt !== null) {
             $ws->getStyle($range)->getFont()->setSize($fontSizeOverridePt);
@@ -176,8 +176,8 @@ class PrintConfigurator {
         $align->setVertical(Alignment::VERTICAL_TOP);
         $align->setHorizontal(Alignment::HORIZONTAL_LEFT);
         $align->setIndent(0);
-        $align->setWrapText(false);
-        $align->setShrinkToFit(true);
+       $align->setWrapText(true);
+        $align->setShrinkToFit(false);
 
         if ($fontSizeOverridePt !== null) {
             $ws->getStyle($range)->getFont()->setSize($fontSizeOverridePt);
@@ -232,8 +232,8 @@ class PrintConfigurator {
             $align->setVertical(Alignment::VERTICAL_TOP);
             $align->setHorizontal(Alignment::HORIZONTAL_LEFT);
             $align->setIndent(0);
-            $align->setWrapText(false);
-            $align->setShrinkToFit(true);
+           $align->setWrapText(true);
+            $align->setShrinkToFit(false);
             if ($fontSizeOverridePt !== null) {
                 $ws->getStyle($range)->getFont()->setSize($fontSizeOverridePt);
             }

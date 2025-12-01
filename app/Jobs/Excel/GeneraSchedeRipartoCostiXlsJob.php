@@ -416,8 +416,9 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
 */
 
             /* ======================================================
-            * FORMATTAZIONE GENERALE E STAMPA
-            * ====================================================== */
+        * FORMATTAZIONE GENERALE E STAMPA
+ * ====================================================== */
+
             foreach ($spreadsheet->getAllSheets() as $ws) {
                 try {
                     PrintConfigurator::forceLandscapeCenteredMinScale($ws, 50, true);
@@ -811,12 +812,14 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
         return [max($meta['dataRow'], $tpl['endRow']), $ricaviMap];
     }
 
-    /** SERVIZI A&B: Autisti/Barellieri (ore per dipendente + tabellina prev/cons A&B) */
+    /**
+     * SERVIZI A&B: Autisti/Barellieri (ore per dipendente + tabellina prev/cons A&B)
+     */
     private function blockAutistiBarellieri(Worksheet $sheet, array $tpl, $convenzioni, array $logos): int {
         [$headerRow, $cols] = $this->detectABHeaderAndCols($sheet, $tpl);
 
-        // Reindicizza convenzioni per avere indici 0..n-1 stabili
-        $convList    = collect($convenzioni)->values();
+        // Reindicizza convenzioni
+        $convList     = collect($convenzioni)->values();
         $firstPairCol = $cols['TOTORE'] + 1;
         $usedPairs    = max(1, $convList->count());
         $lastUsedCol  = max($cols['TOTORE'], $firstPairCol + ($usedPairs * 2) - 1);
@@ -824,30 +827,20 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
         // Loghi
         $this->insertLogosAtRow($sheet, $logos, $tpl['startRow'] + 2, $lastUsedCol);
 
-        // Titoli convenzioni sulla riga sopra header
+        // Titoli convenzioni
         foreach ($convList as $i => $c) {
             $col = $firstPairCol + ($i * 2);
             $sheet->setCellValueByColumnAndRow($col, $headerRow - 1, (string)$c->Convenzione);
         }
 
-        // ---------- TABELLINA COSTI A&B (PREV/CONS) ----------
+        /* ---------------------- TABELLINA PREV/CONS ---------------------- */
 
-        // 1) Trova la riga della cella "COSTI PERSONALE"
-        $costiRow = $this->findRowByLabel($sheet, 'COSTI PERSONALE', $tpl['startRow'], $headerRow);
-
-        if (!$costiRow) {
-            // fallback sicuro in caso limite: nel template la riga è sempre 2 sopra la riga magenta
-            $costiRow = $headerRow - 3;
-        }
-
-        // 2) Righe PREV / CONS (template fisso)
-        $prevRow = $costiRow + 1;   // riga PREVENTIVO
-        $consRow = $costiRow + 2;   // riga CONSUNTIVO
+        $prevRow = $headerRow - 4;
+        $consRow = $headerRow - 3;
 
         $convIds = $convList->pluck('idConvenzione')->map(fn($v) => (int)$v)->all();
 
-
-        // ---- Consuntivo (voce 6001) ----
+        // Consuntivo voce 6001
         $consByVoce   = RipartizioneCostiService::consuntiviPerVoceByConvenzione($this->idAssociazione, $this->anno);
         $consByConvAB = array_fill_keys($convIds, 0.0);
 
@@ -857,10 +850,8 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
             }
         }
 
-
-        // ---- Preventivo (voce 6001) ----
+        // Preventivo voce 6001
         $prevByConvAB = array_fill_keys($convIds, 0.0);
-
         $idRiepilogo = DB::table('riepiloghi')
             ->where('idAssociazione', $this->idAssociazione)
             ->where('idAnno', $this->anno)
@@ -880,8 +871,7 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
             }
         }
 
-
-        // ---------- Scrittura tabellina PREV / CONS ----------
+        // Scrittura tabella prev/cons
         foreach ($convList as $i => $c) {
             $impCol = $firstPairCol + ($i * 2);
             $pcCol  = $impCol + 1;
@@ -900,34 +890,31 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
             $sheet->setCellValueByColumnAndRow($pcCol, $consRow, null);
         }
 
+        // Evidenzia
+        $sheet->getStyle(
+            Coordinate::stringFromColumnIndex($firstPairCol) . $prevRow . ':' .
+                Coordinate::stringFromColumnIndex($lastUsedCol)  . $prevRow
+        )->getFont()->setBold(true);
 
-        // ---------- Evidenziazione righe ----------
-        $boldPrev = Coordinate::stringFromColumnIndex($firstPairCol) . $prevRow . ':' .
-            Coordinate::stringFromColumnIndex($lastUsedCol)  . $prevRow;
+        $sheet->getStyle(
+            Coordinate::stringFromColumnIndex($firstPairCol) . $consRow . ':' .
+                Coordinate::stringFromColumnIndex($lastUsedCol)  . $consRow
+        )->getFont()->setBold(true);
 
-        $boldCons = Coordinate::stringFromColumnIndex($firstPairCol) . $consRow . ':' .
-            Coordinate::stringFromColumnIndex($lastUsedCol)  . $consRow;
+        /* ---------------------- TABELLA GRANDE ---------------------- */
 
-        $sheet->getStyle($boldPrev)->getFont()->setBold(true);
-        $sheet->getStyle($boldCons)->getFont()->setBold(true);
-
-
-        // ---------- TABELLA GRANDE ORE ----------
         $dip = Dipendente::getAutistiEBarellieri($this->anno, $this->idAssociazione);
         $rip = RipartizionePersonale::getAll($this->anno, null, $this->idAssociazione)->groupBy('idDipendente');
 
-        $totalRow   = $this->findRowByLabel($sheet, 'TOTALE', $headerRow + 1, $tpl['endRow']) ?? $tpl['endRow'];
-        $sampleRow  = $headerRow + 1;
-        $lastColLetter = $lastUsedCol > 0
-            ? Coordinate::stringFromColumnIndex($lastUsedCol)
-            : 'A';
+        $totalRow  = $this->findRowByLabel($sheet, 'TOTALE', $headerRow + 1, $tpl['endRow']) ?? $tpl['endRow'];
+        $sampleRow = $headerRow + 1;
 
+        $lastColLetter = Coordinate::stringFromColumnIndex($lastUsedCol);
         $styleRange = "A{$sampleRow}:{$lastColLetter}{$sampleRow}";
 
         $rows      = [];
         $totOreAll = 0.0;
-        $totByConv = [];
-        foreach ($convList as $c) $totByConv[(int)$c->idConvenzione] = 0.0;
+        $totByConv = array_fill_keys($convIds, 0.0);
 
         foreach ($dip as $i => $d) {
             $serv   = $rip->get($d->idDipendente) ?? collect();
@@ -935,9 +922,9 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
             $totOreAll += $oreTot;
 
             $r = [
-                ['col' => $cols['IDX'],       'val' => 'DIPENDENTE N. ' . ($i + 1)],
+                ['col' => $cols['IDX'], 'val' => 'DIPENDENTE N. ' . ($i + 1)],
                 ['col' => $cols['NOME'] ?? 2, 'val' => trim(($d->DipendenteCognome ?? '') . ' ' . ($d->DipendenteNome ?? ''))],
-                ['col' => $cols['TOTORE'],    'val' => $oreTot, 'fmt' => NumberFormat::FORMAT_NUMBER],
+                ['col' => $cols['TOTORE'], 'val' => $oreTot, 'fmt' => NumberFormat::FORMAT_NUMBER],
             ];
 
             foreach ($convList as $j => $c) {
@@ -945,7 +932,7 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                 $pcCol  = $impCol + 1;
 
                 $ore = (float)($serv->firstWhere('idConvenzione', $c->idConvenzione)->OreServizio ?? 0);
-                $p   = $oreTot > 0 ? ($ore / $oreTot) : 0.0;
+                $p   = $oreTot > 0 ? ($ore / $oreTot) : 0;
 
                 $r[] = ['col' => $impCol, 'val' => $ore, 'fmt' => NumberFormat::FORMAT_NUMBER];
                 $r[] = ['col' => $pcCol,  'val' => $p,   'fmt' => '0.00%', 'align' => Alignment::HORIZONTAL_CENTER];
@@ -956,54 +943,87 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
             $rows[] = $r;
         }
 
-        // Inserisci righe prima di TOTALE, copiando stile riga campione
+        // Inserimento righe
         $this->insertRowsBeforeTotal($sheet, $totalRow, $rows, $styleRange);
         $off       = count($rows);
         $totRowNew = $totalRow + $off;
 
-        // Griglia+outline per l’intero blocco (da colonna IDX a lastUsedCol)
-        $gridLeftCol = $cols['IDX'];
-        $gridTopRow  = $headerRow;
-        $gridRange   = $this->col($gridLeftCol) . $gridTopRow . ':' .
+        // FIX NOMI (wrap)
+        $firstDataRow = $headerRow + 1;
+        for ($k = 0; $k < $off; $k++) {
+            $rowIndex = $firstDataRow + $k;
+            $alignment = $sheet->getStyleByColumnAndRow($cols['NOME'] ?? 2, $rowIndex)->getAlignment();
+            $alignment->setWrapText(true);
+            $alignment->setShrinkToFit(false);
+            $alignment->setVertical(Alignment::VERTICAL_CENTER);
+        }
+
+        /* ---------------------- FIX SHRINK GLOBALE ---------------------- */
+        $startRowFix = $headerRow + 1;
+        $endRowFix   = $totRowNew;
+        $startColFix = 1;
+        $endColFix   = $lastUsedCol;
+
+        for ($r = $startRowFix; $r <= $endRowFix; $r++) {
+            for ($c = $startColFix; $c <= $endColFix; $c++) {
+                $al = $sheet->getStyleByColumnAndRow($c, $r)->getAlignment();
+                $al->setShrinkToFit(false);
+                $al->setWrapText(true);
+                $al->setVertical(Alignment::VERTICAL_CENTER);
+            }
+        }
+        /* --------------------------------------------------------------- */
+
+        // Griglia + outline
+        $gridRange = $this->col($cols['IDX']) . $headerRow . ':' .
             Coordinate::stringFromColumnIndex($lastUsedCol) . $totRowNew;
         $this->applyGridWithOuterBorder($sheet, $gridRange);
 
-        // Riga TOTALE: merge A:B safe + totali
-        $this->mergeTotalAB($sheet, $totRowNew, 'TOTALE'); // <-- fix doppio $
-        $sheet->setCellValueExplicit("A{$totRowNew}", 'TOTALE', DataType::TYPE_STRING);
+        // Riga TOTALE
+        $this->mergeTotalAB($sheet, $totRowNew, 'TOTALE');
+        $sheet->setCellValue("A{$totRowNew}", 'TOTALE');
         $sheet->setCellValue("B{$totRowNew}", null);
 
         $sheet->setCellValueByColumnAndRow($cols['TOTORE'], $totRowNew, $totOreAll);
 
-        // Totali per convenzione + % (l’ultima chiude a 100%)
         $pairSum = 0.0;
         foreach ($convList as $i => $c) {
             $impCol = $firstPairCol + ($i * 2);
             $pcCol  = $impCol + 1;
-            $ore    = (float)$totByConv[(int)$c->idConvenzione];
+
+            $ore = $totByConv[(int)$c->idConvenzione];
 
             $sheet->setCellValueByColumnAndRow($impCol, $totRowNew, $ore);
             $sheet->getStyleByColumnAndRow($impCol, $totRowNew)
                 ->getNumberFormat()->setFormatCode(NumberFormat::FORMAT_NUMBER);
 
-            $p = ($i < ($usedPairs - 1) && $totOreAll > 0.0) ? ($ore / $totOreAll) : max(0.0, 1.0 - $pairSum);
-            if ($i < ($usedPairs - 1)) $pairSum += $p;
+            $p = ($i < ($usedPairs - 1) && $totOreAll > 0)
+                ? ($ore / $totOreAll)
+                : max(0.0, 1.0 - $pairSum);
+
+            if ($i < ($usedPairs - 1)) {
+                $pairSum += $p;
+            }
 
             $sheet->setCellValueByColumnAndRow($pcCol, $totRowNew, $p);
-            $sheet->getStyleByColumnAndRow($pcCol, $totRowNew)->getNumberFormat()->setFormatCode('0.00%');
-            $sheet->getStyleByColumnAndRow($pcCol, $totRowNew)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+            $sheet->getStyleByColumnAndRow($pcCol, $totRowNew)
+                ->getNumberFormat()->setFormatCode('0.00%');
+            $sheet->getStyleByColumnAndRow($pcCol, $totRowNew)
+                ->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
         }
 
-        // Bordi/header/outline con nuove firme
         $this->thickBorderRow($sheet, $headerRow, 1, $lastUsedCol);
-        $this->thickBorderRow($sheet, $totRowNew,  1, $lastUsedCol);
-        $sheet->getStyle('A' . $totRowNew . ':' . Coordinate::stringFromColumnIndex($lastUsedCol) . $totRowNew)
+        $this->thickBorderRow($sheet, $totRowNew, 1, $lastUsedCol);
+
+        $sheet->getStyle('A' . $totRowNew . ':' .
+            Coordinate::stringFromColumnIndex($lastUsedCol) . $totRowNew)
             ->getFont()->setBold(true);
+
         $this->thickOutline($sheet, $headerRow, $totRowNew, 1, $lastUsedCol);
 
-        // Qualità vita
+        // Autosize
         $this->autosizeUsedColumns($sheet, 1, $lastUsedCol);
-        //$this->hideUnusedConventionColumns($sheet, $headerRow, $firstPairCol, $usedPairs);
+
         return max($totRowNew, $tpl['endRow'] + $off);
     }
 
@@ -1017,14 +1037,18 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
     ): int {
         // detectVolontariHeader deve restituire: [headerRow, firstPairCol, labelCol]
         [$headerRow, $firstPairCol, $labelCol] = $this->detectVolontariHeader($sheet, $tpl);
-        $labelCol     = $labelCol ?: 1;
+
+        // Se la detect non fornisce la colonna etichetta, la deduco dal template
+        if (empty($labelCol)) {
+            $labelCol = $this->detectLabelMergedColumn($sheet, $headerRow);
+        }
 
         // Reindicizza convenzioni (0..n-1) per evitare buchi negli indici
-        $convList     = collect($convenzioni)->values();
-        $usedPairs    = max(1, $convList->count());
+        $convList  = collect($convenzioni)->values();
+        $usedPairs = max(1, $convList->count());
 
         // Assicura che la prima coppia parta almeno dopo la colonna etichetta
-        $firstPairCol = max((int)$firstPairCol, $labelCol + 1);
+        $firstPairCol = max((int) $firstPairCol, $labelCol + 1);
 
         // Ultima colonna usata: coppie (rimborso, %) + sicurezza sul labelCol
         $lastUsedCol  = max($labelCol, $firstPairCol + ($usedPairs * 2) - 1);
@@ -1032,25 +1056,29 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
         // Loghi
         $this->insertLogosAtRow($sheet, $logos, $tpl['startRow'] + 2, $lastUsedCol);
 
-        // Intestazioni convenzioni (sopra l’header)
+        // Intestazioni convenzioni (sopra l’header) → spostate di 1 colonna a destra
         foreach ($convList as $i => $c) {
-            $base = $firstPairCol + ($i * 2);
-            $sheet->setCellValueByColumnAndRow($base, $headerRow - 1, (string)$c->Convenzione);
+            $base = ($firstPairCol + 1) + ($i * 2);
+            $sheet->setCellValueByColumnAndRow($base, $headerRow - 1, (string) $c->Convenzione);
         }
 
         // Base dati ricavi
         $totRicavi = array_sum(array_map('floatval', $ricaviMap));
 
         // Riga dati (subito sotto header)
-        $dataRow    = $headerRow + 1;
+        $dataRow = $headerRow + 1;
 
-        // RIGA CAMPIONE per copy-style in insertRowsBeforeTotal
+        // RANGE stile della riga campione
         $lastColLetter = ($lastUsedCol > 0)
             ? Coordinate::stringFromColumnIndex($lastUsedCol)
             : 'A';
         $styleRange = "A{$dataRow}:{$lastColLetter}{$dataRow}";
 
-        // 1) Totale esercizio nella colonna etichetta (es. "SERVIZIO VOLONTARIO")
+        // 🔹 Unisco le prime 4 celle orizzontali per la “prima colonna”
+        //    (es. A..D nella riga dati, come nel template)
+        $sheet->mergeCellsByColumnAndRow($labelCol, $dataRow, $labelCol + 3, $dataRow);
+
+        // 1) Totale esercizio nella colonna etichetta mergiata
         $rowData = [[
             'col' => $labelCol,
             'val' => $totRicavi,
@@ -1060,20 +1088,23 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
         // 2) Coppie RIMBORSO / % per ciascuna convenzione
         $pairSum = 0.0;
         foreach ($convList as $i => $c) {
-            $base = $firstPairCol + ($i * 2);
-            $imp  = (float)($ricaviMap[(int)$c->idConvenzione] ?? 0.0);
+            // sposto TUTTO di 1 colonna a destra per riallineare alle intestazioni reali
+            $base = ($firstPairCol + 1) + ($i * 2);
+            $imp  = (float) ($ricaviMap[(int) $c->idConvenzione] ?? 0.0);
 
             // L’ultima % chiude a 100% gestendo gli arrotondamenti
             $pct = ($i < ($usedPairs - 1) && $totRicavi > 0.0)
                 ? ($imp / $totRicavi)
                 : max(0.0, 1.0 - $pairSum);
-            if ($i < ($usedPairs - 1)) $pairSum += $pct;
+            if ($i < ($usedPairs - 1)) {
+                $pairSum += $pct;
+            }
 
             $rowData[] = ['col' => $base,     'val' => $imp, 'fmt' => '#,##0.00'];
             $rowData[] = ['col' => $base + 1, 'val' => $pct, 'fmt' => '0.00%', 'align' => Alignment::HORIZONTAL_CENTER];
         }
 
-        // Inserisce la riga dati PRIMA della riga placeholder (così il nuovo dataRow rimane allo stesso indice)
+        // Inserisce la riga dati PRIMA della riga placeholder
         $this->insertRowsBeforeTotal($sheet, $dataRow, [$rowData], $styleRange);
 
         // Bordi/header/outline con nuove firme (firstColIdx=1)
@@ -1085,9 +1116,10 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
 
         // Qualità vita
         $this->autosizeUsedColumns($sheet, 1, $lastUsedCol);
-        //$this->hideUnusedConventionColumns($sheet, $headerRow, $firstPairCol, $usedPairs);
+
         return max($dataRow, $tpl['endRow'] + 1);
     }
+
 
     /** SERVIZIO CIVILE */
     private function blockServizioCivile(
@@ -1098,14 +1130,18 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
     ): int {
         // detectServizioCivileHeader deve restituire: [headerRow, firstPairCol, labelCol]
         [$headerRow, $firstPairCol, $labelCol] = $this->detectServizioCivileHeader($sheet, $tpl);
-        $labelCol     = $labelCol ?: 1;
+
+        // Se la detect non fornisce labelCol, lo deduco dal template
+        if (empty($labelCol)) {
+            $labelCol = $this->detectLabelMergedColumn($sheet, $headerRow);
+        }
 
         // Reindicizza convenzioni (0..n-1)
-        $convList     = collect($convenzioni)->values();
-        $usedPairs    = max(1, $convList->count());
+        $convList  = collect($convenzioni)->values();
+        $usedPairs = max(1, $convList->count());
 
         // La prima coppia deve stare almeno dopo la colonna etichetta
-        $firstPairCol = max((int)$firstPairCol, $labelCol + 1);
+        $firstPairCol = max((int) $firstPairCol, $labelCol + 1);
 
         // Ultima colonna usata: coppie (unità, %) + sicurezza su labelCol
         $lastUsedCol  = max($labelCol, $firstPairCol + ($usedPairs * 2) - 1);
@@ -1113,15 +1149,15 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
         // Loghi
         $this->insertLogosAtRow($sheet, $logos, $tpl['startRow'] + 2, $lastUsedCol);
 
-        // Intestazioni convenzioni
+        // Intestazioni convenzioni (sopra l’header) → spostate di 1 col a destra
         foreach ($convList as $i => $c) {
-            $base = $firstPairCol + ($i * 2);
-            $sheet->setCellValueByColumnAndRow($base, $headerRow - 1, (string)$c->Convenzione);
+            $base = ($firstPairCol + 1) + ($i * 2);
+            $sheet->setCellValueByColumnAndRow($base, $headerRow - 1, (string) $c->Convenzione);
         }
 
         // Ore SC per convenzione
-        $idsConv = $convList->pluck('idConvenzione')->map(fn($v) => (int)$v)->all();
-        $rowsSC = DB::table('dipendenti_servizi as ds')
+        $idsConv = $convList->pluck('idConvenzione')->map(fn($v) => (int) $v)->all();
+        $rowsSC  = DB::table('dipendenti_servizi as ds')
             ->join('convenzioni as c', 'c.idConvenzione', '=', 'ds.idConvenzione')
             ->where('c.idAssociazione', $this->idAssociazione)
             ->where('c.idAnno', $this->anno)
@@ -1134,35 +1170,42 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
         $oreByConv = array_fill_keys($idsConv, 0.0);
         $totOre    = 0.0;
         foreach ($rowsSC as $r) {
-            $oreByConv[(int)$r->idConvenzione] = (float)$r->ore;
-            $totOre += (float)$r->ore;
+            $oreByConv[(int) $r->idConvenzione] = (float) $r->ore;
+            $totOre += (float) $r->ore;
         }
 
         // Riga dati (subito sotto header)
-        $dataRow    = $headerRow + 1;
+        $dataRow = $headerRow + 1;
+
         $lastColLetter = ($lastUsedCol > 0)
             ? Coordinate::stringFromColumnIndex($lastUsedCol)
             : 'A';
         $styleRange = "A{$dataRow}:{$lastColLetter}{$dataRow}";
 
-        // 1) Totale nell'etichetta (es. "UNITA' SERVIZIO CIVILE UNIVERSALE")
+        // 🔹 Merge prime 4 celle orizzontali per la colonna etichetta
+        $sheet->mergeCellsByColumnAndRow($labelCol, $dataRow, $labelCol + 3, $dataRow);
+
+        // 1) Totale nell'etichetta
         $rowData = [[
             'col' => $labelCol,
             'val' => $totOre,
-            'fmt' => NumberFormat::FORMAT_NUMBER
+            'fmt' => NumberFormat::FORMAT_NUMBER,
         ]];
 
         // 2) Coppie UNITA' / %
         $pairSum = 0.0;
         foreach ($convList as $i => $c) {
-            $base = $firstPairCol + ($i * 2);
-            $ore  = (float)($oreByConv[(int)$c->idConvenzione] ?? 0.0);
+            // spostati di +1 colonna
+            $base = ($firstPairCol + 1) + ($i * 2);
+            $ore  = (float) ($oreByConv[(int) $c->idConvenzione] ?? 0.0);
 
             // Ultima % chiude a 100% per arrotondamenti
             $p = ($i < ($usedPairs - 1) && $totOre > 0.0)
                 ? ($ore / $totOre)
                 : max(0.0, 1.0 - $pairSum);
-            if ($i < ($usedPairs - 1)) $pairSum += $p;
+            if ($i < ($usedPairs - 1)) {
+                $pairSum += $p;
+            }
 
             $rowData[] = ['col' => $base,     'val' => $ore, 'fmt' => NumberFormat::FORMAT_NUMBER];
             $rowData[] = ['col' => $base + 1, 'val' => $p,   'fmt' => '0.00%', 'align' => Alignment::HORIZONTAL_CENTER];
@@ -1171,7 +1214,7 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
         // Inserisci mantenendo la riga placeholder
         $this->insertRowsBeforeTotal($sheet, $dataRow, [$rowData], $styleRange);
 
-        // Stili/bordi aggiornati: passa anche firstColIdx
+        // Stili/bordi aggiornati
         $this->thickBorderRow($sheet, $headerRow, 1, $lastUsedCol);
         $this->thickBorderRow($sheet, $dataRow,    1, $lastUsedCol);
         $sheet->getStyle('A' . $dataRow . ':' . Coordinate::stringFromColumnIndex($lastUsedCol) . $dataRow)
@@ -1180,10 +1223,9 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
 
         // Qualità vita
         $this->autosizeUsedColumns($sheet, 1, $lastUsedCol);
-        //$this->hideUnusedConventionColumns($sheet, $headerRow, $firstPairCol, $usedPairs);
+
         return max($dataRow, $tpl['endRow'] + 1);
     }
-
 
     /** DISTINTA SERVIZI (Materiale Sanitario) */
     private function blockDistintaServizi(
@@ -5483,5 +5525,27 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                 $ws->getRowDimension($targetRow + $i)->setRowHeight($belowRowHeightPt);
             }
         }
+    }
+    private function detectLabelMergedColumn(Worksheet $sheet, int $headerRow): int {
+        // parole chiave che compaiono nella cella etichetta
+        $candidates = ['SERVIZIO', 'UNITA', 'VOLONTARI', 'CIVILE'];
+
+        $maxCol = Coordinate::columnIndexFromString($sheet->getHighestDataColumn());
+
+        for ($col = 1; $col <= $maxCol; $col++) {
+            $val = strtoupper(trim((string) $sheet->getCellByColumnAndRow($col, $headerRow)->getValue()));
+            if ($val === '') {
+                continue;
+            }
+
+            foreach ($candidates as $c) {
+                if (strpos($val, $c) !== false) {
+                    return $col;    // colonna etichetta reale del template
+                }
+            }
+        }
+
+        // se proprio non trova niente, butta eccezione: template rotto
+        throw new \RuntimeException("Impossibile trovare la colonna etichetta alla riga {$headerRow}");
     }
 }
