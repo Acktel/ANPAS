@@ -153,7 +153,7 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
          * ====================================================== */
 
             // ---- [B1] KM ------------------------------------------------
-            /*            $kmMeta = $this->appendTemplate($sheet, $disk->path('documenti/template_excel/KmPercorsi.xlsx'));
+            $kmMeta = $this->appendTemplate($sheet, $disk->path('documenti/template_excel/KmPercorsi.xlsx'));
             $this->reinsertTemplateLogos($sheet, $kmMeta);
             $this->replacePlaceholdersEverywhere($sheet, $phBase);
             $endKm = $this->blockKm($sheet, $kmMeta, $automezzi, $convenzioni, $noLogos);
@@ -205,7 +205,7 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                 $this->replacePlaceholdersEverywhere($sheet, $phBase);
                 $this->BlockRotazioneMezzi($sheet, $rotMeta, $automezzi, $convenzioni, $this->idAssociazione, $this->anno);
             }
-
+            /*
             /*======================================================
              FOGLIO 2 → 4
              ====================================================== */
@@ -333,7 +333,7 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                     );
                 }
             });
-*/
+
             // Fogli per convenzione (TAB.1 + TAB.2)
             $this->safeCall('Fogli per convenzione (Tabella 1 + 2)', function () use ($spreadsheet, $nomeAss) {
                 $tplConvenzionePath = public_path('storage/documenti/template_excel/RiepilogoDati.xlsx');
@@ -369,6 +369,16 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                         // Applica template
                         $this->appendTemplate($ws, $tplConvenzionePath, 1);
 
+                        // INSERISCO I LOGHI
+                        $this->insertLogosAtRow(
+                            $ws,
+                            [
+                                'left'  => public_path('storage/documenti/template_excel/logo_left.png'),
+                                'right' => public_path('storage/documenti/template_excel/logo_right.png'),
+                            ],
+                            1, // riga dove metti i loghi
+                            10 // colonna dove ancorare il logo destro
+                        );
                         // Placeholder header
                         $this->replacePlaceholdersEverywhere($ws, [
                             'nome_associazione' => $nomeAss,
@@ -403,18 +413,19 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                     }
                 }
             });
-
+*/
 
             /* ======================================================
- * FORMATTAZIONE GENERALE E STAMPA
- * ====================================================== */
+            * FORMATTAZIONE GENERALE E STAMPA
+            * ====================================================== */
             foreach ($spreadsheet->getAllSheets() as $ws) {
                 try {
                     PrintConfigurator::forceLandscapeCenteredMinScale($ws, 50, true);
                     PrintConfigurator::compactBodyOnly($ws, 2, 14.0, null, false, 1);
                     PrintConfigurator::configureScrolling($ws, null);
                     $ws->setShowGridlines(false);
-
+                    // Worksheet does not provide getDefaultStyle(); use the parent Spreadsheet default style
+                    $ws->getParent()->getDefaultStyle()->getAlignment()->setShrinkToFit(false);
                     // (1) Font minimo su TUTTO, numeri inclusi
                     PrintConfigurator::enforceMinimumFontSize($ws, 10.0, true);
 
@@ -820,29 +831,37 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
         }
 
         // ---------- TABELLINA COSTI A&B (PREV/CONS) ----------
-        $scanFrom = max(1, $headerRow - 6);
-        $scanTo   = $headerRow - 1;
 
-        $prevRow = $this->findRowByLabel($sheet, 'PREVENTIVO', $scanFrom, $scanTo)
-            ?? ($headerRow - 3);
+        // 1) Trova la riga della cella "COSTI PERSONALE"
+        $costiRow = $this->findRowByLabel($sheet, 'COSTI PERSONALE', $tpl['startRow'], $headerRow);
 
-        $consFound = $this->findRowByLabel($sheet, 'CONSUNTIVO', $scanFrom, $scanTo);
-        $consRow   = $consFound ?: ($prevRow + 1);
+        if (!$costiRow) {
+            // fallback sicuro in caso limite: nel template la riga è sempre 2 sopra la riga magenta
+            $costiRow = $headerRow - 3;
+        }
+
+        // 2) Righe PREV / CONS (template fisso)
+        $prevRow = $costiRow + 1;   // riga PREVENTIVO
+        $consRow = $costiRow + 2;   // riga CONSUNTIVO
 
         $convIds = $convList->pluck('idConvenzione')->map(fn($v) => (int)$v)->all();
 
-        // Cons A&B (voce 6001) per convenzione
+
+        // ---- Consuntivo (voce 6001) ----
         $consByVoce   = RipartizioneCostiService::consuntiviPerVoceByConvenzione($this->idAssociazione, $this->anno);
         $consByConvAB = array_fill_keys($convIds, 0.0);
+
         if (!empty($consByVoce[6001])) {
             foreach ($convIds as $cid) {
                 $consByConvAB[$cid] = round((float)($consByVoce[6001][$cid] ?? 0.0), 2);
             }
         }
 
-        // Prev A&B da riepilogo_dati (voce 6001)
+
+        // ---- Preventivo (voce 6001) ----
         $prevByConvAB = array_fill_keys($convIds, 0.0);
-        $idRiepilogo  = DB::table('riepiloghi')
+
+        $idRiepilogo = DB::table('riepiloghi')
             ->where('idAssociazione', $this->idAssociazione)
             ->where('idAnno', $this->anno)
             ->value('idRiepilogo');
@@ -861,28 +880,37 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
             }
         }
 
-        // Scrittura tabellina PREV/CONS
+
+        // ---------- Scrittura tabellina PREV / CONS ----------
         foreach ($convList as $i => $c) {
             $impCol = $firstPairCol + ($i * 2);
             $pcCol  = $impCol + 1;
             $cid    = (int)$c->idConvenzione;
 
+            // PREVENTIVO
             $sheet->setCellValueByColumnAndRow($impCol, $prevRow, $prevByConvAB[$cid] ?? 0.0);
-            $sheet->getStyleByColumnAndRow($impCol, $prevRow)->getNumberFormat()->setFormatCode('#,##0.00');
-            $sheet->setCellValueByColumnAndRow($pcCol,  $prevRow, null);
+            $sheet->getStyleByColumnAndRow($impCol, $prevRow)
+                ->getNumberFormat()->setFormatCode('#,##0.00');
+            $sheet->setCellValueByColumnAndRow($pcCol, $prevRow, null);
 
+            // CONSUNTIVO
             $sheet->setCellValueByColumnAndRow($impCol, $consRow, $consByConvAB[$cid] ?? 0.0);
-            $sheet->getStyleByColumnAndRow($impCol, $consRow)->getNumberFormat()->setFormatCode('#,##0.00');
-            $sheet->setCellValueByColumnAndRow($pcCol,  $consRow, null);
+            $sheet->getStyleByColumnAndRow($impCol, $consRow)
+                ->getNumberFormat()->setFormatCode('#,##0.00');
+            $sheet->setCellValueByColumnAndRow($pcCol, $consRow, null);
         }
 
-        // Evidenzia le due righe
+
+        // ---------- Evidenziazione righe ----------
         $boldPrev = Coordinate::stringFromColumnIndex($firstPairCol) . $prevRow . ':' .
             Coordinate::stringFromColumnIndex($lastUsedCol)  . $prevRow;
+
         $boldCons = Coordinate::stringFromColumnIndex($firstPairCol) . $consRow . ':' .
             Coordinate::stringFromColumnIndex($lastUsedCol)  . $consRow;
+
         $sheet->getStyle($boldPrev)->getFont()->setBold(true);
         $sheet->getStyle($boldCons)->getFont()->setBold(true);
+
 
         // ---------- TABELLA GRANDE ORE ----------
         $dip = Dipendente::getAutistiEBarellieri($this->anno, $this->idAssociazione);
@@ -2322,11 +2350,11 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
         if ($rightPath !== '' && is_file($rightPath)) {
             // Se non specificato, usa l’ultima colonna dati
             if (!$rightColIdx) {
-                $maxColIdx   = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::columnIndexFromString($sheet->getHighestDataColumn() ?: 'A');
+                $maxColIdx   = Coordinate::columnIndexFromString($sheet->getHighestDataColumn() ?: 'A');
                 // mettilo nell’ultima colonna utile (almeno J per sicurezza)
                 $rightColIdx = max(10, $maxColIdx);
             }
-            $rightColL = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($rightColIdx);
+            $rightColL = Coordinate::stringFromColumnIndex($rightColIdx);
 
             $d2 = new Drawing();
             $d2->setName('Logo Right');
@@ -3703,13 +3731,12 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
 
         // compatta spazi e porta in upper
         $v = preg_replace('/\s+/u', ' ', trim($v));
-        return mb_strtoupper($v, 'UTF-8');
+        return mb_strtoupper($v, encoding: 'UTF-8');
     }
 
     /**
-     * Compila la tabella VOCE / PREVENTIVO / CONSUNTIVO scrivendo in sequenza
-     * (senza cercare le righe per etichetta). Usa le voci 1001..1031
-     * della singola convenzione.
+     * Compila la tabella principale:
+     * N° | Voce | PREVENTIVO | CONSUNTIVO
      */
     private function fillTabellaRiepilogoDatiSequential(
         Worksheet $ws,
@@ -3717,224 +3744,306 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
         int $anno,
         int $idConvenzione
     ): void {
-        // 1) Dati già aggregati per la UI (includono voci calcolate)
+
+        /* ------------------------------------------------------
+     * 1) Recupero dati
+     * ------------------------------------------------------ */
         $all = Riepilogo::getForDataTable($anno, $idAssociazione, $idConvenzione);
 
-        // 2) Filtra range 1001..1031 mantenendo l’ordine di riepilogo_voci_config
-        $rows = array_values(array_filter($all, static function ($r) {
+        // Filtra solo voci 1001..1031
+        $rows = array_values(array_filter($all, function ($r) {
             $id = (int)($r['voce_id'] ?? 0);
-            return $id >= 1001 && $id <= 1031;
+            return ($id >= 1001 && $id <= 1031);
         }));
 
         if (!$rows) {
-            Log::info('RiepilogoDati: nessuna voce 1001..1031 per la convenzione', compact('idAssociazione', 'anno', 'idConvenzione'));
             return;
         }
 
-        // 3) Individua header (usa il tuo detectPrevConsHeader già presente)
-        $hdr    = $this->detectPrevConsHeader($ws); // deve restituire colVoce, colPrev, colCons, firstDataRow
-        $r      = $hdr['firstDataRow'];
-        $cVoce  = $hdr['colVoce'];
-        $cPrev  = $hdr['colPrev'];
-        $cCons  = $hdr['colCons'];
+        /* ------------------------------------------------------
+     * 2) Individua header e colonne
+     * ------------------------------------------------------ */
+        $hdr   = $this->detectPrevConsHeader($ws);
 
-        // 4) Scrittura sequenziale
+        $r     = $hdr['firstDataRow'];
+        $cNum  = $hdr['colNum'];    // colonna A
+        $cVoce = $hdr['colVoce'];   // colonna B
+        $cPrev = $hdr['colPrev'];   // colonna C
+        $cCons = $hdr['colCons'];   // colonna D
+
+        /* ------------------------------------------------------
+     * 3) Fissa larghezze colonne (NO autosize)
+     * ------------------------------------------------------ */
+        $ws->getColumnDimension($this->col($cVoce))->setAutoSize(false);
+        $ws->getColumnDimension($this->col($cPrev))->setAutoSize(false);
+        $ws->getColumnDimension($this->col($cCons))->setAutoSize(false);
+
+        $ws->getColumnDimension($this->col($cVoce))->setWidth(45);
+        $ws->getColumnDimension($this->col($cPrev))->setWidth(18);
+        $ws->getColumnDimension($this->col($cCons))->setWidth(18);
+
+        /* ------------------------------------------------------
+     * 4) Scrittura righe
+     * ------------------------------------------------------ */
         $firstWritten = null;
         $lastWritten  = null;
 
+        $counter = 1;
+
         foreach ($rows as $row) {
-            // ATTENZIONE: NON aggiungiamo mai il nome convenzione nella voce
+
+            // N°
+            $ws->setCellValueByColumnAndRow($cNum, $r, $counter);
+
+            // VOCE
             $voce = (string)($row['descrizione'] ?? '');
-
-            $prev = is_numeric($row['preventivo']) ? (float)$row['preventivo'] : null;
-            $cons = is_numeric($row['consuntivo']) ? (float)$row['consuntivo'] : null;
-
-            // Voce (testo libero)
             $ws->setCellValueByColumnAndRow($cVoce, $r, $voce);
 
-            // Preventivo
-            if ($prev !== null) {
-                $ws->setCellValueExplicitByColumnAndRow($cPrev, $r, $prev, DataType::TYPE_NUMERIC);
-            } else {
-                $ws->setCellValueByColumnAndRow($cPrev, $r, null);
-            }
+            // Stile voce: wrapText + NO shrink
+            $al = $ws->getStyleByColumnAndRow($cVoce, $r)->getAlignment();
+            $al->setWrapText(true);
+            $al->setShrinkToFit(false);
+            $al->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_LEFT);
+            $al->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_TOP);
 
-            // Consuntivo
-            if ($cons !== null) {
-                $ws->setCellValueExplicitByColumnAndRow($cCons, $r, $cons, DataType::TYPE_NUMERIC);
-            } else {
-                $ws->setCellValueByColumnAndRow($cCons, $r, null);
-            }
+            // Forza auto-height
+            $ws->getRowDimension($r)->setRowHeight(-1);
 
-            $firstWritten ??= $r;
-            $lastWritten    = $r;
-            $r++;
-        }
-
-        // 5) Formatta i numeri sulle righe scritte
-        if ($firstWritten !== null) {
-            $this->formatNum($ws, $this->col($cPrev) . $firstWritten . ':' . $this->col($cPrev) . $lastWritten);
-            $this->formatNum($ws, $this->col($cCons) . $firstWritten . ':' . $this->col($cCons) . $lastWritten);
-
-            $headerRow = $hdr['firstDataRow'] - 1; // l’header è la riga subito sopra i dati
-            $this->styleRiepilogoTable($ws, $headerRow, $lastWritten, $cVoce, $cPrev, $cCons);
-        }
-    }
-
-
-/**
- * Inserisce la tabella "RIEPILOGO COSTI" immediatamente sotto la prima tabella
- * usando il layout: Voce | PREVENTIVO | CONSUNTIVO | SCOSTAMENTO.
- *
- * Legge i dati ESCLUSIVAMENTE da RiepilogoCosti::getByTipologia().
- */
-private function fillRiepilogoCostiSottoPrimaTabella(
-    Worksheet $ws,
-    int $idAssociazione,
-    int $anno,
-    int $idConvenzione
-): void {
-
-    /* ============================================================
-       1) PUNTO DI INSERIMENTO — sotto la prima tabella del foglio
-       ============================================================ */
-    $startRow = $ws->getHighestDataRow() + 2;
-
-    /* ============================================================
-       2) TITOLO BLOCCO
-       ============================================================ */
-    $ws->setCellValue("A{$startRow}", 'RIEPILOGO COSTI');
-    $ws->mergeCells("A{$startRow}:D{$startRow}");
-    $ws->getStyle("A{$startRow}:D{$startRow}")
-        ->getFont()->setBold(true)->setSize(12);
-
-    $startRow += 2;
-
-    /* ============================================================
-       3) HEADER COLONNE
-       ============================================================ */
-    $ws->fromArray(
-        ['Voce', 'PREVENTIVO', 'CONSUNTIVO', 'SCOSTAMENTO'],
-        null,
-        "A{$startRow}"
-    );
-
-    $ws->getStyle("A{$startRow}:D{$startRow}")
-        ->getFont()->setBold(true);
-
-    $ws->getStyle("A{$startRow}:D{$startRow}")
-        ->getBorders()->getBottom()->setBorderStyle(Border::BORDER_MEDIUM);
-
-    $startRow++;
-    $firstDataRow = $startRow;
-
-    /* ============================================================
-       4) MAPPA SEZIONI 2..11 (quelle effettivamente stampate)
-       ============================================================ */
-    $mapSezioni = [
-        2  => 'Automezzi',
-        3  => 'Attrezzatura Sanitaria',
-        4  => 'Telecomunicazioni',
-        5  => 'Costi gestione struttura',
-        6  => 'Costo del personale',
-        7  => 'Materiale sanitario di consumo',
-        8  => 'Costi amministrativi',
-        9  => 'Quote di ammortamento',
-        10 => 'Beni Strumentali < 516,00 €',
-        11 => 'Altri Costi',
-    ];
-
-    /* ============================================================
-       5) SEZIONI 2..11 — loop completo
-       ============================================================ */
-    foreach (range(2, 11) as $tipologia) {
-
-        // intestazione sezione
-        $ws->setCellValue("A{$startRow}", $mapSezioni[$tipologia]);
-        $ws->mergeCells("A{$startRow}:D{$startRow}");
-
-        $ws->getStyle("A{$startRow}:D{$startRow}")
-            ->getFont()->setBold(true);
-
-        $ws->getStyle("A{$startRow}:D{$startRow}")
-            ->getFill()->setFillType(Fill::FILL_SOLID)
-            ->getStartColor()->setARGB('FFEFEFEF');
-
-        $startRow++;
-
-        // dati della sezione (dal MODEL corretto)
-        $rows = RiepilogoCosti::getByTipologia(
-            $tipologia,
-            $anno,
-            $idAssociazione,
-            $idConvenzione
-        );
-
-        foreach ($rows as $r) {
-            $descr = (string)($r->descrizione ?? '');
-            $prev  = is_numeric($r->preventivo) ? (float)$r->preventivo : 0.0;
-            $cons  = is_numeric($r->consuntivo) ? (float)$r->consuntivo : 0.0;
-
-            $ws->setCellValue("A{$startRow}", $descr);
-            $ws->setCellValueExplicit("B{$startRow}", $prev, DataType::TYPE_NUMERIC);
-            $ws->setCellValueExplicit("C{$startRow}", $cons, DataType::TYPE_NUMERIC);
-
-            // formula scostamento percentuale
-            $ws->setCellValue(
-                "D{$startRow}",
-                "=IF(B{$startRow}=0,0,(C{$startRow}-B{$startRow})/B{$startRow})"
+            // PREVENTIVO
+            $prev = is_numeric($row['preventivo']) ? (float)$row['preventivo'] : null;
+            $ws->setCellValueExplicitByColumnAndRow(
+                $cPrev,
+                $r,
+                $prev,
+                DataType::TYPE_NUMERIC
             );
 
-            // formati numerici
-            $ws->getStyle("B{$startRow}:C{$startRow}")
-                ->getNumberFormat()->setFormatCode('#,##0.00');
+            // CONSUNTIVO
+            $cons = is_numeric($row['consuntivo']) ? (float)$row['consuntivo'] : null;
+            $ws->setCellValueExplicitByColumnAndRow(
+                $cCons,
+                $r,
+                $cons,
+                DataType::TYPE_NUMERIC
+            );
 
-            $ws->getStyle("D{$startRow}")
+            // Range scritto
+            if ($firstWritten === null) {
+                $firstWritten = $r;
+            }
+            $lastWritten = $r;
+
+            $r++;
+            $counter++;
+        }
+
+        if ($firstWritten === null) {
+            return;
+        }
+
+        /* ------------------------------------------------------
+     * 5) Format numerico
+     * ------------------------------------------------------ */
+        $this->formatNum(
+            $ws,
+            $this->col($cPrev) . $firstWritten . ':' . $this->col($cPrev) . $lastWritten
+        );
+
+        $this->formatNum(
+            $ws,
+            $this->col($cCons) . $firstWritten . ':' . $this->col($cCons) . $lastWritten
+        );
+
+        /* ------------------------------------------------------
+     * 6) Applica stile tabella
+     * ------------------------------------------------------ */
+        $headerRow = $hdr['firstDataRow'] - 1;
+
+        $this->styleRiepilogoTable(
+            $ws,
+            $headerRow,
+            $lastWritten,
+            $cNum,
+            $cVoce,
+            $cPrev,
+            $cCons
+        );
+    }
+
+    /** Tabella RIEPILOGO COSTI sotto la prima tabella */
+    /** Tabella RIEPILOGO COSTI sotto la prima tabella */
+    private function fillRiepilogoCostiSottoPrimaTabella(
+        Worksheet $ws,
+        int $idAssociazione,
+        int $anno,
+        int $idConvenzione
+    ): void {
+
+        $startRow = $ws->getHighestDataRow() + 2;
+
+        /* --- TITOLO --- */
+        $ws->setCellValue("B{$startRow}", 'RIEPILOGO COSTI');
+        $ws->mergeCells("B{$startRow}:F{$startRow}");
+        $ws->getStyle("B{$startRow}:F{$startRow}")
+            ->getFont()->setBold(true)->setSize(12);
+
+        $startRow += 2;
+
+        /* --- HEADER --- */
+        $ws->fromArray(
+            ['N°', 'Voce', 'PREVENTIVO', 'CONSUNTIVO', '% SCOSTAMENTO'],
+            null,
+            "A{$startRow}"
+        );
+
+        $ws->getStyle("A{$startRow}:F{$startRow}")->getFont()->setBold(true);
+        $ws->getStyle("A{$startRow}:F{$startRow}")
+            ->getBorders()->getBottom()->setBorderStyle(Border::BORDER_MEDIUM);
+
+        $ws->getStyle("A{$startRow}:F{$startRow}")
+            ->getAlignment()->setShrinkToFit(false);
+
+        $startRow++;
+        $firstDataRow = $startRow;
+
+        /* --- COLONNE --- */
+        $ws->getColumnDimension('A')->setWidth(7);
+        $ws->getColumnDimension('B')->setWidth(30);
+        $ws->getColumnDimension('C')->setWidth(30);
+        $ws->getColumnDimension('D')->setWidth(18);
+        $ws->getColumnDimension('E')->setWidth(18);
+        $ws->getColumnDimension('F')->setWidth(18);
+
+        foreach (['A', 'B', 'C', 'D', 'E', 'F'] as $col) {
+            $ws->getColumnDimension($col)->setAutoSize(false);
+        }
+
+        /* --- MAPPA SEZIONI --- */
+        $mapSezioni = [
+            2  => 'Automezzi',
+            3  => 'Attrezzatura Sanitaria',
+            4  => 'Telecomunicazioni',
+            5  => 'Costi gestione struttura',
+            6  => 'Costo del personale',
+            7  => 'Materiale sanitario di consumo',
+            8  => 'Costi amministrativi',
+            9  => 'Quote di ammortamento',
+            10 => 'Beni Strumentali < 516,00 €',
+            11 => 'Altri Costi',
+        ];
+
+        $sectionNumber = 1;
+
+        foreach (range(2, 11) as $tipologia) {
+
+            /* --- RIGA SEZIONE --- */
+            $rowSezione = $startRow;
+
+            $ws->setCellValue("A{$rowSezione}", "{$sectionNumber}");
+            $ws->setCellValue("B{$rowSezione}", $mapSezioni[$tipologia]);
+
+            // MERGE B–C (NON oltre)
+            $ws->mergeCells("B{$rowSezione}:C{$rowSezione}");
+
+            $ws->getStyle("A{$rowSezione}:F{$rowSezione}")
+                ->getFont()->setBold(true);
+
+            $ws->getStyle("A{$rowSezione}:F{$rowSezione}")
+                ->getFill()->setFillType(Fill::FILL_SOLID)
+                ->getStartColor()->setARGB('FFEFEFEF');
+
+            // wrap text
+            $al = $ws->getStyle("B{$rowSezione}")->getAlignment();
+            $al->setWrapText(true);
+            $al->setShrinkToFit(false);
+            $al->setVertical(Alignment::VERTICAL_TOP);
+
+            $ws->getRowDimension($rowSezione)->setRowHeight(-1);
+
+            $startRow++;
+
+            /* --- RIGHE DELLA SEZIONE --- */
+            $rows = RiepilogoCosti::getByTipologia($tipologia, $anno, $idAssociazione, $idConvenzione);
+
+            $sumPrev = 0;
+            $sumCons = 0;
+            $i = 1;
+
+            foreach ($rows as $r) {
+
+                $descr = (string)$r->descrizione;
+                $prev  = (float)$r->preventivo;
+                $cons  = (float)$r->consuntivo;
+
+                $ws->setCellValue("A{$startRow}", "{$sectionNumber}.{$i}");
+                $ws->setCellValue("B{$startRow}", $descr);
+
+                // MERGE B–C
+                $ws->mergeCells("B{$startRow}:C{$startRow}");
+
+                // wrap
+                $al2 = $ws->getStyle("B{$startRow}")->getAlignment();
+                $al2->setWrapText(true);
+                $al2->setShrinkToFit(false);
+                $al2->setVertical(Alignment::VERTICAL_TOP);
+
+                // valori
+                $ws->setCellValueExplicit("D{$startRow}", $prev, DataType::TYPE_NUMERIC);
+                $ws->setCellValueExplicit("E{$startRow}", $cons, DataType::TYPE_NUMERIC);
+
+                $ws->setCellValue(
+                    "F{$startRow}",
+                    "=IF(D{$startRow}=0,0,(E{$startRow}-D{$startRow})/D{$startRow})"
+                );
+
+                $ws->getStyle("D{$startRow}:E{$startRow}")
+                    ->getNumberFormat()->setFormatCode('#,##0.00');
+
+                $ws->getStyle("F{$startRow}")
+                    ->getNumberFormat()->setFormatCode(NumberFormat::FORMAT_PERCENTAGE_00);
+
+                $ws->getRowDimension($startRow)->setRowHeight(-1);
+
+                $sumPrev += $prev;
+                $sumCons += $cons;
+
+                $i++;
+                $startRow++;
+            }
+
+            /* --- SUBTOTAL SEZIONE --- */
+            $ws->setCellValue("D{$rowSezione}", $sumPrev);
+            $ws->setCellValue("E{$rowSezione}", $sumCons);
+            $ws->setCellValue(
+                "F{$rowSezione}",
+                "=IF(D{$rowSezione}=0,0,(E{$rowSezione}-D{$rowSezione})/D{$rowSezione})"
+            );
+
+            $ws->getStyle("D{$rowSezione}:E{$rowSezione}")
+                ->getNumberFormat()->setFormatCode('#,##0.00');
+            $ws->getStyle("F{$rowSezione}")
                 ->getNumberFormat()->setFormatCode(NumberFormat::FORMAT_PERCENTAGE_00);
 
+            $sectionNumber++;
             $startRow++;
         }
 
-        // riga vuota di separazione
-        $startRow++;
+        $lastDataRow = $startRow - 1;
+
+        /* --- ALLINEAMENTO NUMERI --- */
+        $ws->getStyle("D{$firstDataRow}:F{$lastDataRow}")
+            ->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+
+        /* --- BORDO TOTALE --- */
+        $this->applyGridWithOuterBorder(
+            $ws,
+            "A" . ($firstDataRow - 2) . ":F{$lastDataRow}"
+        );
     }
 
-    $lastDataRow = $startRow - 1;
-
-    /* ============================================================
-       6) FORMATTAZIONE FINALE
-       ============================================================ */
-
-    // numeri allineati a destra
-    $ws->getStyle("B{$firstDataRow}:D{$lastDataRow}")
-        ->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
-
-    // border grid completo
-    $this->applyGridWithOuterBorder(
-        $ws,
-        "A" . ($firstDataRow - 2) . ":D{$lastDataRow}"
-    );
-
-    // forza colonne visibili & larghezza utile
-    foreach (['A', 'B', 'C', 'D'] as $col) {
-        $dim = $ws->getColumnDimension($col);
-        $dim->setVisible(true);
-        if (($dim->getWidth() ?? 0) <= 0) {
-            $dim->setAutoSize(false);
-            $dim->setWidth(16);
-        }
-    }
-}
 
 
 
-
-
-
-
-
-
-    
 
     /** Converte '12,34%' | '12.34%' | '12.34' in 0.1234 */
     /** Converte input in frazione (0..1). Gestisce %, punti percentuali e basis points. */
@@ -4530,78 +4639,69 @@ private function fillRiepilogoCostiSottoPrimaTabella(
         }
     }
 
-    /** Finder/Header */
-    /** Trova la riga header “Voce / Preventivo / Consuntivo” e relative colonne.
-     * Ritorna: headerRow, firstDataRow, colVoce, colPrev, colCons, colScost (opz.), lastHeaderCol
+    /**
+     * Trova la riga header "N° | Voce | PREVENTIVO | CONSUNTIVO"
+     * e le colonne corrispondenti.
+     *
+     * Ritorna:
+     *  - colNum       (es. 1 → A)
+     *  - colVoce      (es. 2 → B)
+     *  - colPrev      (es. 3 → C)
+     *  - colCons      (es. 4 → D)
+     *  - firstDataRow (prima riga dati sotto l'header)
      */
     private function detectPrevConsHeader(Worksheet $ws): array {
-        $maxR = $ws->getHighestRow();
-        $maxC = Coordinate::columnIndexFromString($ws->getHighestColumn());
-
-        $norm = function ($v) {
-            if ($v instanceof RichText) $v = $v->getPlainText();
-            return is_string($v) ? mb_strtoupper(trim($v), 'UTF-8') : '';
-        };
+        $maxR = $ws->getHighestDataRow();
+        $maxC = Coordinate::columnIndexFromString(
+            $ws->getHighestDataColumn()
+        );
 
         for ($r = 1; $r <= $maxR; $r++) {
-            $colVoce = $colPrev = $colCons = $colScost = 0;
-            $lastHeaderCol = 0;
+
+            $colNum  = null;
+            $colVoce = null;
+            $colPrev = null;
+            $colCons = null;
 
             for ($c = 1; $c <= $maxC; $c++) {
-                $t = $norm($ws->getCellByColumnAndRow($c, $r)->getValue());
-                if ($t === '') continue;
 
-                // campi principali
-                if (!$colVoce && ($t === 'VOCE')) $colVoce = $c;
-                if (!$colPrev && (str_starts_with($t, 'PREVENTIVO'))) $colPrev = $c;
-                if (!$colCons && (str_starts_with($t, 'CONSUNTIVO'))) $colCons = $c;
+                // Usa canonLabel per evitare problemi con merge/CRLF/spazi
+                $v = $this->canonLabel($ws->getCellByColumnAndRow($c, $r)->getValue());
 
-                // campo opzionale: “% SCOSTAMENTO”, “SCOSTAMENTO %”, “SCOSTAMENTO”
-                if (!$colScost && (str_contains($t, 'SCOST') || str_contains($t, '%'))) $colScost = $c;
-
-                $lastHeaderCol = max($lastHeaderCol, $c);
+                if (in_array($v, ['N', 'N°', '#'], true)) {
+                    $colNum = $c;
+                } elseif ($v === 'VOCE') {
+                    $colVoce = $c;
+                } elseif ($v === 'PREVENTIVO' || $v === 'PREV') {
+                    $colPrev = $c;
+                } elseif ($v === 'CONSUNTIVO' || $v === 'CONS') {
+                    $colCons = $c;
+                }
             }
 
-            // header valido se ho almeno prev+cons
-            if ($colPrev && $colCons) {
-                if (!$colVoce) {
-                    // prima colonna non vuota a sinistra dei numerici
-                    for ($c = min($colPrev, $colCons) - 1; $c >= 1; $c--) {
-                        $v = $ws->getCellByColumnAndRow($c, $r)->getValue();
-                        if ($v !== null && $v !== '') {
-                            $colVoce = $c;
-                            break;
-                        }
-                    }
-                    if (!$colVoce) $colVoce = 3; // fallback
+            // se la riga contiene almeno VOCE + PREV + CONS → è l’header giusto
+            if ($colVoce && $colPrev && $colCons) {
+
+                // se manca la colonna numero, la creo in automatico prima della VOCE
+                if (!$colNum) {
+                    $colNum = max(1, $colVoce - 1);
                 }
 
-                // se l’header ha celle oltre i tre campi, tienine conto
-                $lastHeaderCol = max($lastHeaderCol, $colVoce, $colPrev, $colCons, $colScost ?: 0);
-
                 return [
-                    'headerRow'     => $r,
-                    'firstDataRow'  => $r + 1,
-                    'colVoce'       => $colVoce,
-                    'colPrev'       => $colPrev,
-                    'colCons'       => $colCons,
-                    'colScost'      => $colScost ?: null, // opzionale
-                    'lastHeaderCol' => $lastHeaderCol,
+                    'colNum'       => $colNum,
+                    'colVoce'      => $colVoce,
+                    'colPrev'      => $colPrev,
+                    'colCons'      => $colCons,
+                    'firstDataRow' => $r + 1,
                 ];
             }
         }
 
-        // Fallback coerente col template classico
-        return [
-            'headerRow'     => 6,
-            'firstDataRow'  => 7,
-            'colVoce'       => 3,
-            'colPrev'       => 5,
-            'colCons'       => 6,
-            'colScost'      => null,
-            'lastHeaderCol' => 6,
-        ];
+        throw new RuntimeException(
+            "Header PREVENTIVO/CONSUNTIVO non trovato nel foglio " . $ws->getTitle()
+        );
     }
+
 
     /**
      * Trova la riga/colonna di inizio tabella del template “Riepilogo …”
@@ -5236,40 +5336,45 @@ private function fillRiepilogoCostiSottoPrimaTabella(
         // formato 1.234,56
         $ws->getStyle($range)->getNumberFormat()->setFormatCode('#,##0.00');
     }
-
     private function styleRiepilogoTable(
         Worksheet $ws,
-        int $headerRow,   // riga dell’intestazione "Voce / Preventivo / Consuntivo"
-        int $lastRow,     // ultima riga dati scritta
+        int $headerRow,   // riga dell’intestazione "N° / Voce / PREV / CONS"
+        int $lastRow,     // ultima riga scritta
+        int $cNum,        // colonna N°
         int $cVoce,
         int $cPrev,
         int $cCons
     ): void {
-        $rng = $this->col($cVoce) . $headerRow . ':' . $this->col($cCons) . $lastRow;
 
-        // outline spesso, interno sottile
+        // Range completo da N° → Consuntivo
+        $rng = $this->col($cNum) . $headerRow . ':' . $this->col($cCons) . $lastRow;
+
+        // Bordi (outline spesso, inside sottile)
         $ws->getStyle($rng)->applyFromArray([
             'borders' => [
-                'outline' => [
-                    'borderStyle' => Border::BORDER_THICK,
-                ],
-                'inside'  => [
-                    'borderStyle' => Border::BORDER_THIN,
-                ],
+                'outline' => ['borderStyle' => Border::BORDER_THICK],
+                'inside'  => ['borderStyle' => Border::BORDER_THIN],
             ],
         ]);
 
-        // opzionale: header in grassetto e centrato
-        $hdrRange = $this->col($cVoce) . $headerRow . ':' . $this->col($cCons) . $headerRow;
+        // Header in grassetto e centrato
+        $hdrRange = $this->col($cNum) . $headerRow . ':' . $this->col($cCons) . $headerRow;
+
         $ws->getStyle($hdrRange)->applyFromArray([
             'font' => ['bold' => true],
-            'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER],
+            'alignment' => [
+                'horizontal' => Alignment::HORIZONTAL_CENTER,
+                'vertical'   => Alignment::VERTICAL_CENTER,
+            ],
         ]);
 
-        // opzionale: allinea numeri a destra
-        $ws->getStyle($this->col($cPrev) . ($headerRow + 1) . ':' . $this->col($cCons) . $lastRow)
-            ->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+        // Allinea numeri a destra (solo Prev/Cons)
+        $ws->getStyle(
+            $this->col($cPrev) . ($headerRow + 1) . ':' . $this->col($cCons) . $lastRow
+        )->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
     }
+
+
 
     /*** CACHE *****/
     function ripClearCache(int $ass, int $anno): void {
