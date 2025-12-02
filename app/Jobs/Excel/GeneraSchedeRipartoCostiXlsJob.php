@@ -151,7 +151,7 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
             /* ======================================================
          * BLOCCO 1 → 8
          * ====================================================== */
-
+            /*
             // ---- [B1] KM ------------------------------------------------
             $kmMeta = $this->appendTemplate($sheet, $disk->path('documenti/template_excel/KmPercorsi.xlsx'));
             $this->reinsertTemplateLogos($sheet, $kmMeta);
@@ -205,13 +205,14 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                 $this->replacePlaceholdersEverywhere($sheet, $phBase);
                 $this->BlockRotazioneMezzi($sheet, $rotMeta, $automezzi, $convenzioni, $this->idAssociazione, $this->anno);
             }
-            /*
+        
+
             /*======================================================
              FOGLIO 2 → 4
              ====================================================== */
-
+/*
             // ---- [F2] COSTI DIPENDENTI ---------------------------------
-            /*            $sheetRip = $spreadsheet->createSheet();
+            $sheetRip = $spreadsheet->createSheet();
             $sheetRip->setTitle('DIST.RIPARTO COSTI DIPENDENTI');
 
             // A&B (prima tabella)
@@ -254,7 +255,7 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                 // (opzionale) Forza testo header anche per i blocchi mansioni
                 $this->forceHeaderText($sheetRip, $tplMeta, $nomeAss, $this->anno);
             }
-
+            
             // ---- [F3] AUTOMEZZI ----------------------------------------
             $sheetAuto = $spreadsheet->createSheet();
             $sheetAuto->setTitle('DISTINTA RIPARTO AUTOMEZZI');
@@ -274,7 +275,7 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
             /* ======================================================
          * FOGLI EXTRA E CONSUNTIVI
          * ====================================================== */
-            /*
+  /*          
             // Imputazione Sanitario
             $this->safeCall(
                 'Imputazione Sanitario',
@@ -306,7 +307,7 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                     public_path('storage/documenti/template_excel/RiepilogoAutomezzi_Sanitaria_Radio.xlsx')
                 )
             );
-
+*/
             // Distinta Imputazione Costi
             $this->safeCall(
                 'Distinta Imputazione Costi',
@@ -333,7 +334,7 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                     );
                 }
             });
-
+/*
             // Fogli per convenzione (TAB.1 + TAB.2)
             $this->safeCall('Fogli per convenzione (Tabella 1 + 2)', function () use ($spreadsheet, $nomeAss) {
                 $tplConvenzionePath = public_path('storage/documenti/template_excel/RiepilogoDati.xlsx');
@@ -416,8 +417,8 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
 */
 
             /* ======================================================
-        * FORMATTAZIONE GENERALE E STAMPA
- * ====================================================== */
+            * FORMATTAZIONE GENERALE E STAMPA
+            * ====================================================== */
 
             foreach ($spreadsheet->getAllSheets() as $ws) {
                 try {
@@ -1358,203 +1359,238 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
     /** DIST.RIPARTO COSTI DIPENDENTI – sezione Autisti & Barellieri */
     private function blockRipartoCostiDipendentiAB(
         Worksheet $sheet,
-        array $tpl,
+        array     $tpl,
         $convenzioni,
-        array $logos
+        array     $logos
     ): int {
-        // header/colonne
+
+        /* ============================================================
+       HEADER + COLONNE
+    ============================================================ */
         [$headerRow, $cols] = $this->detectRipartoABHeaderAndCols($sheet, $tpl);
 
-        // Reindex convenzioni 0..n-1 per evitare buchi negli indici
-        $convList   = collect($convenzioni)->values();
-        $usedPairs  = max(1, $convList->count());
+        $convList  = collect($convenzioni)->values();
+        $usedPairs = max(1, $convList->count());
 
-        $firstPairCol = $cols['TOTALE'] + 1;                 // 1 col per convenzione (importo)
-        $lastUsedCol  = max($cols['TOTALE'], $firstPairCol + ($usedPairs - 1));
+        $firstPairCol = $cols['TOTALE'] + 1;
+        $lastUsedCol  = $firstPairCol + $usedPairs - 1;
+        $lastColLetter = Coordinate::stringFromColumnIndex($lastUsedCol);
 
-        // loghi + intestazioni convenzioni
+        /* ============================================================
+       LOGHI + HEADER CONVENZIONI
+    ============================================================ */
         $this->insertLogosAtRow($sheet, $logos, $tpl['startRow'] + 2, $lastUsedCol);
+
         foreach ($convList as $i => $c) {
             $col = $firstPairCol + $i;
-            $sheet->setCellValueExplicitByColumnAndRow($col, $headerRow, (string)$c->Convenzione, DataType::TYPE_STRING);
-            $sheet->getStyleByColumnAndRow($col, $headerRow)->getAlignment()
-                ->setHorizontal(Alignment::HORIZONTAL_CENTER)->setWrapText(true);
+            $sheet->setCellValueExplicitByColumnAndRow($col, $headerRow, $c->Convenzione, DataType::TYPE_STRING);
+            $sheet->getStyleByColumnAndRow($col, $headerRow)
+                ->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER)
+                ->setWrapText(true);
         }
 
-        // dati base
-        $dip  = Dipendente::getAutistiEBarellieri($this->anno, $this->idAssociazione);
-        $oreG = RipartizionePersonale::getAll($this->anno, null, $this->idAssociazione)->groupBy('idDipendente');
+        /* ============================================================
+       SELEZIONE DIPENDENTI AUTISTI & BARELLIERI
+    ============================================================ */
 
-        // costi: base + diretti (INPS/INAIL separati)
+        $dipAll = Dipendente::getByAssociazione($this->idAssociazione, $this->anno);
+
+        $qualPivot = DB::table('dipendenti_qualifiche')
+            ->select('idDipendente', 'idQualifica')
+            ->get()
+            ->groupBy('idDipendente')
+            ->map(fn($rows) => $rows->pluck('idQualifica')->map(fn($v) => (int)$v)->toArray());
+
+        $qAB = Dipendente::Q_AUTISTA_ID;
+
+        $dip = $dipAll->filter(function ($d) use ($qualPivot, $qAB) {
+            $qs = $qualPivot[$d->idDipendente] ?? [];
+            return in_array($qAB, $qs, true);
+        })->values();
+
+        /* ============================================================
+       COSTI + ORE
+    ============================================================ */
+
+        $oreG = RipartizionePersonale::getAll($this->anno, null, $this->idAssociazione)
+            ->groupBy('idDipendente');
+
         $costi = DB::table('costi_personale')
             ->where('idAnno', $this->anno)
             ->whereIn('idDipendente', $dip->pluck('idDipendente')->all())
             ->selectRaw('
-                idDipendente,
-                COALESCE(Retribuzioni,0)              + COALESCE(costo_diretto_Retribuzioni,0)      AS Retribuzioni,
-                COALESCE(OneriSocialiInps,0)          + COALESCE(costo_diretto_OneriSocialiInps,0)  AS OneriSocialiInps,
-                COALESCE(OneriSocialiInail,0)         + COALESCE(costo_diretto_OneriSocialiInail,0) AS OneriSocialiInail,
-                COALESCE(TFR,0)                       + COALESCE(costo_diretto_TFR,0)               AS TFR,
-                COALESCE(Consulenze,0)                + COALESCE(costo_diretto_Consulenze,0)        AS Consulenze
-            ')
-            ->get()->keyBy('idDipendente');
+            idDipendente,
+            COALESCE(Retribuzioni,0)              + COALESCE(costo_diretto_Retribuzioni,0)      AS Retribuzioni,
+            COALESCE(OneriSocialiInps,0)          + COALESCE(costo_diretto_OneriSocialiInps,0)  AS OneriSocialiInps,
+            COALESCE(OneriSocialiInail,0)         + COALESCE(costo_diretto_OneriSocialiInail,0) AS OneriSocialiInail,
+            COALESCE(TFR,0)                       + COALESCE(costo_diretto_TFR,0)               AS TFR,
+            COALESCE(Consulenze,0)                + COALESCE(costo_diretto_Consulenze,0)        AS Consulenze
+        ')
+            ->get()
+            ->keyBy('idDipendente');
 
-        // coeff mansione centralizzato (qualifica A&B)
-        $qAB = \App\Models\Dipendente::Q_AUTISTA_ID;
+        /* ============================================================
+       RIGA CAMPIONE + RIGA TOTALE
+    ============================================================ */
 
-        // righe
-        $totalRow   = $this->findRowByLabel($sheet, 'TOTALE', $headerRow + 1, $tpl['endRow']) ?? $tpl['endRow'];
-        $dataRow    = $headerRow + 1; // usa riga campione
-        $lastColLetter = ($lastUsedCol > 0)
-            ? Coordinate::stringFromColumnIndex($lastUsedCol)
-            : 'A';
-        $styleRange = "A{$dataRow}:{$lastColLetter}{$dataRow}";
+        $dataRow  = $headerRow + 1;
+        $totalRow = $this->findRowByLabel($sheet, 'TOTALE', $dataRow, $tpl['endRow']) ?? $tpl['endRow'];
 
-        $rows = []; // dalla 2ª riga in poi
+        // Prelevo lo stile della riga campione
+        $sampleStyle = $sheet->getStyle("A{$dataRow}:{$lastColLetter}{$dataRow}")->exportArray();
+
+        /* ============================================================
+       VARIABILI TOTALI GLOBALI
+    ============================================================ */
+
         $totRetr = $totInps = $totInail = $totTfr = $totCons = $totAll = 0.0;
-        $totByConvCents = [];
-        foreach ($convList as $c) $totByConvCents[(int)$c->idConvenzione] = 0;
+        $totByConvCents = array_fill_keys(
+            $convList->pluck('idConvenzione')->map(fn($v) => (int)$v)->all(),
+            0
+        );
 
-        $i = 0;
-        foreach ($dip as $d) {
+        /* ============================================================
+       SCRITTURA RIGHE DIPENDENTI
+    ============================================================ */
+
+        $rowIndex = $dataRow; // prima riga dati
+
+        foreach ($dip as $i => $d) {
+
             $cp = $costi->get($d->idDipendente);
-            if (!$cp) {
-                $i++;
-                continue;
-            }
+
+            // costi anche se null
+            $retr  = $cp->Retribuzioni      ?? 0;
+            $inps  = $cp->OneriSocialiInps  ?? 0;
+            $inail = $cp->OneriSocialiInail ?? 0;
+            $tfr   = $cp->TFR               ?? 0;
+            $cons  = $cp->Consulenze        ?? 0;
 
             $coeff = CostiMansioni::coeffFor($this->anno, $d->idDipendente, $qAB);
-            if ($coeff <= 0) {
-                $i++;
-                continue;
-            }
+            if ($coeff < 1) $coeff = 1;
 
-            // quote di costo (già con diretti) * coeff A&B
-            $retr  = (float)$cp->Retribuzioni      * $coeff;
-            $inps  = (float)$cp->OneriSocialiInps  * $coeff;
-            $inail = (float)$cp->OneriSocialiInail * $coeff;
-            $tfr   = (float)$cp->TFR               * $coeff;
-            $cons  = (float)$cp->Consulenze        * $coeff;
+            $retr  *= $coeff;
+            $inps  *= $coeff;
+            $inail *= $coeff;
+            $tfr   *= $coeff;
+            $cons  *= $coeff;
 
             $totEuro  = $retr + $inps + $inail + $tfr + $cons;
-            $totCents = (int)round($totEuro * 100, 0, PHP_ROUND_HALF_UP);
+            $totCents = (int)round($totEuro * 100);
 
+            // Totali globali
             $totRetr += $retr;
             $totInps += $inps;
             $totInail += $inail;
-            $totTfr += $tfr;
+            $totTfr  += $tfr;
             $totCons += $cons;
-            $totAll += $totEuro;
+            $totAll  += $totEuro;
 
-            // celle fisse
-            $cells = [
-                ['col' => $cols['IDX'],     'val' => ($i + 1)],
-                ['col' => $cols['COGNOME'], 'val' => trim(($d->DipendenteCognome ?? '') . ' ' . ($d->DipendenteNome ?? ''))],
-                ['col' => $cols['RETR'],    'val' => round($retr,  2), 'fmt' => '#,##0.00'],
-                ['col' => $cols['INPS'],    'val' => round($inps,  2), 'fmt' => '#,##0.00'],
-                ['col' => $cols['INAIL'],   'val' => round($inail, 2), 'fmt' => '#,##0.00'],
-                ['col' => $cols['TFR'],     'val' => round($tfr,   2), 'fmt' => '#,##0.00'],
-                ['col' => $cols['CONS'],    'val' => round($cons,  2), 'fmt' => '#,##0.00'],
-                ['col' => $cols['TOTALE'],  'val' => round($totEuro, 2), 'fmt' => '#,##0.00'],
-            ];
+            // Applica stile campione
+            $sheet->getStyle("A{$rowIndex}:{$lastColLetter}{$rowIndex}")
+                ->applyFromArray($sampleStyle);
 
-            // riparto in CENTESIMI (con ridistribuzione residui)
+            // Scrittura dati base
+            $sheet->setCellValueByColumnAndRow($cols['IDX'],     $rowIndex, $i + 1);
+            $sheet->setCellValueByColumnAndRow($cols['COGNOME'], $rowIndex, trim($d->DipendenteCognome . ' ' . $d->DipendenteNome));
+            $sheet->setCellValueByColumnAndRow($cols['RETR'],    $rowIndex, round($retr, 2));
+            $sheet->setCellValueByColumnAndRow($cols['INPS'],    $rowIndex, round($inps, 2));
+            $sheet->setCellValueByColumnAndRow($cols['INAIL'],   $rowIndex, round($inail, 2));
+            $sheet->setCellValueByColumnAndRow($cols['TFR'],     $rowIndex, round($tfr, 2));
+            $sheet->setCellValueByColumnAndRow($cols['CONS'],    $rowIndex, round($cons, 2));
+            $sheet->setCellValueByColumnAndRow($cols['TOTALE'],  $rowIndex, round($totEuro, 2));
+
+            // Formato numerico
+            foreach ([$cols['RETR'], $cols['INPS'], $cols['INAIL'], $cols['TFR'], $cols['CONS'], $cols['TOTALE']] as $cc) {
+                $sheet->getStyleByColumnAndRow($cc, $rowIndex)
+                    ->getNumberFormat()->setFormatCode('#,##0.00');
+            }
+
+            /* -----------------------------
+           RIPARTO ORE SU CONVENZIONI
+        ----------------------------- */
             $oreRec = $oreG->get($d->idDipendente, collect());
             $oreTot = (float)$oreRec->sum('OreServizio');
 
-            $prov = [];
-            $rem = [];
-            $sumProv = 0;
+            $prov = array_fill_keys(array_keys($totByConvCents), 0);
+
             if ($totCents > 0 && $oreTot > 0) {
+                $rem = [];
+                $sumProv = 0;
+
                 foreach ($convList as $c) {
-                    $ore   = (float)($oreRec->firstWhere('idConvenzione', $c->idConvenzione)->OreServizio ?? 0);
+                    $ore = (float)($oreRec->firstWhere('idConvenzione', $c->idConvenzione)->OreServizio ?? 0);
                     $quota = ($totCents * $ore) / $oreTot;
-                    $p     = (int)floor($quota);
+                    $p = (int)floor($quota);
+
                     $prov[$c->idConvenzione] = $p;
                     $rem[$c->idConvenzione]  = $quota - $p;
                     $sumProv += $p;
                 }
+
                 $diff = $totCents - $sumProv;
                 if ($diff > 0) {
-                    uksort($rem, function ($a, $b) use ($rem) {
-                        if ($rem[$a] == $rem[$b]) return $a <=> $b;
-                        return ($rem[$a] > $rem[$b]) ? -1 : 1;
-                    });
+                    arsort($rem);
                     foreach (array_keys($rem) as $idC) {
                         if ($diff <= 0) break;
-                        $prov[$idC] += 1;
+                        $prov[$idC]++;
                         $diff--;
                     }
                 }
-            } else {
-                foreach ($convList as $c) $prov[$c->idConvenzione] = 0;
             }
 
-            // importi per convenzione (in €) + totali convenzione in centesimi
             foreach ($convList as $j => $c) {
-                $col     = $firstPairCol + $j;
-                $valEuro = round(($prov[$c->idConvenzione] ?? 0) / 100, 2);
-                $cells[] = ['col' => $col, 'val' => $valEuro, 'fmt' => '#,##0.00'];
-                $totByConvCents[(int)$c->idConvenzione] += ($prov[$c->idConvenzione] ?? 0);
+                $col = $firstPairCol + $j;
+                $val = round(($prov[$c->idConvenzione] ?? 0) / 100, 2);
+                $sheet->setCellValueByColumnAndRow($col, $rowIndex, $val);
+                $totByConvCents[$c->idConvenzione] += ($prov[$c->idConvenzione] ?? 0);
             }
 
-            if ($i === 0) {
-                foreach ($cells as $cell) {
-                    $sheet->setCellValueByColumnAndRow($cell['col'], $dataRow, $cell['val']);
-                    if (!empty($cell['fmt'])) {
-                        $sheet->getStyleByColumnAndRow($cell['col'], $dataRow)
-                            ->getNumberFormat()->setFormatCode($cell['fmt']);
-                    }
-                }
-            } else {
-                $rows[] = $cells;
-            }
-            $i++;
+            $rowIndex++;
         }
 
-        if (!empty($rows)) {
-            $this->insertRowsBeforeTotal($sheet, $totalRow, $rows, $styleRange);
-        }
-        $off       = count($rows);
-        $totRowNew = $totalRow + $off;
+        /* ============================================================
+       RIGA TOTALE
+    ============================================================ */
 
-        // TOTALE (INPS/INAIL separati)
+        $totRowNew = $rowIndex;
+
         $this->mergeTotalAB($sheet, $totRowNew, 'TOTALE');
+
         $sheet->setCellValueByColumnAndRow($cols['RETR'],   $totRowNew, round($totRetr, 2));
         $sheet->setCellValueByColumnAndRow($cols['INPS'],   $totRowNew, round($totInps, 2));
         $sheet->setCellValueByColumnAndRow($cols['INAIL'],  $totRowNew, round($totInail, 2));
         $sheet->setCellValueByColumnAndRow($cols['TFR'],    $totRowNew, round($totTfr, 2));
         $sheet->setCellValueByColumnAndRow($cols['CONS'],   $totRowNew, round($totCons, 2));
         $sheet->setCellValueByColumnAndRow($cols['TOTALE'], $totRowNew, round($totAll, 2));
-        foreach ([$cols['RETR'], $cols['INPS'], $cols['INAIL'], $cols['TFR'], $cols['CONS'], $cols['TOTALE']] as $cc) {
-            $sheet->getStyleByColumnAndRow($cc, $totRowNew)->getNumberFormat()->setFormatCode('#,##0.00');
-        }
-        // totali convenzione (centesimi → €)
+
         foreach ($convList as $i => $c) {
             $col = $firstPairCol + $i;
-            $sheet->setCellValueByColumnAndRow($col, $totRowNew, round(($totByConvCents[(int)$c->idConvenzione] ?? 0) / 100, 2));
-            $sheet->getStyleByColumnAndRow($col, $totRowNew)->getNumberFormat()->setFormatCode('#,##0.00');
+            $val = round(($totByConvCents[$c->idConvenzione] ?? 0) / 100, 2);
+            $sheet->setCellValueByColumnAndRow($col, $totRowNew, $val);
         }
 
-        // stili (nuove firme con firstColIdx=1)
-        $this->thickBorderRow($sheet, $headerRow, 1, $lastUsedCol);
-        $this->thickBorderRow($sheet, $totRowNew,  1, $lastUsedCol);
-        $sheet->getStyle('A' . $totRowNew . ':' . Coordinate::stringFromColumnIndex($lastUsedCol) . $totRowNew)
-            ->getFont()->setBold(true);
-        $this->thickOutline($sheet, $headerRow, $totRowNew, 1, $lastUsedCol);
-        $this->autosizeUsedColumns($sheet, 1, $lastUsedCol);
+        /* ============================================================
+       APPLICA STILI FINALI AUTOMATICI
+    ============================================================ */
 
-        // nascondi eventuali colonne extra del template
-        for ($i = $usedPairs; $i < 200; $i++) {
-            $col  = $firstPairCol + $i;
-            $colL = Coordinate::stringFromColumnIndex($col);
-            if ($sheet->getColumnDimension($colL)->getWidth() === -1) break;
-            $sheet->getColumnDimension($colL)->setVisible(false);
-        }
+        $this->applyTablePolish(
+            $sheet,
+            $headerRow,
+            1,
+            $lastUsedCol,
+            $dataRow,
+            $totRowNew - 1,
+            $totRowNew
+        );
 
-        $this->forceHeaderText($sheet, $tpl, session('nome_associazione') ?? 'ASSOCIAZIONE', $this->anno);
-        return max($totRowNew, $tpl['endRow'] + $off);
+        return max($totRowNew, $tpl['endRow']);
     }
+
+
+
+
+
 
     /**
      * DISTINTA COSTI PERSONALE – tabella per UNA mansione (qualifica ID fisso)
@@ -3125,9 +3161,9 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
         // 4) Header (r1: titoli; r2: sottotitoli convenzioni)
         $col = 1; // A
         $sheet->setCellValueByColumnAndRow($col++, 1, 'VOCE');                                            // A
-        $sheet->setCellValueByColumnAndRow($col++, 1, 'IMPORTO TOTALE DA BILANCIO CONSUNTIVO');           // B
-        $sheet->setCellValueByColumnAndRow($col++, 1, 'COSTI DI DIRETTA IMPUTAZIONE (NETTI)');            // C
-        $sheet->setCellValueByColumnAndRow($col++, 1, 'TOTALE COSTI RIPARTITI (INDIRETTI)');              // D  <<< NUOVA COLONNA FISSA
+        $sheet->setCellValueByColumnAndRow($col++, 1, 'IMPORTO TOTALE COME DA BILANCIO CONSUNTIVO');           // B
+        $sheet->setCellValueByColumnAndRow($col++, 1, 'COSTI DI DIRETTA IMPUTAZIONE');            // C
+        $sheet->setCellValueByColumnAndRow($col++, 1, 'TOTALE COSTI RIPARTITI');              // D  <<< NUOVA COLONNA FISSA
 
         // Convenzioni a 3 sotto-colonne: Diretti / Sconto (amm.) / Indiretti
         foreach ($convNomi as $convName) {
@@ -3176,10 +3212,21 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
 
             // RIGA VOCE
             $c = 1;
-            $sheet->setCellValueByColumnAndRow($c++, $row, (string)$riga['voce']);                   // VOCE
-            $sheet->setCellValueByColumnAndRow($c++, $row, (float)($riga['bilancio'] ?? 0));         // Bilancio (cons.)
-            $sheet->setCellValueByColumnAndRow($c++, $row, (float)($riga['diretta'] ?? 0));          // Diretta (netta)
-            $sheet->setCellValueByColumnAndRow($c++, $row, (float)($riga['totale']  ?? 0));          // <<< Totale indiretti
+
+            // 1) VOCE MAIUSCOLA + CENTRATA
+            $sheet->setCellValueByColumnAndRow($c, $row, mb_strtoupper((string)$riga['voce'], 'UTF-8'));
+
+            $sheet->getStyleByColumnAndRow($c, $row)
+                ->getAlignment()
+                ->setHorizontal(Alignment::HORIZONTAL_CENTER)
+                ->setVertical(Alignment::VERTICAL_CENTER)
+                ->setWrapText(true);
+
+            $c++;
+            $sheet->setCellValueByColumnAndRow($c++, $row, (float)($riga['bilancio'] ?? 0));
+            $sheet->setCellValueByColumnAndRow($c++, $row, (float)($riga['diretta']  ?? 0));
+            $sheet->setCellValueByColumnAndRow($c++, $row, (float)($riga['totale']   ?? 0));
+
 
             // Convenzioni
             foreach ($convNomi as $convName) {
