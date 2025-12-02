@@ -210,7 +210,7 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
             /*======================================================
              FOGLIO 2 → 4
              ====================================================== */
-/*
+            /*
             // ---- [F2] COSTI DIPENDENTI ---------------------------------
             $sheetRip = $spreadsheet->createSheet();
             $sheetRip->setTitle('DIST.RIPARTO COSTI DIPENDENTI');
@@ -275,7 +275,7 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
             /* ======================================================
          * FOGLI EXTRA E CONSUNTIVI
          * ====================================================== */
-  /*          
+            /*          
             // Imputazione Sanitario
             $this->safeCall(
                 'Imputazione Sanitario',
@@ -334,7 +334,7 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                     );
                 }
             });
-/*
+            /*
             // Fogli per convenzione (TAB.1 + TAB.2)
             $this->safeCall('Fogli per convenzione (Tabella 1 + 2)', function () use ($spreadsheet, $nomeAss) {
                 $tplConvenzionePath = public_path('storage/documenti/template_excel/RiepilogoDati.xlsx');
@@ -2648,8 +2648,8 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
             $s->getStyle("A{$rowTot}:{$lastColLetter}{$rowTot}")->getFont()->setBold(true);
             $s->getStyle("A{$rowTot}:{$lastColLetter}{$rowTot}")->applyFromArray([
                 'borders' => [
-                    'top'    => ['borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_MEDIUM],
-                    'bottom' => ['borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_MEDIUM],
+                    'top'    => ['borderStyle' => Border::BORDER_MEDIUM],
+                    'bottom' => ['borderStyle' => Border::BORDER_MEDIUM],
                 ],
             ]);
         } catch (Throwable $e) {
@@ -3149,14 +3149,14 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
         ];
 
         // 3) Crea foglio in coda
-        $sheet = new \PhpOffice\PhpSpreadsheet\Worksheet\Worksheet($spreadsheet, 'DISTINTA IMPUTAZIONE COSTI');
+        $sheet = new Worksheet($spreadsheet, 'DISTINTA IMPUTAZIONE COSTI');
         $spreadsheet->addSheet($sheet, $spreadsheet->getSheetCount());
 
         // Stili rapidi
-        $headFill    = ['fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID, 'startColor' => ['rgb' => 'D9E1F2']];
-        $subHeadFill = ['fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID, 'startColor' => ['rgb' => 'F2F2F2']];
-        $secFill     = ['fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID, 'startColor' => ['rgb' => 'FFF2CC']];
-        $thinBorder  = ['borders'  => ['allBorders' => ['borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN, 'color' => ['rgb' => '999999']]]];
+        $headFill    = ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'D9E1F2']];
+        $subHeadFill = ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'F2F2F2']];
+        $secFill     = ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'FFF2CC']];
+        $thinBorder  = ['borders'  => ['allBorders' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['rgb' => '999999']]]];
 
         // 4) Header (r1: titoli; r2: sottotitoli convenzioni)
         $col = 1; // A
@@ -3187,8 +3187,8 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
         $sheet->getRowDimension(1)->setRowHeight(22);
         $sheet->getRowDimension(2)->setRowHeight(18);
         $sheet->getStyleByColumnAndRow(1, 1, $lastCol, 2)->getAlignment()
-            ->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER)
-            ->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER)
+            ->setHorizontal(Alignment::HORIZONTAL_CENTER)
+            ->setVertical(Alignment::VERTICAL_CENTER)
             ->setWrapText(true);
 
         // 5) Righe dati — rispetta ordine da service
@@ -3255,16 +3255,76 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                 ->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
         }
 
-        // 7) Freeze pane: dopo 4 colonne fisse (E3)
+        /*
+        |--------------------------------------------------------------------------
+        | 6.1) RIGA TOTALE FINALE (CORRETTA)
+        |--------------------------------------------------------------------------
+        */
+        $totRow = $lastRow + 1;
+
+        // Etichetta (NON mergiare, rimane solo in A)
+        $sheet->setCellValueByColumnAndRow(1, $totRow, 'TOTALE');
+        $sheet->getStyle("A{$totRow}")->getFont()->setBold(true);
+        $sheet->getStyle("A{$totRow}")
+            ->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER)
+            ->setVertical(Alignment::VERTICAL_CENTER);
+
+        // Somme solo sulle colonne numeriche
+        for ($cc = 2; $cc <= $lastCol; $cc++) {
+
+            // Skippa colonne testo (se ci sono)
+            $colL = Coordinate::stringFromColumnIndex($cc);
+
+            $sheet->setCellValue(
+                "{$colL}{$totRow}",
+                "=SUM({$colL}3:{$colL}{$lastRow})"
+            );
+
+            $sheet->getStyle("{$colL}{$totRow}")
+                ->getNumberFormat()->setFormatCode('#,##0.00');
+
+            $sheet->getStyle("{$colL}{$totRow}")
+                ->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+        }
+
+        // Stile riga totale
+        $sheet->getStyle("A{$totRow}:" . Coordinate::stringFromColumnIndex($lastCol) . $totRow)
+            ->applyFromArray([
+                'fill' => [
+                    'fillType' => Fill::FILL_SOLID,
+                    'startColor' => ['rgb' => 'FFF2CC']
+                ],
+                'borders' => [
+                    'allBorders' => [
+                        'borderStyle' => Border::BORDER_MEDIUM
+                    ]
+                ],
+            ]);
+
+        $lastRow = $totRow;
+        
+        /*
+        |--------------------------------------------------------------------------
+        | 7) Freeze pane
+        |--------------------------------------------------------------------------
+        */
         $sheet->freezePaneByColumnAndRow(5, 3);
 
-        // 8) AutoSize colonne (A un po' più larga)
+        /*
+        |--------------------------------------------------------------------------
+        | 8) AutoSize colonne
+        |--------------------------------------------------------------------------
+        */
         $sheet->getColumnDimension('A')->setWidth(55);
         for ($cc = 2; $cc <= $lastCol; $cc++) {
             $sheet->getColumnDimensionByColumn($cc)->setAutoSize(true);
         }
 
-        // 9) Impostazioni di stampa
+        /*
+        |--------------------------------------------------------------------------
+        | 9) Impostazioni di stampa
+        |--------------------------------------------------------------------------
+        */
         $ps = $sheet->getPageSetup();
         $ps->setOrientation(PageSetup::ORIENTATION_LANDSCAPE);
         $ps->setFitToWidth(1);
@@ -3282,7 +3342,11 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
         // Ripeti header (r1-2) in stampa
         $sheet->getPageSetup()->setRowsToRepeatAtTopByStartAndEnd(1, 2);
 
-        // Area di stampa
+        /*
+        |--------------------------------------------------------------------------
+        | Area di stampa AGGIORNATA
+        |--------------------------------------------------------------------------
+        */
         $lastColL = Coordinate::stringFromColumnIndex($lastCol);
         $sheet->getPageSetup()->setPrintArea("A1:{$lastColL}{$lastRow}");
     }
@@ -3892,8 +3956,8 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
             $al = $ws->getStyleByColumnAndRow($cVoce, $r)->getAlignment();
             $al->setWrapText(true);
             $al->setShrinkToFit(false);
-            $al->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_LEFT);
-            $al->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_TOP);
+            $al->setHorizontal(Alignment::HORIZONTAL_LEFT);
+            $al->setVertical(Alignment::VERTICAL_TOP);
 
             // Forza auto-height
             $ws->getRowDimension($r)->setRowHeight(-1);
