@@ -221,7 +221,7 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
              * BLOCCO 1 → 8
             * ====================================================== */
             // ---- [B1] KM ------------------------------------------------
-            /*           $kmMeta = $this->appendTemplate($sheet, $disk->path('documenti/template_excel/KmPercorsi.xlsx'));
+            $kmMeta = $this->appendTemplate($sheet, $disk->path('documenti/template_excel/KmPercorsi.xlsx'));
             $this->reinsertTemplateLogos($sheet, $kmMeta);
             $this->replacePlaceholdersEverywhere($sheet, $phBase);
             $endKm = $this->blockKm($sheet, $kmMeta, $automezzi, $convenzioni, $noLogos);
@@ -277,7 +277,7 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
             /*======================================================
              FOGLIO 2 → 4
              ====================================================== */
-            /*
+
             // ---- [F2] COSTI DIPENDENTI ---------------------------------
             $sheetRip = $spreadsheet->createSheet();
             $sheetRip->setTitle('DIST.RIPARTO COSTI DIPENDENTI');
@@ -343,7 +343,6 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
             /* ======================================================
             * FOGLI EXTRA E CONSUNTIVI
             * ====================================================== */
-            /*
             // Imputazione Sanitario
             $this->safeCall(
                 'Imputazione Sanitario',
@@ -403,7 +402,7 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                     );
                 }
             });
-*/
+
             // Fogli per convenzione (TAB.1 + TAB.2)
             $this->safeCall('Fogli per convenzione (Tabella 1 + 2)', function () use ($spreadsheet, $nomeAss) {
                 $tplConvenzionePath = public_path('storage/documenti/template_excel/RiepilogoDati.xlsx');
@@ -4255,7 +4254,9 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
         );
     }
 
-    /** Tabella RIEPILOGO COSTI sotto la prima tabella */
+    /**
+     * Tabella RIEPILOGO COSTI sotto la prima tabella
+     */
     private function fillRiepilogoCostiSottoPrimaTabella(
         Worksheet $ws,
         int $idAssociazione,
@@ -4334,6 +4335,7 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
 
         foreach (range(2, 11) as $tipologia) {
 
+            /* --- Riga titolo sezione --- */
             $rowSezione = $startRow;
 
             $ws->setCellValue("A{$rowSezione}", $sectionNumber);
@@ -4351,10 +4353,9 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                 ->setWrapText(true)
                 ->setVertical(Alignment::VERTICAL_TOP);
 
-            $ws->getRowDimension($rowSezione)->setRowHeight(-1);
-
             $startRow++;
 
+            /* --- Riga voci interne --- */
             $rows = RiepilogoCosti::getByTipologia($tipologia, $anno, $idAssociazione, $idConvenzione);
 
             $sumPrev = 0;
@@ -4377,6 +4378,7 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                 $ws->setCellValueExplicit("D{$startRow}", $prev, DataType::TYPE_NUMERIC);
                 $ws->setCellValueExplicit("E{$startRow}", $cons, DataType::TYPE_NUMERIC);
 
+                // % scostamento
                 $ws->setCellValue(
                     "F{$startRow}",
                     "=IF(D{$startRow}=0,0,(E{$startRow}-D{$startRow})/D{$startRow})"
@@ -4387,8 +4389,6 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                 $ws->getStyle("F{$startRow}")
                     ->getNumberFormat()->setFormatCode(NumberFormat::FORMAT_PERCENTAGE_00);
 
-                $ws->getRowDimension($startRow)->setRowHeight(-1);
-
                 $sumPrev += $prev;
                 $sumCons += $cons;
 
@@ -4396,7 +4396,7 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                 $startRow++;
             }
 
-            // SUBTOTAL
+            /* --- SUBTOTAL sezione --- */
             $ws->setCellValue("D{$rowSezione}", $sumPrev);
             $ws->setCellValue("E{$rowSezione}", $sumCons);
             $ws->setCellValue(
@@ -4416,11 +4416,12 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
             $startRow++;
         }
 
-        $lastDataRow = $startRow - 1;
 
         /* ============================================================
        5) BORDI E ALLINEAMENTO
        ============================================================ */
+        $lastDataRow = $startRow - 1;
+
         $ws->getStyle("D{$firstDataRow}:F{$lastDataRow}")
             ->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
 
@@ -4428,12 +4429,12 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
             $ws,
             "A" . ($firstDataRow - 2) . ":F{$lastDataRow}"
         );
-        /* ============================================================
-   6) BLOCCHI FINALI
-   ============================================================ */
-        $startRow += 2;
 
-        /* --- TOTALE GENERALE --- */
+
+        /* ============================================================
+       6) TOTALE GENERALE
+       ============================================================ */
+        $startRow += 2;
         $rowTotGen = $startRow;
 
         $ws->setCellValue("B{$rowTotGen}", "TOTALE GENERALE");
@@ -4442,6 +4443,8 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
 
         $ws->setCellValue("D{$rowTotGen}", $totPrevGeneral);
         $ws->setCellValue("E{$rowTotGen}", $totConsGeneral);
+
+        // % scostamento totale
         $ws->setCellValue(
             "F{$rowTotGen}",
             "=IF(D{$rowTotGen}=0,0,(E{$rowTotGen}-D{$rowTotGen})/D{$rowTotGen})"
@@ -4453,67 +4456,58 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
             ->getNumberFormat()->setFormatCode(NumberFormat::FORMAT_PERCENTAGE_00);
 
         $startRow++;
-/* ============================================================
-   MEZZI SOSTITUTIVI – MOSTRA SOLO SE LA CONVENZIONE È IN REGIME
-   ============================================================ */
 
-// 1) verifica regime di MEZZI SOSTITUTIVI per questa convenzione
-$regimeSost = RipartizioneCostiService::isRegimeMezziSostitutivi($idConvenzione);
 
-// 2) solo se la convenzione è in regime → procedi
-if ($regimeSost) {
+        /* ============================================================
+       7) MEZZI SOSTITUTIVI – SOLO SE IN REGIME
+       ============================================================ */
+        $regimeSost = RipartizioneCostiService::isRegimeMezziSostitutivi($idConvenzione);
 
-    // costi netti sostitutivi da DISTINCTA
-    $nettiSost = RipartizioneCostiService::costoNettoMezziSostitutiviFromDistinta(
-        $idAssociazione,
-        $anno
-    );
+        if ($regimeSost) {
 
-    // 3) se non ci sono costi (tutti zero o array vuoto) → non stampare nulla
-    if (!empty($nettiSost)) {
+            $nettiSost = RipartizioneCostiService::costoNettoMezziSostitutiviFromDistinta(
+                $idAssociazione,
+                $anno
+            );
 
-        $sommaNettiSost = array_sum($nettiSost);
+            if (!empty($nettiSost)) {
 
-        /* ------------------------------------------------------------
-           SCOSTAMENTO CONSUNTIVO – CONVENZIONE
-           ------------------------------------------------------------ */
-        $rowScost = $startRow;
+                $sommaNettiSost = array_sum($nettiSost);
 
-        $ws->setCellValue("B{$rowScost}", "SCOSTAMENTO CONSUNTIVO - CONVENZIONE");
-        $ws->mergeCells("B{$rowScost}:C{$rowScost}");
-        $ws->getStyle("B{$rowScost}")->getFont()->setBold(true);
+                /* --- Scostamento Consuntivo Convenzione --- */
+                $rowScost = $startRow;
 
-        $ws->setCellValue("E{$rowScost}", $sommaNettiSost);
-        $ws->getStyle("E{$rowScost}")
-            ->getNumberFormat()->setFormatCode('#,##0.00');
+                $ws->setCellValue("B{$rowScost}", "SCOSTAMENTO CONSUNTIVO - CONVENZIONE");
+                $ws->mergeCells("B{$rowScost}:C{$rowScost}");
+                $ws->getStyle("B{$rowScost}")->getFont()->setBold(true);
 
-        $startRow++;
+                $ws->setCellValue("E{$rowScost}", $sommaNettiSost);
+                $ws->getStyle("E{$rowScost}")
+                    ->getNumberFormat()->setFormatCode('#,##0.00');
 
-        /* ------------------------------------------------------------
-           TOTALE GENERALE AL NETTO DEI MEZZI SOSTITUTIVI
-           ------------------------------------------------------------ */
-        $rowNetto = $startRow;
+                $startRow++;
 
-        $ws->setCellValue("B{$rowNetto}", "TOTALE GENERALE AL NETTO DEI MEZZI SOSTITUTIVI");
-        $ws->mergeCells("B{$rowNetto}:C{$rowNetto}");
-        $ws->getStyle("B{$rowNetto}")->getFont()->setBold(true);
+                /* --- Totale netto mezzi sostitutivi --- */
+                $rowNetto = $startRow;
 
-        $ws->setCellValue(
-            "E{$rowNetto}",
-            "=E{$rowTotGen} - E{$rowScost}"
-        );
+                $ws->setCellValue("B{$rowNetto}", "TOTALE GENERALE AL NETTO DEI MEZZI SOSTITUTIVI");
+                $ws->mergeCells("B{$rowNetto}:C{$rowNetto}");
+                $ws->getStyle("B{$rowNetto}")->getFont()->setBold(true);
 
-        $ws->getStyle("E{$rowNetto}")
-            ->getNumberFormat()->setFormatCode('#,##0.00');
+                $ws->setCellValue(
+                    "E{$rowNetto}",
+                    "=E{$rowTotGen} - E{$rowScost}"
+                );
 
-        $startRow++;
+                $ws->getStyle("E{$rowNetto}")
+                    ->getNumberFormat()->setFormatCode('#,##0.00');
+
+                $startRow++;
+            }
+        }
     }
-}
 
 
-
- 
-    }
 
 
     /** Converte '12,34%' | '12.34%' | '12.34' in 0.1234 */

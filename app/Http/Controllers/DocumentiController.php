@@ -25,6 +25,7 @@ use App\Jobs\GeneraDocumentoUnicoPdfJob;
 use App\Jobs\RiepiloghiDatiECostiPdfJob;
 use App\Jobs\BuildAllPdfsAndBundleJob;
 
+use App\Models\Associazione;
 use App\Models\DocumentoGenerato;
 use Barryvdh\DomPDF\Facade\Pdf;
 use App\Models\RiepilogoCosti;
@@ -50,6 +51,7 @@ class DocumentiController extends Controller {
                 ?? ($associazioni->first()->IdAssociazione ?? null);
         } else {
             $selectedAssoc = $user->IdAssociazione;
+            $associazioni = Associazione::getById($selectedAssoc);
         }
 
         if ($request->has('idAssociazione')) {

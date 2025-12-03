@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\DB;
 use App\Models\DocumentoGenerato;
 use App\Jobs\Excel\GeneraRegistriPrimaPaginaXlsJob;
 use App\Jobs\Excel\GeneraSchedeRipartoCostiXlsJob;
+use App\Models\Associazione;
 
 class DocumentiExcelController extends Controller {
     public function __construct() {
@@ -18,31 +19,47 @@ class DocumentiExcelController extends Controller {
     // === helper selezione associazione (come nel tuo DocumentiController) ===
     private function selectedAssocForUser(Request $request): array {
         $user = Auth::user();
-        $associazioni = collect();
+        $associazioni = collect();   // <-- SEMPRE una collection
         $selectedAssoc = null;
 
         if ($user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])) {
+
+            // Admin → tutte le associazioni
             $associazioni = DB::table('associazioni')
                 ->select('IdAssociazione', 'Associazione')
                 ->whereNull('deleted_at')
                 ->where('IdAssociazione', '!=', 1)
                 ->orderBy('Associazione')
-                ->get();
+                ->get();  // <-- collection
 
-            $selectedAssoc = $request->get('idAssociazione')
+            $selectedAssoc =
+                $request->get('idAssociazione')
                 ?? session('associazione_selezionata')
                 ?? ($associazioni->first()->IdAssociazione ?? null);
         } else {
+
+            // NON Admin → una sola associazione: quella dell'utente
             $selectedAssoc = $user->IdAssociazione;
+
+            $asso = DB::table('associazioni')
+                ->select('IdAssociazione', 'Associazione')
+                ->where('IdAssociazione', $selectedAssoc)
+                ->first();
+
+            // Trasformo in collection con un solo elemento
+            $associazioni = collect([$asso]);
         }
 
+        // Aggiorna sessione se inviato da GET
         if ($request->has('idAssociazione')) {
             session(['associazione_selezionata' => $request->idAssociazione]);
         }
+
         $selectedAssoc = session('associazione_selezionata') ?? $selectedAssoc;
 
         return [$associazioni, $selectedAssoc];
     }
+
 
     /**
      * GET /documenti/registro-xls
