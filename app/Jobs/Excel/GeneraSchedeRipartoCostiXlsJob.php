@@ -2186,7 +2186,6 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
         return [$headerRow, $cols];
     }
 
-
     private function detectServiziHeaderAndCols(Worksheet $sheet, array $tpl): array {
         $headerRow = $this->findHeaderRowServizi($sheet, $tpl['startRow'], $tpl['endRow']);
         $cols = ['PROGR' => 1, 'TARGA' => 2, 'CODICE' => 3, 'TOTSRV' => 4];
@@ -3047,7 +3046,7 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
             $this->formatAsPercent($sheet, $hdrRow + 1, $rowTot, $colPerc);
             $this->formatAsCurrency($sheet, $hdrRow + 1, $rowTot, $colImp);
             // === FINITURE DI STILE (come gli altri fogli), usando il template incollato ===
-            $firstCol     = $colTarga - 1; 
+            $firstCol     = $colTarga - 1;
             $lastCol      = $colImp;
             $firstDataRow = $hdrRow + 1;
             $lastDataRow  = $rowTot - 1;
@@ -4257,7 +4256,6 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
     }
 
     /** Tabella RIEPILOGO COSTI sotto la prima tabella */
-    /** Tabella RIEPILOGO COSTI sotto la prima tabella */
     private function fillRiepilogoCostiSottoPrimaTabella(
         Worksheet $ws,
         int $idAssociazione,
@@ -4275,22 +4273,31 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
 
         $startRow += 2;
 
-        /* --- HEADER --- */
-        $ws->fromArray(
-            ['N°', 'Voce', 'PREVENTIVO', 'CONSUNTIVO', '% SCOSTAMENTO'],
-            null,
-            "A{$startRow}"
-        );
+        /* --- HEADER CORRETTO (con B:C mergiata) --- */
+        $headerRow = $startRow;
 
-        $ws->getStyle("A{$startRow}:F{$startRow}")->getFont()->setBold(true);
-        $ws->getStyle("A{$startRow}:F{$startRow}")
+        // N°
+        $ws->setCellValue("A{$headerRow}", 'N°');
+
+        // Voce (B:C uniti)
+        $ws->setCellValue("B{$headerRow}", 'Voce');
+        $ws->mergeCells("B{$headerRow}:C{$headerRow}");
+
+        // Preventivo, Consuntivo, % Scostamento
+        $ws->setCellValue("D{$headerRow}", 'PREVENTIVO');
+        $ws->setCellValue("E{$headerRow}", 'CONSUNTIVO');
+        $ws->setCellValue("F{$headerRow}", '% SCOSTAMENTO');
+
+        // Stile header
+        $ws->getStyle("A{$headerRow}:F{$headerRow}")->getFont()->setBold(true);
+        $ws->getStyle("A{$headerRow}:F{$headerRow}")
             ->getBorders()->getBottom()->setBorderStyle(Border::BORDER_MEDIUM);
-
-        $ws->getStyle("A{$startRow}:F{$startRow}")
+        $ws->getStyle("A{$headerRow}:F{$headerRow}")
             ->getAlignment()->setShrinkToFit(false);
 
-        $startRow++;
-        $firstDataRow = $startRow;
+        // prima riga dati
+        $startRow      = $headerRow + 1;
+        $firstDataRow  = $startRow;
 
         /* --- COLONNE --- */
         $ws->getColumnDimension('A')->setWidth(7);
@@ -4328,7 +4335,7 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
             $ws->setCellValue("A{$rowSezione}", "{$sectionNumber}");
             $ws->setCellValue("B{$rowSezione}", $mapSezioni[$tipologia]);
 
-            // MERGE B–C (NON oltre)
+            // MERGE B–C anche qui
             $ws->mergeCells("B{$rowSezione}:C{$rowSezione}");
 
             $ws->getStyle("A{$rowSezione}:F{$rowSezione}")
@@ -4364,7 +4371,7 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                 $ws->setCellValue("A{$startRow}", "{$sectionNumber}.{$i}");
                 $ws->setCellValue("B{$startRow}", $descr);
 
-                // MERGE B–C
+                // MERGE B–C per la voce
                 $ws->mergeCells("B{$startRow}:C{$startRow}");
 
                 // wrap
@@ -4426,6 +4433,7 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
             "A" . ($firstDataRow - 2) . ":F{$lastDataRow}"
         );
     }
+
 
 
 
