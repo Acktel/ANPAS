@@ -1701,7 +1701,7 @@ class RipartizioneCostiService {
      *  - esiste un mezzo con is_titolare = 1
      *  - % TRADIZIONALE del titolare (km mezzo su conv / km totali mezzo) >= 98
      */
-    private static function isRegimeMezziSostitutivi(int $idConv): bool {
+    public static function isRegimeMezziSostitutivi(int $idConv): bool {
         $conv = DB::table('convenzioni')
             ->where('idConvenzione', $idConv)
             ->where('abilita_rot_sost', 1)

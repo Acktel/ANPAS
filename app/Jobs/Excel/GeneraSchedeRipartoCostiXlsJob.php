@@ -221,7 +221,7 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
              * BLOCCO 1 → 8
             * ====================================================== */
             // ---- [B1] KM ------------------------------------------------
-            $kmMeta = $this->appendTemplate($sheet, $disk->path('documenti/template_excel/KmPercorsi.xlsx'));
+            /*           $kmMeta = $this->appendTemplate($sheet, $disk->path('documenti/template_excel/KmPercorsi.xlsx'));
             $this->reinsertTemplateLogos($sheet, $kmMeta);
             $this->replacePlaceholdersEverywhere($sheet, $phBase);
             $endKm = $this->blockKm($sheet, $kmMeta, $automezzi, $convenzioni, $noLogos);
@@ -277,7 +277,7 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
             /*======================================================
              FOGLIO 2 → 4
              ====================================================== */
-
+            /*
             // ---- [F2] COSTI DIPENDENTI ---------------------------------
             $sheetRip = $spreadsheet->createSheet();
             $sheetRip->setTitle('DIST.RIPARTO COSTI DIPENDENTI');
@@ -343,7 +343,7 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
             /* ======================================================
             * FOGLI EXTRA E CONSUNTIVI
             * ====================================================== */
-
+            /*
             // Imputazione Sanitario
             $this->safeCall(
                 'Imputazione Sanitario',
@@ -403,7 +403,7 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                     );
                 }
             });
-
+*/
             // Fogli per convenzione (TAB.1 + TAB.2)
             $this->safeCall('Fogli per convenzione (Tabella 1 + 2)', function () use ($spreadsheet, $nomeAss) {
                 $tplConvenzionePath = public_path('storage/documenti/template_excel/RiepilogoDati.xlsx');
@@ -4263,9 +4263,11 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
         int $idConvenzione
     ): void {
 
+        /* ============================================================
+       1) TITOLO
+       ============================================================ */
         $startRow = $ws->getHighestDataRow() + 2;
 
-        /* --- TITOLO --- */
         $ws->setCellValue("B{$startRow}", 'RIEPILOGO COSTI');
         $ws->mergeCells("B{$startRow}:F{$startRow}");
         $ws->getStyle("B{$startRow}:F{$startRow}")
@@ -4273,33 +4275,31 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
 
         $startRow += 2;
 
-        /* --- HEADER CORRETTO (con B:C mergiata) --- */
+
+        /* ============================================================
+       2) HEADER
+       ============================================================ */
         $headerRow = $startRow;
 
-        // N°
         $ws->setCellValue("A{$headerRow}", 'N°');
-
-        // Voce (B:C uniti)
         $ws->setCellValue("B{$headerRow}", 'Voce');
         $ws->mergeCells("B{$headerRow}:C{$headerRow}");
 
-        // Preventivo, Consuntivo, % Scostamento
         $ws->setCellValue("D{$headerRow}", 'PREVENTIVO');
         $ws->setCellValue("E{$headerRow}", 'CONSUNTIVO');
         $ws->setCellValue("F{$headerRow}", '% SCOSTAMENTO');
 
-        // Stile header
         $ws->getStyle("A{$headerRow}:F{$headerRow}")->getFont()->setBold(true);
         $ws->getStyle("A{$headerRow}:F{$headerRow}")
             ->getBorders()->getBottom()->setBorderStyle(Border::BORDER_MEDIUM);
-        $ws->getStyle("A{$headerRow}:F{$headerRow}")
-            ->getAlignment()->setShrinkToFit(false);
 
-        // prima riga dati
-        $startRow      = $headerRow + 1;
-        $firstDataRow  = $startRow;
+        $startRow = $headerRow + 1;
+        $firstDataRow = $startRow;
 
-        /* --- COLONNE --- */
+
+        /* ============================================================
+       3) DIMENSIONAMENTO COLONNE
+       ============================================================ */
         $ws->getColumnDimension('A')->setWidth(7);
         $ws->getColumnDimension('B')->setWidth(30);
         $ws->getColumnDimension('C')->setWidth(30);
@@ -4307,11 +4307,14 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
         $ws->getColumnDimension('E')->setWidth(18);
         $ws->getColumnDimension('F')->setWidth(18);
 
-        foreach (['A', 'B', 'C', 'D', 'E', 'F'] as $col) {
-            $ws->getColumnDimension($col)->setAutoSize(false);
+        foreach (['A', 'B', 'C', 'D', 'E', 'F'] as $c) {
+            $ws->getColumnDimension($c)->setAutoSize(false);
         }
 
-        /* --- MAPPA SEZIONI --- */
+
+        /* ============================================================
+       4) SEZIONI
+       ============================================================ */
         $mapSezioni = [
             2  => 'Automezzi',
             3  => 'Attrezzatura Sanitaria',
@@ -4326,16 +4329,15 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
         ];
 
         $sectionNumber = 1;
+        $totPrevGeneral = 0;
+        $totConsGeneral = 0;
 
         foreach (range(2, 11) as $tipologia) {
 
-            /* --- RIGA SEZIONE --- */
             $rowSezione = $startRow;
 
-            $ws->setCellValue("A{$rowSezione}", "{$sectionNumber}");
+            $ws->setCellValue("A{$rowSezione}", $sectionNumber);
             $ws->setCellValue("B{$rowSezione}", $mapSezioni[$tipologia]);
-
-            // MERGE B–C anche qui
             $ws->mergeCells("B{$rowSezione}:C{$rowSezione}");
 
             $ws->getStyle("A{$rowSezione}:F{$rowSezione}")
@@ -4345,17 +4347,14 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                 ->getFill()->setFillType(Fill::FILL_SOLID)
                 ->getStartColor()->setARGB('FFEFEFEF');
 
-            // wrap text
-            $al = $ws->getStyle("B{$rowSezione}")->getAlignment();
-            $al->setWrapText(true);
-            $al->setShrinkToFit(false);
-            $al->setVertical(Alignment::VERTICAL_TOP);
+            $ws->getStyle("B{$rowSezione}")->getAlignment()
+                ->setWrapText(true)
+                ->setVertical(Alignment::VERTICAL_TOP);
 
             $ws->getRowDimension($rowSezione)->setRowHeight(-1);
 
             $startRow++;
 
-            /* --- RIGHE DELLA SEZIONE --- */
             $rows = RiepilogoCosti::getByTipologia($tipologia, $anno, $idAssociazione, $idConvenzione);
 
             $sumPrev = 0;
@@ -4363,24 +4362,18 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
             $i = 1;
 
             foreach ($rows as $r) {
-
                 $descr = (string)$r->descrizione;
                 $prev  = (float)$r->preventivo;
                 $cons  = (float)$r->consuntivo;
 
                 $ws->setCellValue("A{$startRow}", "{$sectionNumber}.{$i}");
                 $ws->setCellValue("B{$startRow}", $descr);
-
-                // MERGE B–C per la voce
                 $ws->mergeCells("B{$startRow}:C{$startRow}");
 
-                // wrap
-                $al2 = $ws->getStyle("B{$startRow}")->getAlignment();
-                $al2->setWrapText(true);
-                $al2->setShrinkToFit(false);
-                $al2->setVertical(Alignment::VERTICAL_TOP);
+                $ws->getStyle("B{$startRow}")->getAlignment()
+                    ->setWrapText(true)
+                    ->setVertical(Alignment::VERTICAL_TOP);
 
-                // valori
                 $ws->setCellValueExplicit("D{$startRow}", $prev, DataType::TYPE_NUMERIC);
                 $ws->setCellValueExplicit("E{$startRow}", $cons, DataType::TYPE_NUMERIC);
 
@@ -4391,7 +4384,6 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
 
                 $ws->getStyle("D{$startRow}:E{$startRow}")
                     ->getNumberFormat()->setFormatCode('#,##0.00');
-
                 $ws->getStyle("F{$startRow}")
                     ->getNumberFormat()->setFormatCode(NumberFormat::FORMAT_PERCENTAGE_00);
 
@@ -4404,7 +4396,7 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
                 $startRow++;
             }
 
-            /* --- SUBTOTAL SEZIONE --- */
+            // SUBTOTAL
             $ws->setCellValue("D{$rowSezione}", $sumPrev);
             $ws->setCellValue("E{$rowSezione}", $sumCons);
             $ws->setCellValue(
@@ -4417,26 +4409,111 @@ class GeneraSchedeRipartoCostiXlsJob implements ShouldQueue {
             $ws->getStyle("F{$rowSezione}")
                 ->getNumberFormat()->setFormatCode(NumberFormat::FORMAT_PERCENTAGE_00);
 
+            $totPrevGeneral += $sumPrev;
+            $totConsGeneral += $sumCons;
+
             $sectionNumber++;
             $startRow++;
         }
 
         $lastDataRow = $startRow - 1;
 
-        /* --- ALLINEAMENTO NUMERI --- */
+        /* ============================================================
+       5) BORDI E ALLINEAMENTO
+       ============================================================ */
         $ws->getStyle("D{$firstDataRow}:F{$lastDataRow}")
             ->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
 
-        /* --- BORDO TOTALE --- */
         $this->applyGridWithOuterBorder(
             $ws,
             "A" . ($firstDataRow - 2) . ":F{$lastDataRow}"
         );
+        /* ============================================================
+   6) BLOCCHI FINALI
+   ============================================================ */
+        $startRow += 2;
+
+        /* --- TOTALE GENERALE --- */
+        $rowTotGen = $startRow;
+
+        $ws->setCellValue("B{$rowTotGen}", "TOTALE GENERALE");
+        $ws->mergeCells("B{$rowTotGen}:C{$rowTotGen}");
+        $ws->getStyle("B{$rowTotGen}")->getFont()->setBold(true);
+
+        $ws->setCellValue("D{$rowTotGen}", $totPrevGeneral);
+        $ws->setCellValue("E{$rowTotGen}", $totConsGeneral);
+        $ws->setCellValue(
+            "F{$rowTotGen}",
+            "=IF(D{$rowTotGen}=0,0,(E{$rowTotGen}-D{$rowTotGen})/D{$rowTotGen})"
+        );
+
+        $ws->getStyle("D{$rowTotGen}:E{$rowTotGen}")
+            ->getNumberFormat()->setFormatCode('#,##0.00');
+        $ws->getStyle("F{$rowTotGen}")
+            ->getNumberFormat()->setFormatCode(NumberFormat::FORMAT_PERCENTAGE_00);
+
+        $startRow++;
+/* ============================================================
+   MEZZI SOSTITUTIVI – MOSTRA SOLO SE LA CONVENZIONE È IN REGIME
+   ============================================================ */
+
+// 1) verifica regime di MEZZI SOSTITUTIVI per questa convenzione
+$regimeSost = RipartizioneCostiService::isRegimeMezziSostitutivi($idConvenzione);
+
+// 2) solo se la convenzione è in regime → procedi
+if ($regimeSost) {
+
+    // costi netti sostitutivi da DISTINCTA
+    $nettiSost = RipartizioneCostiService::costoNettoMezziSostitutiviFromDistinta(
+        $idAssociazione,
+        $anno
+    );
+
+    // 3) se non ci sono costi (tutti zero o array vuoto) → non stampare nulla
+    if (!empty($nettiSost)) {
+
+        $sommaNettiSost = array_sum($nettiSost);
+
+        /* ------------------------------------------------------------
+           SCOSTAMENTO CONSUNTIVO – CONVENZIONE
+           ------------------------------------------------------------ */
+        $rowScost = $startRow;
+
+        $ws->setCellValue("B{$rowScost}", "SCOSTAMENTO CONSUNTIVO - CONVENZIONE");
+        $ws->mergeCells("B{$rowScost}:C{$rowScost}");
+        $ws->getStyle("B{$rowScost}")->getFont()->setBold(true);
+
+        $ws->setCellValue("E{$rowScost}", $sommaNettiSost);
+        $ws->getStyle("E{$rowScost}")
+            ->getNumberFormat()->setFormatCode('#,##0.00');
+
+        $startRow++;
+
+        /* ------------------------------------------------------------
+           TOTALE GENERALE AL NETTO DEI MEZZI SOSTITUTIVI
+           ------------------------------------------------------------ */
+        $rowNetto = $startRow;
+
+        $ws->setCellValue("B{$rowNetto}", "TOTALE GENERALE AL NETTO DEI MEZZI SOSTITUTIVI");
+        $ws->mergeCells("B{$rowNetto}:C{$rowNetto}");
+        $ws->getStyle("B{$rowNetto}")->getFont()->setBold(true);
+
+        $ws->setCellValue(
+            "E{$rowNetto}",
+            "=E{$rowTotGen} - E{$rowScost}"
+        );
+
+        $ws->getStyle("E{$rowNetto}")
+            ->getNumberFormat()->setFormatCode('#,##0.00');
+
+        $startRow++;
     }
+}
 
 
 
-
+ 
+    }
 
 
     /** Converte '12,34%' | '12.34%' | '12.34' in 0.1234 */
