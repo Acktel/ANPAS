@@ -82,7 +82,7 @@
                         <td>{{ $a->idAziendaSanitaria }}</td>
                         <td>{{ $a->Nome }}</td>
                         <td>
-                            {{ trim($a->indirizzo_via . ' ' . $a->indirizzo_civico) ?: $a->indirizzo }}
+                        {{ trim(($a->indirizzo_via ?? '') . ' ' . ($a->indirizzo_civico ?? '')) ?: ($a->Indirizzo ?? '—') }}
                         </td>
                         <td>{{ $a->provincia }}</td>
                         <td>{{ $a->citta }}</td>
