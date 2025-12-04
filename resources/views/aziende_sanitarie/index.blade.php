@@ -81,7 +81,9 @@
                     <tr>
                         <td>{{ $a->idAziendaSanitaria }}</td>
                         <td>{{ $a->Nome }}</td>
-                        <td>{{ $a->Indirizzo }}</td>
+                        <td>
+                            {{ trim($a->indirizzo_via . ' ' . $a->indirizzo_civico) ?: $a->Indirizzo }}
+                        </td>
                         <td>{{ $a->provincia }}</td>
                         <td>{{ $a->citta }}</td>
                         <td>{{ $a->cap ?? '' }}</td>
@@ -190,7 +192,13 @@
     config.columns = [
         { data: 'idAziendaSanitaria' },
         { data: 'Nome' },
-        { data: 'Indirizzo' },
+        {
+            data: null,
+            render: row => {
+                const indirizzo = `${row.indirizzo_via ?? ''} ${row.indirizzo_civico ?? ''}`.trim();
+                return indirizzo || (row.Indirizzo ?? '—');
+            }
+        },
         { data: 'provincia' },
         { data: 'citta' },
         { data: 'cap' },

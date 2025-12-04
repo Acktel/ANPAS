@@ -29,22 +29,19 @@ class AziendeSanitarieController extends Controller {
         $user = Auth::user();
         $isElevato = $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor']);
 
-        /* ============================================================
-       UTENTE ELEVATO → vede sempre tutto, nessun filtro
-       ============================================================ */
+        // =====================================================================================
+        // RUOLI ELEVATI → VEDONO TUTTO, SENZA SELECT, SENZA FILTRI
+        // =====================================================================================
         if ($isElevato) {
 
-            // niente select associazioni né convenzioni
-            $associazioni  = collect();
+            $associazioni = collect();
             $selectedAssoc = null;
 
-            $convenzioni   = collect();
-            $selectedConv  = 0;
+            $convenzioni = collect();
+            $selectedConv = 0;
 
-            // tutte le aziende dell’anno
             $aziende = AziendaSanitaria::getAllSenzaFiltri($anno);
 
-            // per la view: niente AJAX
             $useAjax = false;
 
             return view('aziende_sanitarie.index', compact(
@@ -59,14 +56,12 @@ class AziendeSanitarieController extends Controller {
             ));
         }
 
-        /* ============================================================
-       UTENTE NON ELEVATO → filtra per la sua associazione
-       ============================================================ */
-
-        $associazioni = collect();     // NON serve select associazioni
+        // =====================================================================================
+        // UTENTI NORMALI → FILTRI PER ASSOCIAZIONE E CONVENZIONE
+        // =====================================================================================
+        $associazioni = collect();
         $selectedAssoc = (int) $user->IdAssociazione;
 
-        // convenzioni della sua associazione in quell’anno
         $convenzioni = DB::table('convenzioni')
             ->select('idConvenzione', 'Convenzione')
             ->where('idAssociazione', $selectedAssoc)
@@ -74,35 +69,17 @@ class AziendeSanitarieController extends Controller {
             ->orderBy('ordinamento')
             ->get();
 
-        // Caso 1: NON CI SONO CONVENZIONI PER L’ANNO → tabella vuota, niente AJAX
         if ($convenzioni->isEmpty()) {
-
             $selectedConv = null;
             $aziende = [];
-            $useAjax = false;   // <-- fondamentale
+        } else {
+            $selectedConv = session('convenzione_selezionata') ?? (int) $convenzioni->first()->idConvenzione;
+            session(['convenzione_selezionata' => $selectedConv]);
 
-            return view('aziende_sanitarie.index', compact(
-                'anno',
-                'isElevato',
-                'associazioni',
-                'selectedAssoc',
-                'convenzioni',
-                'selectedConv',
-                'aziende',
-                'useAjax'
-            ));
+            $aziende = AziendaSanitaria::getAllWithConvenzioni($selectedConv);
         }
 
-        // Caso 2: CI SONO CONVENZIONI → uso AJAX per filtrare la tabella
-        $selectedConv = session('convenzione_selezionata')
-            ?? (int) $convenzioni->first()->idConvenzione;
-
-        session(['convenzione_selezionata' => $selectedConv]);
-
-        // caricamento iniziale (non usato in tabella ma usato nella view)
-        $aziende = AziendaSanitaria::getAllWithConvenzioni($selectedConv);
-
-        $useAjax = true;   // <-- userai AJAX in DataTable
+        $useAjax = true;
 
         return view('aziende_sanitarie.index', compact(
             'anno',
@@ -164,15 +141,19 @@ class AziendeSanitarieController extends Controller {
         $cities = Cities::getAll();
         $caps   = Cities::getAllWithCap(); // cap, denominazione_ita, sigla_provincia, ...
 
+        $useAjax = true; // serve per JS lato frontend (select dinamiche ecc)
+
         return view('aziende_sanitarie.create', compact(
             'anni',
             'associazioni',
             'convenzioni',
             'lotti',
             'cities',
-            'caps'
+            'caps',
+            'useAjax'
         ));
     }
+
 
     public function store(Request $request) {
         $anno = (int) session('anno_riferimento', now()->year);
@@ -184,7 +165,8 @@ class AziendeSanitarieController extends Controller {
         // -------------------------------
         $rules = [
             'Nome'            => 'required|string|max:150',
-            'Indirizzo'       => 'nullable|string|max:255',
+            'indirizzo_via'    => 'nullable|string|max:255',
+            'indirizzo_civico' => 'nullable|string|max:20',
             'provincia'       => 'nullable|string|exists:ter_cities,sigla_provincia',
             'citta'           => 'nullable|string|max:100',
             'cap'             => ['nullable', 'string', 'size:5'],
@@ -356,9 +338,6 @@ class AziendeSanitarieController extends Controller {
         });
     }
 
-
-
-
     public function edit(int $id) {
         $user = Auth::user();
         $isElevato = $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor']);
@@ -468,7 +447,8 @@ class AziendeSanitarieController extends Controller {
         // -----------------
         $rules = [
             'Nome'            => 'required|string|max:150',
-            'Indirizzo'       => 'nullable|string|max:255',
+            'indirizzo_via'    => 'nullable|string|max:255',
+            'indirizzo_civico' => 'nullable|string|max:20',
             'provincia'       => 'nullable|string|exists:ter_cities,sigla_provincia',
             'citta'           => 'nullable|string|max:100',
             'cap'             => ['nullable', 'string', 'size:5'],
@@ -731,9 +711,6 @@ class AziendeSanitarieController extends Controller {
                 ->with('success', 'Azienda aggiornata correttamente.');
         });
     }
-
-
-
 
     public function destroy(int $id) {
         AziendaSanitaria::deleteSanitaria($id);

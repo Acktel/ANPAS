@@ -94,10 +94,29 @@
               </div>
             </div>
 
-            <div class="mb-3">
-              <label for="Indirizzo" class="form-label">Indirizzo</label>
-              <input type="text" name="Indirizzo" id="Indirizzo" class="form-control" value="{{ old('Indirizzo') }}">
+            {{-- VIA --}}
+            <div class="row">
+                <div class="col-md-8 mb-3">
+                    <label class="form-label">Indirizzo</label>
+                    <input type="text"
+                          name="indirizzo_via"
+                          class="form-control"
+                          value="{{ old('indirizzo_via', old('Indirizzo')) }}">
+                </div>
+
+                {{-- CIVICO --}}
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">Civico</label>
+                    <input type="text"
+                          name="indirizzo_civico"
+                          class="form-control"
+                          value="{{ old('indirizzo_civico') }}">
+                </div>
             </div>
+
+            {{-- Mantieni il vecchio campo nascosto per retrocompatibilità --}}
+            <input type="hidden" name="Indirizzo" value="{{ old('Indirizzo') }}">
+
 
             <div class="mb-3">
               <label for="mail" class="form-label">Email</label>

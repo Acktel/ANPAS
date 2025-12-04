@@ -890,6 +890,12 @@ td.col-actions .badge {
   text-overflow: ellipsis;
   display: block;
 }
+
+#aziendeSanitarieTable td,
+#aziendeSanitarieTable th {
+    text-transform: uppercase;
+}
+
 /*!
  * Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com
  * License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License)

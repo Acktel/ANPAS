@@ -822,3 +822,8 @@ td.col-actions .badge {
   text-overflow: ellipsis;
   display: block;
 }
+
+#aziendeSanitarieTable td,
+#aziendeSanitarieTable th {
+    text-transform: uppercase;
+}

@@ -89,10 +89,32 @@
                             </div>
                         </div>
 
-                        <div class="mb-3">
-                            <label class="form-label">Indirizzo</label>
-                            <input type="text" name="Indirizzo" class="form-control" value="{{ old('Indirizzo', $azienda->Indirizzo) }}">
+                        {{-- VIA (precaricato col vecchio Indirizzo) --}}
+                        <div class="row">
+                            <div class="col-md-8 mb-3">
+                                <label class="form-label">Indirizzo</label>
+                                <input type="text"
+                                    name="indirizzo_via"
+                                    class="form-control"
+                                    value="{{ old('indirizzo_via',
+                                                $azienda->indirizzo_via
+                                                ?: $azienda->Indirizzo  // <-- carica il vecchio campo
+                                    ) }}">
+                            </div>
+
+                            {{-- CIVICO --}}
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">Civico</label>
+                                <input type="text"
+                                    name="indirizzo_civico"
+                                    class="form-control"
+                                    value="{{ old('indirizzo_civico', $azienda->indirizzo_civico ?? '') }}">
+                            </div>
                         </div>
+
+                        {{-- Mantieni il vecchio campo nascosto per retrocompatibilità --}}
+                        <input type="hidden" name="Indirizzo" value="{{ $azienda->Indirizzo }}">
+
 
                         <div class="mb-3">
                             <label class="form-label">Email</label>
@@ -396,8 +418,7 @@
                 const lottoId = tr.querySelector('input[name^="lotti"][name$="[id]"]').value;
 
                 const preselected = lottoId && convAssocByLotto[lottoId] ?
-                    convAssocByLotto[lottoId].map(Number) :
-                    [];
+                    convAssocByLotto[lottoId].map(Number) : [];
 
                 // costruzione griglia checkbox
                 let checkboxes = '<div class="row">';
