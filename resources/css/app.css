@@ -908,9 +908,5 @@ div.dataTables_wrapper .dataTables_length {
 }
 
 table.dataTable {
-    width: 100%;
-    margin: 0 auto;
-    clear: both;
-    border-collapse: collapse;
-    border-spacing: 0;
+    border-collapse: collapse!important;
 }
