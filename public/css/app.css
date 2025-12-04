@@ -896,6 +896,16 @@ td.col-actions .badge {
     text-transform: uppercase;
 }
 
+/* FIX BARRA DI RICERCA DATATABLES */
+div.dataTables_wrapper .top {
+    display: block !important;
+}
+
+div.dataTables_wrapper .dataTables_filter {
+    float: right !important;
+    text-align: right !important;
+    margin-bottom: 10px;
+}
 /*!
  * Font Awesome Free 6.7.2 by @fontawesome - https://fontawesome.com
  * License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License)

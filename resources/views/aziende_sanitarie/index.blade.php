@@ -32,7 +32,7 @@
             @endcan
         </div>
     </div>
-
+    
     {{-- SELECT CONVENZIONE (solo utenti non elevati + AJAX attivo) --}}
     @if(!$isElevato && $useAjax && $convenzioni->isNotEmpty())
     <div class="row mb-3">
@@ -137,126 +137,103 @@
 @push('scripts')
 <script>
     document.addEventListener('DOMContentLoaded', function () {
+        const csrf            = document.querySelector('meta[name="csrf-token"]').content;
+        const useAjax         = @json($useAjax);
+        const isElevato       = @json($isElevato);
+        const hasConvenzioni  = @json($convenzioni->isNotEmpty());
+        const convSelect      = document.getElementById('convSelect');
 
-    const csrf            = document.querySelector('meta[name="csrf-token"]').content;
-    const useAjax         = @json($useAjax);
-    const isElevato       = @json($isElevato);
-    const hasConvenzioni  = @json($convenzioni->isNotEmpty());
-    const convSelect      = document.getElementById('convSelect');
+        // DEBUG
+        console.log("DEBUG:", { useAjax, isElevato, hasConvenzioni });
 
-    console.log("DEBUG:", { useAjax, isElevato, hasConvenzioni });
-
-    // ============================================================
-    // 1) Se NON uso AJAX → NON distruggo e NON reinizializzo nulla
-    //    → Lascia i dati server-side e basta.
-    // ============================================================
-    if (!useAjax) {
-        console.log("NO AJAX → lascio la tabella com'è");
-        return;
-    }
-
-    // ============================================================
-    // 2) Se uso AJAX ma NON ci sono convenzioni → NON inizializzo DT
-    // ============================================================
-    if (useAjax && !hasConvenzioni) {
-        console.warn("AJAX ma niente convenzioni → tabella mostrata statica");
-        return;
-    }
-
-    // ============================================================
-    // 3) Distruggo eventuali DataTables SOLO se AJAX + conv presenti
-    // ============================================================
-    if ($.fn.DataTable.isDataTable('#aziendeSanitarieTable')) {
-        console.log("Distruggo DT per ricrearla con AJAX...");
-        $('#aziendeSanitarieTable').DataTable().clear().destroy();
-    }
-
-    // ============================================================
-    // 4) Config
-    // ============================================================
-    const config = {
-        stateSave: false,
-        order: [[0, 'asc']],
-        language: { url: '/js/i18n/Italian.json' },
-        stripeClasses: ['table-white', 'table-striped-anpas'],
-        searching: true,
-    };
-
-    // ============================================================
-    // 5) Config AJAX
-    // ============================================================
-    config.ajax = {
-        url: '{{ route("aziende-sanitarie.data") }}',
-        data: d => { d.idConvenzione = convSelect.value; }
-    };
-
-    config.columns = [
-        { data: 'idAziendaSanitaria' },
-        { data: 'Nome' },
-        {
-            data: null,
-            render: row => {
-                const indirizzo = `${row.indirizzo_via ?? ''} ${row.indirizzo_civico ?? ''}`.trim();
-                return indirizzo || (row.Indirizzo ?? '—');
-            }
-        },
-        { data: 'provincia' },
-        { data: 'citta' },
-        { data: 'cap' },
-        { data: 'mail' },
-        {
-            data: 'Lotti',
-            render: d => Array.isArray(d) && d.length
-                ? d.join(', ')
-                : '<span class="text-muted">—</span>'
-        },
-        {
-            data: 'idAziendaSanitaria',
-            orderable: false,
-            searchable: false,
-            className: 'text-center',
-            render: id => `
-                <a href="/aziende-sanitarie/${id}/edit"
-                    class="btn btn-sm btn-anpas-edit me-1 btn-icon">
-                    <i class="fas fa-edit"></i>
-                </a>
-
-                <form action="/aziende-sanitarie/${id}" method="POST"
-                        class="d-inline"
-                        onsubmit="return confirm('Eliminare questa azienda sanitaria?')">
-                    @csrf @method('DELETE')
-                    <button class="btn btn-sm btn-anpas-delete btn-icon">
-                        <i class="fas fa-trash-alt"></i>
-                    </button>
-                </form>
-            `
+        if (!useAjax) {
+            console.log("NO AJAX → lascio la tabella com'è");
+            return;
         }
-    ];
 
-    // ============================================================
-    // 6) Inizializzo DT una sola volta
-    // ============================================================
-    console.log("Inizializzo DataTable AJAX");
-    const table = $('#aziendeSanitarieTable').DataTable(config);
+        if (useAjax && !hasConvenzioni) {
+            console.warn("AJAX ma niente convenzioni → tabella statica");
+            return;
+        }
 
-    // ============================================================
-    // 7) Cambio convenzione → reload
-    // ============================================================
-    if (!isElevato) {
-        convSelect.addEventListener('change', function () {
-            fetch('{{ route("aziende-sanitarie.sessione.setConvenzione") }}', {
-                method: 'POST',
-                headers: {
-                    "X-CSRF-TOKEN": csrf,
-                    "Content-Type": "application/json",
+        if ($.fn.DataTable.isDataTable('#aziendeSanitarieTable')) {
+            $('#aziendeSanitarieTable').DataTable().clear().destroy();
+        }
+
+        const config = {
+            stateSave: false,
+            order: [[0, 'asc']],
+            language: { url: '/js/i18n/Italian.json' },
+            stripeClasses: ['table-white', 'table-striped-anpas'],
+             searching:true,
+            ordering: true,
+
+            // 🔍 Mostra barra di ricerca in alto, paginatore in basso
+            dom: '<"top"f>rt<"bottom"lip><"clear">',
+
+            ajax: {
+                url: '{{ route("aziende-sanitarie.data") }}',
+                data: d => { d.idConvenzione = convSelect.value; }
+            },
+
+            columns: [
+                { data: 'idAziendaSanitaria' },
+                { data: 'Nome' },
+                {
+                    data: null,
+                    render: row => {
+                        const indirizzo = `${row.indirizzo_via ?? ''} ${row.indirizzo_civico ?? ''}`.trim();
+                        return indirizzo || (row.Indirizzo ?? '—');
+                    }
                 },
-                body: JSON.stringify({ idConvenzione: this.value })
-            }).finally(() => table.ajax.reload());
-        });
-    }
+                { data: 'provincia' },
+                { data: 'citta' },
+                { data: 'cap' },
+                { data: 'mail' },
+                {
+                    data: 'Lotti',
+                    render: d => Array.isArray(d) && d.length
+                        ? d.join(', ')
+                        : '<span class="text-muted">—</span>'
+                },
+                {
+                    data: 'idAziendaSanitaria',
+                    orderable: false,
+                    searchable: false,
+                    className: 'text-center',
+                    render: id => `
+                        <a href="/aziende-sanitarie/${id}/edit"
+                            class="btn btn-sm btn-anpas-edit me-1 btn-icon">
+                            <i class="fas fa-edit"></i>
+                        </a>
 
-});
+                        <form action="/aziende-sanitarie/${id}" method="POST"
+                              class="d-inline"
+                              onsubmit="return confirm('Eliminare questa azienda sanitaria?')">
+                            @csrf @method('DELETE')
+                            <button class="btn btn-sm btn-anpas-delete btn-icon">
+                                <i class="fas fa-trash-alt"></i>
+                            </button>
+                        </form>
+                    `
+                }
+            ]
+        };
 
+        const table = $('#aziendeSanitarieTable').DataTable(config);
 
+        if (!isElevato) {
+            convSelect.addEventListener('change', function () {
+                fetch('{{ route("aziende-sanitarie.sessione.setConvenzione") }}', {
+                    method: 'POST',
+                    headers: {
+                        "X-CSRF-TOKEN": csrf,
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({ idConvenzione: this.value })
+                }).finally(() => table.ajax.reload());
+            });
+        }
+    });
 </script>
 @endpush

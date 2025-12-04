@@ -124,169 +124,118 @@ if (Route::is('dipendenti.byQualifica') && isset($qualificaId)) {
 @endsection
 
 @push('scripts')
-<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.4/moment.min.js"></script>
 <script>
-  document.addEventListener('DOMContentLoaded', async function() {
-    const csrfToken = document.head.querySelector('meta[name="csrf-token"]').content;
-    const canEdit = @json($hasEditRoles);
-    const impersonatorName = @json($impersonatorName);
-    const ajaxUrl = @json($ajaxUrl);
+  // File JS da includere con @vite o @push('scripts')
+document.addEventListener('DOMContentLoaded', async function () {
+  const csrfToken = document.head.querySelector('meta[name="csrf-token"]').content;
+  const useAjax = @json($useAjax);
+  const isElevato = @json($isElevato);
+  const hasConvenzioni = @json($convenzioni->isNotEmpty());
+  const idConv = document.getElementById('convSelect')?.value ?? 0;
 
-    const dupRes = await fetch(@json(route('dipendenti.checkDuplicazione')));
-    const dupData = await dupRes.json();
+  if (!useAjax || !hasConvenzioni) {
+    console.log('[DT] Ajax disabilitato o nessuna convenzione: tabella statica.');
+    return;
+  }
 
-    $('#dipendentiTable').DataTable({
-      processing: true,
-      serverSide: false,
-      stateDuration: -1,
-      stateSave: true,  
-      ajax: {
-        url: ajaxUrl,
-        dataSrc(json) {
-          const data = Array.isArray(json.data) ? json.data : Object.values(json.data || {});
-          if (data.length === 0 && dupData.mostraMessaggio) {
-            document.getElementById('noDataMessage').classList.remove('d-none');
-          }
-          return data;
-        }
-      },
-      columns: [
-        { data: 'idAnno' },
-        { data: 'DipendenteNome' },
-        { data: 'DipendenteCognome' },
-        { data: 'Qualifica', defaultContent: '' },
-        { data: 'LivelloMansione', defaultContent: '' },
-        {
-          data: null,
-          render: function(data, type, row) {
-            const nome = impersonatorName || row.updated_by_name || row.created_by_name || '—';
-            const dataMod = row.updated_at || row.created_at;
-            const when = dataMod ? moment(dataMod).format('DD/MM/YYYY HH:mm') : '—';
-            return `<div>${nome}<br><small>${when}</small></div>`;
-          }
-        },
-        {
-          data: 'idDipendente',
-          orderable: false,
-          searchable: false,
-          render(id) {
-            let html = `
-              <a href="/dipendenti/${id}" class="btn btn-sm btn-anpas-green me-1" title="Visualizza">
-                <i class="fas fa-info-circle"></i>
-              </a>`;
-            if (canEdit) {
-              html += `
-                <a href="/dipendenti/${id}/edit" class="btn btn-sm btn-anpas-edit me-1" title="Modifica">
-                  <i class="fas fa-edit"></i>
-                </a>
-                <form action="/dipendenti/${id}" method="POST" class="d-inline-block" onsubmit="return confirm('Sei sicuro di voler eliminare questo dipendente?')">
-                  <input type="hidden" name="_token" value="${csrfToken}">
-                  <input type="hidden" name="_method" value="DELETE">
-                  <button type="submit" class="btn btn-sm btn-anpas-delete" title="Elimina">
-                    <i class="fas fa-trash-alt"></i>
-                  </button>
-                </form>`;
-            }
-            return html;
-          }
-        }
-      ],
-      language: {
-        url: '/js/i18n/Italian.json',
-        paginate: {
-          first:    '<i class="fas fa-angle-double-left"></i>',
-          previous: '<i class="fas fa-angle-left"></i>',
-          next:     '<i class="fas fa-angle-right"></i>',
-          last:     '<i class="fas fa-angle-double-right"></i>'
-        }
-      },
-      rowCallback: function(row, data, index) {
-        $(row).removeClass('even odd').addClass(index % 2 === 0 ? 'even' : 'odd');
-      },
-      stripeClasses: ['table-white', 'table-striped-anpas'],
-    });
+  const tableId = '#aziendeSanitarieTable';
+  const noDataMessage = document.getElementById('noDataMessage');
 
-    // Duplica dall'anno precedente
-    document.getElementById('btn-duplica-si')?.addEventListener('click', async function() {
-      const btn = this;
-      btn.disabled = true;
-      btn.innerText = 'Duplicazione in corso…';
-      try {
-        const res = await fetch(@json(route('dipendenti.duplica')), {
-          method: 'POST',
-          headers: { 'X-CSRF-TOKEN': csrfToken, 'Accept': 'application/json' }
-        });
-        if (!res.ok) throw await res.json();
-        $('#dipendentiTable').DataTable().ajax.reload();
-        document.getElementById('noDataMessage').classList.add('d-none');
-      } catch (err) {
-        alert(err.message || 'Errore durante la duplicazione.');
-      } finally {
-        btn.disabled = false;
-        btn.innerText = 'Sì';
+  const table = $(tableId).DataTable({
+    processing: true,
+    serverSide: false,
+    ajax: {
+      url: @json(route('aziende-sanitarie.data')),
+      data: d => { d.idConvenzione = idConv; },
+      dataSrc: json => {
+        if (json.data?.length === 0 && noDataMessage) noDataMessage.classList.remove('d-none');
+        return json.data || [];
       }
-    });
-
-    document.getElementById('btn-duplica-no')?.addEventListener('click', () => {
-      document.getElementById('noDataMessage').classList.add('d-none');
-    });
+    },
+    stateSave: true,
+    stateDuration: -1,
+    order: [[0, 'asc']],
+    language: { url: '/js/i18n/Italian.json' },
+    stripeClasses: ['table-white', 'table-striped-anpas'],
+    search: true,
+    columns: [
+      { data: 'idAziendaSanitaria' },
+      { data: 'Nome' },
+      {
+        data: null,
+        render: row => {
+          const via = row.indirizzo_via ?? '';
+          const civico = row.indirizzo_civico ?? '';
+          const fallback = row.Indirizzo ?? '—';
+          return `${via} ${civico}`.trim() || fallback;
+        }
+      },
+      { data: 'provincia' },
+      { data: 'citta' },
+      { data: 'cap' },
+      { data: 'mail' },
+      {
+        data: 'Lotti',
+        render: d => Array.isArray(d) && d.length ? d.join(', ') : '<span class="text-muted">—</span>'
+      },
+      {
+        data: 'idAziendaSanitaria',
+        orderable: false,
+        searchable: false,
+        className: 'text-center',
+        render: id => `
+          <a href="/aziende-sanitarie/${id}/edit" class="btn btn-sm btn-anpas-edit me-1 btn-icon">
+            <i class="fas fa-edit"></i>
+          </a>
+          <form action="/aziende-sanitarie/${id}" method="POST" class="d-inline" onsubmit="return confirm('Eliminare questa azienda sanitaria?')">
+            <input type="hidden" name="_token" value="${csrfToken}">
+            <input type="hidden" name="_method" value="DELETE">
+            <button class="btn btn-sm btn-anpas-delete btn-icon">
+              <i class="fas fa-trash-alt"></i>
+            </button>
+          </form>`
+      }
+    ]
   });
-</script>
 
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-  const input = document.getElementById('assocInput');
-  const dropdown = document.getElementById('assocDropdown');
-  const hidden = document.getElementById('assocHidden');
-  const form = document.getElementById('assocForm');
-  const btn = document.getElementById('assocDropdownBtn');
-  const items = dropdown.querySelectorAll('.assoc-item');
-
-  btn.addEventListener('click', function () {
-    dropdown.style.display = (dropdown.style.display === 'block') ? 'none' : 'block';
-  });
-
-  input.addEventListener('input', function () {
-    const filter = input.value.toLowerCase();
-    let visible = false;
-    items.forEach(item => {
-      if (item.textContent.toLowerCase().includes(filter)) { item.style.display = ''; visible = true; }
-      else { item.style.display = 'none'; }
+  // Cambio convenzione
+  if (!isElevato) {
+    document.getElementById('convSelect')?.addEventListener('change', function () {
+      fetch(@json(route('aziende-sanitarie.sessione.setConvenzione')), {
+        method: 'POST',
+        headers: {
+          'X-CSRF-TOKEN': csrfToken,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ idConvenzione: this.value })
+      }).finally(() => table.ajax.reload());
     });
-    dropdown.style.display = visible ? 'block' : 'none';
+  }
+
+  // Duplica dati se visibile
+  document.getElementById('btn-duplica-si')?.addEventListener('click', async function () {
+    const btn = this;
+    btn.disabled = true;
+    btn.innerText = 'Duplicazione in corso…';
+    try {
+      const res = await fetch(@json(route('aziende-sanitarie.duplica')), {
+        method: 'POST',
+        headers: { 'X-CSRF-TOKEN': csrfToken, 'Accept': 'application/json' }
+      });
+      if (!res.ok) throw await res.json();
+      table.ajax.reload();
+      noDataMessage.classList.add('d-none');
+    } catch (err) {
+      alert(err.message || 'Errore durante la duplicazione.');
+    } finally {
+      btn.disabled = false;
+      btn.innerText = 'Sì';
+    }
   });
 
-  items.forEach(item => {
-    item.addEventListener('click', function () {
-      input.value = this.textContent.trim();
-      hidden.value = this.dataset.id;
-      dropdown.style.display = 'none';
-      form.submit();
-    });
-  });
-
-  document.addEventListener('click', function (e) {
-    if (!form.contains(e.target)) dropdown.style.display = 'none';
+  document.getElementById('btn-duplica-no')?.addEventListener('click', () => {
+    noDataMessage.classList.add('d-none');
   });
 });
-</script>
-
-<script>
-(function () {
-  const flash = document.getElementById('flash-message') || document.querySelector('.alert.alert-success');
-  if (!flash) return;
-  setTimeout(() => {
-    flash.style.transition = 'opacity 0.5s ease, max-height 0.5s ease, padding 0.4s ease, margin 0.4s ease';
-    flash.style.opacity = '0';
-    flash.style.maxHeight = flash.scrollHeight + 'px';
-    flash.offsetHeight;
-    flash.style.maxHeight = '0';
-    flash.style.paddingTop = '0';
-    flash.style.paddingBottom = '0';
-    flash.style.marginTop = '0';
-    flash.style.marginBottom = '0';
-    setTimeout(() => { if (flash.parentNode) flash.parentNode.removeChild(flash); }, 600);
-  }, 3500);
-})();
 </script>
 @endpush
