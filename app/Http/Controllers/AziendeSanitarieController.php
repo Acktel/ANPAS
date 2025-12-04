@@ -45,7 +45,7 @@ class AziendeSanitarieController extends Controller {
             $useAjax = false;
             $showDuplica = false; // gli elevati non usano duplicazione da convenzione
             $canDelete = $user->can('manage-all-associations');
-        
+
             return view('aziende_sanitarie.index', compact(
                 'anno',
                 'isElevato',
@@ -92,7 +92,7 @@ class AziendeSanitarieController extends Controller {
         // =====================================================================================
         $showDuplica = empty($aziende) && AziendaSanitaria::existsForAnno($anno - 1);
         $canDelete = $user->can('manage-own-associations');
-        
+
         return view('aziende_sanitarie.index', compact(
             'anno',
             'isElevato',
@@ -361,14 +361,28 @@ class AziendeSanitarieController extends Controller {
 
         abort_if(!$azienda, 404);
 
+        // === 1) Identifica azienda "ALTRO" =====================================
+        $isAltro = strtoupper(trim($azienda->Nome)) === 'ALTRO';
+
+        // === 2) Chi può eliminare? (solo Admin/SuperAdmin/Supervisor) ==========
+        $canDelete = $user->can('manage-all-associations');
+
+        // === 3) Chi può modificare? ============================================
+        // - Tutti se azienda = ALTRO
+        // - Altrimenti solo Admin/SuperAdmin/Supervisor
+        $canEdit = $isAltro || $user->can('manage-all-associations');
+
+        // === 4) Se NON può modificare → redirect a SHOW readonly ================
+        if (!$canEdit) {
+            return redirect()->route('aziende-sanitarie.show', $id);
+        }
+
+        // ========================================================================
+        //  LOGICA PERMESSI ESISTENTE (la mantengo identica)
+        // ========================================================================
         $idAnno = $this->idAnnoCorrente();
 
-        // ============================================================
-        //  UTENTE NON ELEVATO → può accedere SOLO se l’azienda
-        //  è legata ad ALMENO UNA convenzione della SUA associazione
-        // ============================================================
         if (!$isElevato) {
-
             $convUser = DB::table('convenzioni')
                 ->where('idAssociazione', $user->IdAssociazione)
                 ->where('idAnno', $idAnno)
@@ -386,17 +400,10 @@ class AziendeSanitarieController extends Controller {
                 abort(403, 'Non hai accesso a questa azienda sanitaria.');
             }
 
-            // ============================================================
-            //  QUI LA TUA RICHIESTA:
-            //  NIENTE SELECT → L’UTENTE VEDE SOLO LA SUA CONVENZIONE
-            // ============================================================
-
-            $convenzioni = collect();                     // niente dropdown
-            $convenzioniSelezionate = $match;             // SOLO le sue
+            // NIENTE select convenzioni per utenti non elevati
+            $convenzioni = collect();
+            $convenzioniSelezionate = $match;
         } else {
-            // ============================================================
-            //   SUPERADMIN, ADMIN, SUPERVISOR → vedono tutto
-            // ============================================================
             $convenzioni = DB::table('convenzioni')
                 ->select('idConvenzione', 'Convenzione')
                 ->where('idAnno', $idAnno)
@@ -412,14 +419,14 @@ class AziendeSanitarieController extends Controller {
         // Lotti
         $lotti = LottoAziendaSanitaria::getByAzienda($id);
 
-        // Associazioni (visibili solo ai ruoli elevati, ma non rompono nulla)
+        // Associazioni
         $associazioni = DB::table('associazioni')
             ->select('idAssociazione', 'Associazione')
             ->whereNull('deleted_at')
             ->orderBy('Associazione')
             ->get();
 
-        // Preselezioni tab-3 solo elevati
+        // Preselezioni tab convenzioni
         $convAssocByLotto = [];
         if ($isElevato) {
             foreach ($lotti as $lotto) {
@@ -429,6 +436,7 @@ class AziendeSanitarieController extends Controller {
                     ->where('idAnno', $idAnno)
                     ->pluck('idAssociazione')
                     ->toArray();
+
                 $convAssocByLotto[$lotto->id] = $assocIds;
             }
         }
@@ -436,6 +444,7 @@ class AziendeSanitarieController extends Controller {
         $cities = Cities::getAll();
         $caps   = Cities::getAllWithCap();
 
+        // === 5) Passo anche $canEdit e $canDelete alla VIEW =====================
         return view('aziende_sanitarie.edit', compact(
             'azienda',
             'convenzioni',
@@ -445,9 +454,13 @@ class AziendeSanitarieController extends Controller {
             'convAssocByLotto',
             'cities',
             'caps',
-            'isElevato'
+            'isElevato',
+            'canEdit',
+            'canDelete',
+            'isAltro'
         ));
     }
+
 
     public function update(Request $request, int $id) {
         $user = Auth::user();
@@ -844,5 +857,42 @@ class AziendeSanitarieController extends Controller {
         } catch (\Throwable $e) {
             return response()->json(['message' => 'Errore durante la duplicazione.', 'error' => $e->getMessage()], 500);
         }
+    }
+
+    public function show(int $id) {
+        $user = Auth::user();
+        $isElevato = $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor']);
+
+        // === Recupero azienda ===
+        $azienda = DB::table('aziende_sanitarie')
+            ->where('idAziendaSanitaria', $id)
+            ->first();
+
+        abort_if(!$azienda, 404);
+
+        $idAnno = $this->idAnnoCorrente();
+
+        // === LOTTI ===
+        $lotti = LottoAziendaSanitaria::getByAzienda($id);
+
+        // === CONVENZIONI (solo elevati) ===
+        $convenzioni = [];
+        if ($isElevato) {
+            $convenzioni = DB::table('convenzioni AS c')
+                ->join('azienda_sanitaria_convenzione AS asc', 'asc.idConvenzione', '=', 'c.idConvenzione')
+                ->leftJoin('associazioni AS a', 'a.idAssociazione', '=', 'c.idAssociazione')
+                ->where('asc.idAziendaSanitaria', $id)
+                ->where('c.idAnno', $idAnno)
+                ->select('c.Convenzione', 'a.Associazione')
+                ->orderBy('c.Convenzione')
+                ->get();
+        }
+
+        return view('aziende_sanitarie.show', [
+            'azienda'     => $azienda,
+            'lotti'       => $lotti,
+            'convenzioni' => $convenzioni,
+            'isElevato'   => $isElevato,
+        ]);
     }
 }

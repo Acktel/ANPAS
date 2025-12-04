@@ -47,6 +47,8 @@ Route::prefix('aziende-sanitarie')
         Route::get('/create',        [AziendeSanitarieController::class, 'create'])->name('create');
         Route::post('/',             [AziendeSanitarieController::class, 'store'])->name('store');
 
+        Route::get('/{id}', [AziendeSanitarieController::class, 'show'])->name('show');
+        
         Route::get('/{id}/edit',     [AziendeSanitarieController::class, 'edit'])->name('edit');
         Route::patch('/{id}',        [AziendeSanitarieController::class, 'update'])->name('update');
         Route::delete('/{id}',       [AziendeSanitarieController::class, 'destroy'])->name('destroy');

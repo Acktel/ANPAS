@@ -101,24 +101,35 @@
                             @endif
                         </td>
                         <td class="text-center">
+                            {{-- SHOW → sempre visibile --}}
+                            <a href="{{ route('aziende-sanitarie.show', $a->idAziendaSanitaria) }}"
+                                class="btn btn-sm btn-anpas-view me-1 btn-icon"
+                                title="Mostra dettagli">
+                                <i class="fas fa-eye"></i>
+                            </a>
+
+                            {{-- EDIT → solo se può modificare --}}
+                            @can('manage-all-associations')
                             <a href="{{ route('aziende-sanitarie.edit', $a->idAziendaSanitaria) }}"
-                                class="btn btn-sm btn-anpas-edit me-1 btn-icon">
+                                class="btn btn-sm btn-anpas-edit me-1 btn-icon"
+                                title="Modifica">
                                 <i class="fas fa-edit"></i>
                             </a>
 
-                            {{-- Pulsante DELETE solo per chi può gestire tutte le associazioni --}}
-                            @can('manage-all-associations')
+                            {{-- DELETE → solo per utenti elevati --}}
                             <form action="{{ route('aziende-sanitarie.destroy', $a->idAziendaSanitaria) }}"
                                 method="POST" class="d-inline"
                                 onsubmit="return confirm('Eliminare questa azienda sanitaria?')">
                                 @csrf
                                 @method('DELETE')
-                                <button class="btn btn-sm btn-anpas-delete btn-icon">
+                                <button class="btn btn-sm btn-anpas-delete btn-icon" title="Elimina">
                                     <i class="fas fa-trash-alt"></i>
                                 </button>
                             </form>
                             @endcan
+
                         </td>
+
                     </tr>
                     @empty
                     {{-- SAFE: 9 celle, una per colonna → DataTables non esplode --}}
@@ -141,13 +152,14 @@
 @push('scripts')
 <script>
     document.addEventListener('DOMContentLoaded', function() {
+
         const csrf = document.querySelector('meta[name="csrf-token"]').content;
         const useAjax = @json($useAjax);
         const isElevato = @json($isElevato);
-        const hasConvenzioni = @json($convenzioni-> isNotEmpty());
+        const hasConvenzioni = @json($convenzioni->isNotEmpty());
         const convSelect = document.getElementById('convSelect');
         const canDelete = @json($canDelete);
-        // DEBUG
+
         console.log("DEBUG:", {
             useAjax,
             isElevato,
@@ -155,12 +167,12 @@
         });
 
         if (!useAjax) {
-            console.log("NO AJAX → lascio la tabella com'è");
+            console.log("NO AJAX → tabella server side");
             return;
         }
 
-        if (useAjax && !hasConvenzioni) {
-            console.warn("AJAX ma niente convenzioni → tabella statica");
+        if (!hasConvenzioni) {
+            console.warn("AJAX attivo ma nessuna convenzione → tabella statica");
             return;
         }
 
@@ -175,19 +187,17 @@
             ],
             language: {
                 url: '/js/i18n/Italian.json',
-                emptyTable: 'Nessuna convenzione.', // messaggio quando non ci sono righe
+                emptyTable: 'Nessuna convenzione.',
                 paginate: {
                     first: '<i class="fas fa-angle-double-left"></i>',
                     last: '<i class="fas fa-angle-double-right"></i>',
                     next: '<i class="fas fa-angle-right"></i>',
-                    previous: '<i class="fas fa-angle-left"></i>'
+                    previous: '<i class="fas fa-angle-left"></i>',
                 },
             },
             stripeClasses: ['table-white', 'table-striped-anpas'],
             searching: true,
             ordering: true,
-
-            // 🔍 Mostra barra di ricerca in alto, paginatore in basso
             dom: '<"top"f>rt<"bottom"lip><"clear">',
 
             ajax: {
@@ -228,10 +238,8 @@
                         if (!Array.isArray(d) || d.length === 0) {
                             return '<span class="text-muted">—</span>';
                         }
-
                         const full = d.join(', ');
                         const short = full.length > 100 ? full.substring(0, 100) + '…' : full;
-
                         return `<span class="ellipsis-cell" title="${full}">${short}</span>`;
                     }
                 },
@@ -240,26 +248,43 @@
                     orderable: false,
                     searchable: false,
                     className: 'text-center',
-                    render: id => {
-                        let html = `
-                <a href="/aziende-sanitarie/${id}/edit"
-                    class="btn btn-sm btn-anpas-edit me-1 btn-icon">
-                    <i class="fas fa-edit"></i>
-                </a>
-            `;
+                    render: function(id) {
 
-                        if (canDelete) {
-                            html += `
-                <form action="/aziende-sanitarie/${id}" method="POST"
-                      class="d-inline"
-                      onsubmit="return confirm('Eliminare questa azienda sanitaria?')">
-                    <input type="hidden" name="_token" value="${csrfToken}">
-                    <input type="hidden" name="_method" value="DELETE">
-                    <button class="btn btn-sm btn-anpas-delete btn-icon">
-                        <i class="fas fa-trash-alt"></i>
-                    </button>
-                </form>`;
+                        // 🔍 Show → Sempre visibile
+                        let html = `
+                        <a href="/aziende-sanitarie/${id}"
+                            class="btn btn-sm btn-anpas-view me-1 btn-icon"
+                            title="Mostra dettagli">
+                            <i class="fas fa-eye"></i>
+                        </a>
+                    `;
+
+                        // ❌ Se non può modificare/eliminare → finisce qui
+                        if (!canDelete) {
+                            return html;
                         }
+
+                        // ✏ Edit
+                        html += `
+                        <a href="/aziende-sanitarie/${id}/edit"
+                            class="btn btn-sm btn-anpas-edit me-1 btn-icon"
+                            title="Modifica">
+                            <i class="fas fa-edit"></i>
+                        </a>
+                    `;
+
+                        // 🗑 Delete
+                        html += `
+                        <form action="/aziende-sanitarie/${id}" method="POST"
+                            class="d-inline"
+                            onsubmit="return confirm('Eliminare questa azienda sanitaria?')">
+                            <input type="hidden" name="_token" value="${csrf}">
+                            <input type="hidden" name="_method" value="DELETE">
+                            <button class="btn btn-sm btn-anpas-delete btn-icon" title="Elimina">
+                                <i class="fas fa-trash-alt"></i>
+                            </button>
+                        </form>
+                    `;
 
                         return html;
                     }
@@ -269,6 +294,7 @@
 
         const table = $('#aziendeSanitarieTable').DataTable(config);
 
+        // Cambio convenzione per utenti NON elevati
         if (!isElevato) {
             convSelect.addEventListener('change', function() {
                 fetch('{{ route("aziende-sanitarie.sessione.setConvenzione") }}', {
@@ -283,6 +309,7 @@
                 }).finally(() => table.ajax.reload());
             });
         }
+
     });
 </script>
 @endpush
