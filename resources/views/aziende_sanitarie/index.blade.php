@@ -135,8 +135,6 @@
     </div>
 </div>
 @endsection
-
-
 @push('scripts')
 <script>
 document.addEventListener('DOMContentLoaded', function () {
@@ -144,14 +142,20 @@ document.addEventListener('DOMContentLoaded', function () {
     const csrf = document.querySelector('meta[name="csrf-token"]').content;
     const isElevato = {{ $isElevato ? 'true' : 'false' }};
     const convSelect = document.getElementById('convSelect');
-    $('#aziendeSanitarieTable tbody').empty();
-    // ============================================================
-    // DATATABLE
-    // Solo NON elevati usano AJAX filtrato
-    // ============================================================
+
+    // =======================================================================
+    // SVUOTA TBODY SOLO SE SERVE (utente NON elevato + nessuna convenzione)
+    // =======================================================================
+    @if(!$isElevato && $convenzioni->isEmpty())
+        $('#aziendeSanitarieTable tbody').empty();
+    @endif
+
+
+    // =======================================================================
+    // INIZIALIZZAZIONE DATATABLE
+    // =======================================================================
     const table = $('#aziendeSanitarieTable').DataTable({
         stateSave: false,
-        language: { url: '/js/i18n/Italian.json' },
         stripeClasses: ['table-white', 'table-striped-anpas'],
         language: {
             url: '/js/i18n/Italian.json',
@@ -163,6 +167,10 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         },
         order: [[0, 'asc']],
+
+        // ===================================================================
+        // AJAX SOLO PER UTENTI NON ELEVATI
+        // ===================================================================
         @if(!$isElevato)
         ajax: {
             url: '{{ route("aziende-sanitarie.data") }}',
@@ -172,6 +180,7 @@ document.addEventListener('DOMContentLoaded', function () {
         },
         processing: true,
         serverSide: false,
+
         columns: [
             { data: 'idAziendaSanitaria' },
             { data: 'Nome' },
@@ -192,9 +201,11 @@ document.addEventListener('DOMContentLoaded', function () {
                 searchable: false,
                 className: 'text-center',
                 render: id => `
-                    <a href="/aziende-sanitarie/${id}/edit" class="btn btn-sm btn-anpas-edit me-1 btn-icon">
-                        <i class="fas fa-edit"></i>
+                    <a href="/aziende-sanitarie/${id}/edit"
+                       class="btn btn-sm btn-anpas-edit me-1 btn-icon">
+                       <i class="fas fa-edit"></i>
                     </a>
+
                     <form action="/aziende-sanitarie/${id}" method="POST" class="d-inline"
                           onsubmit="return confirm('Eliminare questa azienda sanitaria?')">
                         @csrf @method('DELETE')
@@ -208,9 +219,10 @@ document.addEventListener('DOMContentLoaded', function () {
         @endif
     });
 
-    // ============================================================
-    // CAMBIO CONVENZIONE (solo non elevati)
-    // ============================================================
+
+    // =======================================================================
+    // CAMBIO CONVENZIONE (SOLO NON ELEVATI)
+    // =======================================================================
     if (!isElevato) {
         convSelect.addEventListener('change', function () {
 
