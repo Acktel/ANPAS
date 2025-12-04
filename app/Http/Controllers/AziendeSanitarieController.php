@@ -44,7 +44,8 @@ class AziendeSanitarieController extends Controller {
 
             $useAjax = false;
             $showDuplica = false; // gli elevati non usano duplicazione da convenzione
-
+            $canDelete = $user->can('manage-all-associations');
+        
             return view('aziende_sanitarie.index', compact(
                 'anno',
                 'isElevato',
@@ -54,7 +55,8 @@ class AziendeSanitarieController extends Controller {
                 'selectedConv',
                 'aziende',
                 'useAjax',
-                'showDuplica'
+                'showDuplica',
+                'canDelete'
             ));
         }
 
@@ -89,7 +91,8 @@ class AziendeSanitarieController extends Controller {
         // - esistono aziende nell’anno precedente
         // =====================================================================================
         $showDuplica = empty($aziende) && AziendaSanitaria::existsForAnno($anno - 1);
-
+        $canDelete = $user->can('manage-own-associations');
+        
         return view('aziende_sanitarie.index', compact(
             'anno',
             'isElevato',
@@ -99,10 +102,10 @@ class AziendeSanitarieController extends Controller {
             'selectedConv',
             'aziende',
             'useAjax',
-            'showDuplica'
+            'showDuplica',
+            'canDelete'
         ));
     }
-
 
     public function getData(Request $request): JsonResponse {
 

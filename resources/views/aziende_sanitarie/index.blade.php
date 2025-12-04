@@ -33,7 +33,7 @@
             @endcan
         </div>
     </div>
-    
+
     {{-- SELECT CONVENZIONE (solo utenti non elevati + AJAX attivo) --}}
     @if(!$isElevato && $useAjax && $convenzioni->isNotEmpty())
     <div class="row mb-3">
@@ -83,7 +83,7 @@
                         <td>{{ $a->idAziendaSanitaria }}</td>
                         <td>{{ $a->Nome }}</td>
                         <td>
-                        {{ trim(($a->indirizzo_via ?? '') . ' ' . ($a->indirizzo_civico ?? '')) ?: ($a->Indirizzo ?? '—') }}
+                            {{ trim(($a->indirizzo_via ?? '') . ' ' . ($a->indirizzo_civico ?? '')) ?: ($a->Indirizzo ?? '—') }}
                         </td>
                         <td>{{ $a->provincia }}</td>
                         <td>{{ $a->citta }}</td>
@@ -106,7 +106,7 @@
                                 <i class="fas fa-edit"></i>
                             </a>
 
-                        {{-- Pulsante DELETE solo per chi può gestire tutte le associazioni --}}
+                            {{-- Pulsante DELETE solo per chi può gestire tutte le associazioni --}}
                             @can('manage-all-associations')
                             <form action="{{ route('aziende-sanitarie.destroy', $a->idAziendaSanitaria) }}"
                                 method="POST" class="d-inline"
@@ -140,15 +140,19 @@
 @endsection
 @push('scripts')
 <script>
-    document.addEventListener('DOMContentLoaded', function () {
-        const csrf            = document.querySelector('meta[name="csrf-token"]').content;
-        const useAjax         = @json($useAjax);
-        const isElevato       = @json($isElevato);
-        const hasConvenzioni  = @json($convenzioni->isNotEmpty());
-        const convSelect      = document.getElementById('convSelect');
-
+    document.addEventListener('DOMContentLoaded', function() {
+        const csrf = document.querySelector('meta[name="csrf-token"]').content;
+        const useAjax = @json($useAjax);
+        const isElevato = @json($isElevato);
+        const hasConvenzioni = @json($convenzioni->isNotEmpty());
+        const convSelect = document.getElementById('convSelect');
+        const canDelete = @json($canDelete);
         // DEBUG
-        console.log("DEBUG:", { useAjax, isElevato, hasConvenzioni });
+        console.log("DEBUG:", {
+            useAjax,
+            isElevato,
+            hasConvenzioni
+        });
 
         if (!useAjax) {
             console.log("NO AJAX → lascio la tabella com'è");
@@ -166,8 +170,10 @@
 
         const config = {
             stateSave: false,
-            order: [[0, 'asc']],
-               language: {
+            order: [
+                [0, 'asc']
+            ],
+            language: {
                 url: '/js/i18n/Italian.json',
                 emptyTable: 'Nessuna convenzione.', // messaggio quando non ci sono righe
                 paginate: {
@@ -178,7 +184,7 @@
                 },
             },
             stripeClasses: ['table-white', 'table-striped-anpas'],
-             searching:true,
+            searching: true,
             ordering: true,
 
             // 🔍 Mostra barra di ricerca in alto, paginatore in basso
@@ -186,12 +192,17 @@
 
             ajax: {
                 url: '{{ route("aziende-sanitarie.data") }}',
-                data: d => { d.idConvenzione = convSelect.value; }
+                data: d => {
+                    d.idConvenzione = convSelect.value;
+                }
             },
 
-            columns: [
-                { data: 'idAziendaSanitaria' },
-                { data: 'Nome' },
+            columns: [{
+                    data: 'idAziendaSanitaria'
+                },
+                {
+                    data: 'Nome'
+                },
                 {
                     data: null,
                     render: row => {
@@ -199,10 +210,18 @@
                         return indirizzo || (row.Indirizzo ?? '—');
                     }
                 },
-                { data: 'provincia' },
-                { data: 'citta' },
-                { data: 'cap' },
-                { data: 'mail' },
+                {
+                    data: 'provincia'
+                },
+                {
+                    data: 'citta'
+                },
+                {
+                    data: 'cap'
+                },
+                {
+                    data: 'mail'
+                },
                 {
                     data: 'Lotti',
                     render: d => {
@@ -221,21 +240,29 @@
                     orderable: false,
                     searchable: false,
                     className: 'text-center',
-                    render: id => `
-                        <a href="/aziende-sanitarie/${id}/edit"
-                            class="btn btn-sm btn-anpas-edit me-1 btn-icon">
-                            <i class="fas fa-edit"></i>
-                        </a>
+                    render: id => {
+                        let html = `
+                <a href="/aziende-sanitarie/${id}/edit"
+                    class="btn btn-sm btn-anpas-edit me-1 btn-icon">
+                    <i class="fas fa-edit"></i>
+                </a>
+            `;
 
-                        <form action="/aziende-sanitarie/${id}" method="POST"
-                              class="d-inline"
-                              onsubmit="return confirm('Eliminare questa azienda sanitaria?')">
-                            @csrf @method('DELETE')
-                            <button class="btn btn-sm btn-anpas-delete btn-icon">
-                                <i class="fas fa-trash-alt"></i>
-                            </button>
-                        </form>
-                    `
+                        if (canDelete) {
+                            html += `
+                <form action="/aziende-sanitarie/${id}" method="POST"
+                      class="d-inline"
+                      onsubmit="return confirm('Eliminare questa azienda sanitaria?')">
+                    <input type="hidden" name="_token" value="${csrfToken}">
+                    <input type="hidden" name="_method" value="DELETE">
+                    <button class="btn btn-sm btn-anpas-delete btn-icon">
+                        <i class="fas fa-trash-alt"></i>
+                    </button>
+                </form>`;
+                        }
+
+                        return html;
+                    }
                 }
             ]
         };
@@ -243,14 +270,16 @@
         const table = $('#aziendeSanitarieTable').DataTable(config);
 
         if (!isElevato) {
-            convSelect.addEventListener('change', function () {
+            convSelect.addEventListener('change', function() {
                 fetch('{{ route("aziende-sanitarie.sessione.setConvenzione") }}', {
                     method: 'POST',
                     headers: {
                         "X-CSRF-TOKEN": csrf,
                         "Content-Type": "application/json",
                     },
-                    body: JSON.stringify({ idConvenzione: this.value })
+                    body: JSON.stringify({
+                        idConvenzione: this.value
+                    })
                 }).finally(() => table.ajax.reload());
             });
         }
