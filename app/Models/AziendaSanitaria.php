@@ -293,7 +293,10 @@ class AziendaSanitaria {
         });
     }
 
-    public static function existsForAnno(int $anno): bool {
-        return self::where('idAnno', $anno)->exists();
+    public static function existsForAnno(int $anno): bool
+    {
+        return DB::table('aziende_sanitarie')
+            ->where('idAnno', $anno)
+            ->exists();
     }
 }
