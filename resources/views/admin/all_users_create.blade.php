@@ -96,33 +96,21 @@
         @endphp
 
         <div class="col-md-6">
-          <label for="role" class="form-label">Ruolo</label>
-          <select name="role" class="form-select" required>
-
-            @foreach ($ruoli as $r)
-
-            {{-- NON far mai vedere SuperAdmin --}}
-            @if ($r->name === 'SuperAdmin')
-            @continue
+    <label for="role" class="form-label">Ruolo</label>
+    <select name="role" class="form-select" required>
+        @foreach ($ruoli as $r)
+            @if($isElevated || in_array($r->name, ['AdminUser', 'User']))
+                @if($r->name !== 'SuperAdmin')
+                    <option value="{{ $r->name }}"
+                        {{ old('role') == $r->name ? 'selected' : '' }}>
+                        {{ roleLabel($r->name) }}
+                    </option>
+                @endif
             @endif
+        @endforeach
+    </select>
+</div>
 
-            {{-- Manteniamo la tua logica originale: 
-           utente elevato → vede tutto (tranne SuperAdmin)
-           utente normale → vede solo AdminUser e User
-      --}}
-            @if ($isElevated || in_array($r->name, ['AdminUser', 'User']))
-
-            <option value="{{ $r->name }}"
-              {{ old('role') == $r->name ? 'selected' : '' }}>
-              {{ $labelRuoli[$r->name] ?? $r->name }}
-            </option>
-
-            @endif
-
-            @endforeach
-
-          </select>
-        </div>
 
 
         <div class="form-label col-md-6">

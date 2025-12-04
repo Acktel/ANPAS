@@ -153,8 +153,14 @@ class AdminAllUsersController extends Controller
         $selectedAssoc = session('associazione_selezionata')
             ?? ($associazioni->first()->IdAssociazione ?? null);
 
-        return view('admin.all_users_edit', compact('user', 'associazioni', 'ruoli', 'selectedAssoc'));
+        // 👇 Questa è l’unica aggiunta facoltativa
+        $hasPassword = !empty($user->password);
+
+        return view('admin.all_users_edit', compact(
+            'user', 'associazioni', 'ruoli', 'selectedAssoc', 'hasPassword'
+        ));
     }
+
 
     /**
      * PUT /all-users/{id}
