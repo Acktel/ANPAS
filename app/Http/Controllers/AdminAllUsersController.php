@@ -184,8 +184,9 @@ class AdminAllUsersController extends Controller
             'note'                  => 'nullable|string',
 
             // PASSWORD SOLO SE COMPILATA
-            'password'              => 'nullable|string|min:8|confirmed',
-            'password_confirmation' => 'required_with:password|string|min:8',
+            'password'              => 'nullable|min:8|confirmed',
+            'password_confirmation' => 'nullable',
+
         ], [
             'email.unique'          => 'Questa email è già in uso.',
             'password.confirmed'    => 'La password e la conferma non coincidono.',
