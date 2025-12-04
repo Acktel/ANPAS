@@ -178,7 +178,8 @@
         stateSave: false,
         order: [[0, 'asc']],
         language: { url: '/js/i18n/Italian.json' },
-        stripeClasses: ['table-white', 'table-striped-anpas']
+        stripeClasses: ['table-white', 'table-striped-anpas'],
+        searching: true,
     };
 
     // ============================================================
