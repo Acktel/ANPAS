@@ -144,7 +144,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const csrf = document.querySelector('meta[name="csrf-token"]').content;
     const isElevato = {{ $isElevato ? 'true' : 'false' }};
     const convSelect = document.getElementById('convSelect');
-
+    $('#aziendeSanitarieTable tbody').empty();
     // ============================================================
     // DATATABLE
     // Solo NON elevati usano AJAX filtrato
