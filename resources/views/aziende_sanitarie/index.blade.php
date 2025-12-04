@@ -144,7 +144,7 @@
         const csrf = document.querySelector('meta[name="csrf-token"]').content;
         const useAjax = @json($useAjax);
         const isElevato = @json($isElevato);
-        const hasConvenzioni = @json($convenzioni->isNotEmpty());
+        const hasConvenzioni = @json($convenzioni-> isNotEmpty());
         const convSelect = document.getElementById('convSelect');
         const canDelete = @json($canDelete);
         // DEBUG
