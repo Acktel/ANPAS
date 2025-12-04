@@ -94,8 +94,8 @@ class AdminAllUsersController extends Controller
             'lastname'              => 'nullable|string|max:255',
             // email non-bloccante: accetta qualsiasi stringa unica
             'email'                 => 'required|string|unique:users,email',
-            'password'              => 'nullable|min:8|confirmed',
-            'password_confirmation' => 'nullable|min:8',
+            'password'              => 'required|string|min:8|confirmed',
+            'password_confirmation' => 'required_with:password|string|min:8',
             'IdAssociazione'        => 'required|integer|exists:associazioni,IdAssociazione',
             'role'                  => 'required|string|exists:roles,name',
             'note'                  => 'nullable|string',
