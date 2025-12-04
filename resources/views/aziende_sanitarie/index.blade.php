@@ -106,6 +106,8 @@
                                 <i class="fas fa-edit"></i>
                             </a>
 
+                        {{-- Pulsante DELETE solo per chi può gestire tutte le associazioni --}}
+                            @can('manage-all-associations')
                             <form action="{{ route('aziende-sanitarie.destroy', $a->idAziendaSanitaria) }}"
                                 method="POST" class="d-inline"
                                 onsubmit="return confirm('Eliminare questa azienda sanitaria?')">
@@ -115,6 +117,7 @@
                                     <i class="fas fa-trash-alt"></i>
                                 </button>
                             </form>
+                            @endcan
                         </td>
                     </tr>
                     @empty
