@@ -22,41 +22,39 @@
 
         <div class="mb-3">
           <label for="firstname" class="form-label">Nome</label>
-          <input type="text"
-                 class="form-control"
-                 id="firstname"
-                 name="firstname"
-                 value="{{ old('firstname', $user->firstname) }}"
-                 required>
+          <input type="text" class="form-control" id="firstname" name="firstname"
+                 value="{{ old('firstname', $user->firstname) }}" required>
         </div>
 
         <div class="mb-3">
           <label for="lastname" class="form-label">Cognome</label>
-          <input type="text"
-                 class="form-control"
-                 id="lastname"
-                 name="lastname"
+          <input type="text" class="form-control" id="lastname" name="lastname"
                  value="{{ old('lastname', $user->lastname) }}">
         </div>
 
         <div class="mb-3">
           <label for="username" class="form-label">Username</label>
-          <input type="text"
-                 class="form-control"
-                 id="username"
-                 name="username"
-                 value="{{ old('username', $user->username) }}"
-                 required>
+          <input type="text" class="form-control" id="username" name="username"
+                 value="{{ old('username', $user->username) }}" required>
         </div>
 
         <div class="mb-3">
           <label for="email" class="form-label">Email</label>
-          <input type="email"
-                 class="form-control"
-                 id="email"
-                 name="email"
-                 value="{{ old('email', $user->email) }}"
-                 required>
+          <input type="email" class="form-control" id="email" name="email"
+                 value="{{ old('email', $user->email) }}" required>
+        </div>
+
+        {{-- NUOVI CAMPI PASSWORD --}}
+        <div class="mb-3">
+          <label for="password" class="form-label">Nuova Password (opzionale)</label>
+          <input type="password" class="form-control" id="password"
+                 name="password" autocomplete="new-password">
+        </div>
+
+        <div class="mb-3">
+          <label for="password_confirmation" class="form-label">Conferma Password</label>
+          <input type="password" class="form-control" id="password_confirmation"
+                 name="password_confirmation" autocomplete="new-password">
         </div>
 
         <button type="submit" class="btn btn-anpas-green">Salva Modifiche</button>
