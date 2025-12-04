@@ -11,7 +11,7 @@
     @endif
 
     {{-- Messaggio duplicazione --}}
-    <div id="noDataMessage" class="alert alert-info d-none">
+    <div id="noDataMessage" class="alert alert-info {{ $showDuplica ? '' : 'd-none' }}">
         Nessuna azienda sanitaria presente per l’anno corrente.<br>
         Vuoi importare le anagrafiche e i collegamenti dall’anno precedente?
         <div class="mt-2">
@@ -19,6 +19,7 @@
             <button id="btn-duplica-no" class="btn btn-sm btn-secondary">No</button>
         </div>
     </div>
+
 
     {{-- Pulsante nuova azienda --}}
     <div class="d-flex mb-3">
@@ -192,9 +193,16 @@
                 { data: 'mail' },
                 {
                     data: 'Lotti',
-                    render: d => Array.isArray(d) && d.length
-                        ? d.join(', ')
-                        : '<span class="text-muted">—</span>'
+                    render: d => {
+                        if (!Array.isArray(d) || d.length === 0) {
+                            return '<span class="text-muted">—</span>';
+                        }
+
+                        const full = d.join(', ');
+                        const short = full.length > 100 ? full.substring(0, 100) + '…' : full;
+
+                        return `<span class="ellipsis-cell" title="${full}">${short}</span>`;
+                    }
                 },
                 {
                     data: 'idAziendaSanitaria',

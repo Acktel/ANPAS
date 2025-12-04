@@ -43,6 +43,7 @@ class AziendeSanitarieController extends Controller {
             $aziende = AziendaSanitaria::getAllSenzaFiltri($anno);
 
             $useAjax = false;
+            $showDuplica = false; // gli elevati non usano duplicazione da convenzione
 
             return view('aziende_sanitarie.index', compact(
                 'anno',
@@ -52,7 +53,8 @@ class AziendeSanitarieController extends Controller {
                 'convenzioni',
                 'selectedConv',
                 'aziende',
-                'useAjax'
+                'useAjax',
+                'showDuplica'
             ));
         }
 
@@ -81,6 +83,13 @@ class AziendeSanitarieController extends Controller {
 
         $useAjax = true;
 
+        // =====================================================================================
+        // MOSTRA messaggio DUPLICA solo quando:
+        // - non ci sono aziende nell’anno corrente
+        // - esistono aziende nell’anno precedente
+        // =====================================================================================
+        $showDuplica = empty($aziende) && AziendaSanitaria::existsForAnno($anno - 1);
+
         return view('aziende_sanitarie.index', compact(
             'anno',
             'isElevato',
@@ -89,7 +98,8 @@ class AziendeSanitarieController extends Controller {
             'convenzioni',
             'selectedConv',
             'aziende',
-            'useAjax'
+            'useAjax',
+            'showDuplica'
         ));
     }
 
