@@ -898,3 +898,19 @@ div.dataTables_wrapper .dataTables_length {
 .dataTables_wrapper .dataTables_paginate .paginate_button {
     margin: 0 2px !important;
 }
+
+.dt-search {
+    max-width: 315px;
+}
+
+.dt-length {
+    margin-top: 40px;
+}
+
+table.dataTable {
+    width: 100%;
+    margin: 0 auto;
+    clear: both;
+    border-collapse: collapse;
+    border-spacing: 0;
+}
