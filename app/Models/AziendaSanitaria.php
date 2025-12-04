@@ -5,15 +5,13 @@ namespace App\Models;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
-class AziendaSanitaria
-{
+class AziendaSanitaria {
     protected static string $table = 'aziende_sanitarie';
 
     /* ============================================================
        Resolve idAnno
        ============================================================ */
-    public static function resolveIdAnno(int $anno): int
-    {
+    public static function resolveIdAnno(int $anno): int {
         $idAnno = DB::table('anni')->where('anno', $anno)->value('idAnno');
         if (!$idAnno) {
             $idAnno = DB::table('anni')->insertGetId([
@@ -29,8 +27,7 @@ class AziendaSanitaria
        Fallback indirizzo:
        indirizzo_via vuoto → usa Indirizzo
        ============================================================ */
-    private static function selectAddressFields(): string
-    {
+    private static function selectAddressFields(): string {
         return "
             CASE
                 WHEN a.indirizzo_via IS NULL OR a.indirizzo_via = ''
@@ -44,8 +41,7 @@ class AziendaSanitaria
     /* ============================================================
        LISTA CONVENZIONI + LOTTI
        ============================================================ */
-    public static function getAllWithConvenzioni($idConvenzione = null): Collection
-    {
+    public static function getAllWithConvenzioni($idConvenzione = null): Collection {
         $anno   = session('anno_riferimento', now()->year);
         $idAnno = self::resolveIdAnno($anno);
 
@@ -114,8 +110,7 @@ class AziendaSanitaria
     /* ============================================================
        GET BY ANNO
        ============================================================ */
-    public static function getByAnno(int $anno): Collection
-    {
+    public static function getByAnno(int $anno): Collection {
         $idAnno = self::resolveIdAnno($anno);
 
         $rows = DB::select("
@@ -132,8 +127,7 @@ class AziendaSanitaria
     /* ============================================================
        GET BY ID
        ============================================================ */
-    public static function getById(int $id): ?\stdClass
-    {
+    public static function getById(int $id): ?\stdClass {
         return DB::selectOne("
             SELECT *,
             CASE WHEN indirizzo_via IS NULL OR indirizzo_via = '' THEN Indirizzo ELSE indirizzo_via END AS indirizzo_via
@@ -146,8 +140,7 @@ class AziendaSanitaria
     /* ============================================================
        CREATE
        ============================================================ */
-    public static function createSanitaria(array $data): int
-    {
+    public static function createSanitaria(array $data): int {
         $idAnno = self::resolveIdAnno($data['anno_riferimento'] ?? session('anno_riferimento'));
 
         DB::insert("
@@ -177,8 +170,7 @@ class AziendaSanitaria
     /* ============================================================
        UPDATE
        ============================================================ */
-    public static function updateSanitaria(int $id, array $data): void
-    {
+    public static function updateSanitaria(int $id, array $data): void {
         DB::update("
             UPDATE aziende_sanitarie
             SET Nome = ?,
@@ -211,8 +203,7 @@ class AziendaSanitaria
     /* ============================================================
        DELETE
        ============================================================ */
-    public static function deleteSanitaria(int $id): void
-    {
+    public static function deleteSanitaria(int $id): void {
         DB::delete("DELETE FROM azienda_sanitaria_convenzione WHERE idAziendaSanitaria = ?", [$id]);
         DB::delete("DELETE FROM aziende_sanitarie_lotti WHERE idAziendaSanitaria = ?", [$id]);
         DB::delete("DELETE FROM aziende_sanitarie WHERE idAziendaSanitaria = ?", [$id]);
@@ -221,8 +212,7 @@ class AziendaSanitaria
     /* ============================================================
        GET CONVENZIONI
        ============================================================ */
-    public static function getConvenzioni(int $id): array
-    {
+    public static function getConvenzioni(int $id): array {
         $rows = DB::select("
             SELECT idConvenzione
             FROM azienda_sanitaria_convenzione
@@ -235,8 +225,7 @@ class AziendaSanitaria
     /* ============================================================
        SYNC CONVENZIONI
        ============================================================ */
-    public static function syncConvenzioni(int $idAzienda, array $convenzioni): void
-    {
+    public static function syncConvenzioni(int $idAzienda, array $convenzioni): void {
         DB::delete("DELETE FROM azienda_sanitaria_convenzione WHERE idAziendaSanitaria = ?", [$idAzienda]);
 
         if (empty($convenzioni)) return;
@@ -250,7 +239,8 @@ class AziendaSanitaria
             $bind[]   = (int)$idConv;
         }
 
-        DB::insert("
+        DB::insert(
+            "
             INSERT INTO azienda_sanitaria_convenzione
                 (idAziendaSanitaria, idConvenzione, created_at, updated_at)
             VALUES " . implode(', ', $values),
@@ -261,8 +251,7 @@ class AziendaSanitaria
     /* ============================================================
        LISTA SENZA FILTRI
        ============================================================ */
-    public static function getAllSenzaFiltri(int $anno): Collection
-    {
+    public static function getAllSenzaFiltri(int $anno): Collection {
         $idAnno = self::resolveIdAnno($anno);
 
         $rows = DB::select("
@@ -302,5 +291,9 @@ class AziendaSanitaria
             $r->Lotti       = $r->Lotti       ? explode(', ', $r->Lotti) : [];
             return $r;
         });
+    }
+
+    public static function existsForAnno(int $anno): bool {
+        return self::where('idAnno', $anno)->exists();
     }
 }
