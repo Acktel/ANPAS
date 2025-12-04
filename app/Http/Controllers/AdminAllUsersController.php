@@ -175,11 +175,15 @@ class AdminAllUsersController extends Controller
         $validated = $request->validate([
             'firstname'             => 'required|string|max:255',
             'lastname'              => 'nullable|string|max:255',
+
             // email non-bloccante: accetta qualsiasi stringa unica
             'email'                 => "required|string|unique:users,email,{$id}",
+
             'IdAssociazione'        => 'required|integer|exists:associazioni,IdAssociazione',
             'role'                  => 'required|string|exists:roles,name',
             'note'                  => 'nullable|string',
+
+            // PASSWORD SOLO SE COMPILATA
             'password'              => 'nullable|string|min:8|confirmed',
             'password_confirmation' => 'required_with:password|string|min:8',
         ], [
@@ -187,6 +191,7 @@ class AdminAllUsersController extends Controller
             'password.confirmed'    => 'La password e la conferma non coincidono.',
             'password.min'          => 'La password deve avere almeno 8 caratteri.',
         ]);
+
 
         DB::beginTransaction();
         try {
