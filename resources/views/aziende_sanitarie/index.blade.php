@@ -5,9 +5,9 @@
 
     <h1 class="container-title mb-4">Aziende Sanitarie</h1>
 
-    {{-- Success --}}
+    {{-- Success message --}}
     @if (session('success'))
-        <div class="alert alert-success">{{ session('success') }}</div>
+    <div class="alert alert-success">{{ session('success') }}</div>
     @endif
 
     {{-- Messaggio duplicazione --}}
@@ -20,49 +20,45 @@
         </div>
     </div>
 
-    {{-- Nuova azienda --}}
+    {{-- Pulsante nuova azienda --}}
     <div class="d-flex mb-3">
         <div class="ms-auto">
             @can('manage-all-associations')
-                @if (!session()->has('impersonate'))
-                <a href="{{ route('aziende-sanitarie.create') }}" class="btn btn-anpas-green">
-                    <i class="fas fa-plus me-1"></i> Nuova Azienda Sanitaria
-                </a>
-                @endif
+            @if (!session()->has('impersonate'))
+            <a href="{{ route('aziende-sanitarie.create') }}" class="btn btn-anpas-green">
+                <i class="fas fa-plus me-1"></i> Nuova Azienda Sanitaria
+            </a>
+            @endif
             @endcan
         </div>
     </div>
 
-    {{-- ============================================================
-         SELECT CONVENZIONE SOLO PER UTENTI NON ELEVATI
-       ============================================================ --}}
-    @if(!$isElevato)
-        <div class="row mb-3">
-            <div class="col-md-4">
-                <label class="form-label fw-bold">Convenzione</label>
-                <select id="convSelect" class="form-select form-select-anpas">
-                    @foreach($convenzioni as $c)
-                        <option value="{{ $c->idConvenzione }}"
-                            {{ (int)$selectedConv === (int)$c->idConvenzione ? 'selected' : '' }}>
-                            {{ $c->Convenzione }}
-                        </option>
-                    @endforeach
-                </select>
-            </div>
+    {{-- SELECT CONVENZIONE (solo utenti non elevati + AJAX attivo) --}}
+    @if(!$isElevato && $useAjax && $convenzioni->isNotEmpty())
+    <div class="row mb-3">
+        <div class="col-md-4">
+            <label class="form-label fw-bold">Convenzione</label>
+            <select id="convSelect" class="form-select form-select-anpas">
+                @foreach($convenzioni as $c)
+                <option value="{{ $c->idConvenzione }}"
+                    {{ (int)$selectedConv === (int)$c->idConvenzione ? 'selected' : '' }}>
+                    {{ $c->Convenzione }}
+                </option>
+                @endforeach
+            </select>
         </div>
+    </div>
     @else
-        {{-- Utente elevato → NON usa filtri --}}
-        <input type="hidden" id="convSelect" value="0">
+    <input type="hidden" id="convSelect" value="{{ $selectedConv }}">
     @endif
 
 
-    {{-- ============================================================
-         TABELLA
-       ============================================================ --}}
+    {{-- TABELLA --}}
     <div class="card-anpas">
         <div class="card-body bg-anpas-white p-0">
+
             <table id="aziendeSanitarieTable"
-                   class="common-css-dataTable table table-hover table-striped table-bordered dt-responsive nowrap mb-0">
+                class="common-css-dataTable table table-hover table-striped table-bordered dt-responsive nowrap mb-0">
 
                 <thead class="thead-anpas">
                     <tr>
@@ -78,154 +74,167 @@
                     </tr>
                 </thead>
 
+                {{-- NO-AJAX: render server side --}}
+                @if(!$useAjax)
                 <tbody>
-                @if($isElevato)
-                    {{-- UTENTI ELEVATI → NESSUN AJAX, CARICAMENTO DIRETTO --}}
                     @forelse($aziende as $a)
-                        <tr>
-                            <td>{{ $a->idAziendaSanitaria }}</td>
-                            <td>{{ $a->Nome }}</td>
-                            <td>{{ $a->Indirizzo }}</td>
-                            <td>{{ $a->provincia }}</td>
-                            <td>{{ $a->citta }}</td>
-                            <td>{{ $a->cap ?? '' }}</td>
-                            <td>{{ $a->mail }}</td>
-                            <td>
-                                @php
-                                    $full = implode(', ', $a->Lotti ?? []);
-                                    $short = strlen($full) > 100 ? substr($full, 0, 100) . '…' : $full;
-                                @endphp
+                    <tr>
+                        <td>{{ $a->idAziendaSanitaria }}</td>
+                        <td>{{ $a->Nome }}</td>
+                        <td>{{ $a->Indirizzo }}</td>
+                        <td>{{ $a->provincia }}</td>
+                        <td>{{ $a->citta }}</td>
+                        <td>{{ $a->cap ?? '' }}</td>
+                        <td>{{ $a->mail }}</td>
+                        <td>
+                            @php
+                            $full = implode(', ', $a->Lotti ?? []);
+                            $short = strlen($full) > 100 ? substr($full, 0, 100).'…' : $full;
+                            @endphp
+                            @if (!empty($a->Lotti))
+                            <span class="ellipsis-cell" title="{{ $full }}">{{ $short }}</span>
+                            @else
+                            <span class="text-muted">—</span>
+                            @endif
+                        </td>
+                        <td class="text-center">
+                            <a href="{{ route('aziende-sanitarie.edit', $a->idAziendaSanitaria) }}"
+                                class="btn btn-sm btn-anpas-edit me-1 btn-icon">
+                                <i class="fas fa-edit"></i>
+                            </a>
 
-                                @if (!empty($a->Lotti))
-                                    <span class="ellipsis-cell" title="{{ $full }}">
-                                        {{ $short }}
-                                    </span>
-                                @else
-                                    <span class="text-muted">—</span>
-                                @endif
-                            </td>
-                            <td class="text-center">
-                                <a href="{{ route('aziende-sanitarie.edit', $a->idAziendaSanitaria) }}"
-                                   class="btn btn-sm btn-anpas-edit me-1 btn-icon">
-                                    <i class="fas fa-edit"></i>
-                                </a>
-
-                                <form action="{{ route('aziende-sanitarie.destroy', $a->idAziendaSanitaria) }}"
-                                      method="POST" class="d-inline"
-                                      onsubmit="return confirm('Eliminare questa azienda sanitaria?')">
-                                    @csrf
-                                    @method('DELETE')
-                                    <button class="btn btn-sm btn-anpas-delete btn-icon">
-                                        <i class="fas fa-trash-alt"></i>
-                                    </button>
-                                </form>
-                            </td>
-                        </tr>
+                            <form action="{{ route('aziende-sanitarie.destroy', $a->idAziendaSanitaria) }}"
+                                method="POST" class="d-inline"
+                                onsubmit="return confirm('Eliminare questa azienda sanitaria?')">
+                                @csrf
+                                @method('DELETE')
+                                <button class="btn btn-sm btn-anpas-delete btn-icon">
+                                    <i class="fas fa-trash-alt"></i>
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
                     @empty
-                        <tr>
-                            <td colspan="9" class="text-center py-3">Nessuna azienda sanitaria trovata.</td>
-                        </tr>
+                    {{-- SAFE: 9 celle, una per colonna → DataTables non esplode --}}
+                    <tr>
+                        <td colspan="9" class="text-center py-3 text-muted">
+                            Nessuna azienda sanitaria trovata.
+                        </td>
+                    </tr>
                     @endforelse
-
-                @endif
                 </tbody>
+                @endif
 
             </table>
+
         </div>
     </div>
+
 </div>
 @endsection
 @push('scripts')
 <script>
-document.addEventListener('DOMContentLoaded', function () {
+    document.addEventListener('DOMContentLoaded', function () {
 
-    const csrf = document.querySelector('meta[name="csrf-token"]').content;
-    const isElevato = {{ $isElevato ? 'true' : 'false' }};
-    const convSelect = document.getElementById('convSelect');
+    const csrf            = document.querySelector('meta[name="csrf-token"]').content;
+    const useAjax         = @json($useAjax);
+    const isElevato       = @json($isElevato);
+    const hasConvenzioni  = @json($convenzioni->isNotEmpty());
+    const convSelect      = document.getElementById('convSelect');
 
-    // =======================================================================
-    // SVUOTA TBODY SOLO SE SERVE (utente NON elevato + nessuna convenzione)
-    // =======================================================================
-    @if(!$isElevato && $convenzioni->isEmpty())
-        $('#aziendeSanitarieTable tbody').empty();
-    @endif
+    console.log("DEBUG:", { useAjax, isElevato, hasConvenzioni });
 
+    // ============================================================
+    // 1) Se NON uso AJAX → NON distruggo e NON reinizializzo nulla
+    //    → Lascia i dati server-side e basta.
+    // ============================================================
+    if (!useAjax) {
+        console.log("NO AJAX → lascio la tabella com'è");
+        return;
+    }
 
-    // =======================================================================
-    // INIZIALIZZAZIONE DATATABLE
-    // =======================================================================
-    const table = $('#aziendeSanitarieTable').DataTable({
+    // ============================================================
+    // 2) Se uso AJAX ma NON ci sono convenzioni → NON inizializzo DT
+    // ============================================================
+    if (useAjax && !hasConvenzioni) {
+        console.warn("AJAX ma niente convenzioni → tabella mostrata statica");
+        return;
+    }
+
+    // ============================================================
+    // 3) Distruggo eventuali DataTables SOLO se AJAX + conv presenti
+    // ============================================================
+    if ($.fn.DataTable.isDataTable('#aziendeSanitarieTable')) {
+        console.log("Distruggo DT per ricrearla con AJAX...");
+        $('#aziendeSanitarieTable').DataTable().clear().destroy();
+    }
+
+    // ============================================================
+    // 4) Config
+    // ============================================================
+    const config = {
         stateSave: false,
-        stripeClasses: ['table-white', 'table-striped-anpas'],
-        language: {
-            url: '/js/i18n/Italian.json',
-            paginate: {
-                first: '<i class="fas fa-angle-double-left"></i>',
-                last: '<i class="fas fa-angle-double-right"></i>',
-                next: '<i class="fas fa-angle-right"></i>',
-                previous: '<i class="fas fa-angle-left"></i>'
-            }
-        },
         order: [[0, 'asc']],
+        language: { url: '/js/i18n/Italian.json' },
+        stripeClasses: ['table-white', 'table-striped-anpas']
+    };
 
-        // ===================================================================
-        // AJAX SOLO PER UTENTI NON ELEVATI
-        // ===================================================================
-        @if(!$isElevato)
-        ajax: {
-            url: '{{ route("aziende-sanitarie.data") }}',
-            data: d => {
-                d.idConvenzione = convSelect.value;
-            }
+    // ============================================================
+    // 5) Config AJAX
+    // ============================================================
+    config.ajax = {
+        url: '{{ route("aziende-sanitarie.data") }}',
+        data: d => { d.idConvenzione = convSelect.value; }
+    };
+
+    config.columns = [
+        { data: 'idAziendaSanitaria' },
+        { data: 'Nome' },
+        { data: 'Indirizzo' },
+        { data: 'provincia' },
+        { data: 'citta' },
+        { data: 'cap' },
+        { data: 'mail' },
+        {
+            data: 'Lotti',
+            render: d => Array.isArray(d) && d.length
+                ? d.join(', ')
+                : '<span class="text-muted">—</span>'
         },
-        processing: true,
-        serverSide: false,
+        {
+            data: 'idAziendaSanitaria',
+            orderable: false,
+            searchable: false,
+            className: 'text-center',
+            render: id => `
+                <a href="/aziende-sanitarie/${id}/edit"
+                    class="btn btn-sm btn-anpas-edit me-1 btn-icon">
+                    <i class="fas fa-edit"></i>
+                </a>
 
-        columns: [
-            { data: 'idAziendaSanitaria' },
-            { data: 'Nome' },
-            { data: 'Indirizzo' },
-            { data: 'provincia' },
-            { data: 'citta' },
-            { data: 'cap' },
-            { data: 'mail' },
-            {
-                data: 'Lotti',
-                render: d => Array.isArray(d) && d.length
-                    ? d.join(', ')
-                    : '<span class="text-muted">—</span>'
-            },
-            {
-                data: 'idAziendaSanitaria',
-                orderable: false,
-                searchable: false,
-                className: 'text-center',
-                render: id => `
-                    <a href="/aziende-sanitarie/${id}/edit"
-                       class="btn btn-sm btn-anpas-edit me-1 btn-icon">
-                       <i class="fas fa-edit"></i>
-                    </a>
+                <form action="/aziende-sanitarie/${id}" method="POST"
+                        class="d-inline"
+                        onsubmit="return confirm('Eliminare questa azienda sanitaria?')">
+                    @csrf @method('DELETE')
+                    <button class="btn btn-sm btn-anpas-delete btn-icon">
+                        <i class="fas fa-trash-alt"></i>
+                    </button>
+                </form>
+            `
+        }
+    ];
 
-                    <form action="/aziende-sanitarie/${id}" method="POST" class="d-inline"
-                          onsubmit="return confirm('Eliminare questa azienda sanitaria?')">
-                        @csrf @method('DELETE')
-                        <button class="btn btn-sm btn-anpas-delete btn-icon">
-                            <i class="fas fa-trash-alt"></i>
-                        </button>
-                    </form>
-                `
-            }
-        ]
-        @endif
-    });
+    // ============================================================
+    // 6) Inizializzo DT una sola volta
+    // ============================================================
+    console.log("Inizializzo DataTable AJAX");
+    const table = $('#aziendeSanitarieTable').DataTable(config);
 
-
-    // =======================================================================
-    // CAMBIO CONVENZIONE (SOLO NON ELEVATI)
-    // =======================================================================
+    // ============================================================
+    // 7) Cambio convenzione → reload
+    // ============================================================
     if (!isElevato) {
         convSelect.addEventListener('change', function () {
-
             fetch('{{ route("aziende-sanitarie.sessione.setConvenzione") }}', {
                 method: 'POST',
                 headers: {
@@ -233,13 +242,12 @@ document.addEventListener('DOMContentLoaded', function () {
                     "Content-Type": "application/json",
                 },
                 body: JSON.stringify({ idConvenzione: this.value })
-            }).finally(() => {
-                table.ajax.reload();
-            });
-
+            }).finally(() => table.ajax.reload());
         });
     }
 
 });
+
+
 </script>
 @endpush

@@ -29,20 +29,23 @@ class AziendeSanitarieController extends Controller {
         $user = Auth::user();
         $isElevato = $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor']);
 
-        // =====================================================================================
-        // RUOLI ELEVATI → VEDONO TUTTO, SENZA SELECT, SENZA FILTRI
-        // =====================================================================================
+        /* ============================================================
+       UTENTE ELEVATO → vede sempre tutto, nessun filtro
+       ============================================================ */
         if ($isElevato) {
 
             // niente select associazioni né convenzioni
-            $associazioni = collect();
+            $associazioni  = collect();
             $selectedAssoc = null;
 
-            $convenzioni = collect();
-            $selectedConv = 0; // forza la view a rendere la tabella
+            $convenzioni   = collect();
+            $selectedConv  = 0;
 
-            // TUTTE le aziende dell’anno
+            // tutte le aziende dell’anno
             $aziende = AziendaSanitaria::getAllSenzaFiltri($anno);
+
+            // per la view: niente AJAX
+            $useAjax = false;
 
             return view('aziende_sanitarie.index', compact(
                 'anno',
@@ -51,17 +54,19 @@ class AziendeSanitarieController extends Controller {
                 'selectedAssoc',
                 'convenzioni',
                 'selectedConv',
-                'aziende'
+                'aziende',
+                'useAjax'
             ));
         }
 
+        /* ============================================================
+       UTENTE NON ELEVATO → filtra per la sua associazione
+       ============================================================ */
 
-        // =====================================================================================
-        // UTENTI NORMALI → FILTRI PER ASSOCIAZIONE E CONVENZIONE
-        // =====================================================================================
-        $associazioni = collect();
+        $associazioni = collect();     // NON serve select associazioni
         $selectedAssoc = (int) $user->IdAssociazione;
 
+        // convenzioni della sua associazione in quell’anno
         $convenzioni = DB::table('convenzioni')
             ->select('idConvenzione', 'Convenzione')
             ->where('idAssociazione', $selectedAssoc)
@@ -69,15 +74,35 @@ class AziendeSanitarieController extends Controller {
             ->orderBy('ordinamento')
             ->get();
 
+        // Caso 1: NON CI SONO CONVENZIONI PER L’ANNO → tabella vuota, niente AJAX
         if ($convenzioni->isEmpty()) {
+
             $selectedConv = null;
             $aziende = [];
-        } else {
-            $selectedConv = session('convenzione_selezionata') ?? (int) $convenzioni->first()->idConvenzione;
-            session(['convenzione_selezionata' => $selectedConv]);
+            $useAjax = false;   // <-- fondamentale
 
-            $aziende = AziendaSanitaria::getAllWithConvenzioni($selectedConv);
+            return view('aziende_sanitarie.index', compact(
+                'anno',
+                'isElevato',
+                'associazioni',
+                'selectedAssoc',
+                'convenzioni',
+                'selectedConv',
+                'aziende',
+                'useAjax'
+            ));
         }
+
+        // Caso 2: CI SONO CONVENZIONI → uso AJAX per filtrare la tabella
+        $selectedConv = session('convenzione_selezionata')
+            ?? (int) $convenzioni->first()->idConvenzione;
+
+        session(['convenzione_selezionata' => $selectedConv]);
+
+        // caricamento iniziale (non usato in tabella ma usato nella view)
+        $aziende = AziendaSanitaria::getAllWithConvenzioni($selectedConv);
+
+        $useAjax = true;   // <-- userai AJAX in DataTable
 
         return view('aziende_sanitarie.index', compact(
             'anno',
@@ -86,9 +111,11 @@ class AziendeSanitarieController extends Controller {
             'selectedAssoc',
             'convenzioni',
             'selectedConv',
-            'aziende'
+            'aziende',
+            'useAjax'
         ));
     }
+
 
     public function getData(Request $request): JsonResponse {
 
