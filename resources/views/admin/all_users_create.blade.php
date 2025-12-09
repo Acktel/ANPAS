@@ -86,6 +86,9 @@
 
         {{-- Ruolo --}}
         @php
+        use App\Helpers\RoleHelper;
+        
+        $user = Auth::user();
         // Mappa: nome tecnico → etichetta leggibile
         $labelRuoli = [
         'Admin' => 'Amministrativo Anpas',
@@ -93,22 +96,25 @@
         'AdminUser' => 'Amministrativo Associazione',
         'User' => 'Utente Associazione',
         ];
+
+
+
         @endphp
 
         <div class="col-md-6">
     <label for="role" class="form-label">Ruolo</label>
-    <select name="role" class="form-select" required>
-        @foreach ($ruoli as $r)
-            @if($isElevated || in_array($r->name, ['AdminUser', 'User']))
-                @if($r->name !== 'SuperAdmin')
-                    <option value="{{ $r->name }}"
-                        {{ old('role') == $r->name ? 'selected' : '' }}>
-                        {{ roleLabel($r->name) }}
-                    </option>
-                @endif
+<select name="role" class="form-select" required>
+    @foreach ($ruoli as $r)
+        @if($isElevated || in_array($r->name, ['AdminUser', 'User']))
+            @if($r->name !== 'SuperAdmin')
+                <option value="{{ $r->name }}"
+                    {{ old('role', $user->role_name) == $r->name ? 'selected' : '' }}>
+                    {{ RoleHelper::label($r->name) }}
+                </option>
             @endif
-        @endforeach
-    </select>
+        @endif
+    @endforeach
+</select>
 </div>
 
 

@@ -1,22 +1,18 @@
 {{-- @extends('layouts.app') --}}
 
 @php
+    use \App\Helpers\RoleHelper;
+
     $user = Auth::user();
     $nome = $user->firstname;
     // $ruolo = $roleName;
     $roleName = $firstRole?->name ?? 'N/A';
     $lastLogin = $user->last_login_at ? $user->last_login_at->format('d/m/Y H:i') : '';
-    function roleLabel($role) {
-        return [
-            'Admin'      => 'Amministrativo ANPAS',
-            'Supervisor' => 'Dipendente ANPAS',
-            'AdminUser'  => 'Amministrativo Associazione',
-            'User'       => 'Utente Associazione',
-        ][$role] ?? $role;
-    }
+
 
     $ruoloRaw   = Auth::user()->roles->first()?->name ?? 'N/A';
-    $ruoloLabel = roleLabel($ruoloRaw);
+    $ruoloLabel = RoleHelper::label($ruoloRaw);
+    
 @endphp
 
 

@@ -62,31 +62,24 @@
         </div>
 
         @php
-        function roleLabel($role) {
-        return [
-        'Admin' => 'Amministrativo ANPAS',
-        'Supervisor' => 'Dipendente ANPAS',
-        'AdminUser' => 'Amministrativo Associazione',
-        'User' => 'Utente Associazione',
-        ][$role] ?? $role;
-        }
+        use App\Helpers\RoleHelper;
         @endphp
         {{-- Ruolo --}}
-        <div class="col-md-6">
-          <label for="role" class="form-label">Ruolo</label>
-          <select name="role" class="form-select" required>
-            @foreach ($ruoli as $r)
-            @if($isElevated || in_array($r->name, ['AdminUser', 'User']))
-            @if($r->name !== 'SuperAdmin')
-            <option value="{{ $r->name }}"
-              {{ old('role', $user->role_name) == $r->name ? 'selected' : '' }}>
-              {{ roleLabel($r->name) }}
-            </option>
+<div class="col-md-6">
+    <label for="role" class="form-label">Ruolo</label>
+    <select name="role" class="form-select" required>
+        @foreach ($ruoli as $r)
+            @if ($isElevated || in_array($r->name, ['AdminUser', 'User']))
+                @if ($r->name !== 'SuperAdmin')
+                    <option value="{{ $r->name }}"
+                        {{ old('role', $user->role_name) == $r->name ? 'selected' : '' }}>
+                        {{ RoleHelper::label($r->name) }}
+                    </option>
+                @endif
             @endif
-            @endif
-            @endforeach
-          </select>
-        </div>
+        @endforeach
+    </select>
+</div>
 
         {{-- Info stato password --}}
         @if($hasPassword)
