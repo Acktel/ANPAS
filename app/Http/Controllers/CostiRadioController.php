@@ -125,10 +125,10 @@ class CostiRadioController extends Controller {
         $automezzi = $this->getAutomezziFiltrati($anno);
 
         $idAssociazione = $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])
-            ? ($automezzi[0]->idAssociazione ?? null)
+            ? session('associazione_selezionata')
             : $user->IdAssociazione;
 
-        abort_if(!$idAssociazione, 403, "Associazione non determinata.");
+        //abort_if(!$idAssociazione, 403, "Associazione non determinata.");
 
         DB::table('costi_radio')->updateOrInsert(
             ['idAssociazione' => $idAssociazione, 'idAnno' => $anno],
