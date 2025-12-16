@@ -59,8 +59,10 @@ class CostoMaterialeSanitarioController extends Controller {
 
         $anno = session('anno_riferimento', now()->year);
         $automezzi = Automezzo::getFiltratiByUtente($anno);
-
-        $idAssociazione = $automezzi->first()->idAssociazione ?? null;
+        $user = Auth::user();
+        $idAssociazione = $request->query('idAssociazione')
+            ?? session('associazione_selezionata')
+            ?? $user->IdAssociazione;
 
         CostoMaterialeSanitario::upsertTotale($idAssociazione, $anno, $request->TotaleBilancio);
 
@@ -185,7 +187,11 @@ class CostoMaterialeSanitarioController extends Controller {
         $anno = session('anno_riferimento', now()->year);
         $automezzi = Automezzo::getFiltratiByUtente($anno);
 
-        $idAssociazione = $automezzi->first()->idAssociazione ?? null;
+        $user = Auth::user();
+        $idAssociazione = $request->query('idAssociazione')
+            ?? session('associazione_selezionata')
+            ?? $user->IdAssociazione;
+            
         $totale = CostoMaterialeSanitario::getTotale($idAssociazione, $anno);
 
         return view('imputazioni.materiale_sanitario.edit_totale', [
