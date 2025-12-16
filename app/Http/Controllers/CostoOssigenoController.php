@@ -20,7 +20,7 @@ class CostoOssigenoController extends Controller {
         $user = Auth::user();
         $isImpersonating = session()->has('impersonate');
 
-        $associazioni = Dipendente::getAssociazioni($user, $isImpersonating);
+       
         $selectedAssoc = null;
         $associazioni = [];
 
@@ -146,7 +146,8 @@ class CostoOssigenoController extends Controller {
 
         return view('imputazioni.ossigeno.edit_totale', [
             'totale' => $totale,
-            'anno'   => $anno
+            'anno'   => $anno,
+            'idAssociazione' =>$idAssociazione
         ]);
     }
 }

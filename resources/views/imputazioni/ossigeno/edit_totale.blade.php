@@ -1,11 +1,22 @@
 @extends('layouts.app')
+@php
+use App\Models\Associazione;
 
+$user = Auth::user();
+$isImpersonating = session()->has('impersonate');
+
+$assocCorr = Associazione::getById($idAssociazione);
+$annoCorr = session('annoCorrente') ?? ($automezzo->idAnno ?? now()->year);
+
+@endphp
 @section('title', 'Modifica Totale a Bilancio')
 
 @section('content')
 <div class="container-fluid">
-    <h1 class="container-title mb-4">Modifica Totale a Bilancio - Anno {{ $anno }}</h1>
-
+    <h1 class="container-title mb-4">Modifica Totale a Bilancio </h1>
+    <p class="text-muted mb-4">
+    Associazione {{ $assocCorr->Associazione }} — Anno {{ $anno }}
+    </p>
     <form method="POST" action="{{ route('imputazioni.ossigeno.updateTotale') }}">
         @csrf
         <div class="form-group">
