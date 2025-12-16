@@ -9,39 +9,52 @@ use App\Models\Automezzo;
 use App\Models\CostoOssigeno;
 use App\Models\Dipendente;
 use App\Models\RipartizioneOssigeno;
+use Illuminate\Support\Facades\DB;
 
 class CostoOssigenoController extends Controller {
     /**
      * Mostra la vista con la tabella di imputazione costi dell'ossigeno.
      */
-  public function index(Request $request) {
-    $anno = session('anno_riferimento', now()->year);
-    $user = Auth::user();
-    $isImpersonating = session()->has('impersonate');
+    public function index(Request $request) {
+        $anno = session('anno_riferimento', now()->year);
+        $user = Auth::user();
+        $isImpersonating = session()->has('impersonate');
 
-    $associazioni = Dipendente::getAssociazioni($user, $isImpersonating);
+        $associazioni = Dipendente::getAssociazioni($user, $isImpersonating);
+        $selectedAssoc = null;
+        $associazioni = [];
 
-    $idAssociazione = session('associazione_selezionata', $user->IdAssociazione);
-    if (!$user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])) {
-        $idAssociazione = $user->IdAssociazione;
+        if ($user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor']) || $isImpersonating) {
+            $associazioni = DB::table('associazioni')
+                ->select('idAssociazione', 'Associazione')
+                ->whereNull('deleted_at')
+                ->orderBy('Associazione')
+                ->get();
+
+            if ($request->has('idAssociazione')) {
+                session(['associazione_selezionata' => $request->get('idAssociazione')]);
+            }
+
+            $selectedAssoc = session('associazione_selezionata') ?? ($associazioni->first()->idAssociazione ?? null);
+        } else {
+            $selectedAssoc = $user->IdAssociazione;
+        }
+        $automezzi = Automezzo::getByAssociazione($selectedAssoc, $anno);
+
+        $numeroServizi  = RipartizioneOssigeno::getTotaleServizi($automezzi, $anno);
+        $totaleBilancio = CostoOssigeno::getTotale($selectedAssoc, $anno);
+        $dati           = RipartizioneOssigeno::getRipartizione($selectedAssoc, $anno);
+
+        return view('imputazioni.ossigeno.index', [
+            'anno'           => $anno,
+            'numeroServizi'  => $numeroServizi,
+            'totaleBilancio' => $totaleBilancio,
+            'righe'          => $dati['righe'],
+            'totale_inclusi' => $dati['totale_inclusi'] ?? 0,
+            'associazioni'   => $associazioni,
+            'selectedAssoc'  => $selectedAssoc,
+        ]);
     }
-
-    $automezzi = Automezzo::getByAssociazione($idAssociazione, $anno);
-
-    $numeroServizi  = RipartizioneOssigeno::getTotaleServizi($automezzi, $anno);
-    $totaleBilancio = CostoOssigeno::getTotale($idAssociazione, $anno);
-    $dati           = RipartizioneOssigeno::getRipartizione($idAssociazione, $anno);
-
-    return view('imputazioni.ossigeno.index', [
-        'anno'           => $anno,
-        'numeroServizi'  => $numeroServizi,
-        'totaleBilancio' => $totaleBilancio,
-        'righe'          => $dati['righe'],
-        'totale_inclusi' => $dati['totale_inclusi'] ?? 0,
-        'associazioni'   => $associazioni,
-        'selectedAssoc'  => $idAssociazione,
-    ]);
-}
 
 
     /**
@@ -54,7 +67,10 @@ class CostoOssigenoController extends Controller {
 
         $anno = session('anno_riferimento', now()->year);
         $automezzi = Automezzo::getFiltratiByUtente($anno);
-        $idAssociazione = $automezzi->first()->idAssociazione ?? null;
+        $user = Auth::user();
+        $idAssociazione = $request->query('idAssociazione')
+            ?? session('associazione_selezionata')
+            ?? $user->IdAssociazione;
 
         CostoOssigeno::upsertTotale($idAssociazione, $anno, $request->TotaleBilancio);
 
@@ -63,67 +79,69 @@ class CostoOssigenoController extends Controller {
             ->with('success', 'Totale a bilancio aggiornato correttamente.');
     }
 
-  public function getData(Request $request): JsonResponse {
-    $anno = session('anno_riferimento', now()->year);
-    $user = Auth::user();
+    public function getData(Request $request): JsonResponse {
+        $anno = session('anno_riferimento', now()->year);
+        $user = Auth::user();
 
-    $idAssociazione = $request->query('idAssociazione')
-        ?? session('associazione_selezionata')
-        ?? $user->IdAssociazione;
+        $idAssociazione = $request->query('idAssociazione')
+            ?? session('associazione_selezionata')
+            ?? $user->IdAssociazione;
 
-    if (!$user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])) {
-        $idAssociazione = $user->IdAssociazione;
-    }
+        if (!$user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])) {
+            $idAssociazione = $user->IdAssociazione;
+        }
 
-    $automezzi = Automezzo::getByAssociazione($idAssociazione, $anno);
-    $dati = RipartizioneOssigeno::getRipartizione($idAssociazione, $anno);
-    $totaleBilancio = CostoOssigeno::getTotale($idAssociazione, $anno);
+        $automezzi = Automezzo::getByAssociazione($idAssociazione, $anno);
+        $dati = RipartizioneOssigeno::getRipartizione($idAssociazione, $anno);
+        $totaleBilancio = CostoOssigeno::getTotale($idAssociazione, $anno);
 
-    $righe = [];
+        $righe = [];
 
-    foreach ($dati['righe'] as $riga) {
-        if (isset($riga['is_totale']) && $riga['is_totale']) {
+        foreach ($dati['righe'] as $riga) {
+            if (isset($riga['is_totale']) && $riga['is_totale']) {
+                $righe[] = [
+                    'Targa'       => 'TOTALE',
+                    'n_servizi'   => $riga['totale'],
+                    'percentuale' => 100,
+                    'importo'     => $totaleBilancio,
+                    'is_totale'   => -1
+                ];
+                continue;
+            }
+
+            $incluso = $riga['incluso_riparto'];
+
+            if ($incluso) {
+                $percentuale = ($dati['totale_inclusi'] > 0)
+                    ? round(($riga['totale'] / $dati['totale_inclusi']) * 100, 2)
+                    : 0;
+
+                $importo = ($dati['totale_inclusi'] > 0)
+                    ? round(($riga['totale'] / $dati['totale_inclusi']) * $totaleBilancio, 2)
+                    : 0;
+            } else {
+                $percentuale = 0;
+                $importo = 0;
+            }
+
             $righe[] = [
-                'Targa'       => 'TOTALE',
+                'Targa'       => $riga['Targa'],
                 'n_servizi'   => $riga['totale'],
-                'percentuale' => 100,
-                'importo'     => $totaleBilancio,
-                'is_totale'   => -1
+                'percentuale' => $percentuale,
+                'importo'     => $importo,
+                'is_totale'   => 0
             ];
-            continue;
         }
 
-        $incluso = $riga['incluso_riparto'];
-
-        if ($incluso) {
-            $percentuale = ($dati['totale_inclusi'] > 0)
-                ? round(($riga['totale'] / $dati['totale_inclusi']) * 100, 2)
-                : 0;
-
-            $importo = ($dati['totale_inclusi'] > 0)
-                ? round(($riga['totale'] / $dati['totale_inclusi']) * $totaleBilancio, 2)
-                : 0;
-        } else {
-            $percentuale = 0;
-            $importo = 0;
-        }
-
-        $righe[] = [
-            'Targa'       => $riga['Targa'],
-            'n_servizi'   => $riga['totale'],
-            'percentuale' => $percentuale,
-            'importo'     => $importo,
-            'is_totale'   => 0
-        ];
+        return response()->json(['data' => $righe]);
     }
-
-    return response()->json(['data' => $righe]);
-}
 
     public function editTotale(Request $request) {
         $anno = session('anno_riferimento', now()->year);
-        $automezzi = Automezzo::getFiltratiByUtente($anno);
-        $idAssociazione = $automezzi->first()->idAssociazione ?? null;
+        $user = Auth::user();
+        $idAssociazione = $request->query('idAssociazione')
+            ?? session('associazione_selezionata')
+            ?? $user->IdAssociazione;
         $totale = CostoOssigeno::getTotale($idAssociazione, $anno);
 
         return view('imputazioni.ossigeno.edit_totale', [
