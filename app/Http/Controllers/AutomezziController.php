@@ -51,6 +51,9 @@ class AutomezziController extends Controller {
     }
 
     public function create() {
+        
+        $anno = (int) session('anno_riferimento', now()->year);
+
         $associazioni = DB::table('associazioni')
             ->select('idAssociazione', 'Associazione')
             ->whereNull('deleted_at')
@@ -69,7 +72,7 @@ class AutomezziController extends Controller {
 
         // Recupera dalla sessione o fallback al primo elemento
         $selectedAssociazione = session('selectedAssociazione') ?? ($associazioni->first()->idAssociazione ?? null);
-        $annoCorr = session('annoCorrente') ?? ($anni->first()->idAnno ?? null);
+      
 
         return view('automezzi.create', compact('associazioni', 'anni', 'vehicleTypes', 'fuelTypes', 'selectedAssociazione', 'annoCorr'));
     }

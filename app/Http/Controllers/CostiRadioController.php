@@ -24,7 +24,11 @@ class CostiRadioController extends Controller {
 
         $automezzi = Automezzo::getForRipartizione($anno, $idAssociazione);
         $numeroAutomezzi = count($automezzi);
-            
+        if($idAssociazione == null){
+            $idAssociazione= $user->IdAssociazione;
+            $selectedAssoc=  $idAssociazione;
+            session(['associazione_selezionata' => $selectedAssoc]);
+        } 
         return view('ripartizioni.costi_radio.index', compact('numeroAutomezzi', 'anno', 'idAssociazione', 'associazioni'));
     }
 
@@ -49,10 +53,7 @@ class CostiRadioController extends Controller {
         $idAssociazione = $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])
             ? session('associazione_selezionata')
             : $user->IdAssociazione;
-            
-
-        abort_if(!$idAssociazione, 403, "Associazione non determinata.");
- 
+        
         // Recupero automezzi
         $automezzi = Automezzo::getByAssociazione($idAssociazione, $anno);
         $numAutomezzi = max(count($automezzi), 1);
