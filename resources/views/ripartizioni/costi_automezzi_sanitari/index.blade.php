@@ -3,8 +3,6 @@
 @section('title', 'Ripartizione Costi Automezzi e Radio')
 @section('content')
 
-
-
 <div class="container-fluid">
     <h1 class="container-title mb-4">Tabella di riepilogo ripartizione costi automezzi - materiale ed attrezzatura sanitaria - costi radio</h1>
 

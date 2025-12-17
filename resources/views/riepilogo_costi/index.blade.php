@@ -196,6 +196,8 @@ $user = Auth::user();
 
 @push('scripts')
 <script>
+  const ID_TEL_FISSA  = 5010;  
+  const ID_TEL_MOBILE = 5011;
   (function() {
     const $loader = $('#pageLoader');
     const show = () => $loader.stop(true, true).fadeIn(120).attr({
@@ -372,13 +374,20 @@ $user = Auth::user();
             let actionsHtml = '—';
             if (editingEnabled) {
               if (isTelefoniaRow(row)) {
-                // Edit doppio telefonia (fissa+mobile)
                 const editTelUrl = `{{ route('riepilogo.costi.edit.telefonia') }}`;
                 const qs = new URLSearchParams({
                   idAssociazione: ass,
-                  idConvenzione: conv
+                  idConvenzione: conv,
+                  idFissa: ID_TEL_FISSA,
+                  idMobile: ID_TEL_MOBILE
                 }).toString();
-                actionsHtml = `<a class="btn btn-warning btn-icon" href="${editTelUrl}?${qs}" title="Modifica utenze telefoniche"><i class="fas fa-edit"></i></a>`;
+
+                actionsHtml = `
+                  <a class="btn btn-warning btn-icon"
+                    href="${editTelUrl}?${qs}"
+                    title="Modifica utenze telefoniche">
+                    <i class="fas fa-edit"></i>
+                  </a>`;
               } else if (merged) {
                 // MERGE formazione (6010 + 6011)
                 const parts = Array.isArray(row?.merged_of) ? row.merged_of.filter(Boolean) : [];
