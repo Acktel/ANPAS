@@ -192,9 +192,13 @@
       },
       order: [],
       rowCallback: (rowEl, rowData, index) => {
+        
         if (rowData.is_totale === -1) {
           $(rowEl).addClass('table-warning fw-bold');
         }
+        
+        const hoverText = 'TARGA: ' + rowData.Targa + '\n' + 'Codice Identificativo: ' + rowData.CodiceIdentificativo;
+        $(rowEl).attr('title', hoverText);
         $(rowEl).removeClass('even odd').addClass(index % 2 === 0 ? 'even' : 'odd');
       },
       drawCallback: function(settings) {
@@ -292,6 +296,9 @@ document.addEventListener('DOMContentLoaded', function () {
         if (flash.parentNode) flash.parentNode.removeChild(flash);
       }, 600);
     }, 3500);
+
+    $
+
   })();
 </script>
 @endpush
