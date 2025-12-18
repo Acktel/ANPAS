@@ -146,6 +146,8 @@
       },
 
       rowCallback: function (rowEl, rowData) {
+        const hoverText = 'Dipendente: ' + rowData.Dipendente;
+        $(rowEl).attr('title', hoverText);
         if (rowData.is_totale === true) $(rowEl).hide();
         const api = this.api();
         const rowIndex = api.row(rowEl).index();
@@ -200,7 +202,9 @@
             previous: '<i class="fas fa-angle-left"></i>'
           },
         },
-        rowCallback: function (row, data, index) {
+        rowCallback: function (row, data, index) {          
+          const hoverText = 'Dipendente: ' + data.Dipendente;
+          $(row).attr('title', hoverText);
           $(row).removeClass('even odd').addClass(index % 2 === 0 ? 'even' : 'odd');
         },
         stripeClasses: ['table-white', 'table-striped-anpas'],

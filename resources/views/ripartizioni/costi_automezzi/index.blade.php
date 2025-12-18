@@ -191,8 +191,7 @@
         },
       },
       order: [],
-      rowCallback: (rowEl, rowData, index) => {
-        
+      rowCallback: (rowEl, rowData, index) => {        
         if (rowData.is_totale === -1) {
           $(rowEl).addClass('table-warning fw-bold');
         }

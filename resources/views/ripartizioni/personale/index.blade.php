@@ -212,6 +212,8 @@
       },
       stripeClasses: ['table-striped-anpas', ''],
       rowCallback: (rowEl, rowData, index) => {
+        const hoverText = 'Dipendente: ' + rowData.FullName;
+        $(rowEl).attr('title', hoverText);
         $(rowEl).removeClass('even odd').addClass(index % 2 === 0 ? 'even' : 'odd');
          AnpasLoader.hide();
       },

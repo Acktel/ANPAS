@@ -199,45 +199,53 @@ $(function () {
       });
 
       righe.forEach(riga => {
-        const idSezione = riga.sezione_id || riga.sezione || riga.idSezione;
-        if (!idSezione) return;
+    const idSezione = riga.sezione_id || riga.sezione || riga.idSezione;
+    if (!idSezione) return;
 
-        const $tbody = $(`tbody[data-sezione="${idSezione}"]`);
-        if ($tbody.length === 0) return;
+    const $tbody = $(`tbody[data-sezione="${idSezione}"]`);
+    if ($tbody.length === 0) return;
 
-        let html = `<tr>
-          <td>${$('<div>').text(riga.voce ?? '').html()}</td>
-          <td class="text-end">${fmt2(riga.bilancio)}</td>
-          <td class="text-end">${fmt2(riga.diretta)}</td>
-          <td class="text-end">${fmt2(riga.totale)}</td>`;
+    // ===== TESTO HOVER (standard, affidabile) =====
+    const hoverText =
+        'Voce: ' + (riga.voce ?? '-') + '\n';
 
-        convIds.forEach(cid => {
-          const cname = convMap[cid];
+    let html = `
+        <tr title="${$('<div>').text(hoverText).html()}">
+            <td>${$('<div>').text(riga.voce ?? '').html()}</td>
+            <td class="text-end">${fmt2(riga.bilancio)}</td>
+            <td class="text-end">${fmt2(riga.diretta)}</td>
+            <td class="text-end">${fmt2(riga.totale)}</td>
+    `;
 
-          const cellById   = riga[cid]       || (riga.per_conv && riga.per_conv[cid]);
-          const cellByName = riga[cname]     || (riga.per_conv && riga.per_conv[cname]);
+    convIds.forEach(cid => {
+        const cname = convMap[cid];
 
-          const cell = cellById || cellByName || {};
-          const diretti = Number(cell.diretti ?? cell.diretta ?? 0);
-          const amm     = Number(cell.ammortamento ?? 0);
-          const ind     = Number(cell.indiretti ?? cell.indiretto ?? 0);
+        const cellById   = riga[cid]   || (riga.per_conv && riga.per_conv[cid]);
+        const cellByName = riga[cname] || (riga.per_conv && riga.per_conv[cname]);
 
-          html += `<td class="text-end">${fmt2(diretti)}</td>`;
-          html += `<td class="text-end">${fmt2(amm)}</td>`;
-          html += `<td class="text-end">${fmt2(ind)}</td>`;
-        });
+        const cell = cellById || cellByName || {};
+        const diretti = Number(cell.diretti ?? cell.diretta ?? 0);
+        const amm     = Number(cell.ammortamento ?? 0);
+        const ind     = Number(cell.indiretti ?? cell.indiretto ?? 0);
 
-        html += `</tr>`;
-        $tbody.append(html);
+        html += `<td class="text-end">${fmt2(diretti)}</td>`;
+        html += `<td class="text-end">${fmt2(amm)}</td>`;
+        html += `<td class="text-end">${fmt2(ind)}</td>`;
+    });
 
-        totaliPerSezione[idSezione].bilancio += Number(riga.bilancio || 0);
-        totaliPerSezione[idSezione].diretta  += Number(riga.diretta  || 0);
-        totaliPerSezione[idSezione].totale   += Number(riga.totale   || 0);
+    html += `</tr>`;
+    $tbody.append(html);
 
-        totaliGenerali.bilancio += Number(riga.bilancio || 0);
-        totaliGenerali.diretta  += Number(riga.diretta  || 0);
-        totaliGenerali.totale   += Number(riga.totale   || 0);
-      });
+    // ===== TOTALI =====
+    totaliPerSezione[idSezione].bilancio += Number(riga.bilancio || 0);
+    totaliPerSezione[idSezione].diretta  += Number(riga.diretta  || 0);
+    totaliPerSezione[idSezione].totale   += Number(riga.totale   || 0);
+
+    totaliGenerali.bilancio += Number(riga.bilancio || 0);
+    totaliGenerali.diretta  += Number(riga.diretta  || 0);
+    totaliGenerali.totale   += Number(riga.totale   || 0);
+});
+
 
       Object.keys(totaliPerSezione).forEach(id => {
         $(`#summary-bilancio-${id}`).text('Importo Totale da Bilancio Consuntivo:  '+fmt2(totaliPerSezione[id].bilancio));

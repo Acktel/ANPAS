@@ -204,6 +204,8 @@
         },
       },
     rowCallback: (rowEl, rowData, index) => {
+      const hoverText = 'TARGA: ' + rowData.Targa + '\n' + 'Codice Identificativo: ' + rowData.CodiceIdentificativo;
+      $(rowEl).attr('title', hoverText);
       if (rowData.is_totale === -1) {
         $(rowEl).addClass('table-warning fw-bold');
       }

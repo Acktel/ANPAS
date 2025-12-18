@@ -414,8 +414,9 @@ $user = Auth::user();
                 actionsHtml = `<a class="btn btn-warning btn-icon" href="${ensureUrl}?${qs}" title="Modifica"><i class="fas fa-edit"></i></a>`;
               }
             }
-
+            const hoverText ='Voce: ' + (row?.descrizione ?? '-') + '\n';
             const tr = document.createElement('tr');
+            tr.setAttribute('title', hoverText);
             tr.innerHTML = `
           <td>${row?.descrizione ?? ''}</td>
           <td class="text-end">${eur(prev)}</td>

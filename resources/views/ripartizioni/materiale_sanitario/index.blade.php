@@ -206,6 +206,8 @@ async function loadTableMateriale() {
     },
     stripeClasses: ['table-white','table-striped-anpas'],
     rowCallback: function (rowEl, rowData, index) {
+      const hoverText = 'TARGA: ' + rowData.Targa + '\n' + 'Codice Identificativo: ' + rowData.CodiceIdentificativo;
+      $(rowEl).attr('title', hoverText);
       if (rowData.is_totale === true || rowData.is_totale === -1) {
         $(rowEl).addClass('table-warning fw-bold');
       }
