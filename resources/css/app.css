@@ -910,7 +910,3 @@ div.dataTables_wrapper .dataTables_length {
 table.dataTable {
     border-collapse: collapse!important;
 }
-
-div#docsTable_paginate {
-    color: white;
-}
