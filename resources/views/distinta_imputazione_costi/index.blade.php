@@ -135,7 +135,6 @@
   </div>
 </div>
 @endsection
-
 @push('scripts')
 <script>
 window.distintaCosti = {
@@ -146,79 +145,124 @@ window.distintaCosti = {
 
 function fmt2(n){ n = Number(n||0); return Number.isFinite(n) ? n.toFixed(2) : '0.00'; }
 
-$(function () {
-  AnpasLoader.show();
-  const intestazioniAggiunte = new Set();
+(function() {
+  // =========================
+  // LOADER (fetch + ajax)
+  // =========================
+  const $loader = $('#pageLoader');
+  const show = () => $loader.stop(true, true).fadeIn(120).attr({ 'aria-hidden':'false', 'aria-busy':'true' });
+  const hide = () => $loader.stop(true, true).fadeOut(120).attr({ 'aria-hidden':'true',  'aria-busy':'false' });
 
-  // Passo idAssociazione all’API /data
-  const dataUrl = (function(){
-    const base = '{{ route("distinta.imputazione.data") }}';
-    const idA  = window.distintaCosti.selectedAssoc;
-    return idA ? (base + '?idAssociazione=' + encodeURIComponent(idA)) : base;
-  })();
+  // se ti resta qualche $.ajax, continua a coprire anche quello
+  $(document).ajaxStart(show);
+  $(document).ajaxStop(hide);
 
-  $.ajax({
-    url: dataUrl,
-    method: 'GET',
-    success: function (response) {
-      if (!response) return;
+  window.AnpasLoader = { show, hide };
 
-      const convMap = (function(c){
-        if (!c) return {};
-        if (Array.isArray(c)) {
-          const m={}; c.forEach((name,idx)=> m[String(idx)] = String(name)); return m;
-        }
-        const out={}; Object.keys(c).forEach(k => out[String(k)] = String(c[k])); return out;
-      })(response.convenzioni);
+  let __loaderDepth = 0;
+  async function fetchWithLoader(url, options = {}) {
+    __loaderDepth++;
+    AnpasLoader.show();
+    try {
+      const res = await fetch(url, options);
+      if (!res.ok) {
+        const t = await res.text().catch(() => '');
+        throw new Error(`HTTP ${res.status}: ${t || res.statusText}`);
+      }
+      return res;
+    } finally {
+      __loaderDepth = Math.max(0, __loaderDepth - 1);
+      if (__loaderDepth === 0) AnpasLoader.hide();
+    }
+  }
+  async function fetchJsonWithLoader(url, options = {}) {
+    const res = await fetchWithLoader(url, options);
+    return await res.json();
+  }
 
-      const convIds   = Object.keys(convMap);
-      const convNames = convIds.map(id => convMap[id]);
+  const selectedAssoc = window.distintaCosti.selectedAssoc;
 
-      const righe = Array.isArray(response.data) ? response.data : [];
+  // =========================
+  // STATE / CACHE
+  // =========================
+  const sezCache = new Map(); // idSezione -> { rows, convMap, convIds, convNames }
+  let convMapGlobal = null;
+  let convIdsGlobal = [];
+  let convNamesGlobal = [];
 
-      const totaliGenerali = { bilancio: 0, diretta: 0, totale: 0 };
-      const totaliPerSezione = {};
+  // =========================
+  // HELPERS
+  // =========================
+  function normalizeConvMap(c) {
+    if (!c) return {};
+    if (Array.isArray(c)) {
+      const m = {};
+      c.forEach((name, idx) => m[String(idx)] = String(name));
+      return m;
+    }
+    const out = {};
+    Object.keys(c).forEach(k => out[String(k)] = String(c[k]));
+    return out;
+  }
 
-      Object.keys(window.distintaCosti.sezioni).forEach(idSezione => {
-        const headerMain = $(`#header-main-${idSezione}`);
-        const headerSub  = $(`#header-sub-${idSezione}`);
+  function ensureHeadersForSection(idSezione) {
+    // intestazioni multi-colonna convenzioni
+    const headerMain = document.getElementById(`header-main-${idSezione}`);
+    const headerSub  = document.getElementById(`header-sub-${idSezione}`);
+    if (!headerMain || !headerSub) return;
 
-        if (!intestazioniAggiunte.has(idSezione)) {
-          convNames.forEach(name => {
-            headerMain.append(`<th colspan="3" class="text-center">${$('<div>').text(name).html()}</th>`);
-            headerSub.append(`
-              <th class="text-center">Diretti</th>
-              <th class="text-center">Sconto</th>
-              <th class="text-center">Indiretti</th>
-            `);
-          });
-          intestazioniAggiunte.add(idSezione);
-        }
+    // Se già create (controllo semplice: se sub ha figli)
+    if (headerSub.children.length > 0) return;
 
-        totaliPerSezione[idSezione] = { bilancio: 0, diretta: 0, totale: 0 };
-      });
+    convNamesGlobal.forEach(name => {
+      const thMain = document.createElement('th');
+      thMain.colSpan = 3;
+      thMain.className = 'text-center';
+      thMain.textContent = name;
+      headerMain.appendChild(thMain);
 
-      righe.forEach(riga => {
-    const idSezione = riga.sezione_id || riga.sezione || riga.idSezione;
-    if (!idSezione) return;
+      const th1 = document.createElement('th');
+      th1.className = 'text-center';
+      th1.textContent = 'Diretti';
 
-    const $tbody = $(`tbody[data-sezione="${idSezione}"]`);
-    if ($tbody.length === 0) return;
+      const th2 = document.createElement('th');
+      th2.className = 'text-center';
+      th2.textContent = 'Sconto';
 
-    // ===== TESTO HOVER (standard, affidabile) =====
-    const hoverText =
-        'Voce: ' + (riga.voce ?? '-') + '\n';
+      const th3 = document.createElement('th');
+      th3.className = 'text-center';
+      th3.textContent = 'Indiretti';
 
-    let html = `
+      headerSub.appendChild(th1);
+      headerSub.appendChild(th2);
+      headerSub.appendChild(th3);
+    });
+  }
+
+  function clearSectionTable(idSezione) {
+    const tbody = document.querySelector(`#table-distinta-${idSezione} tbody`);
+    if (tbody) tbody.innerHTML = '';
+  }
+
+  function renderSectionRows(idSezione, rows) {
+    const tbody = document.querySelector(`#table-distinta-${idSezione} tbody`);
+    if (!tbody) return;
+
+    tbody.innerHTML = '';
+
+    rows.forEach(riga => {
+      const hoverText = 'Voce: ' + (riga.voce ?? '-') + '\n';
+
+      let html = `
         <tr title="${$('<div>').text(hoverText).html()}">
-            <td>${$('<div>').text(riga.voce ?? '').html()}</td>
-            <td class="text-end">${fmt2(riga.bilancio)}</td>
-            <td class="text-end">${fmt2(riga.diretta)}</td>
-            <td class="text-end">${fmt2(riga.totale)}</td>
-    `;
+          <td>${$('<div>').text(riga.voce ?? '').html()}</td>
+          <td class="text-end">${fmt2(riga.bilancio)}</td>
+          <td class="text-end">${fmt2(riga.diretta)}</td>
+          <td class="text-end">${fmt2(riga.totale)}</td>
+      `;
 
-    convIds.forEach(cid => {
-        const cname = convMap[cid];
+      convIdsGlobal.forEach(cid => {
+        const cname = convMapGlobal[cid];
 
         const cellById   = riga[cid]   || (riga.per_conv && riga.per_conv[cid]);
         const cellByName = riga[cname] || (riga.per_conv && riga.per_conv[cname]);
@@ -231,38 +275,107 @@ $(function () {
         html += `<td class="text-end">${fmt2(diretti)}</td>`;
         html += `<td class="text-end">${fmt2(amm)}</td>`;
         html += `<td class="text-end">${fmt2(ind)}</td>`;
-    });
-
-    html += `</tr>`;
-    $tbody.append(html);
-
-    // ===== TOTALI =====
-    totaliPerSezione[idSezione].bilancio += Number(riga.bilancio || 0);
-    totaliPerSezione[idSezione].diretta  += Number(riga.diretta  || 0);
-    totaliPerSezione[idSezione].totale   += Number(riga.totale   || 0);
-
-    totaliGenerali.bilancio += Number(riga.bilancio || 0);
-    totaliGenerali.diretta  += Number(riga.diretta  || 0);
-    totaliGenerali.totale   += Number(riga.totale   || 0);
-});
-
-
-      Object.keys(totaliPerSezione).forEach(id => {
-        $(`#summary-bilancio-${id}`).text('Importo Totale da Bilancio Consuntivo:  '+fmt2(totaliPerSezione[id].bilancio));
-        $(`#summary-diretta-${id}`).text('Costi di Diretta Imputazione (Netti):  '+fmt2(totaliPerSezione[id].diretta));
-        $(`#summary-totale-${id}`).text('Totale Costi Ripartiti (Indiretti):  '+fmt2(totaliPerSezione[id].totale));
       });
 
-      $('#tot-bilancio').text('Importo Totale da Bilancio Consuntivo:  '+fmt2(totaliGenerali.bilancio));
-      $('#tot-diretta').text('Costi di Diretta Imputazione (Netti):  '+fmt2(totaliGenerali.diretta));
-      $('#tot-totale').text('Totale Costi Ripartiti (Indiretti):  '+fmt2(totaliGenerali.totale));
-      AnpasLoader.hide();
-    },
-    error: function (xhr) {
-      console.error("Errore caricamento distinta costi", xhr);
+      html += `</tr>`;
+      tbody.insertAdjacentHTML('beforeend', html);
+    });
+  }
+
+  // =========================
+  // TOTALI SUBITO (SUMMARY)
+  // =========================
+  async function loadSummaryTotals() {
+    if (!selectedAssoc) return;
+    
+    const url = `{{ route('distinta.imputazione.summary') }}`; // <--- DEVE ESISTERE
+    const qs  = new URLSearchParams({ idAssociazione: String(selectedAssoc) });
+
+    const json = await fetchJsonWithLoader(`${url}?${qs.toString()}`);
+    if (!json?.ok) return;
+
+    // conv map globale
+    convMapGlobal = normalizeConvMap(json.convenzioni);
+    convIdsGlobal = Object.keys(convMapGlobal);
+    convNamesGlobal = convIdsGlobal.map(id => convMapGlobal[id]);
+
+    // header e totali per sezione
+    Object.keys(window.distintaCosti.sezioni).forEach(idSezione => {
+      ensureHeadersForSection(idSezione);
+
+      const t = json.sezioni?.[String(idSezione)] || { bilancio:0, diretta:0, totale:0 };
+      document.getElementById(`summary-bilancio-${idSezione}`).textContent = 'Importo Totale da Bilancio Consuntivo: ' + fmt2(t.bilancio);
+      document.getElementById(`summary-diretta-${idSezione}`).textContent  = 'Costi di Diretta Imputazione (Netti): ' + fmt2(t.diretta);
+      document.getElementById(`summary-totale-${idSezione}`).textContent   = 'Totale Costi Ripartiti (Indiretti): ' + fmt2(t.totale);
+    });
+
+    // totale generale
+    const g = json.totale || { bilancio:0, diretta:0, totale:0 };
+    document.getElementById('tot-bilancio').textContent = 'Importo Totale da Bilancio Consuntivo: ' + fmt2(g.bilancio);
+    document.getElementById('tot-diretta').textContent  = 'Costi di Diretta Imputazione (Netti): ' + fmt2(g.diretta);
+    document.getElementById('tot-totale').textContent   = 'Totale Costi Ripartiti (Indiretti): ' + fmt2(g.totale);
+  }
+
+  // =========================
+  // LAZY LOAD SEZIONE (RIGHE)
+  // =========================
+  async function loadSezioneLazy(idSezione) {
+    if (!selectedAssoc) return;
+    if (sezCache.has(idSezione)) return; // già caricata
+
+    // serve convMapGlobal già pronta (arriva dal summary)
+    if (!convMapGlobal) {
+      await loadSummaryTotals();
+      if (!convMapGlobal) return; // fallita
     }
-  });
-});
+
+    ensureHeadersForSection(idSezione);
+    clearSectionTable(idSezione);
+
+    // API esistente: oggi ritorna { convenzioni, data: tutte le sezioni }
+    // Qui NON hai un endpoint per singola sezione, quindi filtriamo lato client.
+    // (Se vuoi performance top, fai /dataSezione?idSezione=... lato backend)
+    const base = `{{ route('distinta.imputazione.data') }}`;
+    const qs = new URLSearchParams({ idAssociazione: String(selectedAssoc) });
+
+    const json = await fetchJsonWithLoader(`${base}?${qs.toString()}`);
+    const righe = Array.isArray(json?.data) ? json.data : [];
+
+    const rowsThis = righe.filter(r => {
+      const s = r.sezione_id || r.sezione || r.idSezione;
+      return String(s) === String(idSezione);
+    });
+
+    renderSectionRows(idSezione, rowsThis);
+    sezCache.set(idSezione, { loaded: true });
+  }
+
+  function bindAccordionLazyLoad() {
+    document.querySelectorAll('#accordionDistinta .accordion-collapse').forEach(el => {
+      el.addEventListener('show.bs.collapse', function() {
+        const id = String(this.id || '');
+        if (!id.startsWith('collapse-')) return;
+        const n = parseInt(id.replace('collapse-', ''), 10);
+        if (!Number.isFinite(n)) return;
+        loadSezioneLazy(n);
+      });
+    });
+  }
+
+  // =========================
+  // INIT
+  // =========================
+  (async () => {
+    bindAccordionLazyLoad();
+
+    // Se non c'è associazione selezionata: non faccio niente
+    if (!selectedAssoc) return;
+
+    // Totali subito + prepara convMap/header
+    await loadSummaryTotals();
+  })();
+
+})();
 </script>
 
 <script>
@@ -300,12 +413,12 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   }
 
-  toggleBtn.addEventListener('click', function (e) {
+  toggleBtn?.addEventListener('click', function (e) {
     e.stopPropagation();
     (dropdown.style.display === 'block') ? closeDropdown() : openDropdown();
   });
 
-  input.addEventListener('input', function () {
+  input?.addEventListener('input', function () {
     const filter = input.value.trim().toLowerCase();
     let anyVisible = false;
     items().forEach(item => {
@@ -319,7 +432,7 @@ document.addEventListener('DOMContentLoaded', function () {
     anyVisible ? openDropdown() : closeDropdown();
   });
 
-  input.addEventListener('keydown', function (e) {
+  input?.addEventListener('keydown', function (e) {
     const visibleItems = items().filter(i => i.style.display !== 'none');
     if (!visibleItems.length) return;
 
@@ -352,7 +465,6 @@ document.addEventListener('DOMContentLoaded', function () {
     if (!item) return;
     const id = item.getAttribute('data-id');
     hidden.value = id;
-    // redirect con ?idAssociazione=...
     window.location = '{{ route('distinta.imputazione.index') }}' + '?idAssociazione=' + encodeURIComponent(id);
   }
 
@@ -372,7 +484,6 @@ document.addEventListener('DOMContentLoaded', function () {
   document.addEventListener('click', function (e) {
     if (!form.contains(e.target)) closeDropdown();
   });
-  
 });
 </script>
 @endpush

@@ -767,4 +767,122 @@ class RiepilogoCostiController extends Controller {
             ->route('riepilogo.costi', ['idAssociazione' => $idAss, 'idConvenzione' => $idConv])
             ->with('success', 'Formazione (A + DAE + RDAE) aggiornata.');
     }
+
+    public function getSummary(Request $request) {
+        $anno      = (int) session('anno_riferimento', now()->year);
+        $user      = Auth::user();
+        $isElevato = $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor']);
+
+        $idAssociazione = $isElevato
+            ? ($request->integer('idAssociazione') ?: (int) session('associazione_selezionata'))
+            : (int) $user->IdAssociazione;
+
+        if (!$idAssociazione) {
+            return response()->json(['ok' => false, 'message' => 'Associazione mancante']);
+        }
+
+        $idConvenzione = $request->input('idConvenzione'); // 'TOT' | int | null
+        if ($idConvenzione === null || $idConvenzione === '') $idConvenzione = 'TOT';
+
+        $idsTipologie = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+
+        // PREVENTIVI: dal DB (riepilogo_dati) aggregati per tipologia
+        $idRiepilogo = DB::table('riepiloghi')
+            ->where('idAssociazione', $idAssociazione)
+            ->where('idAnno', $anno)
+            ->value('idRiepilogo');
+
+        $prevByTipologia = array_fill_keys($idsTipologie, 0.0);
+
+        if ($idRiepilogo) {
+            $q = DB::table('riepilogo_dati as rd')
+                ->join('riepilogo_voci_config as vc', 'vc.id', '=', 'rd.idVoceConfig')
+                ->where('rd.idRiepilogo', $idRiepilogo)
+                ->whereIn('vc.idTipologiaRiepilogo', $idsTipologie);
+
+            if ($idConvenzione === 'TOT') {
+                // TOT = somma su tutte le convenzioni (come già fai nel model) :contentReference[oaicite:2]{index=2}
+                $q->select('vc.idTipologiaRiepilogo', DB::raw('COALESCE(SUM(rd.preventivo),0) AS tot'))
+                    ->groupBy('vc.idTipologiaRiepilogo');
+            } else {
+                $q->where('rd.idConvenzione', (int)$idConvenzione)
+                    ->select('vc.idTipologiaRiepilogo', DB::raw('COALESCE(SUM(rd.preventivo),0) AS tot'))
+                    ->groupBy('vc.idTipologiaRiepilogo');
+            }
+
+            foreach ($q->get() as $r) {
+                $prevByTipologia[(int)$r->idTipologiaRiepilogo] = (float)$r->tot;
+            }
+        }
+
+        // CONSUNTIVI: via servizio (pesante -> metti cache lato service, consigliato)
+        // Questo è lo stesso “motore” che usi in getByTipologia() 
+        $mapCons = RipartizioneCostiService::consuntiviPerVoceByConvenzione($idAssociazione, $anno);
+
+        // mappa: tipologia -> lista idVoceConfig di quella tipologia (attive)
+        $vociByTip = DB::table('riepilogo_voci_config')
+            ->whereIn('idTipologiaRiepilogo', $idsTipologie)
+            ->where('attivo', 1)
+            ->select('id', 'idTipologiaRiepilogo')
+            ->get()
+            ->groupBy('idTipologiaRiepilogo');
+
+        // convenzioni (servono per sommare TOT correttamente, come fai nel model) 
+        $convIds = array_keys(RipartizioneCostiService::convenzioni($idAssociazione, $anno));
+
+        $consByTipologia = array_fill_keys($idsTipologie, 0.0);
+
+        foreach ($idsTipologie as $tip) {
+            $rows = $vociByTip[$tip] ?? collect();
+            $sum = 0.0;
+
+            foreach ($rows as $v) {
+                $idVoce = (int)$v->id;
+                if ($idConvenzione === 'TOT') {
+                    $row = $mapCons[$idVoce] ?? [];
+                    foreach ($convIds as $cid) {
+                        $sum += (float)($row[$cid] ?? 0.0);
+                    }
+                } else {
+                    $sum += (float)($mapCons[$idVoce][(int)$idConvenzione] ?? 0.0);
+                }
+            }
+
+            $consByTipologia[$tip] = round($sum, 2);
+        }
+
+        // output
+        $out = [
+            'ok' => true,
+            'anno' => $anno,
+            'idAssociazione' => (int)$idAssociazione,
+            'idConvenzione' => $idConvenzione,
+            'sezioni' => [],
+            'totale' => ['preventivo' => 0.0, 'consuntivo' => 0.0, 'scostamento' => 0.0],
+        ];
+
+        $totPrev = 0.0;
+        $totCons = 0.0;
+
+        foreach ($idsTipologie as $tip) {
+            $prev = round((float)($prevByTipologia[$tip] ?? 0.0), 2);
+            $cons = round((float)($consByTipologia[$tip] ?? 0.0), 2);
+            $scos = $prev != 0.0 ? round((($cons - $prev) / $prev) * 100, 2) : 0.0;
+
+            $out['sezioni'][(string)$tip] = [
+                'preventivo' => $prev,
+                'consuntivo' => $cons,
+                'scostamento' => $scos,
+            ];
+
+            $totPrev += $prev;
+            $totCons += $cons;
+        }
+
+        $out['totale']['preventivo'] = round($totPrev, 2);
+        $out['totale']['consuntivo'] = round($totCons, 2);
+        $out['totale']['scostamento'] = $totPrev != 0.0 ? round((($totCons - $totPrev) / $totPrev) * 100, 2) : 0.0;
+
+        return response()->json($out);
+    }
 }

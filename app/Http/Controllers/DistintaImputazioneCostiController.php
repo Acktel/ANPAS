@@ -9,36 +9,35 @@ use Illuminate\Support\Facades\DB;
 use App\Services\RipartizioneCostiService;
 use App\Models\CostoDiretto;
 use App\Models\Riepilogo;
+use Illuminate\Support\Facades\Cache;
 
-class DistintaImputazioneCostiController extends Controller
-{
+class DistintaImputazioneCostiController extends Controller {
     // Sezioni dove si può editare l’Importo Totale da Bilancio Consuntivo
     private const SEZIONI_BILANCIO_EDITABILE = [5, 6, 8, 9, 10, 11];
 
     /** Whitelist voci editabili per sezione (ALL = tutte le voci attive della sezione) */
     private const VOCI_BILANCIO_EDIT_PER_SEZIONE = [
         5  => 'ALL',
-        6  => [6007,6008,6009,6010,6011,6012,6013,6014],
+        6  => [6007, 6008, 6009, 6010, 6011, 6012, 6013, 6014],
         8  => 'ALL',
-        9  => [9002,9003,9006,9007,9008,9009],
+        9  => [9002, 9003, 9006, 9007, 9008, 9009],
         10 => 'ALL',
         11 => 'ALL',
     ];
 
     /* ========================= INDEX ========================= */
-    public function index(Request $request)
-    {
+    public function index(Request $request) {
         $anno      = (int) session('anno_riferimento', now()->year);
         $user      = Auth::user();
         $isElevato = $user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor']) || session()->has('impersonate');
 
         $associazioni = $isElevato
             ? DB::table('associazioni')
-                ->select('idAssociazione', 'Associazione')
-                ->whereNull('deleted_at')
-                ->where('idAssociazione', '!=', 1)
-                ->orderBy('Associazione')
-                ->get()
+            ->select('idAssociazione', 'Associazione')
+            ->whereNull('deleted_at')
+            ->where('idAssociazione', '!=', 1)
+            ->orderBy('Associazione')
+            ->get()
             : collect();
 
         $selectedAssoc = $this->resolveAssociazione($request);
@@ -47,8 +46,7 @@ class DistintaImputazioneCostiController extends Controller
     }
 
     /* ========================= AJAX DATA (accordion) ========================= */
-    public function getData(Request $request)
-    {
+    public function getData(Request $request) {
         $anno          = (int) session('anno_riferimento', now()->year);
         $selectedAssoc = $this->resolveAssociazione($request);
 
@@ -56,13 +54,12 @@ class DistintaImputazioneCostiController extends Controller
             return response()->json(['data' => [], 'convenzioni' => []]);
         }
 
-        $payload = RipartizioneCostiService::distintaImputazioneData($selectedAssoc, $anno);
+        $payload = $this->distintaPayloadCached($selectedAssoc, $anno);
         return response()->json($payload);
     }
 
     /* ========================= SALVATAGGIO VELOCE (legacy singola voce) ========================= */
-    public function salvaCostoDiretto(Request $request)
-    {
+    public function salvaCostoDiretto(Request $request) {
         $validated = $request->validate([
             'idAssociazione' => 'required|integer',
             'idAnno'         => 'required|integer',
@@ -90,8 +87,7 @@ class DistintaImputazioneCostiController extends Controller
     }
 
     /* ========================= CREATE (form aggiunta) ========================= */
-    public function create(Request $request, int $sezione)
-    {
+    public function create(Request $request, int $sezione) {
         $anno           = (int) session('anno_riferimento', now()->year);
         $idAssociazione = $this->resolveAssociazione($request);
         abort_if(!$idAssociazione, 422, 'Associazione non selezionata');
@@ -101,7 +97,7 @@ class DistintaImputazioneCostiController extends Controller
             ->value('Associazione');
 
         $convenzioni = Riepilogo::getConvenzioniForAssAnno($idAssociazione, $anno)
-            ->map(fn ($r) => (object) ['idConvenzione' => $r->id, 'Convenzione' => $r->text]);
+            ->map(fn($r) => (object) ['idConvenzione' => $r->id, 'Convenzione' => $r->text]);
 
         $vociDisponibili = DB::table('riepilogo_voci_config')
             ->select('id', 'descrizione')
@@ -111,7 +107,7 @@ class DistintaImputazioneCostiController extends Controller
             ->get();
 
         // --- Bilancio per VOCE: SOLO “globale per voce + sezione” (idVoceConfig NULL, idConvenzione NULL)
-        $norm = fn (string $s) => preg_replace('/\s+/u', ' ', trim(mb_strtoupper($s, 'UTF-8')));
+        $norm = fn(string $s) => preg_replace('/\s+/u', ' ', trim(mb_strtoupper($s, 'UTF-8')));
 
         $bilancioGlobalByDesc = DB::table('costi_diretti')
             ->select('voce', DB::raw('SUM(bilancio_consuntivo) AS tot'))
@@ -122,7 +118,7 @@ class DistintaImputazioneCostiController extends Controller
             ->whereNull('idConvenzione')
             ->groupBy('voce')
             ->get()
-            ->mapWithKeys(fn ($r) => [$norm((string) $r->voce) => (float) $r->tot]);
+            ->mapWithKeys(fn($r) => [$norm((string) $r->voce) => (float) $r->tot]);
 
         $bilancioPerVoce = [];
         foreach ($vociDisponibili as $v) {
@@ -180,8 +176,7 @@ class DistintaImputazioneCostiController extends Controller
     }
 
     /* ========================= STORE (solo costo/ammortamento) ========================= */
-    public function store(Request $request)
-    {
+    public function store(Request $request) {
         $validated = $request->validate([
             'idAssociazione' => 'required|integer|exists:associazioni,idAssociazione',
             'idAnno'         => 'required|integer',
@@ -217,8 +212,7 @@ class DistintaImputazioneCostiController extends Controller
     }
 
     /* ========================= API: personale per convenzione ========================= */
-    public function personalePerConvenzione(Request $request)
-    {
+    public function personalePerConvenzione(Request $request) {
         $anno          = (int) session('anno_riferimento', now()->year);
         $selectedAssoc = $this->resolveAssociazione($request);
         abort_if(!$selectedAssoc, 422, 'Associazione non selezionata');
@@ -240,8 +234,7 @@ class DistintaImputazioneCostiController extends Controller
     }
 
     /* ========================= EDIT SEZIONE (solo diretti/ammortamenti) ========================= */
-    public function editSezione(Request $request, int $sezione)
-    {
+    public function editSezione(Request $request, int $sezione) {
         $anno           = (int) session('anno_riferimento', now()->year);
         $idAssociazione = $this->resolveAssociazione($request);
         abort_if(!$idAssociazione, 422, 'Associazione non selezionata');
@@ -277,8 +270,7 @@ class DistintaImputazioneCostiController extends Controller
         ]);
     }
 
-    public function updateSezione(Request $request, int $sezione)
-    {
+    public function updateSezione(Request $request, int $sezione) {
         $validated = $request->validate([
             'idAssociazione' => 'required|integer|exists:associazioni,idAssociazione',
             'idAnno'         => 'required|integer',
@@ -326,8 +318,7 @@ class DistintaImputazioneCostiController extends Controller
     }
 
     /* ========================= EDIT “Importo Totale da Bilancio Consuntivo” ========================= */
-    public function editBilancioSezione(Request $request, int $sezione)
-    {
+    public function editBilancioSezione(Request $request, int $sezione) {
         abort_unless(in_array($sezione, self::SEZIONI_BILANCIO_EDITABILE, true), 404);
 
         $anno      = (int) session('anno_riferimento', now()->year);
@@ -367,7 +358,7 @@ class DistintaImputazioneCostiController extends Controller
                 return mb_strtoupper(preg_replace('/\s+/u', ' ', trim((string) $r->voce)), 'UTF-8');
             });
 
-        $norm = fn (string $s) => mb_strtoupper(preg_replace('/\s+/u', ' ', trim($s)), 'UTF-8');
+        $norm = fn(string $s) => mb_strtoupper(preg_replace('/\s+/u', ' ', trim($s)), 'UTF-8');
 
         $righe = [];
         foreach ($voci as $v) {
@@ -394,8 +385,7 @@ class DistintaImputazioneCostiController extends Controller
         ]);
     }
 
-    public function updateBilancioSezione(Request $request, int $sezione)
-    {
+    public function updateBilancioSezione(Request $request, int $sezione) {
         abort_unless(in_array($sezione, self::SEZIONI_BILANCIO_EDITABILE, true), 404);
 
         $data = $request->validate([
@@ -468,8 +458,7 @@ class DistintaImputazioneCostiController extends Controller
     }
 
     /* ========================= Helper: risolve l’associazione corrente ========================= */
-    private function resolveAssociazione(Request $request): ?int
-    {
+    private function resolveAssociazione(Request $request): ?int {
         $user            = Auth::user();
         $associazioni    = collect();
 
@@ -497,8 +486,7 @@ class DistintaImputazioneCostiController extends Controller
     }
 
     /* ========================= STORE BULK (diretti/ammortamenti) ========================= */
-    public function storeBulk(Request $request)
-    {
+    public function storeBulk(Request $request) {
         $data = $request->validate([
             'idAssociazione'        => 'required|integer|exists:associazioni,idAssociazione',
             'idAnno'                => 'required|integer',
@@ -556,5 +544,102 @@ class DistintaImputazioneCostiController extends Controller
             ->with('success', 'Costi diretti aggiornati correttamente.');
     }
 
-    
+    private function distintaPayloadCached(int $idAssociazione, int $anno): array {
+        $key = "distinta_imputazione_payload:{$idAssociazione}:{$anno}";
+
+        // 10 minuti: regola tu. Se hai dati che cambiano spesso, metti 60-120s.
+        return Cache::remember($key, 600, function () use ($idAssociazione, $anno) {
+            return RipartizioneCostiService::distintaImputazioneData($idAssociazione, $anno);
+        });
+    }
+
+    public function summary(Request $request)
+{
+    $anno          = (int) session('anno_riferimento', now()->year);
+    $selectedAssoc = $this->resolveAssociazione($request);
+
+    if (empty($selectedAssoc)) {
+        return response()->json(['ok' => false, 'sezioni' => [], 'totale' => [], 'convenzioni' => []]);
+    }
+
+    $payload = $this->distintaPayloadCached($selectedAssoc, $anno);
+
+    $rows = $payload['data'] ?? [];
+    $convenzioni = $payload['convenzioni'] ?? [];
+
+    $totBySez = [];
+    $grand = ['bilancio' => 0.0, 'diretta' => 0.0, 'totale' => 0.0];
+
+    foreach ($rows as $r) {
+        $sez = (int) ($r['sezione_id'] ?? $r['sezione'] ?? $r['idSezione'] ?? 0);
+        if ($sez === 0) continue;
+
+        if (!isset($totBySez[$sez])) {
+            $totBySez[$sez] = ['bilancio' => 0.0, 'diretta' => 0.0, 'totale' => 0.0];
+        }
+
+        $b = (float) ($r['bilancio'] ?? 0);
+        $d = (float) ($r['diretta'] ?? 0);
+        $t = (float) ($r['totale']  ?? 0);
+
+        $totBySez[$sez]['bilancio'] += $b;
+        $totBySez[$sez]['diretta']  += $d;
+        $totBySez[$sez]['totale']   += $t;
+
+        $grand['bilancio'] += $b;
+        $grand['diretta']  += $d;
+        $grand['totale']   += $t;
+    }
+
+    // arrotondo a 2 decimali
+    $round2 = fn($x) => round((float)$x, 2);
+    foreach ($totBySez as $k => $v) {
+        $totBySez[$k] = [
+            'bilancio' => $round2($v['bilancio']),
+            'diretta'  => $round2($v['diretta']),
+            'totale'   => $round2($v['totale']),
+        ];
+    }
+    $grand = [
+        'bilancio' => $round2($grand['bilancio']),
+        'diretta'  => $round2($grand['diretta']),
+        'totale'   => $round2($grand['totale']),
+    ];
+
+    return response()->json([
+        'ok'         => true,
+        'convenzioni'=> $convenzioni,
+        'sezioni'    => $totBySez,
+        'totale'     => $grand,
+    ]);
+}
+
+public function getDataSezione(Request $request, int $sezione)
+{
+    $anno          = (int) session('anno_riferimento', now()->year);
+    $selectedAssoc = $this->resolveAssociazione($request);
+
+    if (empty($selectedAssoc)) {
+        return response()->json(['ok' => false, 'data' => [], 'convenzioni' => []]);
+    }
+
+    $payload = $this->distintaPayloadCached($selectedAssoc, $anno);
+
+    $rows = $payload['data'] ?? [];
+    $convenzioni = $payload['convenzioni'] ?? [];
+
+    $filtered = array_values(array_filter($rows, function ($r) use ($sezione) {
+        $s = (int) ($r['sezione_id'] ?? $r['sezione'] ?? $r['idSezione'] ?? 0);
+        return $s === (int)$sezione;
+    }));
+
+    return response()->json([
+        'ok'          => true,
+        'sezione'     => $sezione,
+        'convenzioni' => $convenzioni,
+        'data'        => $filtered,
+    ]);
+}
+
+
 }

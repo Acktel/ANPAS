@@ -4,6 +4,13 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\DistintaImputazioneCostiController;
 
 Route::prefix('distinta-imputazione-costi')->name('distinta.imputazione.')->group(function () {
+    // Totali subito (header + totale generale)
+    Route::get('/summary', [DistintaImputazioneCostiController::class, 'summary'])
+        ->name('summary');
+
+    // Dati SOLO della sezione (lazy load quando apri accordion)
+    Route::get('/data/sezione/{sezione}', [DistintaImputazioneCostiController::class, 'getDataSezione'])
+        ->whereNumber('sezione')->name('dataSezione');
     // Dashboard + dati
     Route::get('/', [DistintaImputazioneCostiController::class, 'index'])->name('index');
     Route::get('/data', [DistintaImputazioneCostiController::class, 'getData'])->name('data');

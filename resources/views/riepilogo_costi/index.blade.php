@@ -193,11 +193,11 @@ $user = Auth::user();
   </div>
 </div>
 @endsection
-
 @push('scripts')
 <script>
-  const ID_TEL_FISSA  = 5010;  
+  const ID_TEL_FISSA  = 5010;
   const ID_TEL_MOBILE = 5011;
+
   (function() {
     const $loader = $('#pageLoader');
     const show = () => $loader.stop(true, true).fadeIn(120).attr({
@@ -209,38 +209,56 @@ $user = Auth::user();
       'aria-busy': 'false'
     });
 
-    // Loader globale per tutte le chiamate $.ajax
+    // Loader globale per $.ajax (se ti resta qualche chiamata jquery)
     $(document).ajaxStart(show);
     $(document).ajaxStop(hide);
 
-    // Espongo per uso manuale (fetch)
-    window.AnpasLoader = {
-      show,
-      hide
-    };
+    window.AnpasLoader = { show, hide };
 
     const csrfToken = document.head.querySelector('meta[name="csrf-token"]')?.content || '';
     const isElevato = @json($isElevato);
     const anno = @json($anno);
     const selectedAssocServer = @json((int)($selectedAssoc ?? 0));
+    const selectedConvServer  = @json($selectedConv ?? 'TOT');
 
     const $assoc = document.getElementById('assocSelect');
-    const $conv = document.getElementById('convSelect');
+    const $conv  = document.getElementById('convSelect');
 
     // se NON elevato, blocco la select associazione
     if (!isElevato && $assoc) $assoc.setAttribute('disabled', 'disabled');
+
+    // ===== Loader wrapper per fetch (anti flicker + anti doppio hide) =====
+    let __loaderDepth = 0;
+
+    async function fetchWithLoader(url, options = {}) {
+      __loaderDepth++;
+      AnpasLoader.show();
+      try {
+        const res = await fetch(url, options);
+        if (!res.ok) {
+          const t = await res.text().catch(() => '');
+          throw new Error(`HTTP ${res.status}: ${t || res.statusText}`);
+        }
+        return res;
+      } finally {
+        __loaderDepth = Math.max(0, __loaderDepth - 1);
+        if (__loaderDepth === 0) AnpasLoader.hide();
+      }
+    }
+
+    async function fetchJsonWithLoader(url, options = {}) {
+      const res = await fetchWithLoader(url, options);
+      return await res.json();
+    }
 
     // Totali per "netto" sostitutivi
     let __totPrevGenerale = 0;
     let __totConsGenerale = 0;
     let __costoFasciaSost = 0;
-    let __costoMezziSost = 0;
+    let __costoMezziSost  = 0;
 
-    // utils
-    const eur = v => new Intl.NumberFormat('it-IT', {
-      style: 'currency',
-      currency: 'EUR'
-    }).format(Number(v || 0));
+    // ===== utils =====
+    const eur = v => new Intl.NumberFormat('it-IT', { style:'currency', currency:'EUR' }).format(Number(v || 0));
     const pct = v => `${(Number(v)||0).toFixed(2)}%`;
     const norm = s => String(s || '').trim().replace(/\s+/g, ' ').toUpperCase();
 
@@ -261,7 +279,7 @@ $user = Auth::user();
       if (!row) return false;
       if (row?.meta?.merged === true) return true;
       const idv = row.idVoceConfig;
-      return typeof idv === 'string' && /_MERGE$/.test(idv); // es. TEL_MERGE, FORMAZIONE_MERGE
+      return typeof idv === 'string' && /_MERGE$/.test(idv);
     }
 
     function currentAssociazione() {
@@ -270,9 +288,9 @@ $user = Auth::user();
       return v;
     }
 
-    // Box "Totale generale al netto dei mezzi sostitutivi"
+    // ===== Box "Totale generale al netto dei mezzi sostitutivi" =====
     function updateTotaleNettoSostitutiviRow() {
-      const wrap = document.getElementById('totale-netto-sost-wrapper');
+      const wrap   = document.getElementById('totale-netto-sost-wrapper');
       const outPrev = document.getElementById('tot-prev-netto-sost');
       const outCons = document.getElementById('tot-cons-netto-sost');
       const outScos = document.getElementById('tot-scos-netto-sost');
@@ -287,10 +305,8 @@ $user = Auth::user();
         return;
       }
 
-      // differenza effettiva da sottrarre
       const diffSost = Math.max(0, __costoMezziSost - __costoFasciaSost);
 
-      // totali netti
       const prevNet = Math.max(0, __totPrevGenerale);
       const consNet = Math.max(0, __totConsGenerale - diffSost);
       const scosNet = prevNet !== 0 ? ((consNet - prevNet) / prevNet * 100) : 0;
@@ -301,203 +317,210 @@ $user = Auth::user();
       wrap.classList.remove('d-none');
     }
 
-    function loadConvenzioniForAss(assId, preselect = 'TOT') {
-      if (!$conv) return;
+    // ===== Totali subito (header sezioni + totale generale) =====
+    async function loadSummaryTotals() {
+      const ass  = currentAssociazione();
+      const conv = ($conv?.value || '').trim() || 'TOT';
+      if (!ass) return;
 
-      $conv.innerHTML = '';
-      if (!assId) {
-        $conv.setAttribute('disabled', 'disabled');
-        return;
-      }
-      $conv.removeAttribute('disabled');
+      const url = `{{ route('riepilogo.costi.summary') }}`;
+      const qs = new URLSearchParams({ idAssociazione: ass, idConvenzione: conv });
 
-      const optTot = document.createElement('option');
-      optTot.value = 'TOT';
-      optTot.textContent = 'TOTALE';
-      $conv.appendChild(optTot);
+      const json = await fetchJsonWithLoader(`${url}?${qs.toString()}`);
+      if (!json?.ok) return;
 
-      fetch(`/ajax/convenzioni-by-associazione/${assId}?anno=${anno}`)
-        .then(r => (r.ok ? r.json() : []))
-        .then(items => {
-          (items || []).forEach(c => {
-            const opt = document.createElement('option');
-            opt.value = c.id;
-            opt.textContent = c.text;
-            $conv.appendChild(opt);
-          });
-          $conv.value = preselect ?? 'TOT';
+      Object.entries(json.sezioni || {}).forEach(([tip, v]) => {
+        const id = Number(tip);
+        const sp = document.getElementById(`summary-prev-${id}`);
+        const sc = document.getElementById(`summary-cons-${id}`);
+        const ss = document.getElementById(`summary-scos-${id}`);
+        if (sp) sp.textContent = 'Preventivo: ' + eur(v.preventivo);
+        if (sc) sc.textContent = 'Consuntivo: ' + eur(v.consuntivo);
+        if (ss) ss.textContent = 'Scostamento: ' + pct(v.scostamento);
+      });
 
-          (async () => {
-            AnpasLoader.show();
-            await reloadAllSections();
-            await loadSezioneMezziSostitutivi();
-            if (window.__reloadRotSostBox) window.__reloadRotSostBox();
-          })();
-        })
-        .catch(() => {});
+      document.getElementById('tot-prev').textContent = eur(json.totale.preventivo);
+      document.getElementById('tot-cons').textContent = eur(json.totale.consuntivo);
+      document.getElementById('tot-scos').textContent = pct(json.totale.scostamento);
+
+      __totPrevGenerale = Number(json.totale.preventivo || 0);
+      __totConsGenerale = Number(json.totale.consuntivo || 0);
+      updateTotaleNettoSostitutiviRow();
     }
 
-    function loadSezione(idTipologia) {
-      const ass = currentAssociazione();
+    // =========================
+    // LAZY LOADING SEZIONI 2..11
+    // =========================
+    const IDS_SEZIONI = [2,3,4,5,6,7,8,9,10,11];
+    const sezCache = new Map(); // idTipologia -> { prev, cons, loaded:true }
+
+    function updateBulkButtonsVisibility() {
+      const convVal = ($conv?.value || '').trim();
+      const showBar = !!convVal && convVal !== 'TOT';
+      document.querySelectorAll('.js-bulk-bar').forEach(el => el.classList.toggle('d-none', !showBar));
+    }
+
+    function clearAllTablesAndSummaries() {
+      IDS_SEZIONI.forEach(id => {
+        const tbody = document.querySelector(`#table-sezione-${id} tbody`);
+        if (tbody) tbody.innerHTML = '';
+
+        const sp = document.getElementById(`summary-prev-${id}`);
+        const sc = document.getElementById(`summary-cons-${id}`);
+        const ss = document.getElementById(`summary-scos-${id}`);
+        if (sp) sp.textContent = 'Preventivo: -';
+        if (sc) sc.textContent = 'Consuntivo: -';
+        if (ss) ss.textContent = 'Scostamento: -';
+      });
+
+      document.getElementById('tot-prev').textContent = '€0,00';
+      document.getElementById('tot-cons').textContent = '€0,00';
+      document.getElementById('tot-scos').textContent = '0%';
+
+      __totPrevGenerale = 0;
+      __totConsGenerale = 0;
+      updateTotaleNettoSostitutiviRow();
+
+      document.getElementById('noDataMessage')?.classList.add('d-none');
+      updateBulkButtonsVisibility();
+    }
+
+    function resetContextAndUI() {
+      sezCache.clear();
+      clearAllTablesAndSummaries();
+    }
+
+    async function loadSezione(idTipologia) {
+      const ass  = currentAssociazione();
       const conv = ($conv?.value || '').trim();
 
       const url = `{{ route('riepilogo.costi.sezione', ['idTipologia' => '__ID__']) }}`.replace('__ID__', idTipologia);
-      const params = new URLSearchParams({
-        idAssociazione: ass,
-        idConvenzione: conv
-      });
+      const params = new URLSearchParams({ idAssociazione: ass, idConvenzione: conv });
 
-      return fetch(`${url}?${params}`)
-        .then(r => r.json())
-        .then(({
-          data
-        }) => {
-          const tbody = document.querySelector(`#table-sezione-${idTipologia} tbody`);
-          if (!tbody) return {
-            prev: 0,
-            cons: 0
-          };
+      const json = await fetchJsonWithLoader(`${url}?${params.toString()}`);
+      const data = json?.data || [];
 
-          tbody.innerHTML = '';
-          let sumPrev = 0,
-            sumCons = 0;
+      const tbody = document.querySelector(`#table-sezione-${idTipologia} tbody`);
+      if (!tbody) return { prev: 0, cons: 0 };
 
-          (data || []).forEach(row => {
-            const prev = toNum(row?.preventivo);
-            const cons = toNum(row?.consuntivo);
-            sumPrev += prev;
-            sumCons += cons;
+      tbody.innerHTML = '';
+      let sumPrev = 0, sumCons = 0;
 
-            const editingEnabled = !!conv && conv !== 'TOT';
-            const merged = isMergedRow(row);
+      data.forEach(row => {
+        const prev = toNum(row?.preventivo);
+        const cons = toNum(row?.consuntivo);
+        sumPrev += prev;
+        sumCons += cons;
 
-            let actionsHtml = '—';
-            if (editingEnabled) {
-              if (isTelefoniaRow(row)) {
-                const editTelUrl = `{{ route('riepilogo.costi.edit.telefonia') }}`;
-                const qs = new URLSearchParams({
-                  idAssociazione: ass,
-                  idConvenzione: conv,
-                  idFissa: ID_TEL_FISSA,
-                  idMobile: ID_TEL_MOBILE
-                }).toString();
+        const editingEnabled = !!conv && conv !== 'TOT';
+        const merged = isMergedRow(row);
 
-                actionsHtml = `
-                  <a class="btn btn-warning btn-icon"
-                    href="${editTelUrl}?${qs}"
-                    title="Modifica utenze telefoniche">
-                    <i class="fas fa-edit"></i>
-                  </a>`;
-              } else if (merged) {
-                // MERGE formazione (6010 + 6011)
-                const parts = Array.isArray(row?.merged_of) ? row.merged_of.filter(Boolean) : [];
-                if (parts.length >= 2) {
-                  const editMergeUrl = `{{ route('riepilogo.costi.edit.formazione') }}`;
-                  const qs = new URLSearchParams({
-                    idAssociazione: ass,
-                    idConvenzione: conv,
-                    idA: parts[0],
-                    idB: parts[1],
-                  }).toString();
-                  actionsHtml = `<a class="btn btn-warning btn-icon" href="${editMergeUrl}?${qs}" title="Modifica formazione (A + DAE + RDAE)"><i class="fas fa-edit"></i></a>`;
-                } else {
-                  actionsHtml = '—';
-                }
-              } else {
-                // Edit classico singola voce
-                const ensureUrl = `{{ route('riepilogo.costi.ensureEdit') }}`;
-                const qs = new URLSearchParams({
-                  idAssociazione: ass,
-                  idConvenzione: conv,
-                  idVoceConfig: row.idVoceConfig
-                }).toString();
-                actionsHtml = `<a class="btn btn-warning btn-icon" href="${ensureUrl}?${qs}" title="Modifica"><i class="fas fa-edit"></i></a>`;
-              }
+        let actionsHtml = '—';
+        if (editingEnabled) {
+          if (isTelefoniaRow(row)) {
+            const editTelUrl = `{{ route('riepilogo.costi.edit.telefonia') }}`;
+            const qs = new URLSearchParams({
+              idAssociazione: ass,
+              idConvenzione: conv,
+              idFissa: ID_TEL_FISSA,
+              idMobile: ID_TEL_MOBILE
+            }).toString();
+
+            actionsHtml = `
+              <a class="btn btn-warning btn-icon"
+                href="${editTelUrl}?${qs}"
+                title="Modifica utenze telefoniche">
+                <i class="fas fa-edit"></i>
+              </a>`;
+          } else if (merged) {
+            const parts =
+              Array.isArray(row?.merged_of) ? row.merged_of.filter(Boolean)
+              : Array.isArray(row?.meta?.of) ? row.meta.of.filter(Boolean)
+              : [];
+
+            if (parts.length >= 2) {
+              const editMergeUrl = `{{ route('riepilogo.costi.edit.formazione') }}`;
+              const qs = new URLSearchParams({
+                idAssociazione: ass,
+                idConvenzione: conv,
+                idA: parts[0],
+                idB: parts[1],
+              }).toString();
+
+              actionsHtml = `<a class="btn btn-warning btn-icon" href="${editMergeUrl}?${qs}" title="Modifica formazione (A + DAE + RDAE)"><i class="fas fa-edit"></i></a>`;
             }
-            const hoverText ='Voce: ' + (row?.descrizione ?? '-') + '\n';
-            const tr = document.createElement('tr');
-            tr.setAttribute('title', hoverText);
-            tr.innerHTML = `
+          } else {
+            const ensureUrl = `{{ route('riepilogo.costi.ensureEdit') }}`;
+            const qs = new URLSearchParams({
+              idAssociazione: ass,
+              idConvenzione: conv,
+              idVoceConfig: row.idVoceConfig
+            }).toString();
+
+            actionsHtml = `<a class="btn btn-warning btn-icon" href="${ensureUrl}?${qs}" title="Modifica"><i class="fas fa-edit"></i></a>`;
+          }
+        }
+
+        const tr = document.createElement('tr');
+        tr.setAttribute('title', 'Voce: ' + (row?.descrizione ?? '-') + '\n');
+        tr.innerHTML = `
           <td>${row?.descrizione ?? ''}</td>
           <td class="text-end">${eur(prev)}</td>
           <td class="text-end">${eur(cons)}</td>
           <td class="text-end">${row?.scostamento ?? '0%'}</td>
           <td class="text-center">${actionsHtml}</td>`;
-            tbody.appendChild(tr);
-          });
+        tbody.appendChild(tr);
+      });
 
-          const scos = sumPrev !== 0 ? ((sumCons - sumPrev) / sumPrev * 100) : 0;
-          document.getElementById(`summary-prev-${idTipologia}`).textContent = 'Preventivo: ' + eur(sumPrev);
-          document.getElementById(`summary-cons-${idTipologia}`).textContent = 'Consuntivo: ' + eur(sumCons);
-          document.getElementById(`summary-scos-${idTipologia}`).textContent = 'Scostamento: ' + pct(scos);
+      const scos = sumPrev !== 0 ? ((sumCons - sumPrev) / sumPrev * 100) : 0;
+      document.getElementById(`summary-prev-${idTipologia}`).textContent = 'Preventivo: ' + eur(sumPrev);
+      document.getElementById(`summary-cons-${idTipologia}`).textContent = 'Consuntivo: ' + eur(sumCons);
+      document.getElementById(`summary-scos-${idTipologia}`).textContent = 'Scostamento: ' + pct(scos);
 
-          return {
-            prev: sumPrev,
-            cons: sumCons
-          };
-        })
-        .catch(() => ({
-          prev: 0,
-          cons: 0
-        }));
+      return { prev: sumPrev, cons: sumCons };
     }
 
+    async function loadSezioneLazy(idTipologia) {
+      if (sezCache.has(idTipologia)) return sezCache.get(idTipologia);
 
-    function updateBulkButtonsVisibility() {
-      const convVal = ($conv?.value || '').trim();
-      const show = !!convVal && convVal !== 'TOT';
-      document.querySelectorAll('.js-bulk-bar').forEach(el => el.classList.toggle('d-none', !show));
+      const s = await loadSezione(idTipologia);
+      sezCache.set(idTipologia, { ...s, loaded: true });
+      return s;
     }
 
-    async function reloadAllSections() {
-      const ids = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11]; // standard (NO mezzi sostitutivi)
-      let totPrev = 0,
-        totCons = 0;
-
-      for (const id of ids) {
-        const s = await loadSezione(id);
-        totPrev += s.prev;
-        totCons += s.cons;
-      }
-
-      const scosTot = totPrev !== 0 ? ((totCons - totPrev) / totPrev * 100) : 0;
-      document.getElementById('tot-prev').textContent = eur(totPrev);
-      document.getElementById('tot-cons').textContent = eur(totCons);
-      document.getElementById('tot-scos').textContent = `${scosTot.toFixed(2)}%`;
-
-      __totPrevGenerale = totPrev;
-      __totConsGenerale = totCons;
-      updateTotaleNettoSostitutiviRow();
-
-      const noData = (totPrev === 0 && totCons === 0);
-      document.getElementById('noDataMessage')?.classList.toggle('d-none', !noData);
-      updateBulkButtonsVisibility();
-      AnpasLoader.hide();
-      return {
-        totPrev,
-        totCons
-      };
+    function bindAccordionLazyLoad() {
+      document.querySelectorAll('#accordionRiep .accordion-collapse').forEach(el => {
+        el.addEventListener('show.bs.collapse', function() {
+          const id = String(this.id || '');
+          if (!id.startsWith('collapse-')) return;
+          const n = parseInt(id.replace('collapse-', ''), 10);
+          if (!Number.isFinite(n)) return;
+          if (n < 2 || n > 11) return;
+          loadSezioneLazy(n);
+        });
+      });
     }
 
+    // =========================
+    // MEZZI SOSTITUTIVI
+    // =========================
     async function loadSezioneMezziSostitutivi() {
-      const ass = currentAssociazione();
+      const ass  = currentAssociazione();
       const conv = ($conv?.value || '').trim();
 
       const section = document.getElementById('accordion-mezzi-sostitutivi');
       if (!section) return;
 
-      // se non c’è convenzione o è TOTALE -> nascondi e reset
       if (!conv || conv === 'TOT') {
         section.classList.add('d-none');
         __costoFasciaSost = 0;
-        __costoMezziSost = 0;
+        __costoMezziSost  = 0;
         updateTotaleNettoSostitutiviRow();
         return;
       }
 
       const url = `/ajax/rot-sost/stato?idAssociazione=${ass}&idConvenzione=${conv}&anno=${anno}`;
-      const res = await fetch(url);
-      const data = await res.json().catch(() => ({}));
+      const data = await fetchJsonWithLoader(url).catch(() => ({}));
 
       section.classList.add('d-none');
       const tbody = document.querySelector('#table-mezzi-sostitutivi tbody');
@@ -505,7 +528,7 @@ $user = Auth::user();
 
       if (!data?.ok || data.modalita !== 'sostitutivi') {
         __costoFasciaSost = 0;
-        __costoMezziSost = 0;
+        __costoMezziSost  = 0;
         updateTotaleNettoSostitutiviRow();
         return;
       }
@@ -513,7 +536,7 @@ $user = Auth::user();
       section.classList.remove('d-none');
 
       const costoFascia = Number(data.costo_fascia_oraria || 0);
-      const costoSost = Number(data.costo_mezzi_sostitutivi || 0);
+      const costoSost   = Number(data.costo_mezzi_sostitutivi || 0);
       const totaleNetto = costoFascia - costoSost;
 
       const row = document.createElement('tr');
@@ -529,64 +552,99 @@ $user = Auth::user();
         </td>`;
       tbody.appendChild(row);
 
-      document.getElementById('summary-prev-sost').textContent = 'Costo fascia oraria: ' + eur(costoFascia);
+      document.getElementById('summary-prev-sost').textContent = 'Massimale mezzi sostitutivi: ' + eur(costoFascia);
       document.getElementById('summary-cons-sost').textContent = 'Costo mezzi sostitutivi: ' + eur(costoSost);
       document.getElementById('summary-scos-sost').textContent = 'Totale al netto: ' + eur(totaleNetto);
 
       __costoFasciaSost = costoFascia;
-      __costoMezziSost = costoSost;
+      __costoMezziSost  = costoSost;
       updateTotaleNettoSostitutiviRow();
-      AnpasLoader.hide();
     }
 
-    $assoc?.addEventListener('change', function() {
-      const assId = this.value || '';
-      @if(Route::has('sessione.setAssociazione'))
-      fetch("{{ route('sessione.setAssociazione') }}", {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRF-TOKEN': csrfToken
-        },
-        body: JSON.stringify({
-          idAssociazione: assId
-        })
-      }).finally(() => loadConvenzioniForAss(assId, 'TOT'));
-      AnpasLoader.hide();
-      @else
-      loadConvenzioniForAss(assId, 'TOT');
-      AnpasLoader.hide();
-      @endif
-    });
+    // =========================
+    // CARICA CONVENZIONI
+    // =========================
+    async function loadConvenzioniForAss(assId, preselect = 'TOT') {
+      if (!$conv) return;
 
-    $conv?.addEventListener('change', function() {
-      AnpasLoader.show();
-      const val = this.value;
-      @if(Route::has('sessione.setConvenzione'))
-      fetch("{{ route('sessione.setConvenzione') }}", {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRF-TOKEN': csrfToken
-        },
-        body: JSON.stringify({
-          idConvenzione: val
-        })
-      }).finally(async () => {
-        await reloadAllSections();
-        await loadSezioneMezziSostitutivi();
-        if (window.__reloadRotSostBox) window.__reloadRotSostBox();
-        AnpasLoader.hide();
+      $conv.innerHTML = '';
+      if (!assId) {
+        $conv.setAttribute('disabled', 'disabled');
+        resetContextAndUI();
+        return;
+      }
+      $conv.removeAttribute('disabled');
+
+      const optTot = document.createElement('option');
+      optTot.value = 'TOT';
+      optTot.textContent = 'TOTALE';
+      $conv.appendChild(optTot);
+
+      const items = await fetchJsonWithLoader(`/ajax/convenzioni-by-associazione/${assId}?anno=${anno}`).catch(() => []);
+
+      (items || []).forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c.id;
+        opt.textContent = c.text;
+        $conv.appendChild(opt);
       });
-      @else
-        (async () => {
-          await reloadAllSections();
-          await loadSezioneMezziSostitutivi();
-          AnpasLoader.hide();
-        })();
+
+      $conv.value = preselect ?? 'TOT';
+
+      resetContextAndUI();
+      await loadSezioneMezziSostitutivi();
+      if (window.__reloadRotSostBox) window.__reloadRotSostBox();
+
+      // 🔥 totali subito
+      await loadSummaryTotals();
+
+      updateBulkButtonsVisibility();
+      updateTotaleNettoSostitutiviRow();
+    }
+
+    // =========================
+    // EVENTI SELECT
+    // =========================
+    $assoc?.addEventListener('change', async function() {
+      const assId = this.value || '';
+
+      @if(Route::has('sessione.setAssociazione'))
+      // aggiorna sessione (no json)
+      await fetchWithLoader("{{ route('sessione.setAssociazione') }}", {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken },
+        body: JSON.stringify({ idAssociazione: assId })
+      }).catch(() => {});
       @endif
+
+      await loadConvenzioniForAss(assId, 'TOT');
     });
 
+    $conv?.addEventListener('change', async function() {
+      const val = this.value;
+
+      @if(Route::has('sessione.setConvenzione'))
+      await fetchWithLoader("{{ route('sessione.setConvenzione') }}", {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken },
+        body: JSON.stringify({ idConvenzione: val })
+      }).catch(() => {});
+      @endif
+
+      resetContextAndUI();
+      await loadSezioneMezziSostitutivi();
+      if (window.__reloadRotSostBox) window.__reloadRotSostBox();
+
+      // 🔥 totali subito al cambio convenzione
+      await loadSummaryTotals();
+
+      updateBulkButtonsVisibility();
+      updateTotaleNettoSostitutiviRow();
+    });
+
+    // =========================
+    // CLICK "Modifica Preventivi sezione"
+    // =========================
     document.addEventListener('click', function(e) {
       const el = e.target.closest('.js-edit-prev');
       if (!el) return;
@@ -610,25 +668,36 @@ $user = Auth::user();
       window.location = url.toString();
     });
 
+    // =========================
+    // INIT
+    // =========================
     (async () => {
+      bindAccordionLazyLoad();
+
       if (isElevato) {
-        const preSel = ($assoc?.value || '').trim() || String(selectedAssocServer || '');
-        if (preSel) loadConvenzioniForAss(preSel, @json($selectedConv ?? 'TOT'));
+        const preSelAss = ($assoc?.value || '').trim() || String(selectedAssocServer || '');
+        if (preSelAss) {
+          await loadConvenzioniForAss(preSelAss, selectedConvServer || 'TOT');
+        } else {
+          resetContextAndUI();
+        }
       } else {
-        await reloadAllSections();
+        resetContextAndUI();
+
+        if ($conv && selectedConvServer && selectedConvServer !== 'TOT') {
+          $conv.value = String(selectedConvServer);
+        }
+
         await loadSezioneMezziSostitutivi();
         if (window.__reloadRotSostBox) window.__reloadRotSostBox();
+
+        // 🔥 totali subito (non elevato)
+        await loadSummaryTotals();
       }
 
-      if ($conv && @json($selectedConv) && @json($selectedConv) !== 'TOT') {
-        $conv.value = String(@json($selectedConv));
-      }
-
-      updateTotaleNettoSostitutiviRow();
-      AnpasLoader.hide();
+      updateBulkButtonsVisibility();
     })();
 
-    AnpasLoader.hide();
   })();
 </script>
 @endpush

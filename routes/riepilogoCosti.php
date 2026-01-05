@@ -58,4 +58,8 @@ Route::middleware(['auth'])->prefix('riepilogo-costi')->group(function () {
     Route::post('/sezione/{sezione}/update-preventivi', [RiepilogoCostiController::class, 'updatePreventiviSezione'])
         ->whereNumber('sezione')
         ->name('riepilogo.costi.updatePreventiviSezione');
+
+    Route::get('/riepilogo-costi/summary', [RiepilogoCostiController::class, 'getSummary'])
+        ->name('riepilogo.costi.summary');
+
 });
