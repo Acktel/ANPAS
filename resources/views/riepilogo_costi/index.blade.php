@@ -129,9 +129,9 @@ $user = Auth::user();
           aria-controls="collapse-sost">
           <div class="row w-100 text-start gx-2">
             <div class="col-5 fw-bold">11 - Mezzi sostitutivi</div>
-            <div class="col-2" id="summary-prev-sost">Costo fascia oraria: -</div>
+            <div class="col-2" id="summary-prev-sost">Massimale mezzi sostitutivi: -</div>
             <div class="col-2" id="summary-cons-sost">Costo netto sostitutivi: -</div>
-            <div class="col-2" id="summary-scos-sost">Totale al netto: -</div>
+            <div class="col-2" id="summary-scos-sost">Massimale meno Costo: -</div>
           </div>
         </button>
       </h2>
@@ -154,7 +154,7 @@ $user = Auth::user();
                 <th>Convenzione</th>
                 <th class="text-end" style="width:180px">Costo per fascia oraria (€)</th>
                 <th class="text-end" style="width:180px">Costo mezzi sostitutivi (€)</th>
-                <th class="text-end" style="width:180px">Totale al netto (€)</th>
+                <th class="text-end" style="width:180px">Massimale meno Costo (€)</th>
                 <th class="text-center" style="width:100px">Azioni</th>
               </tr>
             </thead>
@@ -554,7 +554,7 @@ $user = Auth::user();
 
       document.getElementById('summary-prev-sost').textContent = 'Massimale mezzi sostitutivi: ' + eur(costoFascia);
       document.getElementById('summary-cons-sost').textContent = 'Costo mezzi sostitutivi: ' + eur(costoSost);
-      document.getElementById('summary-scos-sost').textContent = 'Totale al netto: ' + eur(totaleNetto);
+      document.getElementById('summary-scos-sost').textContent = 'Massimale meno Costo: ' + eur(totaleNetto);
 
       __costoFasciaSost = costoFascia;
       __costoMezziSost  = costoSost;
