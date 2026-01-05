@@ -72,7 +72,8 @@ class AutomezziController extends Controller {
 
         // Recupera dalla sessione o fallback al primo elemento
         $selectedAssociazione = session('selectedAssociazione') ?? ($associazioni->first()->idAssociazione ?? null);
-      
+       
+        $annoCorr = session('anno_riferimento') ?? $anno;
 
         return view('automezzi.create', compact('associazioni', 'anni', 'vehicleTypes', 'fuelTypes', 'selectedAssociazione', 'annoCorr'));
     }
@@ -159,7 +160,7 @@ class AutomezziController extends Controller {
 
         // Recupera dalla sessione o fallback ai valori correnti dell'automezzo
         $selectedAssociazione = session('selectedAssociazione') ?? $automezzo->idAssociazione;
-        $annoCorr = session('annoCorrente') ?? $automezzo->idAnno;
+        $annoCorr = session('anno_riferimento') ?? $automezzo->idAnno;
 
         return view('automezzi.edit', compact('automezzo', 'associazioni', 'anni', 'vehicleTypes', 'fuelTypes', 'selectedAssociazione', 'annoCorr'));
     }
