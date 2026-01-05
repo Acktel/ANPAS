@@ -152,7 +152,7 @@ $user = Auth::user();
             <thead class="thead-anpas">
               <tr>
                 <th>Convenzione</th>
-                <th class="text-end" style="width:180px">Costo per fascia oraria (€)</th>
+                <th class="text-end" style="width:180px">Massimale mezzi sostitutivi (€)</th>
                 <th class="text-end" style="width:180px">Costo mezzi sostitutivi (€)</th>
                 <th class="text-end" style="width:180px">Massimale meno Costo (€)</th>
                 <th class="text-center" style="width:100px">Azioni</th>
