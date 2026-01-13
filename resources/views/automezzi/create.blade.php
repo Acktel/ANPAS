@@ -123,20 +123,32 @@
 
         {{-- RIGA 6: Km Totali | Tipo Carburante --}}
         <div class="row mb-4">
-        <div class="col-md-6">
-          <label for="KmTotali" class="form-label">Km Totali</label>
-          <input
-            type="number"
-            name="KmTotali"
-            id="KmTotali"
-            class="form-control js-int-only"
-            min="0"
-            step="1"
-            inputmode="numeric"
-            pattern="\d*"
-            value="{{ old('KmTotali') }}"
-          >
-        </div>
+          <div class="col-md-6">
+            <label for="KmTotali" class="form-label">Km Totali</label>
+            <input
+              type="number"
+              name="KmTotali"
+              id="KmTotali"
+              class="form-control js-int-only"
+              min="0"
+              step="1"
+              inputmode="numeric"
+              pattern="\d*"
+              value="{{ old('KmTotali') }}"
+            >
+          </div>
+
+          <div class="col-md-6">
+            <label for="idTipoCarburante" class="form-label">Tipo Carburante</label>
+            <select name="idTipoCarburante" id="idTipoCarburante" class="form-select">
+              <option value="">-- Seleziona Tipo Carburante --</option>
+              @foreach($fuelTypes as $carb)
+                <option value="{{ $carb->id }}" {{ old('idTipoCarburante') == $carb->id ? 'selected' : '' }}>
+                  {{ $carb->nome }}
+                </option>
+              @endforeach
+            </select>
+          </div>
         </div>
 
 
