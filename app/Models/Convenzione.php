@@ -14,7 +14,7 @@ class Convenzione {
      * Tutte le convenzioni per anno, con join associazione (solo ruoli alti).
      */
     public static function getAll(?int $anno = null): Collection {
-        $anno = $anno ?? session('anno_riferimento', now()->year);
+        $anno = $anno ?? session('anno_riferimento', default: now()->year);
 
         $sql = "
             SELECT
@@ -291,5 +291,42 @@ class Convenzione {
             'percent_rot'          => $percentRot,    // % ROTAZIONE (com’era prima)
             'percent_trad'         => $percentTrad,   // % TRADIZIONALE (nuova)
         ];
+    }
+
+    public static function getMezziRotazione(int $idConvenzione): array {
+        $totKmConv = (float) DB::table('automezzi_km')
+            ->where('idConvenzione', $idConvenzione)
+            ->sum(DB::raw('COALESCE(KMPercorsi,0)'));
+
+        $rows = DB::table('automezzi_km as k')
+            ->join('automezzi as a', 'a.idAutomezzo', '=', 'k.idAutomezzo')
+            ->where('k.idConvenzione', $idConvenzione)
+            ->selectRaw('
+            a.idAutomezzo,
+            a.Targa,
+            a.CodiceIdentificativo,
+            SUM(COALESCE(k.KMPercorsi,0)) AS km_conv,
+            MAX(COALESCE(k.is_titolare,0)) AS is_titolare
+        ')
+            ->groupBy('a.idAutomezzo', 'a.Targa', 'a.CodiceIdentificativo')
+            ->havingRaw('SUM(COALESCE(k.KMPercorsi,0)) > 0')
+            ->orderByDesc('km_conv')
+            ->orderBy('a.idAutomezzo')
+            ->get();
+
+        return $rows->map(function ($r) use ($totKmConv) {
+            $km   = (float) $r->km_conv;
+            $perc = $totKmConv > 0 ? round(($km / $totKmConv) * 100, 2) : 0.0;
+
+            return (object) [
+                'idAutomezzo'          => (int) $r->idAutomezzo,
+                'Targa'                => $r->Targa,
+                'CodiceIdentificativo' => $r->CodiceIdentificativo,
+                'km_conv'              => $km,
+                'km_totali_conv'       => $totKmConv,
+                'percent_rot'          => $perc,
+                'is_titolare'          => ((int) $r->is_titolare) === 1,
+            ];
+        })->values()->all();
     }
 }

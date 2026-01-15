@@ -102,12 +102,19 @@ $assoCorr = $associazioni->firstWhere('idAssociazione', $conv->idAssociazione);
 
             {{-- Box azioni contestuali --}}
             <div id="rotSostBox" class="mt-3" style="display: {{ $abilita ? 'block' : 'none' }};">
-              @php $titolare = \App\Models\Convenzione::getMezzoTitolare($conv->idConvenzione); @endphp
+              @php
+              $titolare = \App\Models\Convenzione::getMezzoTitolare($conv->idConvenzione);
+              $isRotazione = \App\Services\RipartizioneCostiService::isRegimeRotazione((int)$conv->idConvenzione);
+              $mezziRot = $isRotazione
+              ? \App\Models\Convenzione::getMezziRotazione((int)$conv->idConvenzione)
+              : [];
+
+              @endphp
 
               {{-- CTA principale: aggiorna flag e poi redireziona nel punto giusto --}}
               <button type="button"
                 class="btn btn-outline-anpas-green btn-sm mb-2"
-                onclick="setRotSostAndGo({{ $conv->idConvenzione }}, {{ $titolare->idAutomezzo ?? 'null' }})">
+                onclick="setRotSostAndGo(event, {{ $conv->idConvenzione }}, {{ $titolare->idAutomezzo ?? 'null' }})"
                 <i class="fa fa-car me-1"></i>
                 @if($titolare)
                 Modifica KM del TITOLARE
@@ -128,9 +135,6 @@ $assoCorr = $associazioni->firstWhere('idAssociazione', $conv->idAssociazione);
                   <span class="badge me-2">
                     % TRADIZIONALE: {{ number_format($titolare->percent_trad, 2, ',', '.') }}%
                   </span>
-                  <span class="badge">
-                    % ROTAZIONE MEZZI: {{ number_format($titolare->percent_rot, 2, ',', '.') }}%
-                  </span>
                 </div>
               </div>
               @else
@@ -138,6 +142,172 @@ $assoCorr = $associazioni->firstWhere('idAssociazione', $conv->idAssociazione);
                 Nessun mezzo titolare nominato per questa convenzione.
               </div>
               @endif
+              
+              
+              @if($abilita === 1 && $isRotazione)
+
+  @php
+    $maxPerc = 0.0;
+    $maxId  = null;
+    foreach ($mezziRot as $mm) {
+      if ((float)$mm->percent_rot > $maxPerc) {
+        $maxPerc = (float)$mm->percent_rot;
+        $maxId   = (int)$mm->idAutomezzo;
+      }
+    }
+
+    $sumPerc = 0.0;
+    foreach ($mezziRot as $mm) {
+      $sumPerc += (float)$mm->percent_rot;
+    }
+  @endphp
+
+  <div class="card mt-3 shadow-sm" style="border-left: 6px solid #f0ad4e;">
+    <div class="card-body p-3">
+      <div class="d-flex align-items-start justify-content-between flex-wrap gap-2">
+        <div>
+          <div class="d-flex align-items-center gap-2">
+            <i class="fa fa-refresh text-warning"></i>
+            <h6 class="mb-0">Regime <strong>ROTAZIONE MEZZI</strong></h6>
+            <span class="badge bg-warning text-dark">Attivo</span>
+          </div>
+          <div class="text-muted small mt-1">
+            Riparto basato su <strong>km del mezzo sulla convenzione</strong> / <strong>km totali convenzione</strong>.
+          </div>
+        </div>
+
+        <div class="text-end">
+          <div class="small text-muted">Totale km convenzione</div>
+          <div class="fw-bold">
+            {{ number_format($mezziRot[0]->km_totali_conv ?? 0, 0, ',', '.') }} km
+          </div>
+        </div>
+      </div>
+
+      @if(empty($mezziRot))
+        <div class="alert alert-secondary p-2 mt-3 mb-0">
+          Nessun km registrato per questa convenzione: impossibile calcolare le %.
+        </div>
+      @else
+
+        <div class="table-responsive mt-3">
+          <table class="table table-sm table-hover align-middle mb-0">
+            <thead class="table-light">
+              <tr>
+                <th style="min-width:260px;">Mezzo</th>
+                <th class="text-end">Km su conv.</th>
+                <th style="min-width:260px;">Quota</th>
+                <th class="text-center" style="width:120px;">Azioni</th>
+              </tr>
+            </thead>
+            <tbody>
+              @foreach($mezziRot as $m)
+                @php
+                  $perc = (float)$m->percent_rot;
+                  $isTop = ((int)$m->idAutomezzo === (int)$maxId);
+                @endphp
+
+                <tr @if($isTop) class="table-warning" @endif>
+                  <td>
+                    <div class="d-flex align-items-center justify-content-between gap-2">
+                      <div>
+                        <div class="fw-semibold">
+                          {{ $m->Targa }}
+                          @if(!empty($m->CodiceIdentificativo))
+                            <span class="text-muted fw-normal">— {{ $m->CodiceIdentificativo }}</span>
+                          @endif
+                        </div>
+
+                        <div class="small text-muted">
+                          @if($m->is_titolare)
+                            <span class="badge bg-primary text-white">Titolare</span>
+                          @else
+                            <span class="badge bg-secondary text-white">Non titolare</span>
+                          @endif
+
+                          @if($isTop)
+                            <span class="badge bg-dark ms-1 text-white">TOP</span>
+                          @endif
+                        </div>
+                      </div>
+
+                      <div class="text-end">
+                        <div class="small text-muted">%</div>
+                        <div class="fw-bold">{{ number_format($perc, 2, ',', '.') }}%</div>
+                      </div>
+                    </div>
+                  </td>
+
+                  <td class="text-end fw-semibold">
+                    {{ number_format($m->km_conv, 0, ',', '.') }}
+                  </td>
+
+                  <td>
+                    <div class="d-flex align-items-center gap-2">
+                      <div class="progress flex-grow-1" style="height: 10px;">
+                        <div
+                          class="progress-bar"
+                          role="progressbar"
+                          style="width: {{ min(100, max(0, $perc)) }}%;"
+                          aria-valuenow="{{ $perc }}"
+                          aria-valuemin="0"
+                          aria-valuemax="100">
+                        </div>
+                      </div>
+                      <span class="small text-muted" style="min-width:70px;">
+                        {{ number_format($perc, 2, ',', '.') }}%
+                      </span>
+                    </div>
+                    <div class="small text-muted mt-1">
+                      {{ number_format($m->km_conv, 0, ',', '.') }} / {{ number_format($m->km_totali_conv, 0, ',', '.') }} km
+                    </div>
+                  </td>
+
+                  <td class="text-center">
+                    <a class="btn btn-outline-secondary btn-sm"
+                       href="/km-percorsi/{{ (int)$m->idAutomezzo }}/edit">
+                      <i class="fa fa-pencil me-1"></i> KM
+                    </a>
+                  </td>
+                </tr>
+              @endforeach
+            </tbody>
+
+            <tfoot class="table-light">
+              <tr>
+                <th class="text-end" colspan="2">Somma % (arrotondata)</th>
+                <th>
+                  <span class="fw-bold">{{ number_format($sumPerc, 2, ',', '.') }}%</span>
+                  @if(abs($sumPerc - 100.0) > 0.2)
+                    <span class="badge bg-danger ms-2">Attenzione</span>
+                    <div class="small text-muted mt-1">
+                      Se non torna ~100% è normale se mancano km o per arrotondamenti; qui però verifica.
+                    </div>
+                  @else
+                    <span class="badge bg-success ms-2">OK</span>
+                  @endif
+                </th>
+                <th></th>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+
+        <div class="mt-3 d-flex flex-wrap gap-2">
+          <span class="badge bg-light text-dark border">
+            Suggerimento: il mezzo <strong>TOP</strong> è quello che “pesa” di più sulla convenzione.
+          </span>
+        </div>
+
+      @endif
+    </div>
+  </div>
+
+@endif
+
+
+
+
 
             </div>
           </div>
@@ -181,8 +351,8 @@ $assoCorr = $associazioni->firstWhere('idAssociazione', $conv->idAssociazione);
    * 2) Se ho un titolare -> vai a /km-percorsi/{idAutomezzo}/edit
    *    altrimenti        -> vai a /km-percorsi?idConvenzione={idConv} per nomina/gestione
    */
-  async function setRotSostAndGo(idConv, idAutomezzoTitolare) {
-    const btn = event.currentTarget;
+  async function setRotSostAndGo(ev, idConv, idAutomezzoTitolare) {
+    const btn = ev.currentTarget;
     btn.disabled = true;
 
     // marca visualmente "Sì"
