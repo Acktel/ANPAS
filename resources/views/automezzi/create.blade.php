@@ -151,8 +151,6 @@
           </div>
         </div>
 
-
-
           {{-- RIGA 7: Date Sanitaria | Date Revisione --}}
           <div class="row mb-4">
             <div class="col-md-6">
