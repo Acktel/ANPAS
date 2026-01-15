@@ -106,14 +106,6 @@ class AutomezziController extends Controller {
         try {
             $newId = Automezzo::createAutomezzo($validated);
 
-            if (!is_null($validated['KmRiferimento'] ?? null)) {
-                AutomezzoKmRiferimento::insertKmRiferimento([
-                    'idAutomezzo'    => $newId,
-                    'idAnno'         => $validated['idAnno'],
-                    'KmRiferimento'  => (int)$validated['KmRiferimento'],
-                ]);
-            }
-
             DB::commit();
             return redirect()->route('automezzi.index')->with('success', 'Automezzo creato correttamente.');
         } catch (\Exception $e) {
@@ -161,8 +153,32 @@ class AutomezziController extends Controller {
         // Recupera dalla sessione o fallback ai valori correnti dell'automezzo
         $selectedAssociazione = session('selectedAssociazione') ?? $automezzo->idAssociazione;
         $annoCorr = session('anno_riferimento') ?? $automezzo->idAnno;
+       // KM ESERCIZIO (solo anno corrente)
+        $kmEsercizio = Automezzo::calcKmEsercizioByIdentity(
+            (int) $automezzo->idAssociazione,
+            (string) $automezzo->Targa,
+            (string) $automezzo->CodiceIdentificativo,
+            (int) $anno
+        );
 
-        return view('automezzi.edit', compact('automezzo', 'associazioni', 'anni', 'vehicleTypes', 'fuelTypes', 'selectedAssociazione', 'annoCorr'));
+        // KM TOTALI (tutti gli anni) -> per IDENTITÀ mezzo (stessa targa+codice in anni diversi)      
+        $kmTotaliCalc = Automezzo::calcKmTotaliByIdentity(
+            (int) $automezzo->idAssociazione,
+            (string) $automezzo->Targa,
+            (string) $automezzo->CodiceIdentificativo
+        );
+
+        return view('automezzi.edit', compact(
+            'automezzo', 
+            'associazioni',
+             'anni', 
+             'vehicleTypes', 
+             'fuelTypes', 
+             'selectedAssociazione', 
+             'annoCorr', 
+             'kmEsercizio',
+             'kmTotaliCalc'
+            ));
     }
 
     public function update(Request $request, int $idAutomezzo) {
@@ -175,8 +191,6 @@ class AutomezziController extends Controller {
             'AnnoAcquisto' => 'nullable|integer|min:1900|max:' . date('Y'),
             'Modello' => 'string|max:255',
             'idTipoVeicolo' => 'exists:vehicle_types,id',
-            'KmRiferimento' => 'integer|min:0',
-            'KmTotali' => 'nullable|integer|min:0',
             'idTipoCarburante' => 'exists:fuel_types,id',
             'DataUltimaAutorizzazioneSanitaria' => 'nullable|date',
             'DataUltimoCollaudo' => 'nullable|date',
@@ -191,11 +205,6 @@ class AutomezziController extends Controller {
 
         try {
             Automezzo::updateAutomezzo($idAutomezzo, $validated);
-
-            AutomezzoKmRiferimento::updateOrCreate(
-                ['idAutomezzo' => (int)$idAutomezzo, 'idAnno' => $validated['idAnno']],
-                ['KmRiferimento' => (int)$validated['KmRiferimento']]
-            );
 
             DB::commit();
             return redirect()->route('automezzi.index')->with('success', 'Automezzo aggiornato.');

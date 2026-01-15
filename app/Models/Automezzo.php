@@ -8,15 +8,13 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Schema;
 
-class Automezzo
-{
+class Automezzo {
     protected const TABLE = 'automezzi';
 
     /* ----------------------------------------
      * Helpers
      * -------------------------------------- */
-    private static function toIntOrNull($v): ?int
-    {
+    private static function toIntOrNull($v): ?int {
         if ($v === null || $v === '') return null;
         // normalizza eventuali stringhe con separatori/virgole
         $n = (int) round((float) str_replace([',', ' '], ['.', ''], (string)$v));
@@ -26,8 +24,7 @@ class Automezzo
     /* ----------------------------------------
      * READ
      * -------------------------------------- */
-    public static function getAll(?int $anno = null): Collection
-    {
+    public static function getAll(?int $anno = null): Collection {
         $anno = $anno ?? (int) session('anno_riferimento', now()->year);
 
         return DB::table('automezzi as a')
@@ -35,7 +32,7 @@ class Automezzo
             ->join('anni as y', 'a.idAnno', '=', 'y.idAnno')
             ->leftJoin('automezzi_km_riferimento as km', function ($join) use ($anno) {
                 $join->on('a.idAutomezzo', '=', 'km.idAutomezzo')
-                     ->where('km.idAnno', '=', $anno);
+                    ->where('km.idAnno', '=', $anno);
             })
             ->leftJoin('vehicle_types as vt', 'a.idTipoVeicolo', '=', 'vt.id')
             ->leftJoin('fuel_types as ft', 'a.idTipoCarburante', '=', 'ft.id')
@@ -67,14 +64,13 @@ class Automezzo
             ->get();
     }
 
-    public static function getById(int $idAutomezzo, ?int $anno = null)
-    {
+    public static function getById(int $idAutomezzo, ?int $anno = null) {
         $anno = $anno ?? (int) session('anno_riferimento', now()->year);
 
         return DB::table('automezzi as a')
             ->leftJoin('automezzi_km_riferimento as km', function ($join) use ($anno) {
                 $join->on('a.idAutomezzo', '=', 'km.idAutomezzo')
-                     ->where('km.idAnno', '=', $anno);
+                    ->where('km.idAnno', '=', $anno);
             })
             ->leftJoin('vehicle_types as vt', 'a.idTipoVeicolo', '=', 'vt.id')
             ->leftJoin('fuel_types as ft', 'a.idTipoCarburante', '=', 'ft.id')
@@ -89,15 +85,14 @@ class Automezzo
             ->first();
     }
 
-    public static function getByAssociazione(?int $idAssociazione, ?int $anno = null): Collection
-    {
+    public static function getByAssociazione(?int $idAssociazione, ?int $anno = null): Collection {
         $anno = $anno ?? (int) session('anno_riferimento', now()->year);
 
         return DB::table(self::TABLE . ' as a')
             ->join('associazioni as s', 'a.idAssociazione', '=', 's.idAssociazione')
             ->leftJoin('automezzi_km_riferimento as km', function ($join) use ($anno) {
                 $join->on('a.idAutomezzo', '=', 'km.idAutomezzo')
-                     ->where('km.idAnno', '=', $anno);
+                    ->where('km.idAnno', '=', $anno);
             })
             ->leftJoin('vehicle_types as vt', 'a.idTipoVeicolo', '=', 'vt.id')
             ->leftJoin('fuel_types as ft', 'a.idTipoCarburante', '=', 'ft.id')
@@ -128,15 +123,14 @@ class Automezzo
             ->get();
     }
 
-    public static function getByAssociazioneInclusoRiparto(?int $idAssociazione, ?int $anno = null): Collection
-    {
+    public static function getByAssociazioneInclusoRiparto(?int $idAssociazione, ?int $anno = null): Collection {
         $anno = $anno ?? (int) session('anno_riferimento', now()->year);
 
         return DB::table(self::TABLE . ' as a')
             ->join('associazioni as s', 'a.idAssociazione', '=', 's.idAssociazione')
             ->leftJoin('automezzi_km_riferimento as km', function ($join) use ($anno) {
                 $join->on('a.idAutomezzo', '=', 'km.idAutomezzo')
-                     ->where('km.idAnno', '=', $anno);
+                    ->where('km.idAnno', '=', $anno);
             })
             ->leftJoin('vehicle_types as vt', 'a.idTipoVeicolo', '=', 'vt.id')
             ->leftJoin('fuel_types as ft', 'a.idTipoCarburante', '=', 'ft.id')
@@ -168,13 +162,12 @@ class Automezzo
             ->get();
     }
 
-    public static function getForDataTable(int $anno, ?int $assocId): Collection
-    {
+    public static function getForDataTable(int $anno, ?int $assocId): Collection {
         $query = DB::table('automezzi as a')
             ->join('associazioni as ass', 'ass.idAssociazione', '=', 'a.idAssociazione')
             ->leftJoin('automezzi_km_riferimento as km', function ($join) use ($anno) {
                 $join->on('km.idAutomezzo', '=', 'a.idAutomezzo')
-                     ->where('km.idAnno', $anno);
+                    ->where('km.idAnno', $anno);
             })
             ->leftJoin('vehicle_types as vt', 'a.idTipoVeicolo', '=', 'vt.id')
             ->leftJoin('fuel_types as ft', 'a.idTipoCarburante', '=', 'ft.id')
@@ -185,25 +178,25 @@ class Automezzo
         }
 
         $rows = $query->select([
-                'a.idAutomezzo',
-                'ass.Associazione',
-                'a.idAnno',
-                'a.Targa',
-                'a.CodiceIdentificativo',
-                'a.AnnoPrimaImmatricolazione',
-                'a.AnnoAcquisto',
-                'a.Modello',
-                'a.incluso_riparto',
-                'vt.nome as TipoVeicolo',
-                // 👇 Cast a intero per DataTable
-                DB::raw('CAST(km.KmRiferimento AS SIGNED) as KmRiferimento'),
-                DB::raw('CAST(a.KmTotali      AS SIGNED) as KmTotali'),
-                'ft.nome as TipoCarburante',
-                'a.DataUltimaAutorizzazioneSanitaria',
-                'a.DataUltimoCollaudo',
-                'a.note',
-                'a.informazioniAggiuntive',
-            ])
+            'a.idAutomezzo',
+            'ass.Associazione',
+            'a.idAnno',
+            'a.Targa',
+            'a.CodiceIdentificativo',
+            'a.AnnoPrimaImmatricolazione',
+            'a.AnnoAcquisto',
+            'a.Modello',
+            'a.incluso_riparto',
+            'vt.nome as TipoVeicolo',
+            // 👇 Cast a intero per DataTable
+            DB::raw('CAST(km.KmRiferimento AS SIGNED) as KmRiferimento'),
+            DB::raw('CAST(a.KmTotali      AS SIGNED) as KmTotali'),
+            'ft.nome as TipoCarburante',
+            'a.DataUltimaAutorizzazioneSanitaria',
+            'a.DataUltimoCollaudo',
+            'a.note',
+            'a.informazioniAggiuntive',
+        ])
             ->get()
             ->map(function ($row) {
                 $row->Azioni = view('partials.actions_automezzo', ['id' => $row->idAutomezzo])->render();
@@ -213,8 +206,7 @@ class Automezzo
         return $rows;
     }
 
-    public static function getLightForAnno(int $anno, ?int $idAssociazione = null): Collection
-    {
+    public static function getLightForAnno(int $anno, ?int $idAssociazione = null): Collection {
         return DB::table('automezzi')
             ->where('idAnno', $anno) // ✅ fix del refuso
             ->when($idAssociazione, function ($q) use ($idAssociazione) {
@@ -224,8 +216,7 @@ class Automezzo
             ->get();
     }
 
-    public static function getForRipartizione(int $anno, ?int $idAssociazione = null): Collection
-    {
+    public static function getForRipartizione(int $anno, ?int $idAssociazione = null): Collection {
         return DB::table('automezzi')
             ->where('idAnno', $anno)
             ->when($idAssociazione, function ($q) use ($idAssociazione) {
@@ -239,8 +230,7 @@ class Automezzo
     /* ----------------------------------------
      * WRITE
      * -------------------------------------- */
-    public static function createAutomezzo(array $data): int
-    {
+    public static function createAutomezzo(array $data): int {
         return DB::table('automezzi')->insertGetId([
             'idAssociazione'                     => (int) $data['idAssociazione'],
             'idAnno'                             => (int) $data['idAnno'],
@@ -250,8 +240,8 @@ class Automezzo
             'AnnoAcquisto'                       => Automezzo::toIntOrNull($data['AnnoAcquisto'] ?? null),
             'Modello'                            => $data['Modello'],
             'idTipoVeicolo'                      => isset($data['idTipoVeicolo']) && $data['idTipoVeicolo'] !== null
-                                                    ? (int)$data['idTipoVeicolo']
-                                                    : 1,
+                ? (int)$data['idTipoVeicolo']
+                : 1,
             'incluso_riparto'                    => (int) ($data['incluso_riparto'] ?? 0),
             'KmTotali'                           => self::toIntOrNull($data['KmTotali'] ?? null),
             'idTipoCarburante'                   => isset($data['idTipoCarburante']) ? (int)$data['idTipoCarburante'] : 1,
@@ -264,8 +254,7 @@ class Automezzo
         ]);
     }
 
-    public static function updateAutomezzo(int $idAutomezzo, array $data): void
-    {
+    public static function updateAutomezzo(int $idAutomezzo, array $data): void {
         DB::table('automezzi')
             ->where('idAutomezzo', $idAutomezzo)
             ->update([
@@ -277,8 +266,8 @@ class Automezzo
                 'AnnoAcquisto'                       => isset($data['AnnoAcquisto']) ? (int) $data['AnnoAcquisto'] : null,
                 'Modello'                            => $data['Modello'],
                 'idTipoVeicolo'                      => isset($data['idTipoVeicolo']) && $data['idTipoVeicolo'] !== null
-                                                        ? (int)$data['idTipoVeicolo']
-                                                        : 1,
+                    ? (int)$data['idTipoVeicolo']
+                    : 1,
                 'incluso_riparto'                    => (int) ($data['incluso_riparto'] ?? 0),
                 'KmTotali'                           => self::toIntOrNull($data['KmTotali'] ?? null),
                 'idTipoCarburante'                   => (int) $data['idTipoCarburante'] ?? 1,
@@ -290,8 +279,7 @@ class Automezzo
             ]);
     }
 
-    public static function deleteAutomezzo(int $idAutomezzo, ?int $anno = null): void
-    {
+    public static function deleteAutomezzo(int $idAutomezzo, ?int $anno = null): void {
         // 1) figli diretti gestiti a codice
         AutomezzoKmRiferimento::deleteByAutomezzo($idAutomezzo, $anno);
 
@@ -312,29 +300,24 @@ class Automezzo
     /* ----------------------------------------
      * Utility aggiornamento KM totali
      * -------------------------------------- */
-    public static function refreshKmTotaliFor(int $idAutomezzo, ?int $anno = null): void
-    {
-        $anno = $anno ?? (int) session('anno_riferimento', now()->year);
-
-        $q = DB::table('automezzi_km')->where('idAutomezzo', $idAutomezzo);
-
-        if (Schema::hasColumn('automezzi_km', 'idAnno')) {
-            $q->where('idAnno', $anno);
-        }
-
-        $sum = (float) $q->sum('KMPercorsi'); // può arrivare decimale
+    public static function refreshKmTotaliFor(int $idAutomezzo): void {
+        $sum = (int) DB::table('automezzi_km')
+            ->where('idAutomezzo', $idAutomezzo)
+            ->sum(DB::raw('COALESCE(KMPercorsi,0)'));
 
         DB::table('automezzi')
             ->where('idAutomezzo', $idAutomezzo)
-            // 👇 salva arrotondato all’intero
-            ->update(['KmTotali' => (int) round($sum), 'updated_at' => now()]);
+            ->update([
+                'KmTotali'   => $sum,
+                'updated_at' => now(),
+            ]);
     }
+
 
     /* ----------------------------------------
      * Filtri per ruolo
      * -------------------------------------- */
-    public static function getFiltratiByUtente($anno): Collection
-    {
+    public static function getFiltratiByUtente($anno): Collection {
         $user = Auth::user();
         if ($user->hasAnyRole(['SuperAdmin', 'Admin', 'Supervisor'])) {
             return self::getAll($anno);
@@ -343,5 +326,25 @@ class Automezzo
         $idAssoc = $user->IdAssociazione;
         abort_if(!$idAssoc, 403, "Associazione non trovata per l'utente.");
         return self::getByAssociazione($idAssoc, $anno);
+    }
+
+    public static function calcKmTotaliByIdentity(int $idAssociazione, string $targa, string $codiceIdentificativo): int {
+        return (int) DB::table('automezzi_km as k')
+            ->join('automezzi as a', 'a.idAutomezzo', '=', 'k.idAutomezzo')
+            ->where('a.idAssociazione', $idAssociazione)
+            ->where('a.Targa', $targa)
+            ->where('a.CodiceIdentificativo', $codiceIdentificativo)
+            ->sum(DB::raw('COALESCE(k.KMPercorsi,0)'));
+    }
+
+    public static function calcKmEsercizioByIdentity(int $idAssociazione, string $targa, string $codiceIdentificativo, int $anno): int {
+        return (int) DB::table('automezzi_km as k')
+            ->join('automezzi as a', 'a.idAutomezzo', '=', 'k.idAutomezzo')
+            ->join('convenzioni as c', 'c.idConvenzione', '=', 'k.idConvenzione')
+            ->where('a.idAssociazione', $idAssociazione)
+            ->where('a.Targa', $targa)
+            ->where('a.CodiceIdentificativo', $codiceIdentificativo)
+            ->where('c.idAnno', $anno)
+            ->sum(DB::raw('COALESCE(k.KMPercorsi,0)'));
     }
 }

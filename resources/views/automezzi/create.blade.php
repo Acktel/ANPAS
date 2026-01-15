@@ -115,10 +115,10 @@
             </select>
           </div>
 
-          <div class="col-md-6">
+          <!--<div class="col-md-6">
             <label for="KmRiferimento" class="form-label">Km di Riferimento</label>
             <input type="number" name="KmRiferimento" id="KmRiferimento" class="form-control" min="0" step="1" value="{{ old('KmRiferimento') }}">
-          </div>
+          </div>-->
         </div>
 
         {{-- RIGA 6: Km Totali | Tipo Carburante --}}

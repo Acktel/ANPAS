@@ -94,28 +94,28 @@ $annoCorr = session('annoCorrente') ?? ($automezzo->idAnno ?? now()->year);
         {{-- RIGA 5: Tipo Veicolo | Km di Riferimento --}}
         <div class="row mb-3">
           <div class="col-md-6">
-            <label for="KmRiferimento" class="form-label">Km di Riferimento</label>
-            <input type="number"
-              name="KmRiferimento"
-              id="KmRiferimento"
-              class="form-control js-int-only"
-              min="0"
-              step="1"
-              inputmode="numeric"
-              pattern="\d*"
-              value="{{ old('KmRiferimento', $automezzo->KmRiferimento) }}"
-              inputmode="numeric">
+            <label class="form-label">KM Esercizio</label>
+            <input type="text"
+                  class="form-control"
+                  value="{{ number_format((int)($kmEsercizio ?? 0), 0, ',', '.') }}"
+                  readonly>
+            <small class="text-muted">
+              Somma dei KM percorsi dal mezzo nell’anno {{ (int)session('anno_riferimento', now()->year) }}.
+            </small>
           </div>
+
           <div class="col-md-6">
-            <label for="KmTotali" class="form-label">Km Totali</label>
-            <input type="number" name="KmTotali" id="KmTotali" class="form-control js-int-only"
-              min="0"
-              step="1"
-              inputmode="numeric"
-              pattern="\d*"
-              value="{{ old('KmTotali', $automezzo->KmTotali) }}" readonly>
+            <label class="form-label">KM Totali</label>
+            <input type="text"
+                  class="form-control"
+                  value="{{ number_format((int)($kmTotaliCalc ?? 0), 0, ',', '.') }}"
+                  readonly>
+            <small class="text-muted">
+              Somma dei KM percorsi dal mezzo su tutti gli anni.
+            </small>
           </div>
         </div>
+
 
         {{-- RIGA 6: Km Totali | Tipo Carburante --}}
         <div class="row mb-3">

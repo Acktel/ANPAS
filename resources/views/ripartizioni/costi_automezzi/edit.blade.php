@@ -30,10 +30,10 @@
             'RimborsiUTF'               => 'Rimborsi UTF',
             'InteressiPassivi'          => 'Interessi passivi',
             'AltriCostiMezzi'           => 'Altri costi mezzi',
-            'ManutenzioneSanitaria'     => 'Manutenzione sanitaria',
-            'LeasingSanitaria'          => 'Leasing sanitaria',
+            'ManutenzioneSanitaria'     => 'Manutenzione attrezzatura sanitaria',
+            'LeasingSanitaria'          => 'Leasing attrezzatura sanitaria',
             'AmmortamentoMezzi'         => 'Ammortamento mezzi',
-            'AmmortamentoSanitaria'     => 'Ammortamento sanitaria',
+            'AmmortamentoSanitaria'     => 'Ammortamento attrezzatura sanitaria',
           ] as $campo => $label)
             <div class="col-12 col-md-6 col-lg-4">
               <label class="form-label">{{ $label }}</label>
