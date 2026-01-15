@@ -118,9 +118,9 @@
                     <li><a class="dropdown-item" href="{{ route('servizi-svolti.index') }}">Servizi effettuati</a></li>
                     <li><a class="dropdown-item" href="{{ route('ripartizioni.costi_automezzi.index') }}">Costi Automezzi</a></li>
                     <li><a class="dropdown-item" href="{{ route('ripartizioni.costi_radio.index') }}">Costi Radio</a></li>
-                    <li><a class="dropdown-item" href="{{ route('ripartizioni.materiale_sanitario.index') }}">Materiale sanitario</a></li>
+                    <li><a class="dropdown-item" href="{{ route('imputazioni.materiale_sanitario.index') }}">Materiale sanitario</a></li>
                     <li><a class="dropdown-item" href="{{ route('imputazioni.ossigeno.index') }}">Ossigeno</a></li>
-                    <li><a class="dropdown-item" href="{{ route('imputazioni.materiale_sanitario.index') }}">Tabella % Mat. san. + O2</a></li>
+                    <li><a class="dropdown-item" href="{{ route('ripartizioni.materiale_sanitario.index') }}">Tabella % Mat. san. + O2</a></li>
                     <li><a class="dropdown-item" href="{{ route('ripartizioni.costi_automezzi_sanitari.index') }}">Riepilogo Totale</a></li>
                 </ul>
             </li>
