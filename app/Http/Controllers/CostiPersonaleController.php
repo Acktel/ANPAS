@@ -130,11 +130,11 @@ class CostiPersonaleController extends Controller {
             // normalizza record costi (supporto schema vecchio/nuovo)
             $cn = $this->normalizeCostRow($costi->get($id) ?? null);
 
-            $retribuzioni      = (float)$cn['Retribuzioni']        + (float)$cn['costo_diretto_Retribuzioni'];
-            $OneriSocialiInps  = (float)$cn['OneriSocialiInps']    + (float)$cn['costo_diretto_OneriSocialiInps'];
-            $OneriSocialiInail = (float)$cn['OneriSocialiInail']   + (float)$cn['costo_diretto_OneriSocialiInail'];
-            $tfr               = (float)$cn['TFR']                 + (float)$cn['costo_diretto_TFR'];
-            $consulenze        = (float)$cn['Consulenze']          + (float)$cn['costo_diretto_Consulenze'];
+            $retribuzioni      = (float)$cn['Retribuzioni'];
+            $OneriSocialiInps  = (float)$cn['OneriSocialiInps'];
+            $OneriSocialiInail = (float)$cn['OneriSocialiInail'];
+            $tfr               = (float)$cn['TFR'];
+            $consulenze        = (float)$cn['Consulenze'];
 
             // coefficiente mansione se filtro qualifica e dip ha più qualifiche
             $coeff = 1.0;
