@@ -264,7 +264,6 @@ class RipartizioneCostiService {
         int $anno,
         int $idAutomezzo
     ): array {
-        // 1) Mappa voci → campo DB
         $vociKm = [
             'LEASING/NOLEGGIO A LUNGO TERMINE'                          => 'LeasingNoleggio',
             'ASSICURAZIONI'                                             => 'Assicurazione',
@@ -284,7 +283,6 @@ class RipartizioneCostiService {
 
         $tabella = [];
 
-        // Convenzioni ordinate
         $convenzioni = Convenzione::getByAssociazioneAnno($idAssociazione, $anno)
             ->pluck('Convenzione', 'idConvenzione')
             ->toArray();
@@ -292,29 +290,29 @@ class RipartizioneCostiService {
         if (empty($convenzioni)) {
             return [];
         }
+        $convIds = array_keys($convenzioni);
 
-        // 2) Dati di base mezzo selezionato
         $costi = DB::table('costi_automezzi')
             ->where('idAutomezzo', $idAutomezzo)
             ->where('idAnno', $anno)
             ->first();
 
-        // KM del mezzo per convenzione
+        // km mezzo per convenzione
         $kmRecords = AutomezzoKm::getKmPerConvenzione($idAutomezzo, $anno);
         $kmPerConv = $kmRecords->pluck('KMPercorsi', 'idConvenzione')
             ->map(fn($v) => (float)$v)
             ->toArray();
 
-        // KM totali per convenzione (tutti i mezzi)
+        // km totali convenzione (tutti i mezzi)
         $kmTotConvMap = DB::table('automezzi_km')
-            ->whereIn('idConvenzione', array_keys($convenzioni))
+            ->whereIn('idConvenzione', $convIds)
             ->select('idConvenzione', DB::raw('SUM(COALESCE(KMPercorsi,0)) AS tot'))
             ->groupBy('idConvenzione')
             ->pluck('tot', 'idConvenzione')
             ->map(fn($v) => (float)$v)
             ->toArray();
 
-        // Servizi del mezzo per convenzione
+        // servizi mezzo per convenzione
         $serviziPerConv = DB::table('automezzi_servizi')
             ->where('idAutomezzo', $idAutomezzo)
             ->pluck('NumeroServizi', 'idConvenzione')
@@ -323,109 +321,193 @@ class RipartizioneCostiService {
 
         $totaleServizi = array_sum($serviziPerConv);
 
-        // 3) Voci a riparto (in base alle regole)
+        // helper: split in CENTESIMI (Hamilton) a partire da totalCents
+        $splitCents = static function (int $totalCents, array $weights): array {
+            $keys = array_keys($weights);
+            if ($totalCents <= 0 || empty($keys)) {
+                return array_fill_keys($keys, 0);
+            }
+
+            $sumW = 0.0;
+            foreach ($weights as $w) $sumW += (float)$w;
+            if ($sumW <= 0) {
+                return array_fill_keys($keys, 0);
+            }
+
+            $floor = [];
+            $frac  = [];
+            $sumF  = 0;
+
+            foreach ($weights as $k => $w) {
+                $raw = $totalCents * ((float)$w / $sumW);
+                $f   = (int)floor($raw);
+                $floor[$k] = $f;
+                $frac[$k]  = $raw - $f;
+                $sumF += $f;
+            }
+
+            $res = $totalCents - $sumF;
+            if ($res > 0) {
+                arsort($frac);
+                foreach (array_keys($frac) as $k) {
+                    if ($res <= 0) break;
+                    $floor[$k] += 1;
+                    $res--;
+                }
+            }
+
+            return $floor; // centesimi
+        };
+
         foreach ($vociKm as $voceLabel => $colDB) {
 
-            // 3.1) valore base voce (per MEZZO)
-            if (!$costi) {
-                $valore = 0.0;
-            } else {
+            // 1) valore base (EURO) senza round intermedi strani
+            $valEuro = 0.0;
+            if ($costi) {
                 switch ($voceLabel) {
                     case 'MANUTENZIONE STRAORDINARIA AL NETTO RIMBORSI ASSICURATIVI':
-                        $valore = (float)($costi->ManutenzioneStraordinaria ?? 0)
+                        $valEuro = (float)($costi->ManutenzioneStraordinaria ?? 0)
                             - (float)($costi->RimborsiAssicurazione ?? 0);
                         break;
 
                     case 'CARBURANTI AL NETTO RIMBORSI UTF':
-                        $valore = self::carburantiNetti($costi);
+                        $valEuro = self::carburantiNetti($costi); // già round 2, ok
                         break;
 
                     default:
-                        $valore = (float)($costi->$colDB ?? 0);
+                        $valEuro = (float)($costi->$colDB ?? 0);
                 }
             }
 
-            $valore = round(max(0.0, $valore), 2);
+            // se vuoi replicare Excel: se negativo -> 0 (come avevi)
+            if ($valEuro < 0) $valEuro = 0.0;
 
-            // 3.2) Quote per convenzione:
-            // - ROTAZIONE (solo per convenzioni in regime rotazione e solo per le voci rotazione):
-            //     quota = valore * (km mezzo su conv / km totali conv)
-            // - resto: residuo splittato con Hamilton su pesi km (o servizi per amm. sanitaria)
-            $quote        = [];   // [idConv => euro]
-            $pesiFallback = [];   // per split residuo
-            $sommaRot     = 0.0;
+            // 2) lavora in CENTESIMI
+            $valCents = (int)round($valEuro * 100, 0, PHP_ROUND_HALF_UP);
+
+            // init quote centesimi
+            $quoteCents = array_fill_keys($convIds, 0);
 
             $isVoceRot = in_array($voceLabel, self::VOCI_ROTAZIONE_MEZZI, true);
 
-            foreach ($convenzioni as $idConv => $nomeConv) {
-                $idConv = (int)$idConv;
-
-                // Ammortamento attrezzatura sanitaria -> % servizi (sempre)
-                if ($voceLabel === 'AMMORTAMENTO ATTREZZATURA SANITARIA') {
-                    $pesiFallback[$idConv] = (float)($serviziPerConv[$idConv] ?? 0.0);
-                    continue;
-                }
-
-                // Mezzi sostitutivi -> km mezzo per convenzione (solo se regime sostitutivi)
-                if (
-                    in_array($voceLabel, self::VOCI_MEZZI_SOSTITUTIVI, true)
-                    && self::isRegimeMezziSostitutivi($idConv)
-                ) {
-                    $pesiFallback[$idConv] = (float)($kmPerConv[$idConv] ?? 0.0);
-                    continue;
-                }
-
-                // Rotazione Excel -> SOLO se convenzione in regime rotazione e voce è rotazione
-                if ($isVoceRot && self::isRegimeRotazione($idConv)) {
-                    $den = (float)($kmTotConvMap[$idConv] ?? 0.0);   // km totali convenzione (tutti i mezzi)
-                    $num = (float)($kmPerConv[$idConv] ?? 0.0);      // km di questo mezzo in quella convenzione
-
-                    $share = ($den > 0.0) ? ($num / $den) : 0.0;
-
-                    $q = round($valore * $share, 2);
-                    $quote[$idConv] = $q;
-                    $sommaRot += $q;
-
-                    continue;
-                }
-
-                // Default -> pesi km mezzo per convenzione (Hamilton sul residuo)
-                $pesiFallback[$idConv] = (float)($kmPerConv[$idConv] ?? 0.0);
-            }
-
-            // 3.3) Completa quote:
+            // ----------------------------
+            // A) Amm. attrezzatura sanitaria: tutto su servizi
+            // ----------------------------
             if ($voceLabel === 'AMMORTAMENTO ATTREZZATURA SANITARIA') {
-                // split su TUTTO il valore con pesi servizi
-                $quote = self::splitByWeightsCents($valore, $pesiFallback);
+                $pesi = [];
+                foreach ($convIds as $cid) {
+                    $pesi[$cid] = (float)($serviziPerConv[$cid] ?? 0.0);
+                }
+                $split = $splitCents($valCents, $pesi);
+                foreach ($split as $cid => $c) {
+                    $quoteCents[(int)$cid] = (int)$c;
+                }
             } else {
-                // residuo = valore - somma quote rotazione (così somma riga torna al totale)
-                $residuo = round($valore - $sommaRot, 2);
-                if ($residuo < 0) $residuo = 0.0;
-
-                if ($residuo != 0.0 && !empty($pesiFallback)) {
-                    $q2 = self::splitByWeightsCents($residuo, $pesiFallback);
-                    foreach ($q2 as $cid => $v) {
-                        $quote[(int)$cid] = (float)$v;
+                // ----------------------------
+                // B) Rotazione: per conv in rotazione quota = valore * (km mezzo / km tot conv)
+                //    MA fatta in CENTESIMI con Hamilton, non round cella-per-cella
+                // ----------------------------
+                $weightsRot = []; // pesi = share (num/den)
+                foreach ($convIds as $cid) {
+                    $cid = (int)$cid;
+                    if ($isVoceRot && self::isRegimeRotazione($cid)) {
+                        $den = (float)($kmTotConvMap[$cid] ?? 0.0);
+                        $num = (float)($kmPerConv[$cid] ?? 0.0);
+                        $weightsRot[$cid] = ($den > 0.0) ? ($num / $den) : 0.0;
                     }
-                } else {
-                    // se non ho fallback, garantisco almeno le chiavi
-                    foreach ($pesiFallback as $cid => $_) {
-                        if (!isset($quote[(int)$cid])) {
-                            $quote[(int)$cid] = 0.0;
+                }
+
+                $rotCents = 0;
+                if (!empty($weightsRot)) {
+                    //serve rotazione "parziale" e residuo ad altri. Quindi:
+                    // 1) calcolo rotazione su valCents ma SOLO per i rotazione
+                    // 2) poi residuo agli altri (o a tutti i fallback) come già facevi.
+                    // Per ottenere (1) senza decidere un "totale rotazione" arbitrario,
+                    // uso il tuo criterio implicito: rotazione calcolata come valEuro*share per ogni conv rotazione.
+                    // Questo equivale a: rotCents = round(sum(valCents*share), ma senza round per conv.
+                    // Facciamo così: prima calcolo raw cents per conv, floor, resto, Hamilton tra i rotazione.
+                    $raw = [];
+                    $sumFloor = 0;
+                    $frac = [];
+                    foreach ($weightsRot as $cid => $sh) {
+                        $x = $valCents * (float)$sh;
+                        $f = (int)floor($x);
+                        $raw[$cid] = $x;
+                        $sumFloor += $f;
+                        $frac[$cid] = $x - $f;
+                    }
+                    $rotCents = $sumFloor;
+                    // residuo centesimi dovuto ai floor (non posso superare valCents)
+                    // Il totale rotazione "teorico" è rotCents + distribuzione dei remainder,
+                    // ma quanti remainder? quelli che portano rotazione al valore "più vicino" ai raw.
+                    // Il totale da distribuire come remainder è: round(sum(raw)) - sumFloor
+                    $targetRot = (int)round(array_sum($raw), 0, PHP_ROUND_HALF_UP);
+                    if ($targetRot < 0) $targetRot = 0;
+                    if ($targetRot > $valCents) $targetRot = $valCents;
+
+                    $need = $targetRot - $sumFloor;
+                    if ($need > 0) {
+                        arsort($frac);
+                        foreach (array_keys($frac) as $cid) {
+                            if ($need <= 0) break;
+                            $sumFloor += 1;
+                            $quoteCents[(int)$cid] += 1;
+                            $need--;
                         }
                     }
+                    // ora assegno i floor base
+                    foreach ($weightsRot as $cid => $sh) {
+                        $f = (int)floor($valCents * (float)$sh);
+                        $quoteCents[(int)$cid] += $f;
+                    }
+                    $rotCents = array_sum($quoteCents); // centesimi assegnati ai rotazione
+                }
+
+                // ----------------------------
+                // C) Residuo: Hamilton su pesi fallback (km), ma SOLO sulle convenzioni "abilitate" (sostitutivi ecc.)
+                // ----------------------------
+                $residuoCents = $valCents - (int)$rotCents;
+                if ($residuoCents < 0) $residuoCents = 0;
+
+                $pesiFallback = [];
+                foreach ($convIds as $cid) {
+                    $cid = (int)$cid;
+
+                    // sostitutivi: includi SOLO se regime sostitutivi e voce è tra le voci sostitutivi
+                    if (
+                        in_array($voceLabel, self::VOCI_MEZZI_SOSTITUTIVI, true)
+                        && self::isRegimeMezziSostitutivi($cid)
+                    ) {
+                        $pesiFallback[$cid] = (float)($kmPerConv[$cid] ?? 0.0);
+                        continue;
+                    }
+
+                    // se è voce rotazione e questa conv è in rotazione, il fallback NON deve riassegnare
+                    if ($isVoceRot && self::isRegimeRotazione($cid)) {
+                        continue;
+                    }
+
+                    // default: km mezzo per convenzione
+                    $pesiFallback[$cid] = (float)($kmPerConv[$cid] ?? 0.0);
+                }
+
+                if ($residuoCents > 0 && !empty($pesiFallback)) {
+                    $split = $splitCents($residuoCents, $pesiFallback);
+                    foreach ($split as $cid => $c) {
+                        $quoteCents[(int)$cid] += (int)$c;
+                    }
                 }
             }
 
-            // 3.4) costruisci riga
+            // 3) costruisci riga (converti in euro SOLO qui)
             $riga = [
                 'voce'   => $voceLabel,
-                'totale' => $valore,
+                'totale' => round($valCents / 100, 2, PHP_ROUND_HALF_UP),
             ];
 
-            foreach ($convenzioni as $idConv => $nomeConv) {
-                $idConv = (int)$idConv;
-                $riga[$nomeConv] = $quote[$idConv] ?? 0.0;
+            foreach ($convenzioni as $cid => $nomeConv) {
+                $cid = (int)$cid;
+                $riga[$nomeConv] = round(((int)$quoteCents[$cid]) / 100, 2, PHP_ROUND_HALF_UP);
             }
 
             $tabella[] = $riga;
@@ -451,7 +533,7 @@ class RipartizioneCostiService {
             $convenzioni
         );
 
-        // 6) Radio → prima per-automezzo, poi % km del mezzo nell’anno
+        // 6) Radio (come prima, già Hamilton) - puoi lasciarla così
         $costiRadio = DB::table('costi_radio')
             ->where('idAssociazione', $idAssociazione)
             ->where('idAnno', $anno)
@@ -477,11 +559,9 @@ class RipartizioneCostiService {
                 $importoBase         = (float)($costiRadio->$campoDB ?? 0);
                 $importoPerAutomezzo = $importoBase / $numAutomezzi;
 
-                // pesi: km del mezzo per convenzione
                 $pesi = [];
-                foreach (array_keys($convenzioni) as $idConv) {
-                    $idConv = (int)$idConv;
-                    $pesi[$idConv] = (float)($kmPerConv[$idConv] ?? 0.0);
+                foreach ($convIds as $cid) {
+                    $pesi[$cid] = (float)($kmPerConv[$cid] ?? 0.0);
                 }
 
                 $quote = self::splitByWeightsCents($importoPerAutomezzo, $pesi);
@@ -490,10 +570,8 @@ class RipartizioneCostiService {
                     'voce'   => $voceLabel,
                     'totale' => round($importoPerAutomezzo, 2),
                 ];
-
-                foreach ($convenzioni as $idConv => $nomeConv) {
-                    $idConv = (int)$idConv;
-                    $riga[$nomeConv] = $quote[$idConv] ?? 0.0;
+                foreach ($convenzioni as $cid => $nomeConv) {
+                    $riga[$nomeConv] = $quote[$cid] ?? 0.0;
                 }
 
                 $tabella[] = $riga;
@@ -503,8 +581,8 @@ class RipartizioneCostiService {
         return $tabella;
     }
 
+
     public static function calcolaTabellaTotale(int $idAssociazione, int $anno): array {
-        // usa TUTTI i mezzi (come vuoi tu)
         $automezzi = DB::table('automezzi')
             ->where('idAssociazione', $idAssociazione)
             ->where('idAnno', $anno)
@@ -516,7 +594,10 @@ class RipartizioneCostiService {
             ->pluck('Convenzione', 'idConvenzione')
             ->toArray();
 
-        $tot = [];
+        $convNames = array_values($convenzioni);
+
+        // accumulo in CENTESIMI
+        $totCents = []; // [voce => ['voce'=>..., 'totale'=>int, convName=>int]]
 
         foreach ($automezzi as $idAutomezzo) {
             $idAutomezzo = (int)$idAutomezzo;
@@ -524,44 +605,60 @@ class RipartizioneCostiService {
             $tabella = self::calcolaRipartizioneTabellaFinale($idAssociazione, $anno, $idAutomezzo);
 
             foreach ($tabella as $riga) {
-                $voce = $riga['voce'];
+                if (!isset($riga['voce'])) continue;
 
-                if (!isset($tot[$voce])) {
-                    $tot[$voce] = [
+                $voce = (string)$riga['voce'];
+
+                if (!isset($totCents[$voce])) {
+                    $totCents[$voce] = [
                         'voce'   => $voce,
-                        'totale' => 0.0,
+                        'totale' => 0, // cents
                     ];
-                    foreach ($convenzioni as $convName) {
-                        $tot[$voce][$convName] = 0.0;
+                    foreach ($convNames as $convName) {
+                        $totCents[$voce][$convName] = 0; // cents
                     }
                 }
 
-                // somma le celle per convenzione ESATTAMENTE come arrivano dal per-mezzo
-                foreach ($convenzioni as $convName) {
-                    $tot[$voce][$convName] += (float)($riga[$convName] ?? 0.0);
+                foreach ($convNames as $convName) {
+                    $valEuro = (float)($riga[$convName] ?? 0.0);
+                    $totCents[$voce][$convName] += (int)round($valEuro * 100, 0, PHP_ROUND_HALF_UP);
                 }
 
-                // somma totale riga (poi radio verrà sostituita)
-                $tot[$voce]['totale'] += (float)($riga['totale'] ?? 0.0);
+                $totEuro = (float)($riga['totale'] ?? 0.0);
+                $totCents[$voce]['totale'] += (int)round($totEuro * 100, 0, PHP_ROUND_HALF_UP);
             }
         }
 
         // RADIO: una sola ripartizione a livello associazione
+        // Converti la riga radio (che arriva in euro) in centesimi e sovrascrivi
         $radioRows = self::ripartoRadioAssoc($idAssociazione, $anno, $convenzioni);
         foreach ($radioRows as $voce => $row) {
-            $tot[$voce] = $row;
-        }
+            $voce = (string)$voce;
 
-        // arrotondo tutte le celle a 2 decimali
-        foreach ($tot as &$r) {
-            foreach ($r as $k => $v) {
-                if ($k === 'voce') continue;
-                $r[$k] = round((float)$v, 2, PHP_ROUND_HALF_UP);
+            $totCents[$voce] = [
+                'voce'   => $voce,
+                'totale' => (int)round(((float)($row['totale'] ?? 0.0)) * 100, 0, PHP_ROUND_HALF_UP),
+            ];
+
+            foreach ($convNames as $convName) {
+                $totCents[$voce][$convName] = (int)round(((float)($row[$convName] ?? 0.0)) * 100, 0, PHP_ROUND_HALF_UP);
             }
         }
-        unset($r);
 
-        return array_values($tot);
+        // ritorno in EURO (round solo qui)
+        $out = [];
+        foreach ($totCents as $voce => $r) {
+            $row = ['voce' => $r['voce']];
+
+            foreach ($r as $k => $v) {
+                if ($k === 'voce') continue;
+                $row[$k] = round(((int)$v) / 100, 2, PHP_ROUND_HALF_UP);
+            }
+
+            $out[] = $row;
+        }
+
+        return $out;
     }
 
 
@@ -980,7 +1077,7 @@ class RipartizioneCostiService {
         // 1) Pesi base
         // ------------------------------------------------------------
         $quoteRicavi       = self::quoteRicaviByConvenzione($idAssociazione, $anno, $convIds);
-        $persPerQualByConv = self::importiPersonalePerQualificaByConvenzione($idAssociazione, $anno, $convIds);
+        $persPerQualByConv = self::importiPersonalePerQualificaByConvenzione($idAssociazione, $anno, $convIds); // CENTESIMI
         $percServCivile    = self::percentualiServizioCivileByConvenzione($idAssociazione, $anno, $convIds);
 
         // Id speciali/sezioni
@@ -1016,9 +1113,7 @@ class RipartizioneCostiService {
         // Mappa normalizzata descrizione -> riga legacy
         $ripByNormDesc = [];
         foreach ((array)$legacy as $r) {
-            if (!isset($r['voce'])) {
-                continue;
-            }
+            if (!isset($r['voce'])) continue;
             $ripByNormDesc[self::norm($r['voce'])] = $r;
         }
 
@@ -1058,13 +1153,13 @@ class RipartizioneCostiService {
         // 3) Aggregati diretti/bilancio (nuovo schema + fallback legacy)
         // ------------------------------------------------------------
         [
-            $dirByVoceByConv,  // [idVoce][idConv] => costo lordo
-            $dirTotByVoce,     // [idVoce] => somma costi lordi
-            $bilancioByVoce,   // [idVoce] => importo bilancio (globale voce, con priorità manuali/legacy)
-            $ammByVoceByConv,  // [idVoce][idConv] => ammortamento/sconto
-            $ammTotByVoce,     // [idVoce] => tot ammortamenti/sconti
-            $netByVoceByConv,  // [idVoce][idConv] => (diretti - ammortamento)
-            $netTotByVoce      // [idVoce] => somma netti
+            $dirByVoceByConv,
+            $dirTotByVoce,
+            $bilancioByVoce,
+            $ammByVoceByConv,
+            $ammTotByVoce,
+            $netByVoceByConv,
+            $netTotByVoce
         ] = self::aggregatiDirettiEBilancio($idAssociazione, $anno, $vociConfig, $ripByNormDesc);
 
         // ===== OVERRIDE BILANCIO PERSONALE 6001..6006 dal foglio costi dipendenti =====
@@ -1106,47 +1201,44 @@ class RipartizioneCostiService {
             $dirTotNetto = (float)($netTotByVoce[$idV] ?? ($dirTotLordo - $ammTot));
 
             // Indiretti da ripartire = (Bilancio voce) - (Diretti netti voce), non negativi
-            $baseIndiretti = max(0.0, $bilancio - $dirTotNetto);
+            $baseIndirettiEuro = max(0.0, $bilancio - $dirTotNetto);
 
             // Eventuale riga legacy di riparto già calcolato (per alcune voci)
             $ripRow = $ripByNormDesc[$descN] ?? null;
 
-            // Inizializzo mappa indiretti per convenzione
-            $indPerConv = array_fill_keys($convIds, 0.0);
+            // indiretti SEMPRE in CENTESIMI
+            $indPerConvCents = array_fill_keys($convIds, 0);
 
-            // 4.a) Personale 6001..6006: importi già calcolati per convenzione → usali tali e quali
-            // - bilancio già override sopra (bilancioByVoce)
-            // - qui gli importi del foglio dipendenti sono il "target consuntivo" per convenzione
-            // - gli indiretti devono essere SOLO la differenza rispetto ai diretti netti già imputati a mano
+            // ---- 4.a) Personale 6001..6006: target centesimi - diretti netti centesimi
             if (isset($persPerQualByConv[$idV])) {
                 foreach ($convIds as $cid) {
+                    $targetCents = (int)($persPerQualByConv[$idV][$cid] ?? 0);
 
-                    // importo calcolato dal foglio "DIST.RIPARTO COSTI DIPENDENTI" per questa voce+convenzione
-                    $targetConv = (float)($persPerQualByConv[$idV][$cid] ?? 0.0);
-
-                    // diretti netti (quelli inseriti a mano) per questa voce+convenzione
                     $dirL = (float)($dirByVoceByConv[$idV][$cid] ?? 0.0);
                     $amm  = (float)($ammByVoceByConv[$idV][$cid] ?? 0.0);
-                    $netDirConv = $dirL - $amm;
+                    $netDirCents = (int)round(($dirL - $amm) * 100, 0, PHP_ROUND_HALF_UP);
 
-                    // indiretti = differenza (non negativa)
-                    $indPerConv[$cid] = max(0.0, $targetConv - $netDirConv);
+                    $indPerConvCents[$cid] = max(0, $targetCents - $netDirCents);
                 }
+
+                // ---- 4.b) Servizio civile: splitByWeightsCents -> euro -> centesimi
             } elseif ($idV === $VOCE_SCIV_ID) {
-                $quote = self::splitByWeightsCents($baseIndiretti, $percServCivile);
+                $baseIndirettiCents = (int)round($baseIndirettiEuro * 100, 0, PHP_ROUND_HALF_UP);
+                $split = self::splitByWeightsRawCents($baseIndirettiCents, $pesi);
                 foreach ($convIds as $cid) {
-                    $indPerConv[$cid] = $quote[$cid] ?? 0.0;
+                    $indPerConvCents[$cid] = (int)($split[$cid] ?? 0);
                 }
 
-                // 4.c) Formazioni volontari: 6010, 6011, 6012 → % servizi
+                // ---- 4.c) Formazioni volontari: % servizi
             } elseif (in_array($idV, $IDS_VOLONTARI_FORMAZIONE_SERVIZI, true)) {
-                $pesi  = self::percentualiServiziByConvenzione($idAssociazione, $anno, $convIds);
-                $quote = self::splitByWeightsCents($baseIndiretti, $pesi);
+                $pesi     = self::percentualiServiziByConvenzione($idAssociazione, $anno, $convIds);
+                $quoteEuro = self::splitByWeightsCents($baseIndirettiEuro, $pesi);
                 foreach ($convIds as $cid) {
-                    $indPerConv[$cid] = $quote[$cid] ?? 0.0;
+                    $e = (float)($quoteEuro[$cid] ?? 0.0);
+                    $indPerConvCents[$cid] = (int)round($e * 100, 0, PHP_ROUND_HALF_UP);
                 }
 
-                // 4.d) Voci a ricavi (volontari “economici”, sezione 5, amministrativi, quote amm., beni strumentali)
+                // ---- 4.d) Voci a ricavi
             } elseif (
                 in_array($idV, $IDS_VOLONTARI_RICAVI, true)
                 || $sez === 5
@@ -1155,30 +1247,33 @@ class RipartizioneCostiService {
                 || $idV === $BENI_STRUMENTALI_ID
                 || in_array($idV, $IDS_BENI_STRUMENTALI, true)
             ) {
-                $pesi  = self::weightsRicaviConFallback($idAssociazione, $anno, $convIds, $quoteRicavi);
-                $quote = self::splitByWeightsCents($baseIndiretti, $pesi);
+                $pesi     = self::weightsRicaviConFallback($idAssociazione, $anno, $convIds, $quoteRicavi);
+                $quoteEuro = self::splitByWeightsCents($baseIndirettiEuro, $pesi);
                 foreach ($convIds as $cid) {
-                    $indPerConv[$cid] = $quote[$cid] ?? 0.0;
+                    $e = (float)($quoteEuro[$cid] ?? 0.0);
+                    $indPerConvCents[$cid] = (int)round($e * 100, 0, PHP_ROUND_HALF_UP);
                 }
 
-                // 4.e) Legacy disponibile: usa direttamente le quote storiche
+                // ---- 4.e) Legacy: valori per convenzione già pronti (euro) -> centesimi
             } elseif ($ripRow) {
                 foreach ($convIds as $cid) {
-                    $nome           = $convenzioni[$cid];
-                    $indPerConv[$cid] = (float)($ripRow[$nome] ?? 0.0);
+                    $nome = $convenzioni[$cid];
+                    $e    = (float)($ripRow[$nome] ?? 0.0);
+                    $indPerConvCents[$cid] = (int)round($e * 100, 0, PHP_ROUND_HALF_UP);
                 }
 
-                // 4.f) Default: pro-rata sui diretti NETTI per convenzione
+                // ---- 4.f) Default: pro-rata sui diretti netti per convenzione (pesi in euro ok)
             } else {
                 $pesi = [];
                 foreach ($convIds as $cid) {
-                    $net         = (float)($netByVoceByConv[$idV][$cid] ?? 0.0);
+                    $net = (float)($netByVoceByConv[$idV][$cid] ?? 0.0);
                     $pesi[$cid] = max($net, 0.0);
                 }
 
-                $quote = self::splitByWeightsCents($baseIndiretti, $pesi);
+                $quoteEuro = self::splitByWeightsCents($baseIndirettiEuro, $pesi);
                 foreach ($convIds as $cid) {
-                    $indPerConv[$cid] = $quote[$cid] ?? 0.0;
+                    $e = (float)($quoteEuro[$cid] ?? 0.0);
+                    $indPerConvCents[$cid] = (int)round($e * 100, 0, PHP_ROUND_HALF_UP);
                 }
             }
 
@@ -1189,24 +1284,23 @@ class RipartizioneCostiService {
                 'sezione_id'   => $sez,
                 'bilancio'     => $bilancio,
                 'diretta'      => $dirTotNetto,
-                'totale'       => 0.0, // calcolato a fine riga
+                'totale'       => 0.0, // somma indiretti
             ];
 
             foreach ($convIds as $cid) {
                 $nome = $convenzioni[$cid];
+
                 $dirL = (float)($dirByVoceByConv[$idV][$cid] ?? 0.0);
                 $amm  = (float)($ammByVoceByConv[$idV][$cid] ?? 0.0);
-                $ind  = (float)$indPerConv[$cid];
 
                 $riga[$nome] = [
-                    'diretti'      => $dirL,
-                    'ammortamento' => $amm,
-                    'indiretti'    => $ind,
+                    'diretti'      => round($dirL, 2),
+                    'ammortamento' => round($amm, 2),
+                    'indiretti'    => round($indPerConvCents[$cid] / 100, 2, PHP_ROUND_HALF_UP),
                 ];
             }
 
-            // “Totale” = somma indiretti (Excel-like, arrotondo solo alla fine)
-            $riga['totale'] = self::sumLateRound($indPerConv);
+            $riga['totale'] = round(array_sum($indPerConvCents) / 100, 2, PHP_ROUND_HALF_UP);
 
             $righe[] = $riga;
         }
@@ -1216,6 +1310,7 @@ class RipartizioneCostiService {
             'convenzioni' => $convNomi,
         ];
     }
+
 
     /* ========================= SUPPORTO % SERVIZI ========================= */
 
@@ -1561,7 +1656,7 @@ class RipartizioneCostiService {
         $out = [];
         foreach ($outCents as $vId => $byConv) {
             foreach ($byConv as $cid => $cent) {
-                $out[$vId][(int)$cid] = round(((int)$cent) / 100, 2, PHP_ROUND_HALF_UP);
+                $out[$vId][$cid] = (int)$cent;
             }
         }
 
@@ -1929,6 +2024,40 @@ class RipartizioneCostiService {
 
         return $out;
     }
+
+    private static function splitByWeightsRawCents(int $totCents, array $weights): array {
+    $keys = array_keys($weights);
+    if ($totCents <= 0 || empty($keys)) return array_fill_keys($keys, 0);
+
+    $sumW = 0.0;
+    foreach ($weights as $w) $sumW += (float)$w;
+    if ($sumW <= 0) return array_fill_keys($keys, 0);
+
+    $floor = [];
+    $frac  = [];
+    $sumF  = 0;
+
+    foreach ($weights as $k => $w) {
+        $raw = $totCents * ((float)$w / $sumW);
+        $f   = (int)floor($raw);
+        $floor[$k] = $f;
+        $frac[$k]  = $raw - $f;
+        $sumF += $f;
+    }
+
+    $res = $totCents - $sumF;
+    if ($res > 0) {
+        arsort($frac);
+        foreach (array_keys($frac) as $k) {
+            if ($res <= 0) break;
+            $floor[$k] += 1;
+            $res--;
+        }
+    }
+
+    return $floor; // CENTESIMI
+}
+
 
     // in RipartizioneCostiService (o helper condiviso)
     private static function carburantiNetti(object $costi = null): float {
