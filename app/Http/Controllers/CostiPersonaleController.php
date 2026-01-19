@@ -110,14 +110,17 @@ class CostiPersonaleController extends Controller {
             ->toArray();
 
         $rows = [];
-        $totali = [
-            'Retribuzioni' => 0.0,
-            'OneriSocialiInps' => 0.0,
-            'OneriSocialiInail' => 0.0,
-            'TFR' => 0.0,
-            'Consulenze' => 0.0,
-            'Totale' => 0.0,
+
+        // ===== Totali: SOLO CENTESIMI =====
+        $totaliCents = [
+            'Retribuzioni'      => 0,
+            'OneriSocialiInps'  => 0,
+            'OneriSocialiInail' => 0,
+            'TFR'               => 0,
+            'Consulenze'        => 0,
+            'Totale'            => 0,
         ];
+
         // Totali per convenzione in CENTESIMI
         $totPerConvCents = [];
 
@@ -151,8 +154,14 @@ class CostiPersonaleController extends Controller {
                 $consulenze        *= $coeff;
             }
 
-            $totale_raw = $retribuzioni + $OneriSocialiInps + $OneriSocialiInail + $tfr + $consulenze;
-            $totale_cents = (int) round($totale_raw * 100, 0, PHP_ROUND_HALF_UP);
+            // ===== Converti in centesimi (QUI è dove si elimina la “mangiata” di rounding) =====
+            $retrCents  = $this->euroToCents($retribuzioni);
+            $inpsCents  = $this->euroToCents($OneriSocialiInps);
+            $inailCents = $this->euroToCents($OneriSocialiInail);
+            $tfrCents   = $this->euroToCents($tfr);
+            $consCents  = $this->euroToCents($consulenze);
+
+            $totaleCents = $retrCents + $inpsCents + $inailCents + $tfrCents + $consCents;
 
             // nomi qualifica per riga
             $idsQ = $qualifichePivot[$id] ?? [];
@@ -161,32 +170,36 @@ class CostiPersonaleController extends Controller {
                 $d->ContrattoApplicato = "CCNL ANPAS";
             }
 
+            // riga output: mostra in euro, ma i totali veri stanno in cents
             $r = [
                 'idDipendente'      => $id,
                 'Dipendente'        => trim("{$d->DipendenteCognome} {$d->DipendenteNome}"),
                 'Qualifica'         => $nomiQ,
                 'Contratto'         => $d->ContrattoApplicato ?? '',
-                'Retribuzioni'      => round($retribuzioni, 2),
-                'OneriSocialiInps'  => round($OneriSocialiInps, 2),
-                'OneriSocialiInail' => round($OneriSocialiInail, 2),
-                'TFR'               => round($tfr, 2),
-                'Consulenze'        => round($consulenze, 2),
-                'Totale'            => round($totale_raw, 2),
+                'Retribuzioni'      => $this->centsToEuro($retrCents),
+                'OneriSocialiInps'  => $this->centsToEuro($inpsCents),
+                'OneriSocialiInail' => $this->centsToEuro($inailCents),
+                'TFR'               => $this->centsToEuro($tfrCents),
+                'Consulenze'        => $this->centsToEuro($consCents),
+                'Totale'            => $this->centsToEuro($totaleCents),
                 'is_totale'         => false,
             ];
 
-            // accumula totali di colonna (in euro, arrotondati a 2 come mostrati)
-            foreach ($totali as $k => $_) {
-                $totali[$k] += $r[$k];
-            }
+            // ===== Accumula totali: SOLO cents =====
+            $totaliCents['Retribuzioni']      += $retrCents;
+            $totaliCents['OneriSocialiInps']  += $inpsCents;
+            $totaliCents['OneriSocialiInail'] += $inailCents;
+            $totaliCents['TFR']              += $tfrCents;
+            $totaliCents['Consulenze']        += $consCents;
+            $totaliCents['Totale']            += $totaleCents;
 
-            // ===== Ripartizione per convenzione: calcolo in CENTESIMI con ridistribuzione residui =====
-            $rip   = $ripartizioni->get($id) ?? collect();
-            $oreTot = $rip->sum('OreServizio');
+            // ===== Ripartizione per convenzione: in CENTESIMI con Hamilton =====
+            $rip    = $ripartizioni->get($id) ?? collect();
+            $oreTot = (float)$rip->sum('OreServizio');
 
-            // shares: idConv => ore ; percShow solo display
             $shares = [];
             $percShow = [];
+
             if ($oreTot > 0) {
                 foreach ($convenzioni as $conv) {
                     $entry = $rip->firstWhere('idConvenzione', $conv->idConvenzione);
@@ -201,22 +214,20 @@ class CostiPersonaleController extends Controller {
                 }
             }
 
-            // quote provvisorie in centesimi + remainders
             $provCents = [];
             $remainders = [];
             $sumProv = 0;
 
-            if ($totale_cents > 0 && $oreTot > 0) {
+            if ($totaleCents > 0 && $oreTot > 0) {
                 foreach ($shares as $idConv => $ore) {
-                    $quota = ($totale_cents * $ore) / $oreTot; // reale in centesimi
+                    $quota = ($totaleCents * $ore) / $oreTot; // reale in centesimi
                     $prov  = (int) floor($quota);
                     $provCents[$idConv] = $prov;
                     $remainders[$idConv] = $quota - $prov;
                     $sumProv += $prov;
                 }
 
-                // residui da distribuire
-                $diff = $totale_cents - $sumProv;
+                $diff = $totaleCents - $sumProv;
                 if ($diff > 0) {
                     uasort($remainders, function ($a, $b) {
                         if ($a == $b) return 0;
@@ -234,14 +245,13 @@ class CostiPersonaleController extends Controller {
                 }
             }
 
-            // scrivi percentuali e importi finali (e accumula totali convenzione in CENTESIMI)
             foreach ($convenzioni as $conv) {
                 $convKey = "C{$conv->idConvenzione}";
                 $percent = $percShow[$conv->idConvenzione] ?? 0.0;
                 $importoCents = $provCents[$conv->idConvenzione] ?? 0;
 
                 $r["{$convKey}_percent"] = $percent;
-                $r["{$convKey}_importo"] = round($importoCents / 100, 2);
+                $r["{$convKey}_importo"] = $this->centsToEuro($importoCents);
 
                 $totPerConvCents["{$convKey}_importo"] = ($totPerConvCents["{$convKey}_importo"] ?? 0) + $importoCents;
                 $totPerConvCents["{$convKey}_percent"] = 0; // placeholder
@@ -254,26 +264,36 @@ class CostiPersonaleController extends Controller {
         $totPerConvEuro = [];
         foreach ($totPerConvCents as $k => $v) {
             if (str_ends_with($k, '_importo')) {
-                $totPerConvEuro[$k] = round(((int)$v) / 100, 2);
+                $totPerConvEuro[$k] = $this->centsToEuro((int)$v);
             } else {
                 $totPerConvEuro[$k] = $v;
             }
         }
 
-        // riga totale
+        // riga totale (in euro derivati da cents)
+        $totaliEuro = [
+            'Retribuzioni'      => $this->centsToEuro($totaliCents['Retribuzioni']),
+            'OneriSocialiInps'  => $this->centsToEuro($totaliCents['OneriSocialiInps']),
+            'OneriSocialiInail' => $this->centsToEuro($totaliCents['OneriSocialiInail']),
+            'TFR'               => $this->centsToEuro($totaliCents['TFR']),
+            'Consulenze'        => $this->centsToEuro($totaliCents['Consulenze']),
+            'Totale'            => $this->centsToEuro($totaliCents['Totale']),
+        ];
+
         $rows[] = array_merge([
             'idDipendente' => null,
             'Dipendente'   => 'TOTALE',
             'Qualifica'    => '',
             'Contratto'    => '',
             'is_totale'    => true,
-        ], array_map(fn($v) => round($v, 2), $totali), $totPerConvEuro);
+        ], $totaliEuro, $totPerConvEuro);
 
         return response()->json([
             'data'   => $rows,
             'labels' => $labels,
         ]);
     }
+
 
     public function salva(Request $request) {
         $data = $request->validate([
