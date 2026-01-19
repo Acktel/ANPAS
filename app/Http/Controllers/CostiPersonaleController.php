@@ -157,10 +157,10 @@ class CostiPersonaleController extends Controller {
             // nomi qualifica per riga
             $idsQ = $qualifichePivot[$id] ?? [];
             $nomiQ = collect($idsQ)->map(fn($iq) => $nomiQualifiche[$iq] ?? null)->filter()->values()->implode(', ');
-            if($d->ContrattoApplicato == 1){
+            if ($d->ContrattoApplicato == 1) {
                 $d->ContrattoApplicato = "CCNL ANPAS";
-            } 
-            
+            }
+
             $r = [
                 'idDipendente'      => $id,
                 'Dipendente'        => trim("{$d->DipendenteCognome} {$d->DipendenteNome}"),
@@ -293,20 +293,19 @@ class CostiPersonaleController extends Controller {
 
         $data['idAnno'] = session('anno_riferimento', now()->year);
 
-        // normalizza INPS/INAIL anche se arriva lo schema vecchio
-        $inps       = (float)($data['OneriSocialiInps']           ?? 0);
-        $inail      = (float)($data['OneriSocialiInail']          ?? 0);
-        $inps_dir   = (float)($data['costo_diretto_OneriSocialiInps']  ?? 0);
-        $inail_dir  = (float)($data['costo_diretto_OneriSocialiInail'] ?? 0);
+        $totCents =
+            $this->euroToCents($data['Retribuzioni']) +
+            $this->euroToCents($data['costo_diretto_Retribuzioni'] ?? 0) +
+            $this->euroToCents($data['OneriSocialiInps'] ?? 0) +
+            $this->euroToCents($data['costo_diretto_OneriSocialiInps'] ?? 0) +
+            $this->euroToCents($data['OneriSocialiInail'] ?? 0) +
+            $this->euroToCents($data['costo_diretto_OneriSocialiInail'] ?? 0) +
+            $this->euroToCents($data['TFR']) +
+            $this->euroToCents($data['costo_diretto_TFR'] ?? 0) +
+            $this->euroToCents($data['Consulenze']) +
+            $this->euroToCents($data['costo_diretto_Consulenze'] ?? 0);
 
-        $totRetribuzioni = (float)$data['Retribuzioni'] + (float)($data['costo_diretto_Retribuzioni'] ?? 0);
-        $totInps         = $inps  + $inps_dir;
-        $totInail        = $inail + $inail_dir;
-        $totTfr          = (float)$data['TFR'] + (float)($data['costo_diretto_TFR'] ?? 0);
-        $totConsulenze   = (float)$data['Consulenze'] + (float)($data['costo_diretto_Consulenze'] ?? 0);
-
-        $data['Totale'] = $totRetribuzioni + $totInps + $totInail + $totTfr + $totConsulenze;
-
+        $data['Totale'] = $this->centsToEuro($totCents);
         CostiPersonale::updateOrInsert($data);
 
         return response()->json([
@@ -352,18 +351,20 @@ class CostiPersonaleController extends Controller {
         $data['idDipendente'] = $idDipendente;
         $data['idAnno'] = session('anno_riferimento', now()->year);
 
-        $inps       = (float)($data['OneriSocialiInps']           ?? 0);
-        $inail      = (float)($data['OneriSocialiInail']          ?? 0);
-        $inps_dir   = (float)($data['costo_diretto_OneriSocialiInps']  ?? 0);
-        $inail_dir  = (float)($data['costo_diretto_OneriSocialiInail'] ?? 0);
+        $totCents =
+            $this->euroToCents($data['Retribuzioni']) +
+            $this->euroToCents($data['costo_diretto_Retribuzioni'] ?? 0) +
+            $this->euroToCents($data['OneriSocialiInps'] ?? 0) +
+            $this->euroToCents($data['costo_diretto_OneriSocialiInps'] ?? 0) +
+            $this->euroToCents($data['OneriSocialiInail'] ?? 0) +
+            $this->euroToCents($data['costo_diretto_OneriSocialiInail'] ?? 0) +
+            $this->euroToCents($data['TFR']) +
+            $this->euroToCents($data['costo_diretto_TFR'] ?? 0) +
+            $this->euroToCents($data['Consulenze']) +
+            $this->euroToCents($data['costo_diretto_Consulenze'] ?? 0);
 
-        $totRetribuzioni = (float)$data['Retribuzioni'] + (float)($data['costo_diretto_Retribuzioni'] ?? 0);
-        $totInps         = $inps  + $inps_dir;
-        $totInail        = $inail + $inail_dir;
-        $totTfr          = (float)$data['TFR'] + (float)($data['costo_diretto_TFR'] ?? 0);
-        $totConsulenze   = (float)$data['Consulenze'] + (float)($data['costo_diretto_Consulenze'] ?? 0);
+        $data['Totale'] = $this->centsToEuro($totCents);
 
-        $data['Totale'] = $totRetribuzioni + $totInps + $totInail + $totTfr + $totConsulenze;
 
         CostiPersonale::updateOrInsert($data);
 
@@ -452,5 +453,13 @@ class CostiPersonaleController extends Controller {
         }
 
         return $canon;
+    }
+
+    private function euroToCents($v): int {
+        return (int) round(((float)$v) * 100, 0, PHP_ROUND_HALF_UP);
+    }
+
+    private function centsToEuro(int $c): float {
+        return round($c / 100, 2, PHP_ROUND_HALF_UP);
     }
 }
