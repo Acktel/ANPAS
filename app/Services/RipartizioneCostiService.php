@@ -63,7 +63,8 @@ class RipartizioneCostiService {
         6005 => 7, // IMPIEGATO AMMINISTRATIVO
         6006 => 5, // COORDINATORE AMMINISTRATIVO
     );
-
+    
+   
     /* ========================= MATERIALE SANITARIO / AUTOMEZZI / RADIO ========================= */
 
     public static function getMaterialiSanitariConsumo(int $idAssociazione, int $idAnno, int $idAutomezzo): float {
@@ -1057,7 +1058,6 @@ class RipartizioneCostiService {
     }
 
     /* ========================= DISTINTA IMPUTAZIONE COSTI ========================= */
-
     public static function distintaImputazioneData(int $idAssociazione, int $anno): array {
         // ------------------------------------------------------------
         // 0) Convenzioni (id => nome)
@@ -1086,11 +1086,13 @@ class RipartizioneCostiService {
         $IDS_QUOTE_AMMORTAMENTO = [9002, 9003, 9006, 9007, 9008, 9009];
         $BENI_STRUMENTALI_ID    = 10001;
         $IDS_BENI_STRUMENTALI   = [11001, 11002];
+        $IDS_PERSONALE_A_RICAVI = [6002, 6003, 6004, 6005, 6006];
+        $VOCI_GRIGIE = [6007, 6008, 6010, 6012, 6014];
 
         // Volontari a ricavi: elenco consolidato
         $IDS_VOLONTARI_RICAVI = array_values(array_unique(array_merge(
             self::IDS_VOLONTARI_RICAVI ?? [],
-            [6007, 6008, 6009, 6013, 6014] // pasti, avvicendamenti, assicurazioni, SCN (quota ANPAS), divise
+            [6009, 6013] // pasti, avvicendamenti, assicurazioni, SCN (quota ANPAS), divise
         )));
 
         // Formazioni volontari a % servizi
@@ -1192,6 +1194,7 @@ class RipartizioneCostiService {
 
         foreach ($vociConfig as $vc) {
             $idV   = (int)$vc->id;
+            $isGrigia = in_array($idV, $VOCI_GRIGIE, true);
             $sez   = (int)($tipToSez[$vc->idTipologiaRiepilogo] ?? 0);
             $descN = self::norm($vc->descrizione);
 
@@ -1209,8 +1212,10 @@ class RipartizioneCostiService {
             // indiretti SEMPRE in CENTESIMI
             $indPerConvCents = array_fill_keys($convIds, 0);
 
-            // ---- 4.a) Personale 6001..6006: target centesimi - diretti netti centesimi
-            if (isset($persPerQualByConv[$idV])) {
+            if ($isGrigia) {
+                $indPerConvCents = array_fill_keys($convIds, null);
+            } elseif ($idV === 6001 && isset($persPerQualByConv[$idV])) {
+           // ---- 4.a) Personale 6001..6006: target centesimi - diretti netti centesimi
                 foreach ($convIds as $cid) {
                     $targetCents = (int)($persPerQualByConv[$idV][$cid] ?? 0);
 
@@ -1224,11 +1229,18 @@ class RipartizioneCostiService {
                 // ---- 4.b) Servizio civile: splitByWeightsCents -> euro -> centesimi
             } elseif ($idV === $VOCE_SCIV_ID) {
                 $baseIndirettiCents = (int)round($baseIndirettiEuro * 100, 0, PHP_ROUND_HALF_UP);
+
+                // pesi = % servizio civile per convenzione (0..100 oppure 0..1, non importa: conta il rapporto)
+                $pesi = [];
+                foreach ($convIds as $cid) {
+                    $pesi[$cid] = (float)($percServCivile[$cid] ?? 0.0);
+                }
+
                 $split = self::splitByWeightsRawCents($baseIndirettiCents, $pesi);
+
                 foreach ($convIds as $cid) {
                     $indPerConvCents[$cid] = (int)($split[$cid] ?? 0);
                 }
-
                 // ---- 4.c) Formazioni volontari: % servizi
             } elseif (in_array($idV, $IDS_VOLONTARI_FORMAZIONE_SERVIZI, true)) {
                 $pesi     = self::percentualiServiziByConvenzione($idAssociazione, $anno, $convIds);
@@ -1241,11 +1253,13 @@ class RipartizioneCostiService {
                 // ---- 4.d) Voci a ricavi
             } elseif (
                 in_array($idV, $IDS_VOLONTARI_RICAVI, true)
+                || in_array($idV, $IDS_PERSONALE_A_RICAVI, true)
                 || $sez === 5
                 || in_array($idV, $IDS_ADMIN_RICAVI, true)
                 || in_array($idV, $IDS_QUOTE_AMMORTAMENTO, true)
                 || $idV === $BENI_STRUMENTALI_ID
                 || in_array($idV, $IDS_BENI_STRUMENTALI, true)
+
             ) {
                 $pesi     = self::weightsRicaviConFallback($idAssociazione, $anno, $convIds, $quoteRicavi);
                 $quoteEuro = self::splitByWeightsCents($baseIndirettiEuro, $pesi);
@@ -1292,16 +1306,25 @@ class RipartizioneCostiService {
 
                 $dirL = (float)($dirByVoceByConv[$idV][$cid] ?? 0.0);
                 $amm  = (float)($ammByVoceByConv[$idV][$cid] ?? 0.0);
-
+                $indCents = $indPerConvCents[$cid];
                 $riga[$nome] = [
-                    'diretti'      => round($dirL, 2),
-                    'ammortamento' => round($amm, 2),
-                    'indiretti'    => round($indPerConvCents[$cid] / 100, 2, PHP_ROUND_HALF_UP),
+                'diretti'      => round($dirL, 2),
+                'ammortamento' => round($amm, 2),
+                'indiretti'    => ($indCents === null) ? null : round($indCents / 100, 2, PHP_ROUND_HALF_UP),
                 ];
             }
 
-            $riga['totale'] = round(array_sum($indPerConvCents) / 100, 2, PHP_ROUND_HALF_UP);
-
+            $sumCents = 0;
+            foreach ($convIds as $cid) {
+                if ($indPerConvCents[$cid] !== null) {
+                    $sumCents += (int)$indPerConvCents[$cid];
+                }
+            }
+          if ($isGrigia) {
+                $riga['totale'] = null;
+            } else {
+                $riga['totale'] = round(array_sum($indPerConvCents) / 100, 2, PHP_ROUND_HALF_UP);
+            }
             $righe[] = $riga;
         }
 

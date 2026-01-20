@@ -910,3 +910,9 @@ div.dataTables_wrapper .dataTables_length {
 table.dataTable {
     border-collapse: collapse!important;
 }
+
+td.cell-grey {
+    background: #dadcde !important;
+    color: #cfcfcf !important;
+    border: 1px solid #3a3a3a1f !important;
+}

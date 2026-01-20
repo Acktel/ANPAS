@@ -186,6 +186,7 @@ function fmt2(n){ n = Number(n||0); return Number.isFinite(n) ? n.toFixed(2) : '
   // STATE / CACHE
   // =========================
   const sezCache = new Map(); // idSezione -> { rows, convMap, convIds, convNames }
+  const VOCI_GRIGIE = new Set([6007, 6008, 6010, 6012, 6014]);
   let convMapGlobal = null;
   let convIdsGlobal = [];
   let convNamesGlobal = [];
@@ -245,42 +246,50 @@ function fmt2(n){ n = Number(n||0); return Number.isFinite(n) ? n.toFixed(2) : '
   }
 
   function renderSectionRows(idSezione, rows) {
-    const tbody = document.querySelector(`#table-distinta-${idSezione} tbody`);
-    if (!tbody) return;
+  const tbody = document.querySelector(`#table-distinta-${idSezione} tbody`);
+  if (!tbody) return;
+  tbody.innerHTML = '';
 
-    tbody.innerHTML = '';
+  rows.forEach(riga => {
+    const hoverText = 'Voce: ' + (riga.voce ?? '-') + '\n';
+    const isGrigiaRow = !!riga.__isGrigia;
 
-    rows.forEach(riga => {
-      const hoverText = 'Voce: ' + (riga.voce ?? '-') + '\n';
+    let html = `
+      <tr title="${$('<div>').text(hoverText).html()}">
+        <td>${$('<div>').text(riga.voce ?? '').html()}</td>
+        <td class="text-end">${fmt2(riga.bilancio)}</td>
+        <td class="text-end">${fmt2(riga.diretta)}</td>
+        <td class="text-end">
+          ${isGrigiaRow && (!riga.totale || riga.totale === 0) ? '' : fmt2(riga.totale)}
+        </td>
+    `;
 
-      let html = `
-        <tr title="${$('<div>').text(hoverText).html()}">
-          <td>${$('<div>').text(riga.voce ?? '').html()}</td>
-          <td class="text-end">${fmt2(riga.bilancio)}</td>
-          <td class="text-end">${fmt2(riga.diretta)}</td>
-          <td class="text-end">${fmt2(riga.totale)}</td>
-      `;
+    convIdsGlobal.forEach(cid => {
+      const cname = convMapGlobal[cid];
 
-      convIdsGlobal.forEach(cid => {
-        const cname = convMapGlobal[cid];
+      const cellById   = riga[cid]   || (riga.per_conv && riga.per_conv[cid]);
+      const cellByName = riga[cname] || (riga.per_conv && riga.per_conv[cname]);
+      const cell = cellById || cellByName || {};
 
-        const cellById   = riga[cid]   || (riga.per_conv && riga.per_conv[cid]);
-        const cellByName = riga[cname] || (riga.per_conv && riga.per_conv[cname]);
+      const diretti = Number(cell.diretti ?? cell.diretta ?? 0);
+      const amm     = Number(cell.ammortamento ?? 0);
 
-        const cell = cellById || cellByName || {};
-        const diretti = Number(cell.diretti ?? cell.diretta ?? 0);
-        const amm     = Number(cell.ammortamento ?? 0);
-        const ind     = Number(cell.indiretti ?? cell.indiretto ?? 0);
+      const indRaw = cell.indiretti ?? cell.indiretto ?? null;
+      const isEmptyInd = indRaw === null || indRaw === undefined || Number(indRaw) === 0;
+      console.log({ isGrigiaRow, indRaw, isEmptyInd });
+      const indText  = (isGrigiaRow && isEmptyInd) ? '' : fmt2(Number(indRaw ?? 0));
+      const indClass = (isGrigiaRow && isEmptyInd) ? 'cell-grey' : '';
 
-        html += `<td class="text-end">${fmt2(diretti)}</td>`;
-        html += `<td class="text-end">${fmt2(amm)}</td>`;
-        html += `<td class="text-end">${fmt2(ind)}</td>`;
-      });
-
-      html += `</tr>`;
-      tbody.insertAdjacentHTML('beforeend', html);
+      html += `<td class="text-end">${fmt2(diretti)}</td>`;
+      html += `<td class="text-end">${fmt2(amm)}</td>`;
+      html += `<td class="text-end ${indClass}">${indText}</td>`;
     });
-  }
+
+    html += `</tr>`;
+    tbody.insertAdjacentHTML('beforeend', html);
+  });
+}
+
 
   // =========================
   // TOTALI SUBITO (SUMMARY)
@@ -319,9 +328,10 @@ function fmt2(n){ n = Number(n||0); return Number.isFinite(n) ? n.toFixed(2) : '
   // =========================
   // LAZY LOAD SEZIONE (RIGHE)
   // =========================
-  async function loadSezioneLazy(idSezione) {
-    if (!selectedAssoc) return;
-    if (sezCache.has(idSezione)) return; // già caricata
+  async function loadSezioneLazy(idSezione, force = false) {
+    
+  if (!selectedAssoc) return;
+  if (!force && sezCache.has(idSezione)) return;
 
     // serve convMapGlobal già pronta (arriva dal summary)
     if (!convMapGlobal) {
@@ -341,10 +351,15 @@ function fmt2(n){ n = Number(n||0); return Number.isFinite(n) ? n.toFixed(2) : '
     const json = await fetchJsonWithLoader(`${base}?${qs.toString()}`);
     const righe = Array.isArray(json?.data) ? json.data : [];
 
-    const rowsThis = righe.filter(r => {
-      const s = r.sezione_id || r.sezione || r.idSezione;
-      return String(s) === String(idSezione);
-    });
+    const rowsThis = righe
+      .filter(r => {
+        const s = (r.sezione_id ?? r.sezione ?? r.idSezione ?? r.id_sezione ?? r.idSezioneConfig ?? r.idSezioneVoce ?? null);
+        return String(s).trim() === String(idSezione).trim();
+      })
+      .map(r => {
+        r.__isGrigia = VOCI_GRIGIE.has(Number(r.idVoceConfig ?? r.voce_id ?? r.idVoce ?? null));
+        return r;
+      });
 
     renderSectionRows(idSezione, rowsThis);
     sezCache.set(idSezione, { loaded: true });
@@ -357,7 +372,7 @@ function fmt2(n){ n = Number(n||0); return Number.isFinite(n) ? n.toFixed(2) : '
         if (!id.startsWith('collapse-')) return;
         const n = parseInt(id.replace('collapse-', ''), 10);
         if (!Number.isFinite(n)) return;
-        loadSezioneLazy(n);
+        loadSezioneLazy(n, true);
       });
     });
   }
