@@ -97,6 +97,7 @@
                 <th style="width:36%">Voce</th>
                 <th class="text-end" style="width:18%">Importo Costo Diretto (€)</th>
                 <th class="text-end" style="width:18%">Sconto (€)</th>
+                <th style="width:20%">Note</th>
                 <th class="text-end" style="width:14%">Indiretti (solo display)</th>
               </tr>
             </thead>
@@ -112,10 +113,11 @@
                   $byVoce = $esist[(int)$voce->id] ?? [];
                   $pref   = ($convSel !== '' && isset($byVoce[(int)$convSel]))
                               ? $byVoce[(int)$convSel]
-                              : ['costo'=>null,'ammortamento'=>null];
+                              : ['costo'=>null,'ammortamento'=>null,'note'=>null];
 
                   $oldCosto = old("righe.{$voce->id}.costo", $pref['costo']);
                   $oldAmm   = old("righe.{$voce->id}.ammortamento", $pref['ammortamento']);
+                  $oldNote  = old("righe.{$voce->id}.note", $pref['note']);
 
                   $indView  = ($convSel !== '')
                               ? ($indMap[(int)$voce->id][(int)$convSel] ?? null)
@@ -140,6 +142,15 @@
                       name="righe[{{ $voce->id }}][ammortamento]"
                       value="{{ $oldAmm !== null ? number_format((float)$oldAmm, 2, '.', '') : '' }}"
                       placeholder="0,00">
+                  </td>
+
+                  <td>
+                    <input
+                      type="text"
+                      class="form-control"
+                      name="righe[{{ $voce->id }}][note]"
+                      value="{{ $oldNote !== null ? e($oldNote) : '' }}"
+                      placeholder="Note...">
                   </td>
 
                   {{-- Indiretti readonly per la convenzione selezionata --}}

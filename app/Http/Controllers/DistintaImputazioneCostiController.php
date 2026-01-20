@@ -79,6 +79,7 @@ class DistintaImputazioneCostiController extends Controller {
                 'costo' => (float) $validated['costo'],
             ]
         );
+        Cache::forget("distinta_imputazione_payload:{$validated['idAssociazione']}:{$validated['idAnno']}");
 
         return response()->json([
             'idAssociazione' => $validated['idAssociazione'],
@@ -128,7 +129,7 @@ class DistintaImputazioneCostiController extends Controller {
 
         // --- Prefill diretti/sconti per voce+convenzione (schema nuovo + fallback legacy)
         $rowsNew = DB::table('costi_diretti')
-            ->select('idVoceConfig', 'idConvenzione', 'costo', 'ammortamento')
+            ->select('idVoceConfig', 'idConvenzione', 'costo', 'ammortamento', 'note')
             ->where('idAssociazione', $idAssociazione)
             ->where('idAnno', $anno)
             ->where('idSezione', $sezione)
@@ -136,7 +137,7 @@ class DistintaImputazioneCostiController extends Controller {
             ->get();
 
         $rowsLegacy = DB::table('costi_diretti')
-            ->select('idVoceConfig', 'idConvenzione', 'costo', 'ammortamento')
+            ->select('idVoceConfig', 'idConvenzione', 'costo', 'ammortamento', 'note')
             ->where('idAssociazione', $idAssociazione)
             ->where('idAnno', $anno)
             ->whereNull('idSezione')
@@ -148,6 +149,7 @@ class DistintaImputazioneCostiController extends Controller {
             $esistenti[(int) $r->idVoceConfig][(int) $r->idConvenzione] = [
                 'costo'        => (float) ($r->costo ?? 0),
                 'ammortamento' => (float) ($r->ammortamento ?? 0),
+                'note'         => $r->note !== null ? (string)$r->note : null,
             ];
         }
         foreach ($rowsLegacy as $r) {
@@ -155,6 +157,7 @@ class DistintaImputazioneCostiController extends Controller {
                 $esistenti[(int) $r->idVoceConfig][(int) $r->idConvenzione] = [
                     'costo'        => (float) ($r->costo ?? 0),
                     'ammortamento' => (float) ($r->ammortamento ?? 0),
+                    'note'         => $r->note !== null ? (string)$r->note : null,
                 ];
             }
         }
@@ -185,6 +188,7 @@ class DistintaImputazioneCostiController extends Controller {
             'idVoceConfig'   => 'required|integer|exists:riepilogo_voci_config,id',
             'costo'          => 'nullable|numeric|min:0',
             'ammortamento'   => 'nullable|numeric|min:0',
+            'note'           => 'nullable|string|max:2000',
         ]);
 
         $voceDescr = Riepilogo::getVoceDescrizione((int) $validated['idVoceConfig']) ?? '';
@@ -201,11 +205,12 @@ class DistintaImputazioneCostiController extends Controller {
                 'voce'         => $voceDescr,
                 'costo'        => (float) ($validated['costo'] ?? 0),
                 'ammortamento' => (float) ($validated['ammortamento'] ?? 0),
+                'note' => isset($validated['note']) ? trim((string)$validated['note']) : null,
                 'updated_at'   => now(),
                 'created_at'   => now(),
             ]
         );
-
+        Cache::forget("distinta_imputazione_payload:{$validated['idAssociazione']}:{$validated['idAnno']}");
         return redirect()
             ->route('distinta.imputazione.index', ['idAssociazione' => $validated['idAssociazione']])
             ->with('success', 'Costo diretto salvato con successo.');
@@ -274,7 +279,12 @@ class DistintaImputazioneCostiController extends Controller {
         $validated = $request->validate([
             'idAssociazione' => 'required|integer|exists:associazioni,idAssociazione',
             'idAnno'         => 'required|integer',
-            'righe'          => 'required|array', // righe[voceId][conv][idConv][costo|ammortamento]
+            'righe'          => 'required|array', // righe[voceId][conv][idConv][costo|ammortamento|note]
+            // opzionale ma consigliato:
+            // 'righe.*.conv' => 'array',
+            // 'righe.*.conv.*.costo' => 'nullable|numeric|min:0',
+            // 'righe.*.conv.*.ammortamento' => 'nullable|numeric|min:0',
+            // 'righe.*.conv.*.note' => 'nullable|string|max:2000',
         ]);
 
         $idAssociazione = (int) $validated['idAssociazione'];
@@ -285,37 +295,64 @@ class DistintaImputazioneCostiController extends Controller {
             ->whereIn('id', array_keys($righe))
             ->pluck('descrizione', 'id');
 
-        foreach ($righe as $idVoce => $row) {
-            $idVoce = (int) $idVoce;
-            $descr  = (string) ($descrById[$idVoce] ?? '');
+        DB::beginTransaction();
+        try {
+            foreach ($righe as $idVoce => $row) {
+                $idVoce = (int) $idVoce;
+                $descr  = (string) ($descrById[$idVoce] ?? '');
 
-            // SOLO diretti/ammortamento per convenzione
-            foreach (($row['conv'] ?? []) as $idConv => $vals) {
-                $costo = isset($vals['costo']) ? (float) $vals['costo'] : 0.0;
-                $amm   = isset($vals['ammortamento']) ? (float) $vals['ammortamento'] : 0.0;
+                foreach (($row['conv'] ?? []) as $idConv => $vals) {
+                    $costo = isset($vals['costo']) ? (float) $vals['costo'] : 0.0;
+                    $amm   = isset($vals['ammortamento']) ? (float) $vals['ammortamento'] : 0.0;
 
-                DB::table('costi_diretti')->updateOrInsert(
-                    [
+                    $note = isset($vals['note']) ? trim((string) $vals['note']) : null;
+                    if ($note === '') $note = null;
+
+                    // cap “manuale” extra-sicurezza
+                    if ($note !== null && strlen($note) > 2000) {
+                        $note = substr($note, 0, 2000);
+                    }
+
+                    // meglio gestire created_at solo in insert
+                    $where = [
                         'idAssociazione' => $idAssociazione,
                         'idAnno'         => $anno,
                         'idVoceConfig'   => $idVoce,
                         'idConvenzione'  => (int) $idConv,
-                    ],
-                    [
-                        'voce'           => $descr,
-                        'costo'          => $costo,
-                        'ammortamento'   => $amm,
-                        'updated_at'     => now(),
-                        'created_at'     => now(),
-                    ]
-                );
+                    ];
+
+                    $exists = DB::table('costi_diretti')->where($where)->exists();
+
+                    $update = [
+                        'voce'         => $descr,
+                        'costo'        => $costo,
+                        'ammortamento' => $amm,
+                        'note'         => $note,
+                        'updated_at'   => now(),
+                    ];
+
+                    if (!$exists) {
+                        $update['created_at'] = now();
+                    }
+
+                    DB::table('costi_diretti')->updateOrInsert($where, $update);
+                }
             }
+
+            DB::commit();
+
+            // IMPORTANTISSIMO: sennò vedi roba vecchia per 10 minuti
+            Cache::forget("distinta_imputazione_payload:{$idAssociazione}:{$anno}");
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            return back()->withErrors('Errore nel salvataggio: ' . $e->getMessage())->withInput();
         }
 
         return redirect()
             ->route('distinta.imputazione.index', ['idAssociazione' => $idAssociazione])
             ->with('success', 'Sezione aggiornata correttamente.');
     }
+
 
     /* ========================= EDIT “Importo Totale da Bilancio Consuntivo” ========================= */
     public function editBilancioSezione(Request $request, int $sezione) {
@@ -451,6 +488,7 @@ class DistintaImputazioneCostiController extends Controller {
             DB::rollBack();
             return back()->withErrors('Errore nel salvataggio: ' . $e->getMessage())->withInput();
         }
+        Cache::forget("distinta_imputazione_payload:{$idAssociazione}:{$anno}");
 
         return redirect()
             ->route('distinta.imputazione.index', ['idAssociazione' => $idAssociazione])
@@ -495,6 +533,7 @@ class DistintaImputazioneCostiController extends Controller {
             'righe'                 => 'required|array', // righe[idVoceConfig][costo|ammortamento]
             'righe.*.costo'         => 'nullable|numeric|min:0',
             'righe.*.ammortamento'  => 'nullable|numeric|min:0',
+            'righe.*.note' => 'nullable|string|max:2000',
         ]);
 
         $idAssociazione = (int) $data['idAssociazione'];
@@ -515,6 +554,8 @@ class DistintaImputazioneCostiController extends Controller {
 
                 $costo = isset($vals['costo']) ? (float) $vals['costo'] : 0.0;
                 $amm   = isset($vals['ammortamento']) ? (float) $vals['ammortamento'] : 0.0;
+                $note  = isset($vals['note']) ? trim((string)$vals['note']) : null;
+                if ($note === '') $note = null;
 
                 DB::table('costi_diretti')->updateOrInsert(
                     [
@@ -528,6 +569,7 @@ class DistintaImputazioneCostiController extends Controller {
                         'voce'           => $descr,
                         'costo'          => $costo,
                         'ammortamento'   => $amm,
+                        'note'         => $note,
                         'updated_at'     => now(),
                         'created_at'     => now(),
                     ]
@@ -538,7 +580,7 @@ class DistintaImputazioneCostiController extends Controller {
             DB::rollBack();
             return back()->withErrors('Errore nel salvataggio: ' . $e->getMessage())->withInput();
         }
-
+        Cache::forget("distinta_imputazione_payload:{$idAssociazione}:{$anno}");
         return redirect()
             ->route('distinta.imputazione.index', ['idAssociazione' => $idAssociazione])
             ->with('success', 'Costi diretti aggiornati correttamente.');
@@ -553,93 +595,89 @@ class DistintaImputazioneCostiController extends Controller {
         });
     }
 
-    public function summary(Request $request)
-{
-    $anno          = (int) session('anno_riferimento', now()->year);
-    $selectedAssoc = $this->resolveAssociazione($request);
+    public function summary(Request $request) {
+        $anno          = (int) session('anno_riferimento', now()->year);
+        $selectedAssoc = $this->resolveAssociazione($request);
 
-    if (empty($selectedAssoc)) {
-        return response()->json(['ok' => false, 'sezioni' => [], 'totale' => [], 'convenzioni' => []]);
-    }
-
-    $payload = $this->distintaPayloadCached($selectedAssoc, $anno);
-
-    $rows = $payload['data'] ?? [];
-    $convenzioni = $payload['convenzioni'] ?? [];
-
-    $totBySez = [];
-    $grand = ['bilancio' => 0.0, 'diretta' => 0.0, 'totale' => 0.0];
-
-    foreach ($rows as $r) {
-        $sez = (int) ($r['sezione_id'] ?? $r['sezione'] ?? $r['idSezione'] ?? 0);
-        if ($sez === 0) continue;
-
-        if (!isset($totBySez[$sez])) {
-            $totBySez[$sez] = ['bilancio' => 0.0, 'diretta' => 0.0, 'totale' => 0.0];
+        if (empty($selectedAssoc)) {
+            return response()->json(['ok' => false, 'sezioni' => [], 'totale' => [], 'convenzioni' => []]);
         }
 
-        $b = (float) ($r['bilancio'] ?? 0);
-        $d = (float) ($r['diretta'] ?? 0);
-        $t = (float) ($r['totale']  ?? 0);
+        $payload = $this->distintaPayloadCached($selectedAssoc, $anno);
 
-        $totBySez[$sez]['bilancio'] += $b;
-        $totBySez[$sez]['diretta']  += $d;
-        $totBySez[$sez]['totale']   += $t;
+        $rows = $payload['data'] ?? [];
+        $convenzioni = $payload['convenzioni'] ?? [];
 
-        $grand['bilancio'] += $b;
-        $grand['diretta']  += $d;
-        $grand['totale']   += $t;
-    }
+        $totBySez = [];
+        $grand = ['bilancio' => 0.0, 'diretta' => 0.0, 'totale' => 0.0];
 
-    // arrotondo a 2 decimali
-    $round2 = fn($x) => round((float)$x, 2);
-    foreach ($totBySez as $k => $v) {
-        $totBySez[$k] = [
-            'bilancio' => $round2($v['bilancio']),
-            'diretta'  => $round2($v['diretta']),
-            'totale'   => $round2($v['totale']),
+        foreach ($rows as $r) {
+            $sez = (int) ($r['sezione_id'] ?? $r['sezione'] ?? $r['idSezione'] ?? 0);
+            if ($sez === 0) continue;
+
+            if (!isset($totBySez[$sez])) {
+                $totBySez[$sez] = ['bilancio' => 0.0, 'diretta' => 0.0, 'totale' => 0.0];
+            }
+
+            $b = (float) ($r['bilancio'] ?? 0);
+            $d = (float) ($r['diretta'] ?? 0);
+            $t = (float) ($r['totale']  ?? 0);
+
+            $totBySez[$sez]['bilancio'] += $b;
+            $totBySez[$sez]['diretta']  += $d;
+            $totBySez[$sez]['totale']   += $t;
+
+            $grand['bilancio'] += $b;
+            $grand['diretta']  += $d;
+            $grand['totale']   += $t;
+        }
+
+        // arrotondo a 2 decimali
+        $round2 = fn($x) => round((float)$x, 2);
+        foreach ($totBySez as $k => $v) {
+            $totBySez[$k] = [
+                'bilancio' => $round2($v['bilancio']),
+                'diretta'  => $round2($v['diretta']),
+                'totale'   => $round2($v['totale']),
+            ];
+        }
+        $grand = [
+            'bilancio' => $round2($grand['bilancio']),
+            'diretta'  => $round2($grand['diretta']),
+            'totale'   => $round2($grand['totale']),
         ];
-    }
-    $grand = [
-        'bilancio' => $round2($grand['bilancio']),
-        'diretta'  => $round2($grand['diretta']),
-        'totale'   => $round2($grand['totale']),
-    ];
 
-    return response()->json([
-        'ok'         => true,
-        'convenzioni'=> $convenzioni,
-        'sezioni'    => $totBySez,
-        'totale'     => $grand,
-    ]);
-}
-
-public function getDataSezione(Request $request, int $sezione)
-{
-    $anno          = (int) session('anno_riferimento', now()->year);
-    $selectedAssoc = $this->resolveAssociazione($request);
-
-    if (empty($selectedAssoc)) {
-        return response()->json(['ok' => false, 'data' => [], 'convenzioni' => []]);
+        return response()->json([
+            'ok'         => true,
+            'convenzioni' => $convenzioni,
+            'sezioni'    => $totBySez,
+            'totale'     => $grand,
+        ]);
     }
 
-    $payload = $this->distintaPayloadCached($selectedAssoc, $anno);
+    public function getDataSezione(Request $request, int $sezione) {
+        $anno          = (int) session('anno_riferimento', now()->year);
+        $selectedAssoc = $this->resolveAssociazione($request);
 
-    $rows = $payload['data'] ?? [];
-    $convenzioni = $payload['convenzioni'] ?? [];
+        if (empty($selectedAssoc)) {
+            return response()->json(['ok' => false, 'data' => [], 'convenzioni' => []]);
+        }
 
-    $filtered = array_values(array_filter($rows, function ($r) use ($sezione) {
-        $s = (int) ($r['sezione_id'] ?? $r['sezione'] ?? $r['idSezione'] ?? 0);
-        return $s === (int)$sezione;
-    }));
+        $payload = $this->distintaPayloadCached($selectedAssoc, $anno);
 
-    return response()->json([
-        'ok'          => true,
-        'sezione'     => $sezione,
-        'convenzioni' => $convenzioni,
-        'data'        => $filtered,
-    ]);
-}
+        $rows = $payload['data'] ?? [];
+        $convenzioni = $payload['convenzioni'] ?? [];
 
+        $filtered = array_values(array_filter($rows, function ($r) use ($sezione) {
+            $s = (int) ($r['sezione_id'] ?? $r['sezione'] ?? $r['idSezione'] ?? 0);
+            return $s === (int)$sezione;
+        }));
 
+        return response()->json([
+            'ok'          => true,
+            'sezione'     => $sezione,
+            'convenzioni' => $convenzioni,
+            'data'        => $filtered,
+        ]);
+    }
 }

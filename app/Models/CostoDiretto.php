@@ -18,7 +18,8 @@ class CostoDiretto extends Model
         'idVoceConfig',
         'voce',
         'costo',
-        'ammortamento',      
+        'ammortamento',     
+        'note',    
     ];
 
     protected $casts = [

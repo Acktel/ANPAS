@@ -276,7 +276,6 @@ function fmt2(n){ n = Number(n||0); return Number.isFinite(n) ? n.toFixed(2) : '
 
       const indRaw = cell.indiretti ?? cell.indiretto ?? null;
       const isEmptyInd = indRaw === null || indRaw === undefined || Number(indRaw) === 0;
-      console.log({ isGrigiaRow, indRaw, isEmptyInd });
       const indText  = (isGrigiaRow && isEmptyInd) ? '' : fmt2(Number(indRaw ?? 0));
       const indClass = (isGrigiaRow && isEmptyInd) ? 'cell-grey' : '';
 
