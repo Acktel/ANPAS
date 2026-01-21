@@ -51,7 +51,7 @@ class AutomezziController extends Controller {
     }
 
     public function create() {
-        
+
         $anno = (int) session('anno_riferimento', now()->year);
 
         $associazioni = DB::table('associazioni')
@@ -72,7 +72,7 @@ class AutomezziController extends Controller {
 
         // Recupera dalla sessione o fallback al primo elemento
         $selectedAssociazione = session('selectedAssociazione') ?? ($associazioni->first()->idAssociazione ?? null);
-       
+
         $annoCorr = session('anno_riferimento') ?? $anno;
 
         return view('automezzi.create', compact('associazioni', 'anni', 'vehicleTypes', 'fuelTypes', 'selectedAssociazione', 'annoCorr'));
@@ -80,24 +80,23 @@ class AutomezziController extends Controller {
 
     public function store(Request $request) {
         $rules = [
-        'idAssociazione' => 'required|exists:associazioni,idAssociazione',
-        'idAnno' => 'required|integer|min:2000|max:' . (date('Y') + 5),
-        'Targa' => 'required|string|max:50',
-        'CodiceIdentificativo' => 'required|string|max:100',
+            'idAssociazione' => 'required|exists:associazioni,idAssociazione',
+            'idAnno' => 'required|integer|min:2000|max:' . (date('Y') + 5),
+            'Targa' => 'required|string|max:50',
+            'CodiceIdentificativo' => 'required|string|max:100',
 
-        // opzionali
-        'AnnoPrimaImmatricolazione' => 'nullable|integer|min:1900|max:' . date('Y'),
-        'AnnoAcquisto' => 'nullable|integer|min:1900|max:' . date('Y'),
-        'Modello' => 'nullable|string|max:255',
-        'idTipoVeicolo' => 'nullable|exists:vehicle_types,id',
-        'KmRiferimento' => 'nullable|integer|min:0',
-        'KmTotali' => 'nullable|integer|min:0',
-        'idTipoCarburante' => 'nullable|exists:fuel_types,id',
-        'DataUltimaAutorizzazioneSanitaria' => 'nullable|date',
-        'DataUltimoCollaudo' => 'nullable|date',
-        'incluso_riparto' => 'boolean',
-        'note' => 'nullable|string',
-        'informazioniAggiuntive' => 'nullable|string',
+            // opzionali
+            'AnnoPrimaImmatricolazione' => 'nullable|integer|min:1900|max:' . date('Y'),
+            'AnnoAcquisto' => 'nullable|integer|min:1900|max:' . date('Y'),
+            'Modello' => 'nullable|string|max:255',
+            'idTipoVeicolo' => 'nullable|exists:vehicle_types,id',
+            'KmTotali' => 'nullable|integer|min:0',
+            'idTipoCarburante' => 'nullable|exists:fuel_types,id',
+            'DataUltimaAutorizzazioneSanitaria' => 'nullable|date',
+            'DataUltimoCollaudo' => 'nullable|date',
+            'incluso_riparto' => 'boolean',
+            'note' => 'nullable|string',
+            'informazioniAggiuntive' => 'nullable|string',
         ];
 
         $validated = $request->validate($rules);
@@ -114,7 +113,7 @@ class AutomezziController extends Controller {
                 'exception' => $e,
                 'request' => $request->all()
             ]);
-            
+
             DB::rollBack();
             // opzionale: rilancia per vedere errore completo sul browser in debug
             if (config('app.debug')) {
@@ -153,7 +152,7 @@ class AutomezziController extends Controller {
         // Recupera dalla sessione o fallback ai valori correnti dell'automezzo
         $selectedAssociazione = session('selectedAssociazione') ?? $automezzo->idAssociazione;
         $annoCorr = session('anno_riferimento') ?? $automezzo->idAnno;
-       // KM ESERCIZIO (solo anno corrente)
+        // KM ESERCIZIO (solo anno corrente)
         $kmEsercizio = Automezzo::calcKmEsercizioByIdentity(
             (int) $automezzo->idAssociazione,
             (string) $automezzo->Targa,
@@ -169,34 +168,39 @@ class AutomezziController extends Controller {
         );
 
         return view('automezzi.edit', compact(
-            'automezzo', 
+            'automezzo',
             'associazioni',
-             'anni', 
-             'vehicleTypes', 
-             'fuelTypes', 
-             'selectedAssociazione', 
-             'annoCorr', 
-             'kmEsercizio',
-             'kmTotaliCalc'
-            ));
+            'anni',
+            'vehicleTypes',
+            'fuelTypes',
+            'selectedAssociazione',
+            'annoCorr',
+            'kmEsercizio',
+            'kmTotaliCalc'
+        ));
     }
 
     public function update(Request $request, int $idAutomezzo) {
+        // update()
         $rules = [
             'idAssociazione' => 'required|exists:associazioni,idAssociazione',
             'idAnno' => 'required|integer|min:2000|max:' . (date('Y') + 5),
             'Targa' => 'required|string|max:50',
             'CodiceIdentificativo' => 'required|string|max:100',
-            'AnnoPrimaImmatricolazione' => 'integer|min:1900|max:' . date('Y'),
+
+            'AnnoPrimaImmatricolazione' => 'nullable|integer|min:1900|max:' . date('Y'),
             'AnnoAcquisto' => 'nullable|integer|min:1900|max:' . date('Y'),
-            'Modello' => 'string|max:255',
-            'idTipoVeicolo' => 'exists:vehicle_types,id',
-            'idTipoCarburante' => 'exists:fuel_types,id',
+            'Modello' => 'nullable|string|max:255',
+            'idTipoVeicolo' => 'nullable|exists:vehicle_types,id',
+
+            'KmTotali' => 'nullable|integer|min:0',
+
+            'idTipoCarburante' => 'nullable|exists:fuel_types,id',
             'DataUltimaAutorizzazioneSanitaria' => 'nullable|date',
             'DataUltimoCollaudo' => 'nullable|date',
             'incluso_riparto' => 'boolean',
             'note' => 'nullable|string',
-            'informazioniAggiuntive' => 'nullable|string'
+            'informazioniAggiuntive' => 'nullable|string',
         ];
 
         $validated = $request->validate($rules);
@@ -207,10 +211,23 @@ class AutomezziController extends Controller {
             Automezzo::updateAutomezzo($idAutomezzo, $validated);
 
             DB::commit();
-            return redirect()->route('automezzi.index')->with('success', 'Automezzo aggiornato.');
+
+            return redirect()->route('automezzi.index', array(
+                'idAssociazione' => $validated['idAssociazione'],
+                'idAnno'         => $validated['idAnno'],
+            ))->with('success', 'Automezzo aggiornato.');
         } catch (\Throwable $e) {
             DB::rollBack();
-            return back()->withInput()->withErrors(['error' => 'Errore interno durante l’aggiornamento.']);
+
+            Log::error('Errore update automezzo', array(
+                'idAutomezzo' => $idAutomezzo,
+                'msg'         => $e->getMessage(),
+                'trace'       => $e->getTraceAsString(),
+            ));
+
+            return back()->withInput()->withErrors(array(
+                'error' => 'Errore interno durante l’aggiornamento.'
+            ));
         }
     }
 
@@ -230,7 +247,7 @@ class AutomezziController extends Controller {
                 'msg' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
             ]);
-            return back()->withErrors(['error' => 'Eliminazione fallita: '.$e->getMessage()]);
+            return back()->withErrors(['error' => 'Eliminazione fallita: ' . $e->getMessage()]);
         }
     }
 

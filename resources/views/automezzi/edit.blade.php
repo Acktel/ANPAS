@@ -105,13 +105,21 @@ $annoCorr = session('annoCorrente') ?? ($automezzo->idAnno ?? now()->year);
           </div>
 
           <div class="col-md-6">
-            <label class="form-label">KM Totali</label>
-            <input type="text"
-                  class="form-control"
-                  value="{{ number_format((int)($kmTotaliCalc ?? 0), 0, ',', '.') }}"
-                  readonly>
+            <label for="KmTotali" class="form-label">KM Totali</label>
+            <input
+              type="number"
+              name="KmTotali"
+              id="KmTotali"
+              class="form-control js-int-only"
+              min="0"
+              step="1"
+              inputmode="numeric"
+              pattern="\d*"
+              value="{{ old('KmTotali', (int)($automezzo->KmTotali ?? 0)) }}"
+              required
+            >
             <small class="text-muted">
-              Somma dei KM percorsi dal mezzo su tutti gli anni.
+              Inserimento manuale (contachilometri). Non viene calcolato dal sistema.
             </small>
           </div>
         </div>

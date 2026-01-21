@@ -399,6 +399,7 @@ $user = Auth::user();
 
       const json = await fetchJsonWithLoader(`${url}?${params.toString()}`);
       const data = json?.data || [];
+      const dataMerged = mergeCarburanteAdditivi(data, idTipologia);
 
       const tbody = document.querySelector(`#table-sezione-${idTipologia} tbody`);
       if (!tbody) return { prev: 0, cons: 0 };
@@ -406,7 +407,7 @@ $user = Auth::user();
       tbody.innerHTML = '';
       let sumPrev = 0, sumCons = 0;
 
-      data.forEach(row => {
+      dataMerged.forEach(row => {
         const prev = toNum(row?.preventivo);
         const cons = toNum(row?.consuntivo);
         sumPrev += prev;
@@ -417,7 +418,9 @@ $user = Auth::user();
 
         let actionsHtml = '—';
         if (editingEnabled) {
-          if (isTelefoniaRow(row)) {
+          if (row?.meta?.carburante_additivi) {
+            actionsHtml = '—';
+          } else if (isTelefoniaRow(row)) {
             const editTelUrl = `{{ route('riepilogo.costi.edit.telefonia') }}`;
             const qs = new URLSearchParams({
               idAssociazione: ass,
@@ -697,6 +700,48 @@ $user = Auth::user();
 
       updateBulkButtonsVisibility();
     })();
+
+    function mergeCarburanteAdditivi(rows, idTipologia) {
+  // se vuoi limitarlo a una sezione specifica, qui metti:
+  // if (Number(idTipologia) !== 2) return rows;  // esempio
+
+  const targets = new Set(['CARBURANTE', 'ADDITIVI']);
+
+  let firstPos = null;
+  let sumPrev = 0, sumCons = 0;
+  let found = 0;
+  const filtered = [];
+
+  (rows || []).forEach(r => {
+    const d = norm(r?.descrizione);
+    if (targets.has(d)) {
+      if (firstPos === null) firstPos = filtered.length;
+      sumPrev += toNum(r?.preventivo);
+      sumCons += toNum(r?.consuntivo);
+      found++;
+      return; // scarto riga originale
+    }
+    filtered.push(r);
+  });
+
+  // se non ho entrambe, non tocco nulla
+  if (found < 2 || firstPos === null) return rows;
+
+  const scost = sumPrev !== 0 ? ((sumCons - sumPrev) / sumPrev * 100) : 0;
+
+  const mergedRow = {
+    idVoceConfig: 'CARB_ADD_MERGE',
+    codice: '',
+    descrizione: 'CARBURANTE E ADDITIVI',
+    preventivo: sumPrev,
+    consuntivo: sumCons,
+    scostamento: `${scost.toFixed(2)}%`,
+    meta: { merged: true, carburante_additivi: true, of: ['CARBURANTE', 'ADDITIVI'] }
+  };
+
+  filtered.splice(firstPos, 0, mergedRow);
+  return filtered;
+}
 
   })();
 </script>
