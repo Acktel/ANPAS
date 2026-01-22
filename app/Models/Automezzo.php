@@ -163,11 +163,20 @@ class Automezzo {
     }
 
     public static function getForDataTable(int $anno, ?int $assocId): Collection {
+        // KM ESERCIZIO = somma KMPercorsi per automezzo nell'anno (anno preso da automezzi.idAnno)
+        $kmEsercizioSub = DB::table('automezzi_km as k')
+            ->join('automezzi as a2', 'a2.idAutomezzo', '=', 'k.idAutomezzo')
+            ->where('a2.idAnno', $anno)
+            ->when($assocId, function ($q) use ($assocId) {
+                $q->where('a2.idAssociazione', $assocId);
+            })
+            ->groupBy('k.idAutomezzo')
+            ->selectRaw('k.idAutomezzo, SUM(COALESCE(k.KMPercorsi,0)) as KmEsercizio');
+
         $query = DB::table('automezzi as a')
             ->join('associazioni as ass', 'ass.idAssociazione', '=', 'a.idAssociazione')
-            ->leftJoin('automezzi_km_riferimento as km', function ($join) use ($anno) {
-                $join->on('km.idAutomezzo', '=', 'a.idAutomezzo')
-                    ->where('km.idAnno', $anno);
+            ->leftJoinSub($kmEsercizioSub, 'kme', function ($join) {
+                $join->on('kme.idAutomezzo', '=', 'a.idAutomezzo');
             })
             ->leftJoin('vehicle_types as vt', 'a.idTipoVeicolo', '=', 'vt.id')
             ->leftJoin('fuel_types as ft', 'a.idTipoCarburante', '=', 'ft.id')
@@ -177,7 +186,7 @@ class Automezzo {
             $query->where('a.idAssociazione', $assocId);
         }
 
-        $rows = $query->select([
+        return $query->select([
             'a.idAutomezzo',
             'ass.Associazione',
             'a.idAnno',
@@ -188,9 +197,12 @@ class Automezzo {
             'a.Modello',
             'a.incluso_riparto',
             'vt.nome as TipoVeicolo',
-            // 👇 Cast a intero per DataTable
-            DB::raw('CAST(km.KmRiferimento AS SIGNED) as KmRiferimento'),
-            DB::raw('CAST(a.KmTotali      AS SIGNED) as KmTotali'),
+
+            // se KMPercorsi è decimal e vuoi intero “da tabella”, arrotonda:
+            DB::raw('CAST(ROUND(COALESCE(kme.KmEsercizio,0),0) AS SIGNED) as KmEsercizio'),
+
+            DB::raw('CAST(a.KmTotali AS SIGNED) as KmTotali'),
+
             'ft.nome as TipoCarburante',
             'a.DataUltimaAutorizzazioneSanitaria',
             'a.DataUltimoCollaudo',
@@ -202,9 +214,10 @@ class Automezzo {
                 $row->Azioni = view('partials.actions_automezzo', ['id' => $row->idAutomezzo])->render();
                 return $row;
             });
-
-        return $rows;
     }
+
+
+
 
     public static function getLightForAnno(int $anno, ?int $idAssociazione = null): Collection {
         return DB::table('automezzi')

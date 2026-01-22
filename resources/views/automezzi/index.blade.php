@@ -135,7 +135,7 @@ foreach ($configVeicoli as $key => $value) {
             <th>Anno d'Acquisto</th>
             <th>Modello</th>
             <th>Tipo Veicolo</th>
-            <th>Km Rif.</th>
+            <th>Km Esercizio</th>
             <th>Km Totali</th>
             <th>Carburante</th>
             <th>Ult. Aut. Sanitaria</th>
@@ -253,7 +253,7 @@ document.addEventListener('DOMContentLoaded', function() {
 //         },
         { data: 'Modello' },
         { data: 'TipoVeicolo' },
-        { data: 'KmRiferimento' },
+        { data: 'KmEsercizio' },
         { data: 'KmTotali' },
         { data: 'TipoCarburante' },
         { data: 'DataUltimaAutorizzazioneSanitaria',
