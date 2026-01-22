@@ -63,7 +63,7 @@ class RipartizioneCostiService {
         6005 => 7, // IMPIEGATO AMMINISTRATIVO
         6006 => 5, // COORDINATORE AMMINISTRATIVO
     );
-    
+
     /* ========================= MATERIALE SANITARIO / AUTOMEZZI / RADIO ========================= */
 
     public static function getMaterialiSanitariConsumo(int $idAssociazione, int $idAnno, int $idAutomezzo): float {
@@ -895,59 +895,121 @@ class RipartizioneCostiService {
     public static function aggregatiDirettiEBilancio(
         int $idAssociazione,
         int $anno,
-        Collection|array $vociConfig,
-        Collection|array $ripByNormDesc
+        $vociConfig,          // Collection|array
+        $ripByNormDesc        // Collection|array
     ): array {
-        $cdId = DB::table('costi_diretti')
+
+        // ============================================================
+        // 1) DIRETTI + AMMORTAMENTO: NUOVO (idVoceConfig NOT NULL, idSezione NOT NULL)
+        //    + LEGACY (idSezione NULL) SOLO SE manca il NUOVO
+        // ============================================================
+
+        $rowsNew = DB::table('costi_diretti')
             ->select(
                 'idVoceConfig',
                 'idConvenzione',
                 DB::raw('SUM(costo) as sum_costo'),
-                DB::raw('SUM(ammortamento) as sum_amm'),
-                DB::raw('SUM(bilancio_consuntivo) as sum_bilancio')
+                DB::raw('SUM(ammortamento) as sum_amm')
             )
             ->where('idAssociazione', $idAssociazione)
             ->where('idAnno', $anno)
             ->whereNotNull('idVoceConfig')
+            ->whereNotNull('idSezione')      // <<< QUI
             ->groupBy('idVoceConfig', 'idConvenzione')
             ->get();
 
-        $dirByVoceByConv = [];
-        $ammByVoceByConv = [];
-        $netByVoceByConv = [];
-        $dirTotByVoce    = [];
-        $ammTotByVoce    = [];
-        $netTotByVoce    = [];
-        $bilByVoce       = [];
+        $rowsLegacy = DB::table('costi_diretti')
+            ->select(
+                'idVoceConfig',
+                'idConvenzione',
+                DB::raw('SUM(costo) as sum_costo'),
+                DB::raw('SUM(ammortamento) as sum_amm')
+            )
+            ->where('idAssociazione', $idAssociazione)
+            ->where('idAnno', $anno)
+            ->whereNotNull('idVoceConfig')
+            ->whereNull('idSezione')         // <<< QUI
+            ->groupBy('idVoceConfig', 'idConvenzione')
+            ->get();
 
-        foreach ($cdId as $r) {
+        $dirByVoceByConv = array();
+        $ammByVoceByConv = array();
+        $netByVoceByConv = array();
+
+        $dirTotByVoce    = array();
+        $ammTotByVoce    = array();
+        $netTotByVoce    = array();
+
+        $bilByVoce       = array();
+
+        // marker: esiste "nuovo" per (voce,conv)
+        $hasNew = array(); // [voce][conv] = true
+
+        foreach ($rowsNew as $r) {
             $v   = (int)$r->idVoceConfig;
             $c   = (int)$r->idConvenzione;
             $dir = (float)$r->sum_costo;
             $amm = (float)$r->sum_amm;
 
-            $dirByVoceByConv[$v][$c] = ($dirByVoceByConv[$v][$c] ?? 0) + $dir;
-            $ammByVoceByConv[$v][$c] = ($ammByVoceByConv[$v][$c] ?? 0) + $amm;
-            $netByVoceByConv[$v][$c] = ($netByVoceByConv[$v][$c] ?? 0) + ($dir - $amm);
+            if (!isset($dirByVoceByConv[$v])) $dirByVoceByConv[$v] = array();
+            if (!isset($ammByVoceByConv[$v])) $ammByVoceByConv[$v] = array();
+            if (!isset($netByVoceByConv[$v])) $netByVoceByConv[$v] = array();
 
-            $dirTotByVoce[$v] = ($dirTotByVoce[$v] ?? 0) + $dir;
-            $ammTotByVoce[$v] = ($ammTotByVoce[$v] ?? 0) + $amm;
-            $netTotByVoce[$v] = ($netTotByVoce[$v] ?? 0) + ($dir - $amm);
+            $dirByVoceByConv[$v][$c] = $dir;
+            $ammByVoceByConv[$v][$c] = $amm;
+            $netByVoceByConv[$v][$c] = ($dir - $amm);
+
+            $dirTotByVoce[$v] = (isset($dirTotByVoce[$v]) ? $dirTotByVoce[$v] : 0.0) + $dir;
+            $ammTotByVoce[$v] = (isset($ammTotByVoce[$v]) ? $ammTotByVoce[$v] : 0.0) + $amm;
+            $netTotByVoce[$v] = (isset($netTotByVoce[$v]) ? $netTotByVoce[$v] : 0.0) + ($dir - $amm);
+
+            if (!isset($hasNew[$v])) $hasNew[$v] = array();
+            $hasNew[$v][$c] = true;
         }
 
-        // mapping descrizione -> idVoce
-        $mapDescToId = [];
+        // aggiungo legacy solo dove manca il nuovo
+        foreach ($rowsLegacy as $r) {
+            $v = (int)$r->idVoceConfig;
+            $c = (int)$r->idConvenzione;
+
+            if (isset($hasNew[$v]) && isset($hasNew[$v][$c])) {
+                continue;
+            }
+
+            $dir = (float)$r->sum_costo;
+            $amm = (float)$r->sum_amm;
+
+            if (!isset($dirByVoceByConv[$v])) $dirByVoceByConv[$v] = array();
+            if (!isset($ammByVoceByConv[$v])) $ammByVoceByConv[$v] = array();
+            if (!isset($netByVoceByConv[$v])) $netByVoceByConv[$v] = array();
+
+            $dirByVoceByConv[$v][$c] = (isset($dirByVoceByConv[$v][$c]) ? $dirByVoceByConv[$v][$c] : 0.0) + $dir;
+            $ammByVoceByConv[$v][$c] = (isset($ammByVoceByConv[$v][$c]) ? $ammByVoceByConv[$v][$c] : 0.0) + $amm;
+            $netByVoceByConv[$v][$c] = (isset($netByVoceByConv[$v][$c]) ? $netByVoceByConv[$v][$c] : 0.0) + ($dir - $amm);
+
+            $dirTotByVoce[$v] = (isset($dirTotByVoce[$v]) ? $dirTotByVoce[$v] : 0.0) + $dir;
+            $ammTotByVoce[$v] = (isset($ammTotByVoce[$v]) ? $ammTotByVoce[$v] : 0.0) + $amm;
+            $netTotByVoce[$v] = (isset($netTotByVoce[$v]) ? $netTotByVoce[$v] : 0.0) + ($dir - $amm);
+        }
+
+        // ============================================================
+        // 2) mapping descrizione -> idVoce (config)
+        // ============================================================
+        $mapDescToId = array();
         foreach ($vociConfig as $vc) {
             $mapDescToId[self::norm($vc->descrizione)] = (int)$vc->id;
         }
 
-        // Diretti/bilancio su righe senza idVoceConfig (mappate per descrizione)
+        // ============================================================
+        // 3) Righe senza idVoceConfig (descrizione) -> SOMMO SOLO SE NON ESISTE NUOVO
+        //    Regola: se per quella voce+conv esiste già (nuovo o legacy idVoceConfig),
+        //    NON aggiungo anche la riga per descrizione.
+        // ============================================================
         $cdNo = DB::table('costi_diretti')
             ->select(
                 'voce',
                 'idConvenzione',
-                DB::raw('SUM(costo) as sum_costo'),
-                DB::raw('SUM(bilancio_consuntivo) as sum_bilancio')
+                DB::raw('SUM(costo) as sum_costo')
             )
             ->where('idAssociazione', $idAssociazione)
             ->where('idAnno', $anno)
@@ -961,16 +1023,33 @@ class RipartizioneCostiService {
                 continue;
             }
 
-            $v = $mapDescToId[$desc];
+            $v = (int)$mapDescToId[$desc];
             $c = (int)$r->idConvenzione;
 
-            $dirByVoceByConv[$v][$c] = ($dirByVoceByConv[$v][$c] ?? 0)
-                + (float)$r->sum_costo;
-            $dirTotByVoce[$v]        = ($dirTotByVoce[$v] ?? 0)
-                + (float)$r->sum_costo;
+            // se già esiste qualcosa per voce+conv (nuovo/legacy con idVoceConfig), NON sommare anche questo
+            if (isset($dirByVoceByConv[$v]) && array_key_exists($c, $dirByVoceByConv[$v])) {
+                continue;
+            }
+
+            if (!isset($dirByVoceByConv[$v])) $dirByVoceByConv[$v] = array();
+            if (!isset($ammByVoceByConv[$v])) $ammByVoceByConv[$v] = array();
+            if (!isset($netByVoceByConv[$v])) $netByVoceByConv[$v] = array();
+
+            $dir = (float)$r->sum_costo;
+
+            $dirByVoceByConv[$v][$c] = (isset($dirByVoceByConv[$v][$c]) ? $dirByVoceByConv[$v][$c] : 0.0) + $dir;
+            // amm ignoto qui -> 0
+            $ammByVoceByConv[$v][$c] = (isset($ammByVoceByConv[$v][$c]) ? $ammByVoceByConv[$v][$c] : 0.0) + 0.0;
+            $netByVoceByConv[$v][$c] = (isset($netByVoceByConv[$v][$c]) ? $netByVoceByConv[$v][$c] : 0.0) + $dir;
+
+            $dirTotByVoce[$v] = (isset($dirTotByVoce[$v]) ? $dirTotByVoce[$v] : 0.0) + $dir;
+            $netTotByVoce[$v] = (isset($netTotByVoce[$v]) ? $netTotByVoce[$v] : 0.0) + $dir;
+            // ammTot non cambia
         }
 
-        /* ======= Sommo i BILANCI INSERITI A MANO per VOCE+SEZIONE (globale: idVoceConfig NULL, idConvenzione NULL) ======= */
+        // ============================================================
+        // 4) Bilanci manuali per voce+sezione (idVoceConfig NULL, idConvenzione NULL)
+        // ============================================================
         $bilanciManuali = DB::table('costi_diretti')
             ->select('voce', 'idSezione', DB::raw('SUM(bilancio_consuntivo) AS tot'))
             ->where('idAssociazione', $idAssociazione)
@@ -980,13 +1059,16 @@ class RipartizioneCostiService {
             ->groupBy('voce', 'idSezione')
             ->get();
 
-        // sezione per idVoce
-        $sezioneByVoceId = [];
+        $sezioneByVoceId = array();
         foreach ($vociConfig as $vc) {
             $sezioneByVoceId[(int)$vc->id] = (int)$vc->idTipologiaRiepilogo;
         }
 
-        // helper whitelist
+        $voceIdByDesc = array();
+        foreach ($vociConfig as $vc) {
+            $voceIdByDesc[self::norm($vc->descrizione)] = (int)$vc->id;
+        }
+
         $voceAmmessa = static function (int $idVoce, ?int $sezioneRiga): bool {
             $sezVoce = (int)$sezioneRiga;
 
@@ -1002,12 +1084,6 @@ class RipartizioneCostiService {
             return is_array($wl) && in_array($idVoce, $wl, true);
         };
 
-        // mappa descrizione -> idVoce
-        $voceIdByDesc = [];
-        foreach ($vociConfig as $vc) {
-            $voceIdByDesc[self::norm($vc->descrizione)] = (int)$vc->id;
-        }
-
         foreach ($bilanciManuali as $r) {
             $descN  = self::norm($r->voce ?? '');
             $idVoce = $voceIdByDesc[$descN] ?? null;
@@ -1015,23 +1091,23 @@ class RipartizioneCostiService {
                 continue;
             }
 
-            // coerenza sezione (se diverso, skip)
             $sezVoce = $sezioneByVoceId[$idVoce] ?? null;
             if ($sezVoce !== null && (int)$r->idSezione !== (int)$sezVoce) {
                 continue;
             }
 
-            if (!$voceAmmessa($idVoce, (int)$r->idSezione)) {
+            if (!$voceAmmessa((int)$idVoce, (int)$r->idSezione)) {
                 continue;
             }
 
-            $bilByVoce[$idVoce] = ($bilByVoce[$idVoce] ?? 0)
+            $bilByVoce[(int)$idVoce] = (isset($bilByVoce[(int)$idVoce]) ? $bilByVoce[(int)$idVoce] : 0.0)
                 + (float)$r->tot;
         }
-        /* ================================================================================================================ */
 
-        // Bilancio per voce (priorità: bilByVoce -> legacy -> diretti)
-        $bilancioByVoce = [];
+        // ============================================================
+        // 5) Bilancio per voce (priorità: bil manuale -> legacy riparto -> diretti)
+        // ============================================================
+        $bilancioByVoce = array();
         foreach ($vociConfig as $vc) {
             $v        = (int)$vc->id;
             $descNorm = self::norm($vc->descrizione);
@@ -1045,7 +1121,7 @@ class RipartizioneCostiService {
             }
         }
 
-        return [
+        return array(
             $dirByVoceByConv,
             $dirTotByVoce,
             $bilancioByVoce,
@@ -1053,8 +1129,9 @@ class RipartizioneCostiService {
             $ammTotByVoce,
             $netByVoceByConv,
             $netTotByVoce,
-        ];
+        );
     }
+
 
     /* ========================= DISTINTA IMPUTAZIONE COSTI ========================= */
     public static function distintaImputazioneData(int $idAssociazione, int $anno): array {
@@ -1214,7 +1291,7 @@ class RipartizioneCostiService {
             if ($isGrigia) {
                 $indPerConvCents = array_fill_keys($convIds, null);
             } elseif ($idV === 6001 && isset($persPerQualByConv[$idV])) {
-           // ---- 4.a) Personale 6001..6006: target centesimi - diretti netti centesimi
+                // ---- 4.a) Personale 6001..6006: target centesimi - diretti netti centesimi
                 foreach ($convIds as $cid) {
                     $targetCents = (int)($persPerQualByConv[$idV][$cid] ?? 0);
 
@@ -1307,9 +1384,9 @@ class RipartizioneCostiService {
                 $amm  = (float)($ammByVoceByConv[$idV][$cid] ?? 0.0);
                 $indCents = $indPerConvCents[$cid];
                 $riga[$nome] = [
-                'diretti'      => round($dirL, 2),
-                'ammortamento' => round($amm, 2),
-                'indiretti'    => ($indCents === null) ? null : round($indCents / 100, 2, PHP_ROUND_HALF_UP),
+                    'diretti'      => round($dirL, 2),
+                    'ammortamento' => round($amm, 2),
+                    'indiretti'    => ($indCents === null) ? null : round($indCents / 100, 2, PHP_ROUND_HALF_UP),
                 ];
             }
 
@@ -1319,7 +1396,7 @@ class RipartizioneCostiService {
                     $sumCents += (int)$indPerConvCents[$cid];
                 }
             }
-          if ($isGrigia) {
+            if ($isGrigia) {
                 $riga['totale'] = null;
             } else {
                 $riga['totale'] = round(array_sum($indPerConvCents) / 100, 2, PHP_ROUND_HALF_UP);
@@ -2048,37 +2125,37 @@ class RipartizioneCostiService {
     }
 
     private static function splitByWeightsRawCents(int $totCents, array $weights): array {
-    $keys = array_keys($weights);
-    if ($totCents <= 0 || empty($keys)) return array_fill_keys($keys, 0);
+        $keys = array_keys($weights);
+        if ($totCents <= 0 || empty($keys)) return array_fill_keys($keys, 0);
 
-    $sumW = 0.0;
-    foreach ($weights as $w) $sumW += (float)$w;
-    if ($sumW <= 0) return array_fill_keys($keys, 0);
+        $sumW = 0.0;
+        foreach ($weights as $w) $sumW += (float)$w;
+        if ($sumW <= 0) return array_fill_keys($keys, 0);
 
-    $floor = [];
-    $frac  = [];
-    $sumF  = 0;
+        $floor = [];
+        $frac  = [];
+        $sumF  = 0;
 
-    foreach ($weights as $k => $w) {
-        $raw = $totCents * ((float)$w / $sumW);
-        $f   = (int)floor($raw);
-        $floor[$k] = $f;
-        $frac[$k]  = $raw - $f;
-        $sumF += $f;
-    }
-
-    $res = $totCents - $sumF;
-    if ($res > 0) {
-        arsort($frac);
-        foreach (array_keys($frac) as $k) {
-            if ($res <= 0) break;
-            $floor[$k] += 1;
-            $res--;
+        foreach ($weights as $k => $w) {
+            $raw = $totCents * ((float)$w / $sumW);
+            $f   = (int)floor($raw);
+            $floor[$k] = $f;
+            $frac[$k]  = $raw - $f;
+            $sumF += $f;
         }
-    }
 
-    return $floor; // CENTESIMI
-}
+        $res = $totCents - $sumF;
+        if ($res > 0) {
+            arsort($frac);
+            foreach (array_keys($frac) as $k) {
+                if ($res <= 0) break;
+                $floor[$k] += 1;
+                $res--;
+            }
+        }
+
+        return $floor; // CENTESIMI
+    }
 
 
     // in RipartizioneCostiService (o helper condiviso)
