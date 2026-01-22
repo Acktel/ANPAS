@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Support\Facades\DB;
 use App\Services\RipartizioneCostiService;
+use Illuminate\Support\Facades\Log;
 
 class MezziSostitutivi {
     protected const TABLE = 'mezzi_sostitutivi';
@@ -83,6 +84,8 @@ class MezziSostitutivi {
         $tot = 0.0;
         foreach ($mezziSostitutivi as $idMezzo) {
             $tot += self::quotaRipartitaSostitutivo((int)$idMezzo, $idConvenzione, $anno);
+            Log::info('SOST: mezzo '.$idMezzo.' conv '.$idConvenzione.' anno '.$anno.' quota='.$quota);
+
         }
 
         return round($tot, 2);
