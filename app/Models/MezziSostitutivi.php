@@ -67,7 +67,7 @@ class MezziSostitutivi {
         $idAssociazione = (int)$conv->idAssociazione;
         $nomeConv       = (string)$conv->Convenzione;
 
-        // km mezzi su quella convenzione nell'anno (serve per capire quali mezzi hanno girato)
+        // km mezzi su quella convenzione nell'anno
         $righe = DB::table('automezzi_km as ak')
             ->join('convenzioni as c', 'c.idConvenzione', '=', 'ak.idConvenzione')
             ->select('ak.idAutomezzo', 'ak.is_titolare')
@@ -97,11 +97,13 @@ class MezziSostitutivi {
             return 0.0;
         }
 
-        // target voci (quelle “arancioni”)
         $vociTarget = RipartizioneCostiService::VOCI_MEZZI_SOSTITUTIVI;
 
-        // sommo in centesimi (niente errori di round)
-        $totCents = 0;
+        // =========================
+        // SOMMA "EXCEL-LIKE":
+        // sommo in euro e arrotondo SOLO alla fine
+        // =========================
+        $totEuro = 0.0;
 
         foreach ($mezziSostitutivi as $idMezzo) {
             $idMezzo = (int)$idMezzo;
@@ -112,32 +114,41 @@ class MezziSostitutivi {
                 $idMezzo
             );
 
+            $subEuro = 0.0;
+
             foreach ($tab as $r) {
                 if (!isset($r['voce'])) continue;
+                if (!in_array($r['voce'], $vociTarget, true)) continue;
 
-                if (!in_array($r['voce'], $vociTarget, true)) {
-                    continue;
-                }
-
+                // prendi il valore così com'è (NO round qui)
                 $valEuro = (float)($r[$nomeConv] ?? 0.0);
-                $valEuro2 = round($valEuro, 2, PHP_ROUND_HALF_UP);
-                $cents = (int)round($valEuro2 * 100, 0, PHP_ROUND_HALF_UP);
 
                 Log::info('[MEZZI SOST] cella', [
-                'mezzo' => $idMezzo,
-                'voce'  => $r['voce'],
-                'conv'  => $nomeConv,
-                'val'   => $valEuro,
-                'val2'  => $valEuro2,
-                'cents' => $cents,
+                    'mezzo' => $idMezzo,
+                    'voce'  => $r['voce'],
+                    'conv'  => $nomeConv,
+                    'val'   => $valEuro,
                 ]);
 
-                $totCents += $cents;
+                $subEuro += $valEuro;
             }
+
+            Log::info('[MEZZI SOST] subtot mezzo', [
+                'mezzo' => $idMezzo,
+                'sub'   => $subEuro,
+            ]);
+
+            $totEuro += $subEuro;
         }
 
-        return round($totCents / 100, 2, PHP_ROUND_HALF_UP);
+        Log::info('[MEZZI SOST] totale euro pre-round', [
+            'conv' => $nomeConv,
+            'tot'  => $totEuro,
+        ]);
+
+        return round($totEuro, 2, PHP_ROUND_HALF_UP);
     }
+
 
 
 
@@ -192,5 +203,12 @@ class MezziSostitutivi {
         ]);
 
         return round($costoAmmesso * ($kmConv / $kmTot), 2);
+    }
+
+    private static function euroToCentsExcel($euro) {
+        // forza 2 decimali come stringa
+        $s = number_format((float)$euro, 2, '.', '');
+        // "387.10" -> 38710
+        return (int)str_replace('.', '', $s);
     }
 }
