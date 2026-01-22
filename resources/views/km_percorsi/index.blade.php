@@ -190,6 +190,8 @@ $(async function () {
       },
     },
     rowCallback: (rowEl, rowData, idx) => {
+      const hoverText = 'TARGA: ' + rowData.Targa + '\n' + 'Codice Identificativo: ' + rowData.CodiceIdentificativo;
+      $(rowEl).attr('title', hoverText);
       if (rowData.is_totale === -1) $(rowEl).addClass('table-warning fw-bold');
       $(rowEl).removeClass('even odd').addClass(idx % 2 === 0 ? 'even' : 'odd');
     },

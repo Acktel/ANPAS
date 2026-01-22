@@ -9,47 +9,46 @@
     </a>
   </div>
 
-@if(auth()->user()->hasAnyRole(['SuperAdmin','Admin','Supervisor']))
-<div class="d-flex mb-3">
-  <form id="assocFilterForm" action="{{ route('sessione.setAssociazione') }}" method="POST"
-        class="me-3 w-100" style="max-width:400px; position:relative;">
-    @csrf
+  @if(auth()->user()->hasAnyRole(['SuperAdmin','Admin','Supervisor']))
+  <div class="d-flex mb-3">
+    <form id="assocFilterForm" action="{{ route('sessione.setAssociazione') }}" method="POST"
+      class="me-3 w-100" style="max-width:400px; position:relative;">
+      @csrf
 
-    <div class="input-group">
-      <!-- Campo visibile -->
-      <input
-        id="assocInput"
-        name="assocLabel"
-        class="form-control"
-        autocomplete="off"
-        placeholder="Seleziona associazione"
-        value="{{ optional($associazioni->firstWhere('idAssociazione', $selectedAssoc))->Associazione ?? '' }}"
-        aria-label="Seleziona associazione"
-      >
+      <div class="input-group">
+        <!-- Campo visibile -->
+        <input
+          id="assocInput"
+          name="assocLabel"
+          class="form-control"
+          autocomplete="off"
+          placeholder="Seleziona associazione"
+          value="{{ optional($associazioni->firstWhere('idAssociazione', $selectedAssoc))->Associazione ?? '' }}"
+          aria-label="Seleziona associazione">
 
-      <!-- Bottone per aprire/chiudere -->
-      <button type="button" id="assocToggleBtn" class="btn btn-outline-secondary"
-              aria-haspopup="listbox" aria-expanded="false" title="Mostra elenco">
-        <i class="fas fa-chevron-down"></i>
-      </button>
+        <!-- Bottone per aprire/chiudere -->
+        <button type="button" id="assocToggleBtn" class="btn btn-outline-secondary"
+          aria-haspopup="listbox" aria-expanded="false" title="Mostra elenco">
+          <i class="fas fa-chevron-down"></i>
+        </button>
 
-      <!-- Campo nascosto con l'id reale -->
-      <input type="hidden" id="assocHidden" name="idAssociazione" value="{{ $selectedAssoc ?? '' }}">
-    </div>
+        <!-- Campo nascosto con l'id reale -->
+        <input type="hidden" id="assocHidden" name="idAssociazione" value="{{ $selectedAssoc ?? '' }}">
+      </div>
 
-    <!-- Dropdown custom -->
-    <ul id="assocDropdown"
+      <!-- Dropdown custom -->
+      <ul id="assocDropdown"
         class="list-group position-absolute w-100 shadow"
         style="z-index:2000; display:none; max-height:240px; overflow:auto; top:100%; left:0; background:#fff;">
-      @foreach($associazioni as $assoc)
+        @foreach($associazioni as $assoc)
         <li class="list-group-item assoc-item" data-id="{{ $assoc->idAssociazione }}">
           {{ $assoc->Associazione }}
         </li>
-      @endforeach
-    </ul>
-  </form>
-</div>
-@endif
+        @endforeach
+      </ul>
+    </form>
+  </div>
+  @endif
 
 
   <div class="card-anpas">
@@ -75,14 +74,17 @@
     const url = new URL("{{ route('servizi-svolti.datatable') }}", window.location.origin);
     if (selectedId) url.searchParams.append('idAssociazione', selectedId);
     const res = await fetch(url);
-  let { data, labels } = await res.json();
-  if (!data.length) return;
+    let {
+      data,
+      labels
+    } = await res.json();
+    if (!data.length) return;
 
 
-  // Sposta la riga totale in fondo
-  const totaleRow = data.find(r => r.is_totale === -1);
-  data = data.filter(r => r.is_totale !== -1);
-  // if (totaleRow) data.push(totaleRow);
+    // Sposta la riga totale in fondo
+    const totaleRow = data.find(r => r.is_totale === -1);
+    data = data.filter(r => r.is_totale !== -1);
+    // if (totaleRow) data.push(totaleRow);
 
     const table = $('#serviziTable');
 
@@ -176,7 +178,7 @@
 
     table.DataTable({
       stateDuration: -1,
-      stateSave: true, 
+      stateSave: true,
       data,
       columns,
       columnDefs: [{
@@ -196,53 +198,57 @@
       responsive: true,
       language: {
         url: '/js/i18n/Italian.json',
-                        paginate: {
-            first: '<i class="fas fa-angle-double-left"></i>',
-            last: '<i class="fas fa-angle-double-right"></i>',
-            next: '<i class="fas fa-angle-right"></i>',
-            previous: '<i class="fas fa-angle-left"></i>'
+        paginate: {
+          first: '<i class="fas fa-angle-double-left"></i>',
+          last: '<i class="fas fa-angle-double-right"></i>',
+          next: '<i class="fas fa-angle-right"></i>',
+          previous: '<i class="fas fa-angle-left"></i>'
         },
       },
-    rowCallback: (rowEl, rowData, index) => {
-      const hoverText = 'TARGA: ' + rowData.Targa + '\n' + 'Codice Identificativo: ' + rowData.CodiceIdentificativo;
-      $(rowEl).attr('title', hoverText);
-      if (rowData.is_totale === -1) {
-        $(rowEl).addClass('table-warning fw-bold');
-      }
-      $(rowEl).removeClass('even odd').addClass(index % 2 === 0 ? 'even' : 'odd');
-    },
+      rowCallback: (rowEl, rowData, index) => {
+        const hoverText = 'TARGA: ' + rowData.Targa + '\n' + 'Codice Identificativo: ' + rowData.CodiceIdentificativo;
+        $(rowEl).attr('title', hoverText);
+        if (rowData.is_totale === -1) {
+          $(rowEl).addClass('table-warning fw-bold');
+        }
+        $(rowEl).removeClass('even odd').addClass(index % 2 === 0 ? 'even' : 'odd');
+      },
       stripeClass: ['table-striped-anpas'],
+      drawCallback: function(settings) {
+        const api = this.api();
+        const pageRows = api.rows({
+          page: 'current'
+        }).nodes();
 
+        // Rimuovi eventuali righe "TOTALE" precedenti (evita duplicazioni)
+        $(pageRows).filter('.totale-row').remove();
 
-                  drawCallback: function(settings) {
-    const api = this.api();
-    const pageRows = api.rows({ page: 'current' }).nodes();
+        // Aggiungi la riga TOTALE alla fine della pagina
+        if (totaleRow) {
+          const columnCount = api.columns().visible().reduce((acc, isVisible) => acc + (isVisible ? 1 : 0), 0);
+          const $lastRow = $('<tr>').addClass('table-warning fw-bold totale-row');
 
-    // Rimuovi eventuali righe "TOTALE" precedenti (evita duplicazioni)
-    $(pageRows).filter('.totale-row').remove();
-
-    // Aggiungi la riga TOTALE alla fine della pagina
-    if (totaleRow) {
-        const columnCount = api.columns().visible().reduce((acc, isVisible) => acc + (isVisible ? 1 : 0), 0);
-        const $lastRow = $('<tr>').addClass('table-warning fw-bold totale-row');
-
-        api.columns().every(function(index) {
+          api.columns().every(function(index) {
             const col = columns[index];
             if (col.visible === false) return;
 
             let cellValue = '';
             if (typeof col.render === 'function') {
-                cellValue = col.render(totaleRow, 'display', null, { row: -1, col: index, settings });
+              cellValue = col.render(totaleRow, 'display', null, {
+                row: -1,
+                col: index,
+                settings
+              });
             } else if (col.data) {
-                cellValue = totaleRow[col.data] ?? '';
+              cellValue = totaleRow[col.data] ?? '';
             }
 
             $lastRow.append(`<td>${cellValue}</td>`);
-        });
+          });
 
-        $(api.table().body()).append($lastRow);
-    }
-},
+          $(api.table().body()).append($lastRow);
+        }
+      },
 
     });
   });
@@ -250,47 +256,54 @@
 
 
 <script>
-$(function () {
-  const $form = $('#assocFilterForm');
-  const $input = $('#assocInput');
-  const $hidden = $('#assocHidden');
-  const $dropdown = $('#assocDropdown');
-  const $toggle = $('#assocToggleBtn');
-  
+  $(function() {
+    const $form = $('#assocFilterForm');
+    const $input = $('#assocInput');
+    const $hidden = $('#assocHidden');
+    const $dropdown = $('#assocDropdown');
+    const $toggle = $('#assocToggleBtn');
 
-  function openDrop()  { $dropdown.show();  $toggle.attr('aria-expanded','true'); }
-  function closeDrop() { $dropdown.hide();  $toggle.attr('aria-expanded','false'); }
 
-  // Apri/chiudi con bottone
-  $toggle.on('click', function () {
-    $dropdown.is(':visible') ? closeDrop() : openDrop();
-    $input.trigger('focus');
-  });
+    function openDrop() {
+      $dropdown.show();
+      $toggle.attr('aria-expanded', 'true');
+    }
 
-  // Filtro live
-  $input.on('input', function () {
-    const q = $(this).val().toLowerCase();
-    $dropdown.children('li.assoc-item').each(function () {
-      $(this).toggle($(this).text().toLowerCase().includes(q));
+    function closeDrop() {
+      $dropdown.hide();
+      $toggle.attr('aria-expanded', 'false');
+    }
+
+    // Apri/chiudi con bottone
+    $toggle.on('click', function() {
+      $dropdown.is(':visible') ? closeDrop() : openDrop();
+      $input.trigger('focus');
     });
-    openDrop();
-  });
 
-  // Selezione
-  $dropdown.on('click', 'li.assoc-item', function () {
-    const label = $(this).text().trim();
-    const id = $(this).data('id');
-    $input.val(label);
-    $hidden.val(id);
-    closeDrop();
-    $form.trigger('submit');
-  });
+    // Filtro live
+    $input.on('input', function() {
+      const q = $(this).val().toLowerCase();
+      $dropdown.children('li.assoc-item').each(function() {
+        $(this).toggle($(this).text().toLowerCase().includes(q));
+      });
+      openDrop();
+    });
 
-  // Chiudi cliccando fuori
-  $(document).on('click', function (e) {
-    if (!$form.is(e.target) && $form.has(e.target).length === 0) closeDrop();
+    // Selezione
+    $dropdown.on('click', 'li.assoc-item', function() {
+      const label = $(this).text().trim();
+      const id = $(this).data('id');
+      $input.val(label);
+      $hidden.val(id);
+      closeDrop();
+      $form.trigger('submit');
+    });
+
+    // Chiudi cliccando fuori
+    $(document).on('click', function(e) {
+      if (!$form.is(e.target) && $form.has(e.target).length === 0) closeDrop();
+    });
   });
-});
 </script>
 
 
