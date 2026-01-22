@@ -12,8 +12,9 @@ class RipartizioneOssigeno {
     private const TABLE_AUTOMEZZI = 'automezzi';
 
     public static function getRipartizione(?int $idAssociazione, int $anno): array {
-        $automezziQuery = DB::table(table: self::TABLE_AUTOMEZZI)
-            ->where('idAnno',  $anno);
+        // 1) Automezzi inclusi
+        $automezziQuery = DB::table(self::TABLE_AUTOMEZZI)
+            ->where('idAnno', $anno);
 
         if (!is_null($idAssociazione)) {
             $automezziQuery->where('idAssociazione', $idAssociazione);
@@ -21,75 +22,117 @@ class RipartizioneOssigeno {
 
         $automezzi = $automezziQuery
             ->select('idAutomezzo', 'Targa', 'CodiceIdentificativo', 'incluso_riparto')
-            ->where('incluso_riparto',1)
+            ->where('incluso_riparto', 1)
             ->get()
             ->keyBy('idAutomezzo');
 
+        if ($automezzi->isEmpty()) {
+            return [
+                'convenzioni'    => collect(),
+                'righe'          => [],
+                'totale_inclusi' => 0,
+            ];
+        }
+
+        // 2) Convenzioni
         $convenzioni = Convenzione::getByAssociazioneAnno($idAssociazione, $anno);
 
+        if ($convenzioni->isEmpty()) {
+            return [
+                'convenzioni'    => $convenzioni,
+                'righe'          => [],
+                'totale_inclusi' => 0,
+            ];
+        }
+
+        $convIds = $convenzioni->pluck('idConvenzione')->map(fn($v) => (int)$v)->all();
+
+        // 2b) Mappa convId => true se materiale fornito ASL (=> ESCLUDI servizi)
+        $convAslMap = DB::table('convenzioni')
+            ->where('idAnno', $anno)
+            ->when(!is_null($idAssociazione), function ($q) use ($idAssociazione) {
+                $q->where('idAssociazione', $idAssociazione);
+            })
+            ->whereIn('idConvenzione', $convIds)
+            ->pluck('materiale_fornito_asl', 'idConvenzione')
+            ->map(fn($v) => ((int)$v === 1))
+            ->toArray();
+
+        // 3) Servizi per (automezzo, convenzione)
         $servizi = DB::table('automezzi_servizi')
             ->whereIn('idAutomezzo', $automezzi->keys())
-            ->whereIn('idConvenzione', $convenzioni->pluck('idConvenzione'))
+            ->whereIn('idConvenzione', $convIds)
             ->select('idAutomezzo', 'idConvenzione', 'NumeroServizi')
             ->get();
 
         $serviziIndicizzati = $servizi->keyBy(fn($s) => $s->idAutomezzo . '-' . $s->idConvenzione);
 
-        $righe = [];
-        $totaleInclusi = 0;
+        // 4) Righe
+        $righe                = [];
+        $totaleInclusi        = 0;
         $totaliPerConvenzione = [];
 
         foreach ($automezzi as $id => $auto) {
             $incluso = filter_var($auto->incluso_riparto, FILTER_VALIDATE_BOOLEAN);
 
             $riga = [
-                'idAutomezzo' => $id,
-                'Targa' => $auto->Targa,
+                'idAutomezzo'         => (int)$id,
+                'Targa'               => $auto->Targa,
                 'CodiceIdentificativo' => $auto->CodiceIdentificativo,
-                'incluso_riparto' => $incluso,
-                'valori' => [],
-                'totale' => 0
+                'incluso_riparto'     => $incluso,
+                'valori'              => [],
+                'totale'              => 0,
             ];
 
             foreach ($convenzioni as $conv) {
-                $key = $id . '-' . $conv->idConvenzione;
-                $num = isset($serviziIndicizzati[$key]) ? (int) $serviziIndicizzati[$key]->NumeroServizi : 0;
-                $riga['valori'][$conv->idConvenzione] = $num;
-                $riga['totale'] += $num;
+                $cid = (int)$conv->idConvenzione;
 
-                if (!isset($totaliPerConvenzione[$conv->idConvenzione])) {
-                    $totaliPerConvenzione[$conv->idConvenzione] = 0;
+                // ESCLUSIONE: materiale fornito ASL => servizi = 0
+                if (!empty($convAslMap[$cid])) {
+                    $num = 0;
+                } else {
+                    $key = $id . '-' . $cid;
+                    $num = isset($serviziIndicizzati[$key]) ? (int)$serviziIndicizzati[$key]->NumeroServizi : 0;
                 }
-                $totaliPerConvenzione[$conv->idConvenzione] += $incluso ? $num : 0;
+
+                $riga['valori'][$cid] = $num;
+                $riga['totale']      += $num;
+
+                if (!isset($totaliPerConvenzione[$cid])) {
+                    $totaliPerConvenzione[$cid] = 0;
+                }
+                $totaliPerConvenzione[$cid] += $incluso ? $num : 0;
             }
 
             if ($incluso) {
                 $totaleInclusi += $riga['totale'];
             }
 
-            $righe[$id] = $riga;
+            $righe[(int)$id] = $riga;
         }
 
+        // 5) Riga totale
         $rigaTotale = [
-            'idAutomezzo' => null,
-            'Targa' => 'TOTALE',
+            'idAutomezzo'      => null,
+            'Targa'            => 'TOTALE',
             'CodiceIdentificativo' => '',
-            'incluso_riparto' => true,
-            'valori' => [],
-            'totale' => $totaleInclusi,
-            'is_totale' => true,
+            'incluso_riparto'  => true,
+            'valori'           => [],
+            'totale'           => $totaleInclusi,
+            'is_totale'        => true,
         ];
 
         foreach ($convenzioni as $conv) {
-            $rigaTotale['valori'][$conv->idConvenzione] = $totaliPerConvenzione[$conv->idConvenzione] ?? 0;
+            $cid = (int)$conv->idConvenzione;
+            $rigaTotale['valori'][$cid] = $totaliPerConvenzione[$cid] ?? 0;
         }
 
         $righe['totale'] = $rigaTotale;
 
         return [
-            'convenzioni' => $convenzioni,
-            'righe' => $righe,
-            'totale_inclusi' => $totaleInclusi
+            'convenzioni'    => $convenzioni,
+            'righe'          => $righe,
+            'totale_inclusi' => $totaleInclusi,
         ];
     }
 
@@ -103,14 +146,31 @@ class RipartizioneOssigeno {
         if ($idAutomezziInclusi->isEmpty()) return 0;
 
         $idAssociazione = $automezzi->first()->idAssociazione ?? null;
+
         $convenzioni = Convenzione::getByAssociazioneAnno($idAssociazione, $anno);
-        $idConvenzioni = $convenzioni->pluck('idConvenzione');
+        if ($convenzioni->isEmpty()) return 0;
 
-        if ($idConvenzioni->isEmpty()) return 0;
+        $convIds = $convenzioni->pluck('idConvenzione')->map(fn($v) => (int)$v)->all();
 
-        return DB::table('automezzi_servizi')
+        // escludi convenzioni ASL
+        $convIdsValidi = DB::table('convenzioni')
+            ->where('idAnno', $anno)
+            ->when(!is_null($idAssociazione), function ($q) use ($idAssociazione) {
+                $q->where('idAssociazione', $idAssociazione);
+            })
+            ->whereIn('idConvenzione', $convIds)
+            ->where(function ($q) {
+                $q->whereNull('materiale_fornito_asl')
+                    ->orWhere('materiale_fornito_asl', 0);
+            })
+            ->pluck('idConvenzione')
+            ->map(fn($v) => (int)$v);
+
+        if ($convIdsValidi->isEmpty()) return 0;
+
+        return (int) DB::table('automezzi_servizi')
             ->whereIn('idAutomezzo', $idAutomezziInclusi)
-            ->whereIn('idConvenzione', $idConvenzioni)
+            ->whereIn('idConvenzione', $convIdsValidi)
             ->sum('NumeroServizi');
     }
 }
