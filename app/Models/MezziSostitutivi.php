@@ -65,6 +65,7 @@ class MezziSostitutivi {
         if ($righe->isEmpty()) {
             return 0.0;
         }
+        Log::info('SOST:  Righe: '.$righe);
 
         $titolareRow = $righe->firstWhere('is_titolare', 1);
         $mezzoTitolare = $titolareRow ? (int)$titolareRow->idAutomezzo : null;
