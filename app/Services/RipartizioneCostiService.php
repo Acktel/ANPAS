@@ -1290,7 +1290,7 @@ class RipartizioneCostiService {
 
             if ($isGrigia) {
                 $indPerConvCents = array_fill_keys($convIds, null);
-            } elseif ($idV === 6001 && isset($persPerQualByConv[$idV])) {
+            } elseif (in_array($idV, self::$IDS_PERSONALE_RETRIBUZIONI, true) && isset($persPerQualByConv[$idV])) {
                 // ---- 4.a) Personale 6001..6006: target centesimi - diretti netti centesimi
                 foreach ($convIds as $cid) {
                     $targetCents = (int)($persPerQualByConv[$idV][$cid] ?? 0);
