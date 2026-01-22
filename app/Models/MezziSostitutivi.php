@@ -53,10 +53,24 @@ class MezziSostitutivi {
         ];
     }
 
-    public static function calcolaCostoSostitutivi($idConvenzione, $anno) {
+    public static function calcolaCostoSostitutivi(int $idConvenzione, int $anno): float {
+        // info convenzione
+        $conv = DB::table('convenzioni')
+            ->where('idConvenzione', $idConvenzione)
+            ->where('idAnno', $anno)
+            ->first();
+
+        if (!$conv) {
+            return 0.0;
+        }
+
+        $idAssociazione = (int)$conv->idAssociazione;
+        $nomeConv       = (string)$conv->Convenzione;
+
+        // km mezzi su quella convenzione nell'anno (serve per capire quali mezzi hanno girato)
         $righe = DB::table('automezzi_km as ak')
             ->join('convenzioni as c', 'c.idConvenzione', '=', 'ak.idConvenzione')
-            ->select('ak.idAutomezzo', 'ak.KMPercorsi', 'ak.is_titolare')
+            ->select('ak.idAutomezzo', 'ak.is_titolare')
             ->where('ak.idConvenzione', $idConvenzione)
             ->where('c.idAnno', $anno)
             ->where('ak.KMPercorsi', '>', 0)
@@ -65,14 +79,15 @@ class MezziSostitutivi {
         if ($righe->isEmpty()) {
             return 0.0;
         }
-        Log::info('SOST:  Righe: '.$righe);
 
+        // titolare
         $titolareRow = $righe->firstWhere('is_titolare', 1);
-        $mezzoTitolare = $titolareRow ? (int)$titolareRow->idAutomezzo : null;
+        $idTitolare  = $titolareRow ? (int)$titolareRow->idAutomezzo : 0;
 
+        // sostitutivi = tutti tranne titolare
         $mezziSostitutivi = $righe
-            ->filter(function ($r) use ($mezzoTitolare) {
-                return (int)$r->idAutomezzo !== (int)$mezzoTitolare;
+            ->filter(function ($r) use ($idTitolare) {
+                return (int)$r->idAutomezzo !== $idTitolare;
             })
             ->pluck('idAutomezzo')
             ->unique()
@@ -82,15 +97,36 @@ class MezziSostitutivi {
             return 0.0;
         }
 
-        $tot = 0.0;
-        foreach ($mezziSostitutivi as $idMezzo) {
-            $tot += self::quotaRipartitaSostitutivo((int)$idMezzo, $idConvenzione, $anno);
-            Log::info('SOST: mezzo '.$idMezzo.' conv '.$idConvenzione.' anno '.$anno.' quota='.$tot);
+        // target voci (quelle “arancioni”)
+        $vociTarget = RipartizioneCostiService::VOCI_MEZZI_SOSTITUTIVI;
 
+        // sommo in centesimi (niente errori di round)
+        $totCents = 0;
+
+        foreach ($mezziSostitutivi as $idMezzo) {
+            $idMezzo = (int)$idMezzo;
+
+            $tab = RipartizioneCostiService::calcolaRipartizioneTabellaFinale(
+                $idAssociazione,
+                $anno,
+                $idMezzo
+            );
+
+            foreach ($tab as $r) {
+                if (!isset($r['voce'])) continue;
+
+                if (!in_array($r['voce'], $vociTarget, true)) {
+                    continue;
+                }
+
+                $valEuro = (float)($r[$nomeConv] ?? 0.0);
+                $totCents += (int)round($valEuro * 100, 0, PHP_ROUND_HALF_UP);
+            }
         }
 
-        return round($tot, 2);
+        return round($totCents / 100, 2, PHP_ROUND_HALF_UP);
     }
+
 
 
     private static function quotaRipartitaSostitutivo($idMezzo, $idConvenzione, $anno) {
@@ -134,7 +170,7 @@ class MezziSostitutivi {
         if ($kmConv <= 0) return 0.0;
         Log::info('[MEZZI SOST] dettaglio calcolo', [
             'idAutomezzo'   => $idMezzo,
-            'idConvenzione'=> $idConvenzione,
+            'idConvenzione' => $idConvenzione,
             'anno'          => $anno,
             'costo_ammesso' => round($costoAmmesso, 2),
             'km_conv'       => round($kmConv, 2),
