@@ -38,7 +38,18 @@ class AutomezziController extends Controller {
         }
 
         if ($request->has('idAssociazione')) {
-            session(['associazione_selezionata' => $request->idAssociazione]);
+            session(['associazione_selezionata' => (int) $request->idAssociazione]);
+        }
+
+        $selectedAssoc = $request->get('idAssociazione');
+        if (!$selectedAssoc) {
+            $selectedAssoc = session('associazione_selezionata');
+        }
+        if (!$selectedAssoc) {
+            $selectedAssoc = $user->IdAssociazione;
+        }
+        if ($request->has('idAnno')) {
+            session(['anno_riferimento' => (int) $request->idAnno]);
         }
         $selectedAssoc = session('associazione_selezionata') ?? $user->IdAssociazione;
 
@@ -49,7 +60,7 @@ class AutomezziController extends Controller {
             'isImpersonating'
         ));
     }
-
+    
     public function create() {
 
         $anno = (int) session('anno_riferimento', now()->year);

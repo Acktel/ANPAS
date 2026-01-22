@@ -52,24 +52,26 @@ class MezziSostitutivi {
         ];
     }
 
-    public static function calcolaCostoSostitutivi(int $idConvenzione, int $anno): float {
-        // 1️⃣ Recupero TUTTE le righe di km di quella convenzione
-        $righe = DB::table('automezzi_km')
-            ->select('idAutomezzo', 'KMPercorsi', 'is_titolare')
-            ->where('idConvenzione', $idConvenzione)
-            ->where('KMPercorsi', '>', 0)
+    public static function calcolaCostoSostitutivi($idConvenzione, $anno) {
+        $righe = DB::table('automezzi_km as ak')
+            ->join('convenzioni as c', 'c.idConvenzione', '=', 'ak.idConvenzione')
+            ->select('ak.idAutomezzo', 'ak.KMPercorsi', 'ak.is_titolare')
+            ->where('ak.idConvenzione', $idConvenzione)
+            ->where('c.idAnno', $anno)
+            ->where('ak.KMPercorsi', '>', 0)
             ->get();
 
         if ($righe->isEmpty()) {
             return 0.0;
         }
 
-        // 2️⃣ Titolare certo al 100%
-        $mezzoTitolare = $righe->firstWhere('is_titolare', 1)->idAutomezzo ?? null;
+        $titolareRow = $righe->firstWhere('is_titolare', 1);
+        $mezzoTitolare = $titolareRow ? (int)$titolareRow->idAutomezzo : null;
 
-        // 3️⃣ Mezzi sostitutivi = tutti quelli con km > 0 tranne il titolare
         $mezziSostitutivi = $righe
-            ->filter(fn($r) => $r->idAutomezzo != $mezzoTitolare)
+            ->filter(function ($r) use ($mezzoTitolare) {
+                return (int)$r->idAutomezzo !== (int)$mezzoTitolare;
+            })
             ->pluck('idAutomezzo')
             ->unique()
             ->toArray();
@@ -78,55 +80,55 @@ class MezziSostitutivi {
             return 0.0;
         }
 
-        // 4️⃣ Somma costi reali ammessi
         $tot = 0.0;
         foreach ($mezziSostitutivi as $idMezzo) {
-            $tot += self::quotaRipartitaSostitutivo($idMezzo, $idConvenzione, $anno);
+            $tot += self::quotaRipartitaSostitutivo((int)$idMezzo, $idConvenzione, $anno);
         }
 
         return round($tot, 2);
     }
 
-    private static function quotaRipartitaSostitutivo(int $idMezzo, int $idConvenzione, int $anno): float
-{
-    // costi annuali ammessi
-    $c = DB::table('costi_automezzi')
-        ->where('idAutomezzo', $idMezzo)
-        ->where('idAnno', $anno)
-        ->first();
 
-    if (!$c) return 0.0;
+    private static function quotaRipartitaSostitutivo($idMezzo, $idConvenzione, $anno) {
+        $c = DB::table('costi_automezzi')
+            ->where('idAutomezzo', $idMezzo)
+            ->where('idAnno', $anno)
+            ->first();
 
-    $costoAmmesso =
-          ($c->LeasingNoleggio)
-        + ($c->Assicurazione)
-        + ($c->ManutenzioneOrdinaria)
-        + ($c->ManutenzioneStraordinaria - $c->RimborsiAssicurazione)
-        + ($c->PuliziaDisinfezione)
-        + ($c->InteressiPassivi)
-        + ($c->ManutenzioneSanitaria)
-        + ($c->LeasingSanitaria)
-        + ($c->AmmortamentoMezzi)
-        + ($c->AmmortamentoSanitaria)
-        + ($c->AltriCostiMezzi);
+        if (!$c) return 0.0;
 
-    // km totali mezzo
-    $kmTot = DB::table('automezzi_km')
-        ->where('idAutomezzo', $idMezzo)
-        ->sum('KMPercorsi');
+        $costoAmmesso =
+            ((float)$c->LeasingNoleggio)
+            + ((float)$c->Assicurazione)
+            + ((float)$c->ManutenzioneOrdinaria)
+            + (((float)$c->ManutenzioneStraordinaria) - ((float)$c->RimborsiAssicurazione))
+            + ((float)$c->PuliziaDisinfezione)
+            + ((float)$c->InteressiPassivi)
+            + ((float)$c->ManutenzioneSanitaria)
+            + ((float)$c->LeasingSanitaria)
+            + ((float)$c->AmmortamentoMezzi)
+            + ((float)$c->AmmortamentoSanitaria)
+            + ((float)$c->AltriCostiMezzi);
 
-    if ($kmTot <= 0) return 0.0;
+        // km totali mezzo (solo anno)
+        $kmTot = (float) DB::table('automezzi_km as ak')
+            ->join('convenzioni as c', 'c.idConvenzione', '=', 'ak.idConvenzione')
+            ->where('ak.idAutomezzo', $idMezzo)
+            ->where('c.idAnno', $anno)
+            ->sum('ak.KMPercorsi');
 
-    // km del mezzo sulla convenzione
-    $kmConv = DB::table('automezzi_km')
-        ->where('idAutomezzo', $idMezzo)
-        ->where('idConvenzione', $idConvenzione)
-        ->sum('KMPercorsi');
+        if ($kmTot <= 0) return 0.0;
 
-    if ($kmConv <= 0) return 0.0;
+        // km del mezzo sulla convenzione (solo anno)
+        $kmConv = (float) DB::table('automezzi_km as ak')
+            ->join('convenzioni as c', 'c.idConvenzione', '=', 'ak.idConvenzione')
+            ->where('ak.idAutomezzo', $idMezzo)
+            ->where('ak.idConvenzione', $idConvenzione)
+            ->where('c.idAnno', $anno)
+            ->sum('ak.KMPercorsi');
 
-    // quota ripartita
-    return round($costoAmmesso * ($kmConv / $kmTot), 2);
-}
+        if ($kmConv <= 0) return 0.0;
 
+        return round($costoAmmesso * ($kmConv / $kmTot), 2);
+    }
 }

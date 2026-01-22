@@ -64,7 +64,6 @@ class RipartizioneCostiService {
         6006 => 5, // COORDINATORE AMMINISTRATIVO
     );
     
-   
     /* ========================= MATERIALE SANITARIO / AUTOMEZZI / RADIO ========================= */
 
     public static function getMaterialiSanitariConsumo(int $idAssociazione, int $idAnno, int $idAutomezzo): float {
