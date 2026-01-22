@@ -1291,15 +1291,36 @@ class RipartizioneCostiService {
             if ($isGrigia) {
                 $indPerConvCents = array_fill_keys($convIds, null);
             } elseif (in_array($idV, self::$IDS_PERSONALE_RETRIBUZIONI, true) && isset($persPerQualByConv[$idV])) {
-                // ---- 4.a) Personale 6001..6006: target centesimi - diretti netti centesimi
-                foreach ($convIds as $cid) {
-                    $targetCents = (int)($persPerQualByConv[$idV][$cid] ?? 0);
 
+                // 1) totale target (centesimi) = somma riparto personale per conv
+                $targetTotCents = 0;
+                foreach ($convIds as $cid) {
+                    $targetTotCents += (int)($persPerQualByConv[$idV][$cid] ?? 0);
+                }
+
+                // 2) totale diretti netti (centesimi)
+                $netDirTotCents = 0;
+                foreach ($convIds as $cid) {
                     $dirL = (float)($dirByVoceByConv[$idV][$cid] ?? 0.0);
                     $amm  = (float)($ammByVoceByConv[$idV][$cid] ?? 0.0);
-                    $netDirCents = (int)round(($dirL - $amm) * 100, 0, PHP_ROUND_HALF_UP);
+                    $netDirTotCents += (int)round(($dirL - $amm) * 100, 0, PHP_ROUND_HALF_UP);
+                }
 
-                    $indPerConvCents[$cid] = max(0, $targetCents - $netDirCents);
+                // 3) residuo da ripartire (centesimi) (mai negativo)
+                $residuoCents = $targetTotCents - $netDirTotCents;
+                if ($residuoCents < 0) $residuoCents = 0;
+
+                // 4) pesi: usa il target per conv (se è 0/uguale per tutti, Hamilton gestisce comunque)
+                $pesi = [];
+                foreach ($convIds as $cid) {
+                    $pesi[$cid] = (float)($persPerQualByConv[$idV][$cid] ?? 0);
+                }
+
+                // 5) split Hamilton in CENTESIMI
+                $split = self::splitByWeightsRawCents((int)$residuoCents, $pesi);
+
+                foreach ($convIds as $cid) {
+                    $indPerConvCents[$cid] = (int)($split[$cid] ?? 0);
                 }
 
                 // ---- 4.b) Servizio civile: splitByWeightsCents -> euro -> centesimi
