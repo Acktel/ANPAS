@@ -120,7 +120,7 @@ class MezziSostitutivi {
                 }
 
                 $valEuro = (float)($r[$nomeConv] ?? 0.0);
-                $totCents += (int)round($valEuro * 100, 0, PHP_ROUND_HALF_UP);
+                $totCents +=  (int)$valEuro * 100;
             }
         }
 
