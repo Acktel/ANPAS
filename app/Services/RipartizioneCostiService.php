@@ -1739,8 +1739,39 @@ class RipartizioneCostiService {
 
                 // fallback: se ore tutte 0 -> uniforme
                 if ($sumW <= 0.0) {
-                    foreach ($convIds as $cid) $weights[(int)$cid] = 1.0;
-                    $sumW = (float)count($convIds);
+
+                    // percentuali servizi (0..1) per convenzione
+                    $serv = self::percentualiServiziByConvenzione($idAssociazione, $anno, $convIds);
+
+                    $sumServ = 0.0;
+                    foreach ($convIds as $cid) {
+                        $cid = (int)$cid;
+                        $w = isset($serv[$cid]) ? (float)$serv[$cid] : 0.0;
+                        $weights[$cid] = $w;
+                        $sumServ += $w;
+                    }
+
+                    // se anche i servizi sono tutti 0 -> ultimo fallback: uniforme
+                    if ($sumServ <= 0.0) {
+                        // fallback ricavi
+                        $ric = self::quoteRicaviByConvenzione($idAssociazione, $anno, $convIds);
+                        $sumRic = 0.0;
+                        foreach ($convIds as $cid) {
+                            $cid = (int)$cid;
+                            $w = isset($ric[$cid]) ? (float)$ric[$cid] : 0.0;
+                            $weights[$cid] = $w;
+                            $sumRic += $w;
+                        }
+
+                        if ($sumRic <= 0.0) {
+                            foreach ($convIds as $cid) $weights[(int)$cid] = 1.0;
+                            $sumW = (float)count($convIds);
+                        } else {
+                            $sumW = $sumRic;
+                        }
+                    } else {
+                        $sumW = $sumServ;
+                    }
                 }
 
                 // Hamilton in centesimi (stesso schema del tuo)
