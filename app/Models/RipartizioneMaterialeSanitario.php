@@ -15,7 +15,7 @@ class RipartizioneMaterialeSanitario {
      * Restituisce la ripartizione con i conteggi per convenzione/automezzo.
      */
     public static function getRipartizione(?int $idAssociazione, int $anno): array {
-        // 1. Recupero automezzi filtrati per anno (e associazione se definita)
+        // 1) Automezzi inclusi nel riparto
         $automezziQuery = DB::table(self::TABLE_AUTOMEZZI)
             ->where('idAnno', $anno);
 
@@ -25,82 +25,123 @@ class RipartizioneMaterialeSanitario {
 
         $automezzi = $automezziQuery
             ->select('idAutomezzo', 'Targa', 'CodiceIdentificativo', 'incluso_riparto')
-            ->where('incluso_riparto',1)
+            ->where('incluso_riparto', 1)
             ->get()
             ->keyBy('idAutomezzo');
 
-        // 2. Convenzioni disponibili
+        // niente mezzi? ritorna coerente
+        if ($automezzi->isEmpty()) {
+            return [
+                'convenzioni'    => collect(),
+                'righe'          => [],
+                'totale_inclusi' => 0,
+            ];
+        }
+
+        // 2) Convenzioni + flag materiale_fornito_asl
+        // Se il tuo Convenzione::getByAssociazioneAnno non include il campo, qui lo reintegro.
         $convenzioni = Convenzione::getByAssociazioneAnno($idAssociazione, $anno);
 
-        // 3. Servizi per (automezzo, convenzione)
+        if ($convenzioni->isEmpty()) {
+            return [
+                'convenzioni'    => $convenzioni,
+                'righe'          => [],
+                'totale_inclusi' => 0,
+            ];
+        }
+
+        $convIds = $convenzioni->pluck('idConvenzione')->map(fn($v) => (int)$v)->all();
+
+        // Mappa convId => bool materiale_fornito_asl
+        // (usa DB diretto per essere sicuro di avere il campo)
+        $convAslMap = DB::table('convenzioni')
+            ->where('idAnno', $anno)
+            ->when(!is_null($idAssociazione), function ($q) use ($idAssociazione) {
+                $q->where('idAssociazione', $idAssociazione);
+            })
+            ->whereIn('idConvenzione', $convIds)
+            ->pluck('materiale_fornito_asl', 'idConvenzione')
+            ->map(fn($v) => ((int)$v === 1))
+            ->toArray();
+
+        // 3) Servizi (automezzo, convenzione)
         $servizi = DB::table('automezzi_servizi')
             ->whereIn('idAutomezzo', $automezzi->keys())
-            ->whereIn('idConvenzione', $convenzioni->pluck('idConvenzione'))
+            ->whereIn('idConvenzione', $convIds)
             ->select('idAutomezzo', 'idConvenzione', 'NumeroServizi')
             ->get();
 
         $serviziIndicizzati = $servizi->keyBy(fn($s) => $s->idAutomezzo . '-' . $s->idConvenzione);
 
-        // 4. Calcolo righe per DataTable
-        $righe = [];
-        $totaleInclusi = 0;
+        // 4) Calcolo righe
+        $righe               = [];
+        $totaleInclusi       = 0;
         $totaliPerConvenzione = [];
 
         foreach ($automezzi as $id => $auto) {
             $incluso = filter_var($auto->incluso_riparto, FILTER_VALIDATE_BOOLEAN);
 
             $riga = [
-                'idAutomezzo' => $id,
-                'Targa' => $auto->Targa,
+                'idAutomezzo'        => (int)$id,
+                'Targa'              => $auto->Targa,
                 'CodiceIdentificativo' => $auto->CodiceIdentificativo,
-                'incluso_riparto' => $incluso,
-                'valori' => [],
-                'totale' => 0
+                'incluso_riparto'    => $incluso,
+                'valori'             => [],
+                'totale'             => 0,
             ];
 
             foreach ($convenzioni as $conv) {
-                $key = $id . '-' . $conv->idConvenzione;
-                $num = isset($serviziIndicizzati[$key]) ? (int) $serviziIndicizzati[$key]->NumeroServizi : 0;
-                $riga['valori'][$conv->idConvenzione] = $num;
-                $riga['totale'] += $num;
+                $cid = (int)$conv->idConvenzione;
 
-                // Totali per la riga finale
-                if (!isset($totaliPerConvenzione[$conv->idConvenzione])) {
-                    $totaliPerConvenzione[$conv->idConvenzione] = 0;
+                // SE materiale fornito ASL => non conteggiare servizi
+                if (!empty($convAslMap[$cid])) {
+                    $num = 0;
+                } else {
+                    $key = $id . '-' . $cid;
+                    $num = isset($serviziIndicizzati[$key]) ? (int)$serviziIndicizzati[$key]->NumeroServizi : 0;
                 }
-                $totaliPerConvenzione[$conv->idConvenzione] += $incluso ? $num : 0;
+
+                $riga['valori'][$cid] = $num;
+                $riga['totale']      += $num;
+
+                if (!isset($totaliPerConvenzione[$cid])) {
+                    $totaliPerConvenzione[$cid] = 0;
+                }
+                $totaliPerConvenzione[$cid] += $incluso ? $num : 0;
             }
 
             if ($incluso) {
                 $totaleInclusi += $riga['totale'];
             }
 
-            $righe[$id] = $riga;
+            $righe[(int)$id] = $riga;
         }
 
-        // 5. Riga finale di TOTALE
+        // 5) Riga finale TOTALE
         $rigaTotale = [
-            'idAutomezzo' => null,
-            'Targa' => 'TOTALE',
+            'idAutomezzo'     => null,
+            'Targa'           => 'TOTALE',
             'CodiceIdentificativo' => '',
             'incluso_riparto' => true,
-            'valori' => [],
-            'totale' => $totaleInclusi,
-            'is_totale' => true,
+            'valori'          => [],
+            'totale'          => $totaleInclusi,
+            'is_totale'       => true,
         ];
 
         foreach ($convenzioni as $conv) {
-            $rigaTotale['valori'][$conv->idConvenzione] = $totaliPerConvenzione[$conv->idConvenzione] ?? 0;
+            $cid = (int)$conv->idConvenzione;
+            $rigaTotale['valori'][$cid] = $totaliPerConvenzione[$cid] ?? 0;
         }
 
         $righe['totale'] = $rigaTotale;
 
         return [
-            'convenzioni' => $convenzioni,
-            'righe' => $righe,
-            'totale_inclusi' => $totaleInclusi
+            'convenzioni'    => $convenzioni,
+            'righe'          => $righe,
+            'totale_inclusi' => $totaleInclusi,
         ];
     }
+
 
 
     /**

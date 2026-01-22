@@ -12,7 +12,6 @@ use Illuminate\Support\Facades\DB;
 
 class RipartizioneMaterialeSanitarioController extends Controller
 {
-// App\Http\Controllers\RipartizioneMaterialeSanitarioController.php
 
 public function index(Request $request)
 {

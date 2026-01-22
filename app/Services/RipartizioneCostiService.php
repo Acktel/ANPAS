@@ -1565,43 +1565,43 @@ class RipartizioneCostiService {
     }
 
     public static function importiPersonalePerQualificaByConvenzione(
-    int $idAssociazione,
-    int $anno,
-    array $convIds
-): array {
-    if (empty($convIds)) {
-        return [];
-    }
+        int $idAssociazione,
+        int $anno,
+        array $convIds
+    ): array {
+        if (empty($convIds)) {
+            return [];
+        }
 
-    // Qualifica -> Voce
-    $voceByQualifica = [
-        1 => 6001, // Autista soccorritore
-        6 => 6002, // Coordinatore tecnico
-        3 => 6003, // Addetto pulizia
-        2 => 6004, // Addetto logistica
-        7 => 6005, // Impiegato amministrativo
-        5 => 6006, // Coordinatore amministrativo
-    ];
+        // Qualifica -> Voce
+        $voceByQualifica = [
+            1 => 6001, // Autista soccorritore
+            6 => 6002, // Coordinatore tecnico
+            3 => 6003, // Addetto pulizia
+            2 => 6004, // Addetto logistica
+            7 => 6005, // Impiegato amministrativo
+            5 => 6006, // Coordinatore amministrativo
+        ];
 
-    // Voce -> Qualifica (serve per fallback ore aggregate per qualifica)
-    $qualificaByVoce = array_flip($voceByQualifica); // [6001=>1, 6002=>6, ...]
+        // Voce -> Qualifica (serve per fallback ore aggregate per qualifica)
+        $qualificaByVoce = array_flip($voceByQualifica); // [6001=>1, 6002=>6, ...]
 
-    $dip = DB::table('dipendenti')
-        ->where('idAssociazione', $idAssociazione)
-        ->where('idAnno', $anno)
-        ->get(['idDipendente']);
+        $dip = DB::table('dipendenti')
+            ->where('idAssociazione', $idAssociazione)
+            ->where('idAnno', $anno)
+            ->get(['idDipendente']);
 
-    if ($dip->isEmpty()) {
-        return [];
-    }
+        if ($dip->isEmpty()) {
+            return [];
+        }
 
-    $dipIds = $dip->pluck('idDipendente')
-        ->map(fn($v) => (int)$v)
-        ->all();
+        $dipIds = $dip->pluck('idDipendente')
+            ->map(fn($v) => (int)$v)
+            ->all();
 
-    // Costi annui dipendente (base + diretti)
-    $costi = DB::table('costi_personale')
-        ->selectRaw("
+        // Costi annui dipendente (base + diretti)
+        $costi = DB::table('costi_personale')
+            ->selectRaw("
             idDipendente,
             COALESCE(Retribuzioni,0)+COALESCE(costo_diretto_Retribuzioni,0)            AS Retr,
             COALESCE(OneriSocialiInps,0)+COALESCE(costo_diretto_OneriSocialiInps,0)    AS Inps,
@@ -1609,252 +1609,250 @@ class RipartizioneCostiService {
             COALESCE(TFR,0)+COALESCE(costo_diretto_TFR,0)                              AS Tfr,
             COALESCE(Consulenze,0)+COALESCE(costo_diretto_Consulenze,0)                AS Cons
         ")
-        ->whereIn('idDipendente', $dipIds)
-        ->where('idAnno', $anno)
-        ->get()
-        ->keyBy('idDipendente');
+            ->whereIn('idDipendente', $dipIds)
+            ->where('idAnno', $anno)
+            ->get()
+            ->keyBy('idDipendente');
 
-    // Qualifiche per dipendente
-    $qualByDip = DB::table('dipendenti_qualifiche')
-        ->whereIn('idDipendente', $dipIds)
-        ->get()
-        ->groupBy('idDipendente')
-        ->map(fn($rows) => $rows->pluck('idQualifica')->map(fn($v) => (int)$v)->all());
+        // Qualifiche per dipendente
+        $qualByDip = DB::table('dipendenti_qualifiche')
+            ->whereIn('idDipendente', $dipIds)
+            ->get()
+            ->groupBy('idDipendente')
+            ->map(fn($rows) => $rows->pluck('idQualifica')->map(fn($v) => (int)$v)->all());
 
-    // % mansioni per dipendente (se presenti)
-    $percByDip = DB::table('costi_personale_mansioni')
-        ->whereIn('idDipendente', $dipIds)
-        ->where('idAnno', $anno)
-        ->get()
-        ->groupBy('idDipendente')
-        ->map(function ($rows) {
-            $m = [];
-            foreach ($rows as $r) {
-                $m[(int)$r->idQualifica] = (float)$r->percentuale;
-            }
-            return $m;
-        });
+        // % mansioni per dipendente (se presenti)
+        $percByDip = DB::table('costi_personale_mansioni')
+            ->whereIn('idDipendente', $dipIds)
+            ->where('idAnno', $anno)
+            ->get()
+            ->groupBy('idDipendente')
+            ->map(function ($rows) {
+                $m = [];
+                foreach ($rows as $r) {
+                    $m[(int)$r->idQualifica] = (float)$r->percentuale;
+                }
+                return $m;
+            });
 
-    // Ore per dipendente+convenzione (solo convenzioni dell'anno)
-    $oreRows = DB::table('dipendenti_servizi as ds')
-        ->join('convenzioni as c', 'c.idConvenzione', '=', 'ds.idConvenzione')
-        ->whereIn('ds.idDipendente', $dipIds)
-        ->whereIn('ds.idConvenzione', $convIds)
-        ->where('c.idAnno', $anno)
-        ->get(['ds.idDipendente', 'ds.idConvenzione', 'ds.OreServizio']);
+        // Ore per dipendente+convenzione (solo convenzioni dell'anno)
+        $oreRows = DB::table('dipendenti_servizi as ds')
+            ->join('convenzioni as c', 'c.idConvenzione', '=', 'ds.idConvenzione')
+            ->whereIn('ds.idDipendente', $dipIds)
+            ->whereIn('ds.idConvenzione', $convIds)
+            ->where('c.idAnno', $anno)
+            ->get(['ds.idDipendente', 'ds.idConvenzione', 'ds.OreServizio']);
 
-    // ore per dipendente per convenzione
-    $oreByDipConv = []; // [idDip][idConv] => ore
-    foreach ($oreRows as $r) {
-        $d   = (int)$r->idDipendente;
-        $cid = (int)$r->idConvenzione;
-        $oreByDipConv[$d][$cid] = ($oreByDipConv[$d][$cid] ?? 0.0) + (float)$r->OreServizio;
-    }
-
-    // ============================================================
-    // Fallback serio: ORE AGGREGATE PER QUALIFICA + CONVENZIONE
-    // [idQualifica][idConvenzione] => ore
-    // ============================================================
-    $oreByQualConv = [];
-    foreach (array_keys($voceByQualifica) as $idQ) {
-        foreach ($convIds as $cid) {
-            $oreByQualConv[(int)$idQ][(int)$cid] = 0.0;
-        }
-    }
-
-    $oreAggRows = DB::table('dipendenti_servizi as ds')
-        ->join('dipendenti_qualifiche as dq', 'dq.idDipendente', '=', 'ds.idDipendente')
-        ->join('convenzioni as c', 'c.idConvenzione', '=', 'ds.idConvenzione')
-        ->whereIn('ds.idDipendente', $dipIds)
-        ->whereIn('ds.idConvenzione', $convIds)
-        ->where('c.idAnno', $anno)
-        ->whereIn('dq.idQualifica', array_keys($voceByQualifica))
-        ->select('dq.idQualifica', 'ds.idConvenzione', DB::raw('SUM(ds.OreServizio) as ore'))
-        ->groupBy('dq.idQualifica', 'ds.idConvenzione')
-        ->get();
-
-    foreach ($oreAggRows as $r) {
-        $q = (int)$r->idQualifica;
-        $c = (int)$r->idConvenzione;
-        $oreByQualConv[$q][$c] = (float)$r->ore;
-    }
-
-    // Output in centesimi
-    $outCents = [];
-    foreach ([6001, 6002, 6003, 6004, 6005, 6006] as $v) {
-        foreach ($convIds as $cid) {
-            $outCents[$v][(int)$cid] = 0;
-        }
-    }
-
-    // Precalcolo servizi e ricavi (evito chiamate ripetute nel loop)
-    $servWeights = self::percentualiServiziByConvenzione($idAssociazione, $anno, $convIds); // 0..1
-    $ricWeights  = self::quoteRicaviByConvenzione($idAssociazione, $anno, $convIds);       // 0..1
-
-    foreach ($dipIds as $idDip) {
-        $c = $costi[$idDip] ?? null;
-        if (!$c) continue;
-
-        $totDipEuro = (float)$c->Retr
-            + (float)$c->Inps
-            + (float)$c->Inail
-            + (float)$c->Tfr
-            + (float)$c->Cons;
-
-        if ($totDipEuro <= 0) continue;
-
-        $totDipCents = (int)round($totDipEuro * 100, 0, PHP_ROUND_HALF_UP);
-
-        $qDip = $qualByDip[$idDip] ?? [];
-        if (empty($qDip)) continue;
-
-        // % per qualifica: se assenti -> 100% se una sola, altrimenti uniforme
-        $perc = $percByDip[$idDip] ?? [];
-        if (empty($perc)) {
-            if (count($qDip) === 1) {
-                $perc[(int)$qDip[0]] = 100.0;
-            } else {
-                $u = 100.0 / count($qDip);
-                foreach ($qDip as $q) $perc[(int)$q] = $u;
-            }
+        // ore per dipendente per convenzione
+        $oreByDipConv = []; // [idDip][idConv] => ore
+        foreach ($oreRows as $r) {
+            $d   = (int)$r->idDipendente;
+            $cid = (int)$r->idConvenzione;
+            $oreByDipConv[$d][$cid] = ($oreByDipConv[$d][$cid] ?? 0.0) + (float)$r->OreServizio;
         }
 
-        // 1) split dipendente -> voci (centesimi) con Hamilton
-        $provVoce = [];
-        $remVoce  = [];
-        $sumVoce  = 0;
-
-        foreach ($perc as $idQ => $pct) {
-            $idQ    = (int)$idQ;
-            $voceId = $voceByQualifica[$idQ] ?? null;
-            if (!$voceId) continue;
-
-            $quota = $totDipCents * ((float)$pct / 100.0);
-            $f     = (int)floor($quota);
-
-            $provVoce[$voceId] = ($provVoce[$voceId] ?? 0) + $f;
-            $remVoce[$voceId]  = ($remVoce[$voceId] ?? 0.0) + ($quota - $f);
-            $sumVoce          += $f;
-        }
-
-        $dRem = $totDipCents - $sumVoce;
-        if ($dRem > 0 && !empty($remVoce)) {
-            arsort($remVoce);
-            foreach (array_keys($remVoce) as $vId) {
-                if ($dRem <= 0) break;
-                $provVoce[(int)$vId] += 1;
-                $dRem--;
-            }
-        }
-
-        // 2) per OGNI voce 6001..6006 split su convenzioni con pesi:
-        //    - ore dipendente (se >0)
-        //    - fallback: ore aggregate qualifica
-        //    - fallback: servizi
-        //    - fallback: ricavi
-        //    - fallback: uniforme
-        foreach ($provVoce as $vId => $centiVoce) {
-            $vId       = (int)$vId;
-            $centiVoce = (int)$centiVoce;
-            if ($centiVoce <= 0) continue;
-
-            $weights = [];
-            $sumW    = 0.0;
-
-            // A) ore del dipendente
+        // ============================================================
+        // Fallback serio: ORE AGGREGATE PER QUALIFICA + CONVENZIONE
+        // [idQualifica][idConvenzione] => ore
+        // ============================================================
+        $oreByQualConv = [];
+        foreach (array_keys($voceByQualifica) as $idQ) {
             foreach ($convIds as $cid) {
-                $cid = (int)$cid;
-                $w = (float)($oreByDipConv[$idDip][$cid] ?? 0.0);
-                $weights[$cid] = $w;
-                $sumW += $w;
+                $oreByQualConv[(int)$idQ][(int)$cid] = 0.0;
+            }
+        }
+
+        $oreAggRows = DB::table('dipendenti_servizi as ds')
+            ->join('dipendenti_qualifiche as dq', 'dq.idDipendente', '=', 'ds.idDipendente')
+            ->join('convenzioni as c', 'c.idConvenzione', '=', 'ds.idConvenzione')
+            ->whereIn('ds.idDipendente', $dipIds)
+            ->whereIn('ds.idConvenzione', $convIds)
+            ->where('c.idAnno', $anno)
+            ->whereIn('dq.idQualifica', array_keys($voceByQualifica))
+            ->select('dq.idQualifica', 'ds.idConvenzione', DB::raw('SUM(ds.OreServizio) as ore'))
+            ->groupBy('dq.idQualifica', 'ds.idConvenzione')
+            ->get();
+
+        foreach ($oreAggRows as $r) {
+            $q = (int)$r->idQualifica;
+            $c = (int)$r->idConvenzione;
+            $oreByQualConv[$q][$c] = (float)$r->ore;
+        }
+
+        // Output in centesimi
+        $outCents = [];
+        foreach ([6001, 6002, 6003, 6004, 6005, 6006] as $v) {
+            foreach ($convIds as $cid) {
+                $outCents[$v][(int)$cid] = 0;
+            }
+        }
+
+        // Precalcolo servizi e ricavi (evito chiamate ripetute nel loop)
+        $servWeights = self::percentualiServiziByConvenzione($idAssociazione, $anno, $convIds); // 0..1
+        $ricWeights  = self::quoteRicaviByConvenzione($idAssociazione, $anno, $convIds);       // 0..1
+
+        foreach ($dipIds as $idDip) {
+            $c = $costi[$idDip] ?? null;
+            if (!$c) continue;
+
+            $totDipEuro = (float)$c->Retr
+                + (float)$c->Inps
+                + (float)$c->Inail
+                + (float)$c->Tfr
+                + (float)$c->Cons;
+
+            if ($totDipEuro <= 0) continue;
+
+            $totDipCents = (int)round($totDipEuro * 100, 0, PHP_ROUND_HALF_UP);
+
+            $qDip = $qualByDip[$idDip] ?? [];
+            if (empty($qDip)) continue;
+
+            // % per qualifica: se assenti -> 100% se una sola, altrimenti uniforme
+            $perc = $percByDip[$idDip] ?? [];
+            if (empty($perc)) {
+                if (count($qDip) === 1) {
+                    $perc[(int)$qDip[0]] = 100.0;
+                } else {
+                    $u = 100.0 / count($qDip);
+                    foreach ($qDip as $q) $perc[(int)$q] = $u;
+                }
             }
 
-            // B) fallback: ore aggregate della qualifica collegata alla voce
-            if ($sumW <= 0.0) {
-                $sumW = 0.0;
-                $idQ = (int)($qualificaByVoce[$vId] ?? 0);
+            // 1) split dipendente -> voci (centesimi) con Hamilton
+            $provVoce = [];
+            $remVoce  = [];
+            $sumVoce  = 0;
 
-                if ($idQ > 0 && isset($oreByQualConv[$idQ])) {
+            foreach ($perc as $idQ => $pct) {
+                $idQ    = (int)$idQ;
+                $voceId = $voceByQualifica[$idQ] ?? null;
+                if (!$voceId) continue;
+
+                $quota = $totDipCents * ((float)$pct / 100.0);
+                $f     = (int)floor($quota);
+
+                $provVoce[$voceId] = ($provVoce[$voceId] ?? 0) + $f;
+                $remVoce[$voceId]  = ($remVoce[$voceId] ?? 0.0) + ($quota - $f);
+                $sumVoce          += $f;
+            }
+
+            $dRem = $totDipCents - $sumVoce;
+            if ($dRem > 0 && !empty($remVoce)) {
+                arsort($remVoce);
+                foreach (array_keys($remVoce) as $vId) {
+                    if ($dRem <= 0) break;
+                    $provVoce[(int)$vId] += 1;
+                    $dRem--;
+                }
+            }
+
+            // 2) per OGNI voce 6001..6006 split su convenzioni con pesi:
+            //    - ore dipendente (se >0)
+            //    - fallback: ore aggregate qualifica
+            //    - fallback: servizi
+            //    - fallback: ricavi
+            //    - fallback: uniforme
+            foreach ($provVoce as $vId => $centiVoce) {
+                $vId       = (int)$vId;
+                $centiVoce = (int)$centiVoce;
+                if ($centiVoce <= 0) continue;
+
+                $weights = [];
+                $sumW    = 0.0;
+
+                // A) ore del dipendente
+                foreach ($convIds as $cid) {
+                    $cid = (int)$cid;
+                    $w = (float)($oreByDipConv[$idDip][$cid] ?? 0.0);
+                    $weights[$cid] = $w;
+                    $sumW += $w;
+                }
+
+                // B) fallback: ore aggregate della qualifica collegata alla voce
+                if ($sumW <= 0.0) {
+                    $sumW = 0.0;
+                    $idQ = (int)($qualificaByVoce[$vId] ?? 0);
+
+                    if ($idQ > 0 && isset($oreByQualConv[$idQ])) {
+                        foreach ($convIds as $cid) {
+                            $cid = (int)$cid;
+                            $w = (float)($oreByQualConv[$idQ][$cid] ?? 0.0);
+                            $weights[$cid] = $w;
+                            $sumW += $w;
+                        }
+                    }
+                }
+
+                // C) fallback: servizi
+                if ($sumW <= 0.0) {
+                    $sumW = 0.0;
                     foreach ($convIds as $cid) {
                         $cid = (int)$cid;
-                        $w = (float)($oreByQualConv[$idQ][$cid] ?? 0.0);
+                        $w = (float)($servWeights[$cid] ?? 0.0);
                         $weights[$cid] = $w;
                         $sumW += $w;
                     }
                 }
-            }
 
-            // C) fallback: servizi
-            if ($sumW <= 0.0) {
-                $sumW = 0.0;
-                foreach ($convIds as $cid) {
-                    $cid = (int)$cid;
-                    $w = (float)($servWeights[$cid] ?? 0.0);
-                    $weights[$cid] = $w;
-                    $sumW += $w;
+                // D) fallback: ricavi
+                if ($sumW <= 0.0) {
+                    $sumW = 0.0;
+                    foreach ($convIds as $cid) {
+                        $cid = (int)$cid;
+                        $w = (float)($ricWeights[$cid] ?? 0.0);
+                        $weights[$cid] = $w;
+                        $sumW += $w;
+                    }
                 }
-            }
 
-            // D) fallback: ricavi
-            if ($sumW <= 0.0) {
-                $sumW = 0.0;
-                foreach ($convIds as $cid) {
-                    $cid = (int)$cid;
-                    $w = (float)($ricWeights[$cid] ?? 0.0);
-                    $weights[$cid] = $w;
-                    $sumW += $w;
+                // E) ultimo fallback: uniforme
+                if ($sumW <= 0.0) {
+                    foreach ($convIds as $cid) {
+                        $weights[(int)$cid] = 1.0;
+                    }
+                    $sumW = (float)count($convIds);
                 }
-            }
 
-            // E) ultimo fallback: uniforme
-            if ($sumW <= 0.0) {
-                foreach ($convIds as $cid) {
-                    $weights[(int)$cid] = 1.0;
+                // Hamilton in centesimi
+                $prov = [];
+                $rem  = [];
+                $sum  = 0;
+
+                foreach ($weights as $cid => $w) {
+                    $raw = $centiVoce * ((float)$w / $sumW);
+                    $f   = (int)floor($raw);
+                    $prov[(int)$cid] = $f;
+                    $rem[(int)$cid]  = $raw - $f;
+                    $sum += $f;
                 }
-                $sumW = (float)count($convIds);
-            }
 
-            // Hamilton in centesimi
-            $prov = [];
-            $rem  = [];
-            $sum  = 0;
-
-            foreach ($weights as $cid => $w) {
-                $raw = $centiVoce * ((float)$w / $sumW);
-                $f   = (int)floor($raw);
-                $prov[(int)$cid] = $f;
-                $rem[(int)$cid]  = $raw - $f;
-                $sum += $f;
-            }
-
-            $diff = $centiVoce - $sum;
-            if ($diff > 0) {
-                arsort($rem);
-                foreach (array_keys($rem) as $cid) {
-                    if ($diff <= 0) break;
-                    $prov[(int)$cid] += 1;
-                    $diff--;
+                $diff = $centiVoce - $sum;
+                if ($diff > 0) {
+                    arsort($rem);
+                    foreach (array_keys($rem) as $cid) {
+                        if ($diff <= 0) break;
+                        $prov[(int)$cid] += 1;
+                        $diff--;
+                    }
                 }
-            }
 
-            foreach ($prov as $cid => $cents) {
-                $outCents[$vId][(int)$cid] += (int)$cents;
+                foreach ($prov as $cid => $cents) {
+                    $outCents[$vId][(int)$cid] += (int)$cents;
+                }
             }
         }
-    }
 
-    // ritorno in centesimi (int)
-    $out = [];
-    foreach ($outCents as $vId => $byConv) {
-        foreach ($byConv as $cid => $cent) {
-            $out[$vId][$cid] = (int)$cent;
+        // ritorno in centesimi (int)
+        $out = [];
+        foreach ($outCents as $vId => $byConv) {
+            foreach ($byConv as $cid => $cent) {
+                $out[$vId][$cid] = (int)$cent;
+            }
         }
+
+        return $out;
     }
-
-    return $out;
-}
-
-
 
     public static function consuntivoPersonalePerConvenzione(
         int $idAssociazione,
