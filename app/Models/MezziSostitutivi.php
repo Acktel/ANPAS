@@ -84,7 +84,7 @@ class MezziSostitutivi {
         $tot = 0.0;
         foreach ($mezziSostitutivi as $idMezzo) {
             $tot += self::quotaRipartitaSostitutivo((int)$idMezzo, $idConvenzione, $anno);
-            Log::info('SOST: mezzo '.$idMezzo.' conv '.$idConvenzione.' anno '.$anno.' quota='.$quota);
+            Log::info('SOST: mezzo '.$idMezzo.' conv '.$idConvenzione.' anno '.$anno.' quota='.$tot);
 
         }
 
