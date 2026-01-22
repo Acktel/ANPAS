@@ -131,6 +131,16 @@ class MezziSostitutivi {
             ->sum('ak.KMPercorsi');
 
         if ($kmConv <= 0) return 0.0;
+        Log::info('[MEZZI SOST] dettaglio calcolo', [
+            'idAutomezzo'   => $idMezzo,
+            'idConvenzione'=> $idConvenzione,
+            'anno'          => $anno,
+            'costo_ammesso' => round($costoAmmesso, 2),
+            'km_conv'       => round($kmConv, 2),
+            'km_tot_mezzo'  => round($kmTot, 2),
+            'rapporto'      => ($kmTot > 0 ? round($kmConv / $kmTot, 6) : 0),
+            'quota_euro'    => round($costoAmmesso * ($kmConv / $kmTot), 2),
+        ]);
 
         return round($costoAmmesso * ($kmConv / $kmTot), 2);
     }
