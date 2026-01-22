@@ -120,7 +120,11 @@ class MezziSostitutivi {
                 }
 
                 $valEuro = (float)($r[$nomeConv] ?? 0.0);
-                $totCents += (int)round($valEuro * 100, 0, PHP_ROUND_HALF_UP);
+
+                // forza a 2 decimali PRIMA di convertire in centesimi (simula Excel visuale)
+                $valEuro2 = round($valEuro, 2, PHP_ROUND_HALF_UP);
+
+                $totCents += (int)round($valEuro2 * 100, 0, PHP_ROUND_HALF_UP);
             }
         }
 
