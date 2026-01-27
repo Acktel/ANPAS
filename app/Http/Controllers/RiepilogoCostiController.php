@@ -885,4 +885,101 @@ class RiepilogoCostiController extends Controller {
 
         return response()->json($out);
     }
+
+    public function editCarburanteAdditivi(Request $request) {
+        $anno = (int) session('anno_riferimento', now()->year);
+        $user = Auth::user();
+        $isElevato = $user->hasAnyRole(array('SuperAdmin', 'Admin', 'Supervisor'));
+
+        $data = $request->validate(array(
+            'idAssociazione' => $isElevato ? 'required|integer' : 'nullable',
+            'idConvenzione'  => 'required|integer',
+            'idCarb'         => 'required|integer',
+            'idAdd'          => 'required|integer',
+        ));
+
+        $idAss = $isElevato ? (int)$data['idAssociazione'] : (int)$user->IdAssociazione;
+        $idConv = (int)$data['idConvenzione'];
+        $idCarb = (int)$data['idCarb'];
+        $idAdd  = (int)$data['idAdd'];
+
+        $riepilogoId = RiepilogoCosti::getOrCreateRiepilogo($idAss, $anno);
+
+        // preventivi esistenti
+        $rows = DB::table('riepilogo_dati')
+            ->where('idRiepilogo', $riepilogoId)
+            ->where('idConvenzione', $idConv)
+            ->whereIn('idVoceConfig', array($idCarb, $idAdd))
+            ->pluck('preventivo', 'idVoceConfig');
+
+        $prevCarb = (float) (isset($rows[$idCarb]) ? $rows[$idCarb] : 0);
+        $prevAdd  = (float) (isset($rows[$idAdd])  ? $rows[$idAdd]  : 0);
+
+        // consuntivi calcolati (read-only)
+        $mapCons = RipartizioneCostiService::consuntiviPerVoceByConvenzione($idAss, $anno);
+        $consCarb = (float) (isset($mapCons[$idCarb][$idConv]) ? $mapCons[$idCarb][$idConv] : 0);
+        $consAdd  = (float) (isset($mapCons[$idAdd][$idConv])  ? $mapCons[$idAdd][$idConv]  : 0);
+
+        $nomeAss = DB::table('associazioni')->where('idAssociazione', $idAss)->value('Associazione');
+        $nomeConv = DB::table('convenzioni')->where('idConvenzione', $idConv)->value('Convenzione');
+
+        // se vuoi anche le descrizioni singole:
+        $descCarb = DB::table('riepilogo_voci_config')->where('id', $idCarb)->value('descrizione');
+        $descAdd  = DB::table('riepilogo_voci_config')->where('id', $idAdd)->value('descrizione');
+
+        return view('riepilogo_costi.edit_carburante_additivi', array(
+            'anno' => $anno,
+            'idAssociazione' => $idAss,
+            'nomeAssociazione' => $nomeAss,
+            'idConvenzione' => $idConv,
+            'nomeConvenzione' => $nomeConv,
+            'idCarb' => $idCarb,
+            'idAdd'  => $idAdd,
+            'descCarb' => $descCarb,
+            'descAdd'  => $descAdd,
+            'prevCarb' => $prevCarb,
+            'prevAdd'  => $prevAdd,
+            'consCarb' => $consCarb,
+            'consAdd'  => $consAdd,
+        ));
+    }
+
+    public function updateCarburanteAdditivi(Request $request) {
+        $anno = (int) session('anno_riferimento', now()->year);
+        $user = Auth::user();
+        $isElevato = $user->hasAnyRole(array('SuperAdmin', 'Admin', 'Supervisor'));
+
+        $data = $request->validate(array(
+            'idAssociazione' => $isElevato ? 'required|integer' : 'nullable',
+            'idConvenzione'  => 'required|integer',
+            'idCarb'         => 'required|integer',
+            'idAdd'          => 'required|integer',
+            'preventivo_carb' => 'required',
+            'preventivo_add'  => 'required',
+        ));
+
+        $idAss = $isElevato ? (int)$data['idAssociazione'] : (int)$user->IdAssociazione;
+        $idConv = (int)$data['idConvenzione'];
+        $idCarb = (int)$data['idCarb'];
+        $idAdd  = (int)$data['idAdd'];
+
+        // riuso il tuo normalizzatore (se vuoi, chiamalo direttamente)
+        $prevCarb = $this->toDecimalOrZero($data['preventivo_carb']);
+        $prevAdd  = $this->toDecimalOrZero($data['preventivo_add']);
+
+        $riepilogoId = RiepilogoCosti::getOrCreateRiepilogo($idAss, $anno);
+
+        DB::table('riepilogo_dati')->updateOrInsert(
+            array('idRiepilogo' => $riepilogoId, 'idVoceConfig' => $idCarb, 'idConvenzione' => $idConv),
+            array('preventivo' => $prevCarb, 'updated_at' => now(), 'created_at' => now())
+        );
+        DB::table('riepilogo_dati')->updateOrInsert(
+            array('idRiepilogo' => $riepilogoId, 'idVoceConfig' => $idAdd, 'idConvenzione' => $idConv),
+            array('preventivo' => $prevAdd, 'updated_at' => now(), 'created_at' => now())
+        );
+
+        return redirect()
+            ->route('riepilogo.costi', array('idAssociazione' => $idAss, 'idConvenzione' => $idConv))
+            ->with('success', 'Carburanti e additivi aggiornati.');
+    }
 }

@@ -59,7 +59,12 @@ Route::middleware(['auth'])->prefix('riepilogo-costi')->group(function () {
         ->whereNumber('sezione')
         ->name('riepilogo.costi.updatePreventiviSezione');
 
-    Route::get('/riepilogo-costi/summary', [RiepilogoCostiController::class, 'getSummary'])
-        ->name('riepilogo.costi.summary');
+    Route::get('/summary', [RiepilogoCostiController::class, 'getSummary'])
+    ->name('riepilogo.costi.summary');
 
+    Route::get('/edit-carburante-additivi', [RiepilogoCostiController::class, 'editCarburanteAdditivi'])
+    ->name('riepilogo.costi.edit.carburante_additivi');
+
+    Route::put('/update-carburante-additivi', [RiepilogoCostiController::class, 'updateCarburanteAdditivi'])
+    ->name('riepilogo.costi.update.carburante_additivi');
 });

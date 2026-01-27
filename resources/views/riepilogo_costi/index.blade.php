@@ -400,7 +400,7 @@ $user = Auth::user();
       const json = await fetchJsonWithLoader(`${url}?${params.toString()}`);
       const data = json?.data || [];
       const dataMerged = mergeCarburanteAdditivi(data, idTipologia);
-
+  
       const tbody = document.querySelector(`#table-sezione-${idTipologia} tbody`);
       if (!tbody) return { prev: 0, cons: 0 };
 
@@ -418,8 +418,25 @@ $user = Auth::user();
 
         let actionsHtml = '—';
         if (editingEnabled) {
-          if (row?.meta?.carburante_additivi) {
-            actionsHtml = '—';
+        if (row?.meta?.carburante_additivi) {
+            const parts = Array.isArray(row?.meta?.of) ? row.meta.of.filter(Boolean) : [];
+            if (parts.length >= 2) {
+              const editUrl = `{{ route('riepilogo.costi.edit.carburante_additivi') }}`;
+              const qs = new URLSearchParams({
+                idAssociazione: ass,
+                idConvenzione: conv,
+                idCarb: parts[0],
+                idAdd:  parts[1]
+              }).toString();
+
+              actionsHtml = `<a class="btn btn-warning btn-icon"
+                href="${editUrl}?${qs}"
+                title="Modifica carburanti e additivi">
+                <i class="fas fa-edit"></i>
+              </a>`;
+            } else {
+              actionsHtml = '—';
+            }
           } else if (isTelefoniaRow(row)) {
             const editTelUrl = `{{ route('riepilogo.costi.edit.telefonia') }}`;
             const qs = new URLSearchParams({
@@ -464,6 +481,7 @@ $user = Auth::user();
           }
         }
 
+      
         const tr = document.createElement('tr');
         tr.setAttribute('title', 'Voce: ' + (row?.descrizione ?? '-') + '\n');
         tr.innerHTML = `
@@ -700,48 +718,54 @@ $user = Auth::user();
 
       updateBulkButtonsVisibility();
     })();
-
-    function mergeCarburanteAdditivi(rows, idTipologia) {
-  // se vuoi limitarlo a una sezione specifica, qui metti:
-  // if (Number(idTipologia) !== 2) return rows;  // esempio
-
-  const targets = new Set(['CARBURANTE', 'ADDITIVI']);
-
+function mergeCarburanteAdditivi(rows, idTipologia) {
+  const filtered = [];
   let firstPos = null;
   let sumPrev = 0, sumCons = 0;
-  let found = 0;
-  const filtered = [];
+
+  let idCarb = null;
+  let idAdd  = null;
+
+  function isCarb(desc){ return desc.indexOf('CARBURANT') !== -1; }
+  function isAdd(desc){  return desc.indexOf('ADDITIV')  !== -1; }
 
   (rows || []).forEach(r => {
     const d = norm(r?.descrizione);
-    if (targets.has(d)) {
+    const hitCarb = isCarb(d);
+    const hitAdd  = isAdd(d);
+
+    if (hitCarb || hitAdd) {
       if (firstPos === null) firstPos = filtered.length;
+
       sumPrev += toNum(r?.preventivo);
       sumCons += toNum(r?.consuntivo);
-      found++;
+
+      if (hitCarb && !idCarb) idCarb = r.idVoceConfig;
+      if (hitAdd  && !idAdd)  idAdd  = r.idVoceConfig;
+
       return; // scarto riga originale
     }
+
     filtered.push(r);
   });
 
-  // se non ho entrambe, non tocco nulla
-  if (found < 2 || firstPos === null) return rows;
+  if (firstPos === null || !idCarb || !idAdd) return rows;
 
   const scost = sumPrev !== 0 ? ((sumCons - sumPrev) / sumPrev * 100) : 0;
 
   const mergedRow = {
     idVoceConfig: 'CARB_ADD_MERGE',
-    codice: '',
-    descrizione: 'CARBURANTE E ADDITIVI',
+    descrizione: 'carburanti e additivi',
     preventivo: sumPrev,
     consuntivo: sumCons,
     scostamento: `${scost.toFixed(2)}%`,
-    meta: { merged: true, carburante_additivi: true, of: ['CARBURANTE', 'ADDITIVI'] }
+    meta: { merged: true, carburante_additivi: true, of: [idCarb, idAdd] }
   };
 
   filtered.splice(firstPos, 0, mergedRow);
   return filtered;
 }
+
 
   })();
 </script>
