@@ -13,6 +13,7 @@ use App\Models\RipartizioneMaterialeSanitario;
 use App\Models\RipartizioneOssigeno;
 use App\Models\RipartizioneServizioCivile;
 use App\Models\RipartizioneCostiAutomezziSanitari;
+use Illuminate\Support\Facades\Log;
 
 class RipartizioneCostiService {
     /* Whitelist bilancio manuale (voci editabili per sezione) */
@@ -1243,7 +1244,13 @@ class RipartizioneCostiService {
 
         // ===== OVERRIDE BILANCIO PERSONALE 6001..6006 dal foglio costi dipendenti =====
         $bilPers = self::bilancioPersonalePerVoci($idAssociazione, $anno);
-        foreach (self::$IDS_PERSONALE_RETRIBUZIONI as $vId) {
+
+        $idsBilancioPersonale = array_values(array_unique(array_merge(
+            self::$IDS_PERSONALE_RETRIBUZIONI,                // 6001..6004
+            self::$IDS_PERSONALE_RETRIBUZIONI_AMMINISTRATIVI  // 6005..6006
+        )));
+
+        foreach ($idsBilancioPersonale as $vId) {
             $vId = (int)$vId;
             if (isset($bilPers[$vId])) {
                 $bilancioByVoce[$vId] = (float)$bilPers[$vId];
@@ -1289,6 +1296,14 @@ class RipartizioneCostiService {
             // indiretti SEMPRE in CENTESIMI
             $indPerConvCents = array_fill_keys($convIds, 0);
 
+if (in_array($idV, [6005, 6006], true)) {
+    Log::info('DISTINTA 6005/6006 debug', [
+        'idV' => $idV,
+        'bilancio' => $bilancio,
+        'targetTotCents' => (int) round($bilancio * 100, 0, PHP_ROUND_HALF_UP),
+        'percRaw' => self::percentualiServiziByConvenzione($idAssociazione, $anno, $convIds),
+    ]);
+}
             if ($isGrigia) {
                 $indPerConvCents = array_fill_keys($convIds, null);
             } elseif (in_array($idV, self::$IDS_PERSONALE_RETRIBUZIONI, true) && isset($persPerQualByConv[$idV])) {
