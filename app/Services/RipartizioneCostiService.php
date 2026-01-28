@@ -1069,6 +1069,7 @@ class RipartizioneCostiService {
             ->where('idAnno', $anno)
             ->whereNull('idVoceConfig')
             ->whereNull('idConvenzione')
+            ->whereNotNull('idSezione') // ✅ IMPORTANTISSIMO
             ->groupBy('voce', 'idSezione')
             ->get();
 
