@@ -907,18 +907,14 @@ class RipartizioneCostiService {
         // ============================================================
 
         $rowsNew = DB::table('costi_diretti')
-            ->select(
-                'idVoceConfig',
-                'idConvenzione',
-                DB::raw('SUM(costo) as sum_costo'),
-                DB::raw('SUM(ammortamento) as sum_amm')
-            )
-            ->where('idAssociazione', $idAssociazione)
-            ->where('idAnno', $anno)
-            ->whereNotNull('idVoceConfig')
-            ->whereNotNull('idSezione')      // <<< QUI
-            ->groupBy('idVoceConfig', 'idConvenzione')
-            ->get();
+        ->select('idVoceConfig','idConvenzione', DB::raw('SUM(costo) as sum_costo'), DB::raw('SUM(ammortamento) as sum_amm'))
+        ->where('idAssociazione', $idAssociazione)
+        ->where('idAnno', $anno)
+        ->whereNotNull('idVoceConfig')
+        ->whereNotNull('idSezione')
+        ->whereNotNull('idConvenzione')
+        ->groupBy('idVoceConfig', 'idConvenzione')
+        ->get();
 
         $rowsLegacy = DB::table('costi_diretti')
             ->select(
@@ -931,6 +927,7 @@ class RipartizioneCostiService {
             ->where('idAnno', $anno)
             ->whereNotNull('idVoceConfig')
             ->whereNull('idSezione')         // <<< QUI
+            ->whereNotNull('idConvenzione')
             ->groupBy('idVoceConfig', 'idConvenzione')
             ->get();
 
@@ -1016,6 +1013,7 @@ class RipartizioneCostiService {
             ->where('idAssociazione', $idAssociazione)
             ->where('idAnno', $anno)
             ->whereNull('idVoceConfig')
+            ->whereNotNull('idConvenzione')
             ->groupBy('voce', 'idConvenzione')
             ->get();
 
@@ -1296,14 +1294,7 @@ class RipartizioneCostiService {
             // indiretti SEMPRE in CENTESIMI
             $indPerConvCents = array_fill_keys($convIds, 0);
 
-            if (in_array($idV, [6005, 6006], true)) {
-                Log::info('DISTINTA 6005/6006 debug', [
-                    'idV' => $idV,
-                    'bilancio' => $bilancio,
-                    'targetTotCents' => (int) round($bilancio * 100, 0, PHP_ROUND_HALF_UP),
-                    'percRaw' => self::percentualiServiziByConvenzione($idAssociazione, $anno, $convIds),
-                ]);
-            }
+
             if ($isGrigia) {
                 $indPerConvCents = array_fill_keys($convIds, null);
             } elseif (in_array($idV, self::$IDS_PERSONALE_RETRIBUZIONI, true) && isset($persPerQualByConv[$idV])) {
