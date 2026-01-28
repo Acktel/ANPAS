@@ -301,6 +301,9 @@ class RiepilogoCostiController extends Controller {
         // se l’edit è sempre su convenzione specifica (come da tuo flow ensureAndEdit), prendi quel valore:
         $consCalcolato = (float)($mapCons[(int)$riga->idVoceConfig][(int)$riga->idConvenzione] ?? 0.0);
 
+        $note = (string) DB::table('riepilogo_dati')
+            ->where('id', (int)$riga->id)
+            ->value('note');
         // se vuoi gestire anche eventuale “TOT” (non editabile), puoi sommare tutte le convenzioni:
         // $consCalcolato = $riga->idConvenzione === 'TOT'
         //     ? array_sum($mapCons[(int)$riga->idVoceConfig] ?? [])
@@ -316,7 +319,8 @@ class RiepilogoCostiController extends Controller {
             'voceId'           => (int) $riga->idVoceConfig,
             'voceDescrizione'  => $riga->voce_descrizione,
             'preventivo'       => (float) $riga->preventivo,     // ← dal DB (editabile)
-            'consuntivo'       => $consCalcolato,                // ← CALCOLATO (sola lettura)
+            'consuntivo'       => $consCalcolato,     // ← CALCOLATO (sola lettura)
+            'note' => $note,
         ]);
     }
 
@@ -332,8 +336,8 @@ class RiepilogoCostiController extends Controller {
             'idAssociazione' => $isElevato ? 'required|integer|exists:associazioni,idAssociazione' : 'nullable',
             'idConvenzione'  => 'required|integer',
             'preventivo'     => 'required|numeric|min:0',
-            // consuntivo in sola lettura lato UI; lo accettiamo solo se vuoi passarlo
             'consuntivo'     => 'nullable|numeric|min:0',
+            'note'           => 'nullable|string|max:5000',
         ]);
 
         $idAssociazione = $isElevato ? (int)$data['idAssociazione'] : (int)$user->IdAssociazione;
@@ -354,22 +358,28 @@ class RiepilogoCostiController extends Controller {
                 'updated_at'     => now(),
             ], 'idRiepilogo');
 
-        // upsert valore (consuntivo opzionale, di default 0 o quello passato in read-only)
+        // payload update
+        $payload = [
+            'preventivo' => (float)$data['preventivo'],
+            'consuntivo' => isset($data['consuntivo']) ? (float)$data['consuntivo'] : 0.0,
+            'updated_at' => now(),
+            'created_at' => now(),
+        ];
+
+        // NOTE: salva anche stringa vuota se l’utente la cancella
+        if (array_key_exists('note', $data)) {
+            $payload['note'] = trim((string)$data['note']);
+        }
+
         DB::table('riepilogo_dati')->updateOrInsert(
             [
                 'idRiepilogo'   => $idRiepilogo,
                 'idVoceConfig'  => $voceId,
                 'idConvenzione' => $idConvenzione,
             ],
-            [
-                'preventivo' => (float)$data['preventivo'],
-                'consuntivo' => isset($data['consuntivo']) ? (float)$data['consuntivo'] : 0.0,
-                'updated_at' => now(),
-                'created_at' => now(),
-            ]
+            $payload
         );
 
-        // Se è una richiesta AJAX, rispondi JSON; altrimenti redirect alla index
         if ($request->expectsJson()) {
             return response()->json(['ok' => true]);
         }
@@ -381,6 +391,7 @@ class RiepilogoCostiController extends Controller {
             ])
             ->with('success', 'Voce aggiornata correttamente.');
     }
+
 
     // GET: form doppio campo
     public function editTelefonia(Request $request) {
@@ -427,9 +438,10 @@ class RiepilogoCostiController extends Controller {
 
         $prevFissa  = (float)($rows[$idFissa]->preventivo  ?? 0);
         $prevMobile = (float)($rows[$idMobile]->preventivo ?? 0);
-
+        $noteFissa  = (string)($rows[$idFissa]->note  ?? '');
+        $noteMobile = (string)($rows[$idMobile]->note ?? '');
         // consuntivi calcolati (read-only)
-        $mapCons = \App\Services\RipartizioneCostiService::consuntiviPerVoceByConvenzione($idAssociazione, $anno);
+        $mapCons = RipartizioneCostiService::consuntiviPerVoceByConvenzione($idAssociazione, $anno);
         $consFissa  = (float)($mapCons[$idFissa][$idConvenzione]  ?? 0);
         $consMobile = (float)($mapCons[$idMobile][$idConvenzione] ?? 0);
 
@@ -447,7 +459,9 @@ class RiepilogoCostiController extends Controller {
             'prevFissa',
             'prevMobile',
             'consFissa',
-            'consMobile'
+            'consMobile',
+            'noteFissa',
+            'noteMobile'
         ));
     }
 
@@ -548,13 +562,19 @@ class RiepilogoCostiController extends Controller {
 
         // Preventivi esistenti per la convenzione selezionata: [idVoceConfig => preventivo]
         $preventivi = [];
+        $notes = [];
+
         if ($idConvenzione) {
-            $preventivi = DB::table('riepilogo_dati')
+            $rows = DB::table('riepilogo_dati')
+                ->select('idVoceConfig', 'preventivo', 'note')
                 ->where('idRiepilogo', $idRiepilogo)
                 ->where('idConvenzione', $idConvenzione)
-                ->pluck('preventivo', 'idVoceConfig')
-                ->map(fn($v) => (float) $v)
-                ->toArray();
+                ->get();
+
+            foreach ($rows as $r) {
+                $preventivi[(int)$r->idVoceConfig] = (float)($r->preventivo ?? 0);
+                $notes[(int)$r->idVoceConfig]      = (string)($r->note ?? '');
+            }
         }
 
         // (solo display) consuntivi indiretti per la convenzione selezionata
@@ -590,6 +610,7 @@ class RiepilogoCostiController extends Controller {
             'voci'            => $voci,
             'preventivi'      => $preventivi,        // [idVoce => float]
             'indirettiByVoce' => $indirettiByVoce,   // [idVoce => float] (readonly)
+            'notes'           => $notes,             // [idVoce => string]
         ]);
     }
 
@@ -603,6 +624,7 @@ class RiepilogoCostiController extends Controller {
             'idConvenzione'             => 'required|integer|exists:convenzioni,idConvenzione',
             'righe'                     => 'required|array',
             'righe.*.preventivo'        => 'nullable',   // ← niente numeric per accettare "1,23"
+            'righe.*.note'              => 'nullable|string|max:5000',
         ]);
 
         $idAssociazione = (int) $data['idAssociazione'];
@@ -619,6 +641,18 @@ class RiepilogoCostiController extends Controller {
                 $idVoce      = (int) $idVoce;
                 $rawPrev     = $row['preventivo'] ?? null;
                 $preventivo  = $this->toDecimalOrZero($rawPrev);  // normalizza "1.234,56" -> 1234.56
+                $note = isset($row['note']) ? trim((string)$row['note']) : null;
+
+                $payload = [
+                    'preventivo' => $preventivo,
+                    'updated_at' => now(),
+                    'created_at' => now(),
+                ];
+
+                // salva note (anche stringa vuota se l’utente l’ha svuotata)
+                if ($note !== null) {
+                    $payload['note'] = $note;
+                }
 
                 DB::table('riepilogo_dati')->updateOrInsert(
                     [
@@ -626,12 +660,7 @@ class RiepilogoCostiController extends Controller {
                         'idVoceConfig'  => $idVoce,
                         'idConvenzione' => $idConvenzione,
                     ],
-                    [
-                        'preventivo' => $preventivo,
-                        // il consuntivo NON si tocca qui (è calcolato altrove)
-                        'updated_at' => now(),
-                        'created_at' => now(),
-                    ]
+                    $payload
                 );
             }
 

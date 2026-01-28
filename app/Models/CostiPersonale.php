@@ -40,6 +40,7 @@ class CostiPersonale {
 
       'DipendenteNome'    => $dip->DipendenteNome ?? '',
       'DipendenteCognome' => $dip->DipendenteCognome ?? '',
+      'note' => '',
     ];
   }
 
@@ -60,6 +61,9 @@ class CostiPersonale {
         'costo_diretto_OneriSocialiInail' => (float)($data['costo_diretto_OneriSocialiInail'] ?? 0),
         'costo_diretto_TFR'               => (float)($data['costo_diretto_TFR']               ?? 0),
         'costo_diretto_Consulenze'        => (float)($data['costo_diretto_Consulenze']        ?? 0),
+        'note' => (isset($data['note']) && trim((string)$data['note']) !== '')
+                  ? trim((string)$data['note'])
+                  : null,
 
         'Totale' => (float)$data['Totale'],
       ]
@@ -79,6 +83,7 @@ class CostiPersonale {
           id,
           idDipendente,
           idAnno,
+          note,
 
           (COALESCE(Retribuzioni,0) + COALESCE(costo_diretto_Retribuzioni,0))                     AS Retribuzioni,
           (COALESCE(OneriSocialiInps,0) + COALESCE(costo_diretto_OneriSocialiInps,0))             AS OneriSocialiInps,
@@ -118,6 +123,9 @@ class CostiPersonale {
       ) {
         if (!property_exists($record, $k)) {
           $record->{$k} = 0.0;
+        }
+        if (!property_exists($record, 'note')) {
+          $record->note = '';
         }
       }
 

@@ -20,15 +20,25 @@
         <div class="col-md-6">
           <label class="form-label">Preventivo — Telefonia fissa</label>
           <input type="number" step="0.01" name="preventivo_fissa" class="form-control"
-                 value="{{ old('preventivo_fissa', $prevFissa) }}">
+                value="{{ old('preventivo_fissa', $prevFissa) }}">
           <small class="text-muted">Consuntivo: {{ number_format($consFissa, 2, ',', '.') }}</small>
+
+          {{-- NOTE --}}
+          <label class="form-label mt-2">Note — Telefonia fissa</label>
+          <textarea name="note_fissa" class="form-control" rows="2"
+                    placeholder="Note...">{{ old('note_fissa', $noteFissa ?? '') }}</textarea>
         </div>
 
         <div class="col-md-6">
           <label class="form-label">Preventivo — Telefonia mobile</label>
           <input type="number" step="0.01" name="preventivo_mobile" class="form-control"
-                 value="{{ old('preventivo_mobile', $prevMobile) }}">
+                value="{{ old('preventivo_mobile', $prevMobile) }}">
           <small class="text-muted">Consuntivo: {{ number_format($consMobile, 2, ',', '.') }}</small>
+
+          {{-- NOTE --}}
+          <label class="form-label mt-2">Note — Telefonia mobile</label>
+          <textarea name="note_mobile" class="form-control" rows="2"
+                    placeholder="Note...">{{ old('note_mobile', $noteMobile ?? '') }}</textarea>
         </div>
 
         <div class="col-12 mt-2">

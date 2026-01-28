@@ -381,29 +381,27 @@ class DistintaImputazioneCostiController extends Controller {
 
         $voci = $q->orderBy('ordinamento')->orderBy('id')->get();
 
-        // Leggo solo il bilancio “globale per voce + sezione”
-        $righeBil = DB::table('costi_diretti')
-            ->select('voce', DB::raw('SUM(bilancio_consuntivo) AS tot'))
+        // Bilancio + note_bilancio "globali" PER VOCE (idVoceConfig valorizzato, idConvenzione NULL)
+        $bilanci = DB::table('costi_diretti')
+            ->select('idVoceConfig', 'bilancio_consuntivo', 'note_bilancio')
             ->where('idAssociazione', $idAssociazione)
             ->where('idAnno', $anno)
             ->where('idSezione', $sezione)
-            ->whereNull('idVoceConfig')
             ->whereNull('idConvenzione')
-            ->groupBy('voce')
+            ->whereNotNull('idVoceConfig')
             ->get()
-            ->keyBy(function ($r) {
-                return mb_strtoupper(preg_replace('/\s+/u', ' ', trim((string) $r->voce)), 'UTF-8');
-            });
-
-        $norm = fn(string $s) => mb_strtoupper(preg_replace('/\s+/u', ' ', trim($s)), 'UTF-8');
+            ->keyBy('idVoceConfig');
 
         $righe = [];
         foreach ($voci as $v) {
-            $key = $norm($v->descrizione);
+            $idVoce = (int) $v->id;
+            $rowBil = $bilanci->get($idVoce);
+
             $righe[] = [
-                'idVoceConfig' => (int) $v->id,
-                'descrizione'  => $v->descrizione,
-                'bilancio'     => (float) ($righeBil[$key]->tot ?? 0),
+                'idVoceConfig' => $idVoce,
+                'descrizione'  => (string) $v->descrizione,
+                'bilancio'     => (float) ($rowBil->bilancio_consuntivo ?? 0),
+                'note'         => (string) ($rowBil->note_bilancio ?? ''),
             ];
         }
 
@@ -422,6 +420,7 @@ class DistintaImputazioneCostiController extends Controller {
         ]);
     }
 
+
     public function updateBilancioSezione(Request $request, int $sezione) {
         abort_unless(in_array($sezione, self::SEZIONI_BILANCIO_EDITABILE, true), 404);
 
@@ -430,11 +429,15 @@ class DistintaImputazioneCostiController extends Controller {
             'idAnno'         => 'required|integer',
             'bilancio'       => 'required|array',        // [idVoceConfig => valore]
             'bilancio.*'     => 'nullable|numeric|min:0',
+
+            'note_bilancio'   => 'nullable|array',                // [idVoceConfig => testo]
+            'note_bilancio.*' => 'nullable|string|max:2000',
         ]);
 
         $idAssociazione = (int) $data['idAssociazione'];
         $anno           = (int) $data['idAnno'];
         $valori         = $data['bilancio'] ?? [];
+        $notes          = $data['note_bilancio'] ?? [];
 
         $whitelist = self::VOCI_BILANCIO_EDIT_PER_SEZIONE[$sezione] ?? null;
 
@@ -451,6 +454,7 @@ class DistintaImputazioneCostiController extends Controller {
 
         if (is_array($whitelist)) {
             $valori = array_intersect_key($valori, array_flip($whitelist));
+            $notes  = array_intersect_key($notes,  array_flip($whitelist));
         }
 
         DB::beginTransaction();
@@ -458,29 +462,42 @@ class DistintaImputazioneCostiController extends Controller {
             foreach ($valori as $idVoce => $val) {
                 $idVoce = (int) $idVoce;
                 if (!isset($voci[$idVoce])) {
-                    continue; // voce non ammessa
+                    continue;
                 }
 
                 $descr = (string) $voci[$idVoce]->descrizione;
                 $val   = (float) ($val ?? 0);
 
-                DB::table('costi_diretti')->updateOrInsert(
-                    [
-                        'idAssociazione' => $idAssociazione,
-                        'idAnno'         => $anno,
-                        'idSezione'      => $sezione,
-                        'idVoceConfig'   => null,    // GLOBALE per VOCE+SEZIONE
-                        'idConvenzione'  => null,
-                        'voce'           => $descr,
-                    ],
-                    [
-                        'costo'               => 0,
-                        'ammortamento'        => 0,
-                        'bilancio_consuntivo' => $val,
-                        'updated_at'          => now(),
-                        'created_at'          => now(),
-                    ]
-                );
+                $note_bilancio = isset($notes[$idVoce]) ? trim((string)$notes[$idVoce]) : null;
+                if ($note_bilancio === '') $note_bilancio = null;
+                if ($note_bilancio !== null && strlen($note_bilancio) > 2000) {
+                    $note_bilancio = substr($note_bilancio, 0, 2000);
+                }
+
+                $where = [
+                    'idAssociazione' => $idAssociazione,
+                    'idAnno'         => $anno,
+                    'idSezione'      => $sezione,
+                    'idVoceConfig'   => $idVoce,   // <-- QUI: globale per voce
+                    'idConvenzione'  => null,      // <-- QUI: globale (no convenzione)
+                ];
+
+                $exists = DB::table('costi_diretti')->where($where)->exists();
+
+                $update = [
+                    'voce'               => $descr,
+                    'costo'              => 0,
+                    'ammortamento'       => 0,
+                    'bilancio_consuntivo' => $val,
+                    'note_bilancio'       => $note_bilancio,
+                    'updated_at'         => now(),
+                ];
+
+                if (!$exists) {
+                    $update['created_at'] = now();
+                }
+
+                DB::table('costi_diretti')->updateOrInsert($where, $update);
             }
 
             DB::commit();
@@ -488,12 +505,14 @@ class DistintaImputazioneCostiController extends Controller {
             DB::rollBack();
             return back()->withErrors('Errore nel salvataggio: ' . $e->getMessage())->withInput();
         }
+
         Cache::forget("distinta_imputazione_payload:{$idAssociazione}:{$anno}");
 
         return redirect()
             ->route('distinta.imputazione.index', ['idAssociazione' => $idAssociazione])
             ->with('success', 'Importi da bilancio aggiornati correttamente.');
     }
+
 
     /* ========================= Helper: risolve l’associazione corrente ========================= */
     private function resolveAssociazione(Request $request): ?int {

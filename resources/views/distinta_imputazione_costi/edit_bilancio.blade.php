@@ -7,11 +7,11 @@
   </h1>
 
   @if ($errors->any())
-    <div class="alert alert-danger">
-      <ul class="mb-0">
-        @foreach ($errors->all() as $err) <li>{{ $err }}</li> @endforeach
-      </ul>
-    </div>
+  <div class="alert alert-danger">
+    <ul class="mb-0">
+      @foreach ($errors->all() as $err) <li>{{ $err }}</li> @endforeach
+    </ul>
+  </div>
   @endif
 
   <form method="POST" action="{{ route('distinta.imputazione.updateBilancio', ['sezione' => $sezione]) }}" novalidate>
@@ -27,19 +27,29 @@
           <table class="table table-bordered align-middle">
             <thead class="thead-anpas">
               <tr>
-                <th style="width:60%">Voce</th>
-                <th class="text-end" style="width:40%">Importo Totale da Bilancio Consuntivo</th>
+                <th style="width:40%">Voce</th>
+                <th class="text-end" style="width:30%">Importo Totale da Bilancio Consuntivo</th>
+                <th style="width:30%">Note</th>
               </tr>
             </thead>
             <tbody>
               @foreach($righe as $r)
                 @php
                   $idVoce = (int) $r['idVoceConfig'];
-                  $valDefault = is_numeric($r['bilancio']) ? number_format((float)$r['bilancio'], 2, '.', '') : '';
+
+                  $valDefault = is_numeric($r['bilancio'])
+                    ? number_format((float)$r['bilancio'], 2, '.', '')
+                    : '';
+
                   $valInput = old('bilancio.'.$idVoce, $valDefault);
+
+                  // NOTE: qui usiamo note_bilancio
+                  $noteInput = old('note_bilancio.'.$idVoce, $r['note'] ?? '');
                 @endphp
+
                 <tr>
                   <td>{{ $r['descrizione'] }}</td>
+
                   <td class="text-end">
                     <input
                       type="number"
@@ -49,8 +59,16 @@
                       value="{{ $valInput }}"
                       class="form-control text-end"
                       autocomplete="off"
-                      aria-label="Importo da bilancio per {{ $r['descrizione'] }}"
-                    >
+                      aria-label="Importo da bilancio per {{ $r['descrizione'] }}">
+                  </td>
+
+                  <td>
+                    <textarea
+                      name="note_bilancio[{{ $idVoce }}]"
+                      class="form-control"
+                      rows="2"
+                      maxlength="2000"
+                      placeholder="Note di bilancio...">{{ $noteInput }}</textarea>
                   </td>
                 </tr>
               @endforeach
@@ -68,8 +86,7 @@
           </button>
           <a
             href="{{ route('distinta.imputazione.index', ['idAssociazione' => $idAssociazione, 'anno' => $anno]) }}"
-            class="btn btn-secondary"
-          >
+            class="btn btn-secondary">
             Annulla
           </a>
         </div>

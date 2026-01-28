@@ -72,6 +72,16 @@
           {{-- opzionale: se vuoi inviarlo comunque al controller, aggiungi un hidden numerico --}}
           {{-- <input type="hidden" name="consuntivo" value="{{ $cons }}"> --}}
         </div>
+        <div class="col-12">
+          <label class="form-label">Note</label>
+          <textarea
+            name="note"
+            class="form-control"
+            rows="2"
+            placeholder="Note..."
+            {{ $isTot ? 'readonly' : '' }}
+          >{{ old('note', $note ?? '') }}</textarea>
+        </div>
 
         <div class="col-12">
           <button class="btn btn-anpas-green" {{ $isTot ? 'disabled' : '' }}>

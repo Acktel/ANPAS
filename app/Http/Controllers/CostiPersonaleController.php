@@ -366,11 +366,13 @@ class CostiPersonaleController extends Controller {
 
             'percentuali'    => 'array',
             'percentuali.*'  => 'nullable|numeric|min:0|max:100',
+            'note' => 'nullable|string|max:5000',
         ]);
 
         $data['idDipendente'] = $idDipendente;
         $data['idAnno'] = session('anno_riferimento', now()->year);
-
+        $data['note'] = trim((string)($data['note'] ?? ''));
+        
         $totCents =
             $this->euroToCents($data['Retribuzioni']) +
             $this->euroToCents($data['costo_diretto_Retribuzioni'] ?? 0) +

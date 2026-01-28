@@ -20,6 +20,7 @@ class CostoDiretto extends Model
         'costo',
         'ammortamento',     
         'note',    
+        'bilancio_consuntivo',
     ];
 
     protected $casts = [

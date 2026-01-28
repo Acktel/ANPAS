@@ -178,6 +178,14 @@
             </table>
           </div>
         @endif
+        <div class="col-md-3">
+          <label class="form-label">Note</label>
+          <textarea name="note"
+                    class="form-control"
+                    rows="3"
+                    maxlength="5000"
+                    placeholder="Note...">{{ old('note', $record->note ?? '') }}</textarea>
+        </div><br>
 
         <div class="text-center myborder-button">
           <button type="submit" class="btn btn-anpas-green me-2">

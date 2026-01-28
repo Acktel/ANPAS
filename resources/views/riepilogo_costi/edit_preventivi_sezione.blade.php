@@ -78,16 +78,17 @@ $labels = [
             <table class="table table-bordered table-striped-anpas align-middle">
               <thead class="thead-anpas">
                 <tr>
-                  <th style="width:50%">Voce</th>
-                  <th class="text-end" style="width:25%">Preventivo (€)</th>
-                  <th class="text-end" style="width:25%">Consuntivo (€)</th>
+                  <th style="width:35%">Voce</th>
+                  <th class="text-end" style="width:22%">Preventivo (€)</th>
+                  <th class="text-end" style="width:22%">Consuntivo (€)</th>
+                  <th style="width:21%">Note</th>
                 </tr>
               </thead>
               <tbody>
                 @php
                 $ID_CARB = 2006;
                 $ID_ADD = 2007;
-
+                $notesMap = $notes ?? [];
                 $doMerge = ((int)$sezione === 2); // solo AUTOMEZZI
                 $mergedDone = false;
                 @endphp
@@ -111,11 +112,15 @@ $labels = [
 
                 $consCarbStr = ($consCarb !== null) ? number_format((float)$consCarb, 2, ',', '.') : '';
                 $consAddStr = ($consAdd !== null) ? number_format((float)$consAdd, 2, ',', '.') : '';
+
+                $noteCarb = (string)($notesMap[$ID_CARB] ?? '');
+                $noteAdd = (string)($notesMap[$ID_ADD] ?? '');
                 @endphp
 
                 <tr>
-                  <td class="fw-bold">Carburanti e Additivi</td>
+                  <td>carburanti e additivi</td>
 
+                  {{-- PREVENTIVO --}}
                   <td>
                     <div class="d-flex flex-column gap-2">
                       <div>
@@ -124,7 +129,7 @@ $labels = [
                           type="text" inputmode="decimal"
                           name="righe[{{ $ID_CARB }}][preventivo]"
                           class="form-control text-end"
-                          value="{{ $prevCarbStr }}"
+                          value="{{ old("righe.$ID_CARB.preventivo", $prevCarbStr) }}"
                           placeholder="0,00"
                           {{ $idConvenzione ? '' : 'disabled' }}>
                       </div>
@@ -135,13 +140,14 @@ $labels = [
                           type="text" inputmode="decimal"
                           name="righe[{{ $ID_ADD }}][preventivo]"
                           class="form-control text-end"
-                          value="{{ $prevAddStr }}"
+                          value="{{ old("righe.$ID_ADD.preventivo", $prevAddStr) }}"
                           placeholder="0,00"
                           {{ $idConvenzione ? '' : 'disabled' }}>
                       </div>
                     </div>
                   </td>
 
+                  {{-- CONSUNTIVO --}}
                   <td>
                     <div class="d-flex flex-column gap-2">
                       <div>
@@ -165,7 +171,35 @@ $labels = [
                       </div>
                     </div>
                   </td>
+
+                  {{-- NOTE --}}
+                  <td>
+                    <div class="d-flex flex-column gap-2">
+                      <div>
+                        <div class="small text-muted mb-1">Carburanti</div>
+                        <input
+                          type="text"
+                          class="form-control"
+                          name="righe[{{ $ID_CARB }}][note]"
+                          value="{{ old("righe.$ID_CARB.note", $noteCarb) }}"
+                          placeholder="Note..."
+                          {{ $idConvenzione ? '' : 'disabled' }}>
+                      </div>
+
+                      <div>
+                        <div class="small text-muted mb-1">Additivi</div>
+                        <input
+                          type="text"
+                          class="form-control"
+                          name="righe[{{ $ID_ADD }}][note]"
+                          value="{{ old("righe.$ID_ADD.note", $noteAdd) }}"
+                          placeholder="Note..."
+                          {{ $idConvenzione ? '' : 'disabled' }}>
+                      </div>
+                    </div>
+                  </td>
                 </tr>
+
 
                 @continue
                 @endif
@@ -181,6 +215,8 @@ $labels = [
 
                 $prevStr = ($prevVal !== null) ? number_format((float)$prevVal, 2, ',', '.') : '';
                 $consStr = ($consVal !== null) ? number_format((float)$consVal, 2, ',', '.') : '';
+
+                $noteStr = (string)($notesMap[$vid] ?? '');
                 @endphp
 
                 <tr>
@@ -191,7 +227,7 @@ $labels = [
                       type="text" inputmode="decimal"
                       name="righe[{{ $vid }}][preventivo]"
                       class="form-control text-end"
-                      value="{{ $prevStr }}"
+                      value="{{ old("righe.$vid.preventivo", $prevStr) }}"
                       placeholder="0,00"
                       {{ $idConvenzione ? '' : 'disabled' }}>
                   </td>
@@ -204,11 +240,20 @@ $labels = [
                       placeholder="{{ $idConvenzione ? '0,00' : 'Seleziona convenzione' }}"
                       readonly>
                   </td>
+                  <td>
+                    <input
+                      type="text"
+                      class="form-control"
+                      name="righe[{{ $vid }}][note]"
+                      value="{{ old("righe.$vid.note", $noteStr) }}"
+                      placeholder="Note..."
+                      {{ $idConvenzione ? '' : 'disabled' }}>
+                  </td>
                 </tr>
 
                 @empty
                 <tr>
-                  <td colspan="3" class="text-center text-muted">
+                  <td colspan="4" class="text-center text-muted">
                     Nessuna voce disponibile per questa sezione.
                   </td>
                 </tr>
