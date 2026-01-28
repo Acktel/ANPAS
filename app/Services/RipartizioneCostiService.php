@@ -53,7 +53,9 @@ class RipartizioneCostiService {
         'ALTRI COSTI MEZZI',
     ];
 
-    private static $IDS_PERSONALE_RETRIBUZIONI = array(6001, 6002, 6003, 6004, 6005, 6006);
+    private static $IDS_PERSONALE_RETRIBUZIONI = array(6001, 6002, 6003, 6004);
+    private static $IDS_PERSONALE_RETRIBUZIONI_AMMINISTRATIVI = array(6005, 6006);
+
 
     private static $MAP_VOCE_TO_QUALIFICA = array(
         6001 => 1, // AUTISTA SOCCORRITORE
@@ -1323,7 +1325,17 @@ class RipartizioneCostiService {
                 }
 
                 // ---- 4.b) Servizio civile: splitByWeightsCents -> euro -> centesimi
-            } elseif ($idV === $VOCE_SCIV_ID) {
+            }elseif (in_array($idV, self::$IDS_PERSONALE_RETRIBUZIONI_AMMINISTRATIVI, true) && isset($persPerQualByConv[$idV])) {
+            $targetTotCents = (int) round($bilancio * 100, 0, PHP_ROUND_HALF_UP);
+
+            $pesi  = self::percentualiServiziByConvenzione($idAssociazione, $anno, $convIds); // 0..1
+            $split = self::splitByWeightsRawCents($targetTotCents, $pesi);
+
+            foreach ($convIds as $cid) {
+                $indPerConvCents[$cid] = (int) ($split[$cid] ?? 0);
+            }
+            
+            }elseif ($idV === $VOCE_SCIV_ID) {
                 $baseIndirettiCents = (int)round($baseIndirettiEuro * 100, 0, PHP_ROUND_HALF_UP);
 
                 // pesi = % servizio civile per convenzione (0..100 oppure 0..1, non importa: conta il rapporto)
