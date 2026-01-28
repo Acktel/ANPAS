@@ -1305,74 +1305,88 @@ if (in_array($idV, [6005, 6006], true)) {
     ]);
 }
             if ($isGrigia) {
-                $indPerConvCents = array_fill_keys($convIds, null);
-            } elseif (in_array($idV, self::$IDS_PERSONALE_RETRIBUZIONI, true) && isset($persPerQualByConv[$idV])) {
+    $indPerConvCents = array_fill_keys($convIds, null);
 
-                // Excel-like: per ogni convenzione
-                // indiretti = max(0, riparto_personale_conv - diretti_netto_conv)
-                foreach ($convIds as $cid) {
-                    $targetConvCents = (int)($persPerQualByConv[$idV][$cid] ?? 0);
+} elseif (in_array($idV, self::$IDS_PERSONALE_RETRIBUZIONI, true) && isset($persPerQualByConv[$idV])) {
 
-                    $dirL = (float)($dirByVoceByConv[$idV][$cid] ?? 0.0);
-                    $amm  = (float)($ammByVoceByConv[$idV][$cid] ?? 0.0);
-                    $netDirConvCents = (int) round(($dirL - $amm) * 100, 0, PHP_ROUND_HALF_UP);
+    // Excel-like (6001..6004): per ogni convenzione
+    // indiretti = max(0, riparto_personale_conv - diretti_netto_conv)
+    foreach ($convIds as $cid) {
+        $targetConvCents = (int)($persPerQualByConv[$idV][$cid] ?? 0);
 
-                    $indPerConvCents[$cid] = max(0, $targetConvCents - $netDirConvCents);
-                }
-            } elseif (in_array($idV, self::$IDS_PERSONALE_RETRIBUZIONI_AMMINISTRATIVI, true)) {
+        $dirL = (float)($dirByVoceByConv[$idV][$cid] ?? 0.0);
+        $amm  = (float)($ammByVoceByConv[$idV][$cid] ?? 0.0);
 
-                // Excel: bilancio * %servizi (con % arrotondate a 2 decimali e riparto a centesimi che torna al totale)
-                $targetTotCents = (int) round($bilancio * 100, 0, PHP_ROUND_HALF_UP);
+        $netDirConvCents = (int) round(($dirL - $amm) * 100, 0, PHP_ROUND_HALF_UP);
 
-                // percentuali servizi per convenzione (mi aspetto 0..1 oppure 0..100: normalizzo a 0..100)
-                $percRaw = self::percentualiServiziByConvenzione($idAssociazione, $anno, $convIds);
+        $indPerConvCents[$cid] = max(0, $targetConvCents - $netDirConvCents);
+    }
 
-                $perc = [];
-                foreach ($convIds as $cid) {
-                    $p = (float)($percRaw[$cid] ?? 0.0);
-                    if ($p <= 1.0) $p *= 100.0;                 // 0..1 -> 0..100
-                    $perc[$cid] = round($p, 2, PHP_ROUND_HALF_UP); // Excel-style: 2 decimali
-                }
+} elseif (in_array($idV, self::$IDS_PERSONALE_RETRIBUZIONI_AMMINISTRATIVI, true)) {
 
-                $sumPerc = array_sum($perc);
+    // Excel (6005..6006): bilancio * % servizi (percentuali arrotondate a 2 decimali)
+    $targetTotCents = (int) round($bilancio * 100, 0, PHP_ROUND_HALF_UP);
 
-                if ($targetTotCents <= 0 || $sumPerc <= 0.0) {
-                    foreach ($convIds as $cid) {
-                        $indPerConvCents[$cid] = 0;
-                    }
-                } else {
-                    // Largest Remainder (Hamilton) su centesimi
-                    $floor = [];
-                    $rema  = [];
-                    $sumFloor = 0;
+    $percRaw = self::percentualiServiziByConvenzione($idAssociazione, $anno, $convIds);
 
-                    foreach ($convIds as $cid) {
-                        $exact = $targetTotCents * ($perc[$cid] / $sumPerc); // centesimi "esatti" (float)
-                        $f = (int) floor($exact); // troncamento in centesimi
-                        $floor[$cid] = $f;
-                        $rema[$cid]  = $exact - $f;
-                        $sumFloor += $f;
-                    }
+    // normalizzazione robusta: capisco se sono 0..1 o 0..100 dalla somma
+    $sumRaw = 0.0;
+    foreach ($convIds as $cid) {
+        $sumRaw += (float)($percRaw[$cid] ?? 0.0);
+    }
+    $isZeroToOne = ($sumRaw > 0.0 && $sumRaw <= 1.00001);
 
-                    $left = $targetTotCents - $sumFloor;
+    $perc = [];
+    foreach ($convIds as $cid) {
+        $p = (float)($percRaw[$cid] ?? 0.0);
+        if ($isZeroToOne) {
+            $p *= 100.0; // 0..1 -> 0..100
+        }
+        // Excel-style: 2 decimali
+        $perc[$cid] = round($p, 2, PHP_ROUND_HALF_UP);
+    }
 
-                    // ordina per resto decrescente, a parità tieni un ordine stabile (id conv)
-                    uksort($rema, static function ($a, $b) use ($rema) {
-                        $ra = $rema[$a];
-                        $rb = $rema[$b];
-                        if ($ra === $rb) return (int)$a <=> (int)$b;
-                        return ($ra < $rb) ? 1 : -1;
-                    });
+    $sumPerc = array_sum($perc);
 
-                    $indPerConvCents = $floor;
+    if ($targetTotCents <= 0 || $sumPerc <= 0.0) {
+        foreach ($convIds as $cid) {
+            $indPerConvCents[$cid] = 0;
+        }
+    } else {
+        // Hamilton (Largest Remainder) in centesimi
+        $alloc = [];
+        $remaList = [];
+        $sumAlloc = 0;
 
-                    foreach (array_keys($rema) as $cid) {
-                        if ($left <= 0) break;
-                        $indPerConvCents[$cid] += 1;
-                        $left--;
-                    }
-                }
-            } elseif ($idV === $VOCE_SCIV_ID) {
+        foreach ($convIds as $cid) {
+            $exact = $targetTotCents * ($perc[$cid] / $sumPerc); // float in centesimi
+            $f = (int) floor($exact);
+            $alloc[$cid] = $f;
+            $sumAlloc += $f;
+
+            $remaList[] = [$cid, $exact - $f];
+        }
+
+        $left = $targetTotCents - $sumAlloc;
+
+        // ordina per resto decrescente, a parità id crescente (stabile)
+        usort($remaList, static function (array $a, array $b): int {
+            [$cidA, $rA] = $a;
+            [$cidB, $rB] = $b;
+
+            if ($rA === $rB) return (int)$cidA <=> (int)$cidB;
+            return ($rA < $rB) ? 1 : -1;
+        });
+
+        foreach ($remaList as [$cid, $r]) {
+            if ($left <= 0) break;
+            $alloc[$cid] += 1;
+            $left--;
+        }
+
+        $indPerConvCents = $alloc;
+    }
+} elseif ($idV === $VOCE_SCIV_ID) {
                 $baseIndirettiCents = (int)round($baseIndirettiEuro * 100, 0, PHP_ROUND_HALF_UP);
 
                 // pesi = % servizio civile per convenzione (0..100 oppure 0..1, non importa: conta il rapporto)
