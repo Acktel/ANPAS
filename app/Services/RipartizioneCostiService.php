@@ -1293,49 +1293,71 @@ class RipartizioneCostiService {
                 $indPerConvCents = array_fill_keys($convIds, null);
             } elseif (in_array($idV, self::$IDS_PERSONALE_RETRIBUZIONI, true) && isset($persPerQualByConv[$idV])) {
 
-                // 1) totale target (centesimi) = somma riparto personale per conv
-                $targetTotCents = 0;
+                // Excel-like: per ogni convenzione
+                // indiretti = max(0, riparto_personale_conv - diretti_netto_conv)
                 foreach ($convIds as $cid) {
-                    $targetTotCents += (int)($persPerQualByConv[$idV][$cid] ?? 0);
-                }
+                    $targetConvCents = (int)($persPerQualByConv[$idV][$cid] ?? 0);
 
-                // 2) totale diretti netti (centesimi)
-                $netDirTotCents = 0;
-                foreach ($convIds as $cid) {
                     $dirL = (float)($dirByVoceByConv[$idV][$cid] ?? 0.0);
                     $amm  = (float)($ammByVoceByConv[$idV][$cid] ?? 0.0);
-                    $netDirTotCents += (int)round(($dirL - $amm) * 100, 0, PHP_ROUND_HALF_UP);
+                    $netDirConvCents = (int) round(($dirL - $amm) * 100, 0, PHP_ROUND_HALF_UP);
+
+                    $indPerConvCents[$cid] = max(0, $targetConvCents - $netDirConvCents);
                 }
+            } elseif (in_array($idV, self::$IDS_PERSONALE_RETRIBUZIONI_AMMINISTRATIVI, true)) {
 
-                // 3) residuo da ripartire (centesimi) (mai negativo)
-                $residuoCents = $targetTotCents - $netDirTotCents;
-                if ($residuoCents < 0) $residuoCents = 0;
+                // Excel: bilancio * %servizi (con % arrotondate a 2 decimali e riparto a centesimi che torna al totale)
+                $targetTotCents = (int) round($bilancio * 100, 0, PHP_ROUND_HALF_UP);
 
-                // 4) pesi: usa il target per conv (se è 0/uguale per tutti, Hamilton gestisce comunque)
-                $pesi = [];
+                // percentuali servizi per convenzione (mi aspetto 0..1 oppure 0..100: normalizzo a 0..100)
+                $percRaw = self::percentualiServiziByConvenzione($idAssociazione, $anno, $convIds);
+
+                $perc = [];
                 foreach ($convIds as $cid) {
-                    $pesi[$cid] = (float)($persPerQualByConv[$idV][$cid] ?? 0);
+                    $p = (float)($percRaw[$cid] ?? 0.0);
+                    if ($p <= 1.0) $p *= 100.0;                 // 0..1 -> 0..100
+                    $perc[$cid] = round($p, 2, PHP_ROUND_HALF_UP); // Excel-style: 2 decimali
                 }
 
-                // 5) split Hamilton in CENTESIMI
-                $split = self::splitByWeightsRawCents((int)$residuoCents, $pesi);
+                $sumPerc = array_sum($perc);
 
-                foreach ($convIds as $cid) {
-                    $indPerConvCents[$cid] = (int)($split[$cid] ?? 0);
+                if ($targetTotCents <= 0 || $sumPerc <= 0.0) {
+                    foreach ($convIds as $cid) {
+                        $indPerConvCents[$cid] = 0;
+                    }
+                } else {
+                    // Largest Remainder (Hamilton) su centesimi
+                    $floor = [];
+                    $rema  = [];
+                    $sumFloor = 0;
+
+                    foreach ($convIds as $cid) {
+                        $exact = $targetTotCents * ($perc[$cid] / $sumPerc); // centesimi "esatti" (float)
+                        $f = (int) floor($exact); // troncamento in centesimi
+                        $floor[$cid] = $f;
+                        $rema[$cid]  = $exact - $f;
+                        $sumFloor += $f;
+                    }
+
+                    $left = $targetTotCents - $sumFloor;
+
+                    // ordina per resto decrescente, a parità tieni un ordine stabile (id conv)
+                    uksort($rema, static function ($a, $b) use ($rema) {
+                        $ra = $rema[$a];
+                        $rb = $rema[$b];
+                        if ($ra === $rb) return (int)$a <=> (int)$b;
+                        return ($ra < $rb) ? 1 : -1;
+                    });
+
+                    $indPerConvCents = $floor;
+
+                    foreach (array_keys($rema) as $cid) {
+                        if ($left <= 0) break;
+                        $indPerConvCents[$cid] += 1;
+                        $left--;
+                    }
                 }
-
-                // ---- 4.b) Servizio civile: splitByWeightsCents -> euro -> centesimi
-            }elseif (in_array($idV, self::$IDS_PERSONALE_RETRIBUZIONI_AMMINISTRATIVI, true) && isset($persPerQualByConv[$idV])) {
-            $targetTotCents = (int) round($bilancio * 100, 0, PHP_ROUND_HALF_UP);
-
-            $pesi  = self::percentualiServiziByConvenzione($idAssociazione, $anno, $convIds); // 0..1
-            $split = self::splitByWeightsRawCents($targetTotCents, $pesi);
-
-            foreach ($convIds as $cid) {
-                $indPerConvCents[$cid] = (int) ($split[$cid] ?? 0);
-            }
-            
-            }elseif ($idV === $VOCE_SCIV_ID) {
+            } elseif ($idV === $VOCE_SCIV_ID) {
                 $baseIndirettiCents = (int)round($baseIndirettiEuro * 100, 0, PHP_ROUND_HALF_UP);
 
                 // pesi = % servizio civile per convenzione (0..100 oppure 0..1, non importa: conta il rapporto)
@@ -2642,5 +2664,56 @@ class RipartizioneCostiService {
             $out[(int)$vId] = round(((int)$cents) / 100, 2, PHP_ROUND_HALF_UP);
         }
         return $out;
+    }
+
+    private static function splitByPercentExcelCents(int $targetCents, array $percByCid): array {
+        // percByCid: [cid => percentuale (0..100)]
+        // 1) usa percentuali "da Excel": 2 decimali
+        $p = [];
+        $sumP = 0.0;
+        foreach ($percByCid as $cid => $perc) {
+            $v = round((float)$perc, 2);
+            if ($v < 0) $v = 0.0;
+            $p[$cid] = $v;
+            $sumP += $v;
+        }
+
+        // se tutto zero -> split uniforme (o tutto 0)
+        if ($sumP <= 0.0) {
+            $n = count($p);
+            if ($n === 0) return [];
+            $base = intdiv($targetCents, $n);
+            $rem  = $targetCents - ($base * $n);
+            $out = [];
+            foreach (array_keys($p) as $i => $cid) {
+                $out[$cid] = $base + ($i < $rem ? 1 : 0);
+            }
+            return $out;
+        }
+
+        // 2) calcolo esatto in centesimi + largest remainder
+        $floors = [];
+        $rema   = [];
+        $sumFloor = 0;
+
+        foreach ($p as $cid => $perc) {
+            // normalizzo sulle percentuali arrotondate (perché Excel spesso lavora così)
+            $exact = $targetCents * ($perc / $sumP); // centesimi esatti
+            $f = (int) floor($exact);
+            $floors[$cid] = $f;
+            $rema[$cid]   = $exact - $f;
+            $sumFloor += $f;
+        }
+
+        $left = $targetCents - $sumFloor; // quanti centesimi mancano
+        if ($left > 0) {
+            arsort($rema); // remainder più grande prima
+            foreach (array_keys($rema) as $cid) {
+                if ($left-- <= 0) break;
+                $floors[$cid] += 1;
+            }
+        }
+
+        return $floors;
     }
 }
