@@ -1326,14 +1326,14 @@ class RipartizioneCostiService {
 
                 // ---- 4.b) Servizio civile: splitByWeightsCents -> euro -> centesimi
             }elseif (in_array($idV, self::$IDS_PERSONALE_RETRIBUZIONI_AMMINISTRATIVI, true) && isset($persPerQualByConv[$idV])) {
-                $targetTotCents = (int) round($bilancio * 100, 0, PHP_ROUND_HALF_UP);
+            $targetTotCents = (int) round($bilancio * 100, 0, PHP_ROUND_HALF_UP);
 
-                $pesi  = self::percentualiServiziByConvenzione($idAssociazione, $anno, $convIds); // 0..1
-                $split = self::splitByWeightsRawCents($targetTotCents, $pesi);
+            $pesi  = self::percentualiServiziByConvenzione($idAssociazione, $anno, $convIds); // 0..1
+            $split = self::splitByWeightsRawCents($targetTotCents, $pesi);
 
-                foreach ($convIds as $cid) {
-                    $indPerConvCents[$cid] = (int) ($split[$cid] ?? 0);
-                }
+            foreach ($convIds as $cid) {
+                $indPerConvCents[$cid] = (int) ($split[$cid] ?? 0);
+            }
             
             }elseif ($idV === $VOCE_SCIV_ID) {
                 $baseIndirettiCents = (int)round($baseIndirettiEuro * 100, 0, PHP_ROUND_HALF_UP);
