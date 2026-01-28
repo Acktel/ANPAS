@@ -1288,24 +1288,19 @@ class RipartizioneCostiService {
             $indPerConvCents = array_fill_keys($convIds, 0);
 
             if ($isGrigia) {
-    $indPerConvCents = array_fill_keys($convIds, null);
+                $indPerConvCents = array_fill_keys($convIds, null);
+            } elseif (in_array($idV, self::$IDS_PERSONALE_RETRIBUZIONI, true)) {
 
-} elseif (in_array($idV, self::$IDS_PERSONALE_RETRIBUZIONI, true)) {
+                // Excel: importo totale (bilancio consuntivo) * % servizi
+                $targetTotCents = (int) round($bilancio * 100, 0, PHP_ROUND_HALF_UP);
 
-    // Excel: "TOTALE COSTI RIPARTITI" * %servizi
-    // Nel tuo flusso: baseIndirettiEuro è il totale da ripartire per la voce
-    $baseIndirettiCents = (int)round($baseIndirettiEuro * 100, 0, PHP_ROUND_HALF_UP);
+                $pesi  = self::percentualiServiziByConvenzione($idAssociazione, $anno, $convIds); // 0..1
+                $split = self::splitByWeightsRawCents($targetTotCents, $pesi);
 
-    // pesi 0..1 (percentuali)
-    $pesi = self::percentualiServiziByConvenzione($idAssociazione, $anno, $convIds);
-
-    $split = self::splitByWeightsRawCents($baseIndirettiCents, $pesi);
-
-    foreach ($convIds as $cid) {
-        $indPerConvCents[$cid] = (int)($split[$cid] ?? 0);
-    }
-
-}  elseif ($idV === $VOCE_SCIV_ID) {
+                foreach ($convIds as $cid) {
+                    $indPerConvCents[$cid] = (int) ($split[$cid] ?? 0);
+                }
+            } elseif ($idV === $VOCE_SCIV_ID) {
                 $baseIndirettiCents = (int)round($baseIndirettiEuro * 100, 0, PHP_ROUND_HALF_UP);
 
                 // pesi = % servizio civile per convenzione (0..100 oppure 0..1, non importa: conta il rapporto)
