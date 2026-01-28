@@ -1296,97 +1296,95 @@ class RipartizioneCostiService {
             // indiretti SEMPRE in CENTESIMI
             $indPerConvCents = array_fill_keys($convIds, 0);
 
-if (in_array($idV, [6005, 6006], true)) {
-    Log::info('DISTINTA 6005/6006 debug', [
-        'idV' => $idV,
-        'bilancio' => $bilancio,
-        'targetTotCents' => (int) round($bilancio * 100, 0, PHP_ROUND_HALF_UP),
-        'percRaw' => self::percentualiServiziByConvenzione($idAssociazione, $anno, $convIds),
-    ]);
-}
+            if (in_array($idV, [6005, 6006], true)) {
+                Log::info('DISTINTA 6005/6006 debug', [
+                    'idV' => $idV,
+                    'bilancio' => $bilancio,
+                    'targetTotCents' => (int) round($bilancio * 100, 0, PHP_ROUND_HALF_UP),
+                    'percRaw' => self::percentualiServiziByConvenzione($idAssociazione, $anno, $convIds),
+                ]);
+            }
             if ($isGrigia) {
-    $indPerConvCents = array_fill_keys($convIds, null);
+                $indPerConvCents = array_fill_keys($convIds, null);
+            } elseif (in_array($idV, self::$IDS_PERSONALE_RETRIBUZIONI, true) && isset($persPerQualByConv[$idV])) {
 
-} elseif (in_array($idV, self::$IDS_PERSONALE_RETRIBUZIONI, true) && isset($persPerQualByConv[$idV])) {
+                // Excel-like (6001..6004): per ogni convenzione
+                // indiretti = max(0, riparto_personale_conv - diretti_netto_conv)
+                foreach ($convIds as $cid) {
+                    $targetConvCents = (int)($persPerQualByConv[$idV][$cid] ?? 0);
 
-    // Excel-like (6001..6004): per ogni convenzione
-    // indiretti = max(0, riparto_personale_conv - diretti_netto_conv)
-    foreach ($convIds as $cid) {
-        $targetConvCents = (int)($persPerQualByConv[$idV][$cid] ?? 0);
+                    $dirL = (float)($dirByVoceByConv[$idV][$cid] ?? 0.0);
+                    $amm  = (float)($ammByVoceByConv[$idV][$cid] ?? 0.0);
 
-        $dirL = (float)($dirByVoceByConv[$idV][$cid] ?? 0.0);
-        $amm  = (float)($ammByVoceByConv[$idV][$cid] ?? 0.0);
+                    $netDirConvCents = (int) round(($dirL - $amm) * 100, 0, PHP_ROUND_HALF_UP);
 
-        $netDirConvCents = (int) round(($dirL - $amm) * 100, 0, PHP_ROUND_HALF_UP);
+                    $indPerConvCents[$cid] = max(0, $targetConvCents - $netDirConvCents);
+                }
+            } elseif (in_array($idV, self::$IDS_PERSONALE_RETRIBUZIONI_AMMINISTRATIVI, true)) {
 
-        $indPerConvCents[$cid] = max(0, $targetConvCents - $netDirConvCents);
-    }
+                // Excel (6005..6006): bilancio * % servizi (percentuali arrotondate a 2 decimali)
+                $targetTotCents = (int) round($bilancio * 100, 0, PHP_ROUND_HALF_UP);
 
-} elseif (in_array($idV, self::$IDS_PERSONALE_RETRIBUZIONI_AMMINISTRATIVI, true)) {
+                $percRaw = self::percentualiServiziByConvenzione($idAssociazione, $anno, $convIds);
 
-    // Excel (6005..6006): bilancio * % servizi (percentuali arrotondate a 2 decimali)
-    $targetTotCents = (int) round($bilancio * 100, 0, PHP_ROUND_HALF_UP);
+                // normalizzazione robusta: capisco se sono 0..1 o 0..100 dalla somma
+                $sumRaw = 0.0;
+                foreach ($convIds as $cid) {
+                    $sumRaw += (float)($percRaw[$cid] ?? 0.0);
+                }
+                $isZeroToOne = ($sumRaw > 0.0 && $sumRaw <= 1.00001);
 
-    $percRaw = self::percentualiServiziByConvenzione($idAssociazione, $anno, $convIds);
+                $perc = [];
+                foreach ($convIds as $cid) {
+                    $p = (float)($percRaw[$cid] ?? 0.0);
+                    if ($isZeroToOne) {
+                        $p *= 100.0; // 0..1 -> 0..100
+                    }
+                    // Excel-style: 2 decimali
+                    $perc[$cid] = round($p, 2, PHP_ROUND_HALF_UP);
+                }
 
-    // normalizzazione robusta: capisco se sono 0..1 o 0..100 dalla somma
-    $sumRaw = 0.0;
-    foreach ($convIds as $cid) {
-        $sumRaw += (float)($percRaw[$cid] ?? 0.0);
-    }
-    $isZeroToOne = ($sumRaw > 0.0 && $sumRaw <= 1.00001);
+                $sumPerc = array_sum($perc);
 
-    $perc = [];
-    foreach ($convIds as $cid) {
-        $p = (float)($percRaw[$cid] ?? 0.0);
-        if ($isZeroToOne) {
-            $p *= 100.0; // 0..1 -> 0..100
-        }
-        // Excel-style: 2 decimali
-        $perc[$cid] = round($p, 2, PHP_ROUND_HALF_UP);
-    }
+                if ($targetTotCents <= 0 || $sumPerc <= 0.0) {
+                    foreach ($convIds as $cid) {
+                        $indPerConvCents[$cid] = 0;
+                    }
+                } else {
+                    // Hamilton (Largest Remainder) in centesimi
+                    $alloc = [];
+                    $remaList = [];
+                    $sumAlloc = 0;
 
-    $sumPerc = array_sum($perc);
+                    foreach ($convIds as $cid) {
+                        $exact = $targetTotCents * ($perc[$cid] / $sumPerc); // float in centesimi
+                        $f = (int) floor($exact);
+                        $alloc[$cid] = $f;
+                        $sumAlloc += $f;
 
-    if ($targetTotCents <= 0 || $sumPerc <= 0.0) {
-        foreach ($convIds as $cid) {
-            $indPerConvCents[$cid] = 0;
-        }
-    } else {
-        // Hamilton (Largest Remainder) in centesimi
-        $alloc = [];
-        $remaList = [];
-        $sumAlloc = 0;
+                        $remaList[] = [$cid, $exact - $f];
+                    }
 
-        foreach ($convIds as $cid) {
-            $exact = $targetTotCents * ($perc[$cid] / $sumPerc); // float in centesimi
-            $f = (int) floor($exact);
-            $alloc[$cid] = $f;
-            $sumAlloc += $f;
+                    $left = $targetTotCents - $sumAlloc;
 
-            $remaList[] = [$cid, $exact - $f];
-        }
+                    // ordina per resto decrescente, a parità id crescente (stabile)
+                    usort($remaList, static function (array $a, array $b): int {
+                        [$cidA, $rA] = $a;
+                        [$cidB, $rB] = $b;
 
-        $left = $targetTotCents - $sumAlloc;
+                        if ($rA === $rB) return (int)$cidA <=> (int)$cidB;
+                        return ($rA < $rB) ? 1 : -1;
+                    });
 
-        // ordina per resto decrescente, a parità id crescente (stabile)
-        usort($remaList, static function (array $a, array $b): int {
-            [$cidA, $rA] = $a;
-            [$cidB, $rB] = $b;
+                    foreach ($remaList as [$cid, $r]) {
+                        if ($left <= 0) break;
+                        $alloc[$cid] += 1;
+                        $left--;
+                    }
 
-            if ($rA === $rB) return (int)$cidA <=> (int)$cidB;
-            return ($rA < $rB) ? 1 : -1;
-        });
-
-        foreach ($remaList as [$cid, $r]) {
-            if ($left <= 0) break;
-            $alloc[$cid] += 1;
-            $left--;
-        }
-
-        $indPerConvCents = $alloc;
-    }
-} elseif ($idV === $VOCE_SCIV_ID) {
+                    $indPerConvCents = $alloc;
+                }
+            } elseif ($idV === $VOCE_SCIV_ID) {
                 $baseIndirettiCents = (int)round($baseIndirettiEuro * 100, 0, PHP_ROUND_HALF_UP);
 
                 // pesi = % servizio civile per convenzione (0..100 oppure 0..1, non importa: conta il rapporto)
@@ -2553,26 +2551,38 @@ if (in_array($idV, [6005, 6006], true)) {
      * Ritorna: [6001=>float, 6002=>float, ...] in EURO con 2 decimali.
      */
     public static function bilancioPersonalePerVoci(int $idAssociazione, int $anno): array {
-        $outCents = array();
-        foreach (self::$IDS_PERSONALE_RETRIBUZIONI as $v) {
+        // 1) Voci da considerare: 6001..6006
+        $idsBilancioPersonale = array_values(array_unique(array_merge(
+            self::$IDS_PERSONALE_RETRIBUZIONI ?? [],                // 6001..6004
+            self::$IDS_PERSONALE_RETRIBUZIONI_AMMINISTRATIVI ?? []  // 6005..6006
+        )));
+
+        $outCents = [];
+        foreach ($idsBilancioPersonale as $v) {
             $outCents[(int)$v] = 0;
         }
 
-        // dipendenti dell'associazione/anno
-        $dip = DB::table('dipendenti')
-            ->where('idAssociazione', $idAssociazione)
-            ->where('idAnno', $anno)
-            ->pluck('idDipendente');
-
-        if (!$dip || count($dip) === 0) {
-            // ritorna zeri
-            $out = array();
-            foreach ($outCents as $v => $c) $out[$v] = 0.0;
-            return $out;
+        // 2) Mappa veloce qualifica -> voce
+        // (assumo MAP_VOCE_TO_QUALIFICA = [voceId => qualificaId])
+        $voceByQual = [];
+        foreach (self::$MAP_VOCE_TO_QUALIFICA as $voceId => $qualId) {
+            $voceByQual[(int)$qualId] = (int)$voceId;
         }
 
-        $dipIds = array();
-        foreach ($dip as $id) $dipIds[] = (int)$id;
+        // dipendenti dell'associazione/anno
+        $dipIds = DB::table('dipendenti')
+            ->where('idAssociazione', $idAssociazione)
+            ->where('idAnno', $anno)
+            ->pluck('idDipendente')
+            ->map(fn($x) => (int)$x)
+            ->all();
+
+        if (empty($dipIds)) {
+            // ritorna zeri
+            $out = [];
+            foreach ($outCents as $vId => $c) $out[$vId] = 0.0;
+            return $out;
+        }
 
         // costi_personale totali per dipendente (base+diretti)
         $costi = DB::table('costi_personale')
@@ -2597,26 +2607,23 @@ if (in_array($idV, [6005, 6006], true)) {
             ->get()
             ->groupBy('idDipendente');
 
-        // percentuali mansioni per dipendente (se esistono)
-        $percRows = DB::table('costi_personale_mansioni')
+        // percentuali mansioni per dipendente
+        $percByDip = DB::table('costi_personale_mansioni')
             ->whereIn('idDipendente', $dipIds)
             ->where('idAnno', $anno)
             ->get()
-            ->groupBy('idDipendente');
+            ->groupBy('idDipendente')
+            ->map(function ($rows) {
+                $m = [];
+                foreach ($rows as $r) {
+                    $m[(int)$r->idQualifica] = (float)$r->percentuale; // 0..100
+                }
+                return $m;
+            })
+            ->all();
 
-        // helper: percentuali per dipendente (idQualifica => pct)
-        $percByDip = array();
-        foreach ($percRows as $idDip => $rows) {
-            $m = array();
-            foreach ($rows as $r) {
-                $m[(int)$r->idQualifica] = (float)$r->percentuale;
-            }
-            $percByDip[(int)$idDip] = $m;
-        }
-
-        // accumulo in centesimi per voce
         foreach ($dipIds as $idDip) {
-            $c = isset($costi[$idDip]) ? $costi[$idDip] : null;
+            $c = $costi[$idDip] ?? null;
             if (!$c) continue;
 
             $totEuro = (float)$c->TotaleCalc;
@@ -2624,15 +2631,14 @@ if (in_array($idV, [6005, 6006], true)) {
 
             $totCents = (int) round($totEuro * 100, 0, PHP_ROUND_HALF_UP);
 
-            $qRows = isset($qualByDip[$idDip]) ? $qualByDip[$idDip] : null;
+            $qRows = $qualByDip[$idDip] ?? null;
             if (!$qRows || count($qRows) === 0) continue;
 
-            $qualIds = array();
+            $qualIds = [];
             foreach ($qRows as $qr) $qualIds[] = (int)$qr->idQualifica;
 
-            // costruisci mappa percentuali: se non ci sono, fallback uniforme
-            $pctMap = isset($percByDip[$idDip]) ? $percByDip[$idDip] : array();
-
+            // mappa percentuali: se non ci sono, fallback uniforme sulle qualifiche del dipendente
+            $pctMap = $percByDip[$idDip] ?? [];
             if (empty($pctMap)) {
                 if (count($qualIds) === 1) {
                     $pctMap[$qualIds[0]] = 100.0;
@@ -2642,58 +2648,52 @@ if (in_array($idV, [6005, 6006], true)) {
                 }
             }
 
-            // distribuzione centesimi sulle voci (Hamilton per evitare cent persi)
-            $prov = array(); // [voceId => cents floor]
-            $rem  = array(); // [voceId => remainder sum]
-            $sum  = 0;
+            // Hamilton per voce
+            $floor = [];  // [voceId => cents floor]
+            $rema  = [];  // [voceId => remainder sum]
+            $sumFloor = 0;
 
             foreach ($pctMap as $idQ => $pct) {
                 $idQ = (int)$idQ;
-                // prendiamo solo le qualifiche che mappano su 6001..6006
-                $voceId = null;
-                foreach (self::$MAP_VOCE_TO_QUALIFICA as $vId => $qId) {
-                    if ((int)$qId === $idQ) {
-                        $voceId = (int)$vId;
-                        break;
-                    }
-                }
+                $voceId = $voceByQual[$idQ] ?? null;
                 if (!$voceId) continue;
 
-                $quota = $totCents * ((float)$pct / 100.0);
-                $f = (int) floor($quota);
+                // quota in centesimi (float)
+                $exact = $totCents * ((float)$pct / 100.0);
+                $f = (int) floor($exact);
 
-                if (!isset($prov[$voceId])) $prov[$voceId] = 0;
-                if (!isset($rem[$voceId]))  $rem[$voceId]  = 0.0;
+                $floor[$voceId] = ($floor[$voceId] ?? 0) + $f;
+                $rema[$voceId]  = ($rema[$voceId] ?? 0.0) + ($exact - $f);
 
-                $prov[$voceId] += $f;
-                $rem[$voceId]  += ($quota - $f);
-                $sum += $f;
+                $sumFloor += $f;
             }
 
-            // residuo centesimi al “più meritevole”
-            $diff = $totCents - $sum;
-            if ($diff > 0 && !empty($rem)) {
-                arsort($rem);
-                foreach (array_keys($rem) as $vId) {
-                    if ($diff <= 0) break;
-                    $prov[(int)$vId] += 1;
-                    $diff--;
+            $left = $totCents - $sumFloor;
+            if ($left > 0 && !empty($rema)) {
+                arsort($rema);
+                foreach (array_keys($rema) as $vId) {
+                    if ($left <= 0) break;
+                    $floor[(int)$vId] += 1;
+                    $left--;
                 }
             }
 
-            foreach ($prov as $vId => $cents) {
-                if (!isset($outCents[(int)$vId])) continue;
-                $outCents[(int)$vId] += (int)$cents;
+            // accumula (solo voci 6001..6006)
+            foreach ($floor as $vId => $cents) {
+                $vId = (int)$vId;
+                if (!array_key_exists($vId, $outCents)) continue;
+                $outCents[$vId] += (int)$cents;
             }
         }
 
         // ritorna in euro
-        $out = array();
+        $out = [];
         foreach ($outCents as $vId => $cents) {
             $out[(int)$vId] = round(((int)$cents) / 100, 2, PHP_ROUND_HALF_UP);
         }
         return $out;
     }
+
 
     private static function splitByPercentExcelCents(int $targetCents, array $percByCid): array {
         // percByCid: [cid => percentuale (0..100)]
