@@ -906,29 +906,43 @@ class RipartizioneCostiService {
         //    + LEGACY (idSezione NULL) SOLO SE manca il NUOVO
         // ============================================================
 
-        $rowsNew = DB::table('costi_diretti')
-        ->select('idVoceConfig','idConvenzione', DB::raw('SUM(costo) as sum_costo'), DB::raw('SUM(ammortamento) as sum_amm'))
-        ->where('idAssociazione', $idAssociazione)
-        ->where('idAnno', $anno)
-        ->whereNotNull('idVoceConfig')
-        ->whereNotNull('idSezione')
-        ->whereNotNull('idConvenzione')
-        ->groupBy('idVoceConfig', 'idConvenzione')
-        ->get();
-
-        $rowsLegacy = DB::table('costi_diretti')
+        $rowsNew = DB::table('costi_diretti as cd')
+            ->join('convenzioni as c', 'c.idConvenzione', '=', 'cd.idConvenzione')
+            ->join('riepilogo_voci_config as vc', 'vc.id', '=', 'cd.idVoceConfig')
             ->select(
-                'idVoceConfig',
-                'idConvenzione',
-                DB::raw('SUM(costo) as sum_costo'),
-                DB::raw('SUM(ammortamento) as sum_amm')
+                'cd.idVoceConfig',
+                'cd.idConvenzione',
+                DB::raw('SUM(cd.costo) as sum_costo'),
+                DB::raw('SUM(cd.ammortamento) as sum_amm')
             )
-            ->where('idAssociazione', $idAssociazione)
-            ->where('idAnno', $anno)
-            ->whereNotNull('idVoceConfig')
-            ->whereNull('idSezione')         // <<< QUI
-            ->whereNotNull('idConvenzione')
-            ->groupBy('idVoceConfig', 'idConvenzione')
+            ->where('cd.idAssociazione', $idAssociazione)
+            ->where('cd.idAnno', $anno)
+            // blindatura: la convenzione deve essere dell’associazione/anno richiesti
+            ->where('c.idAssociazione', $idAssociazione)
+            ->where('c.idAnno', $anno)
+            ->whereNotNull('cd.idVoceConfig')
+            ->whereNotNull('cd.idSezione')
+            ->whereNotNull('cd.idConvenzione')
+            ->whereColumn('cd.idSezione', 'vc.idTipologiaRiepilogo')
+            ->groupBy('cd.idVoceConfig', 'cd.idConvenzione')
+            ->get();
+
+        $rowsLegacy = DB::table('costi_diretti as cd')
+            ->join('convenzioni as c', 'c.idConvenzione', '=', 'cd.idConvenzione')
+            ->select(
+                'cd.idVoceConfig',
+                'cd.idConvenzione',
+                DB::raw('SUM(cd.costo) as sum_costo'),
+                DB::raw('SUM(cd.ammortamento) as sum_amm')
+            )
+            ->where('cd.idAssociazione', $idAssociazione)
+            ->where('cd.idAnno', $anno)
+            ->where('c.idAssociazione', $idAssociazione)
+            ->where('c.idAnno', $anno)
+            ->whereNotNull('cd.idVoceConfig')
+            ->whereNull('cd.idSezione')
+            ->whereNotNull('cd.idConvenzione')
+            ->groupBy('cd.idVoceConfig', 'cd.idConvenzione')
             ->get();
 
         $dirByVoceByConv = array();
@@ -1004,17 +1018,16 @@ class RipartizioneCostiService {
         //    Regola: se per quella voce+conv esiste già (nuovo o legacy idVoceConfig),
         //    NON aggiungo anche la riga per descrizione.
         // ============================================================
-        $cdNo = DB::table('costi_diretti')
-            ->select(
-                'voce',
-                'idConvenzione',
-                DB::raw('SUM(costo) as sum_costo')
-            )
-            ->where('idAssociazione', $idAssociazione)
-            ->where('idAnno', $anno)
-            ->whereNull('idVoceConfig')
-            ->whereNotNull('idConvenzione')
-            ->groupBy('voce', 'idConvenzione')
+        $cdNo = DB::table('costi_diretti as cd')
+            ->join('convenzioni as c', 'c.idConvenzione', '=', 'cd.idConvenzione')
+            ->select('cd.voce', 'cd.idConvenzione', DB::raw('SUM(cd.costo) as sum_costo'))
+            ->where('cd.idAssociazione', $idAssociazione)
+            ->where('cd.idAnno', $anno)
+            ->where('c.idAssociazione', $idAssociazione)
+            ->where('c.idAnno', $anno)
+            ->whereNull('cd.idVoceConfig')
+            ->whereNotNull('cd.idConvenzione')
+            ->groupBy('cd.voce', 'cd.idConvenzione')
             ->get();
 
         foreach ($cdNo as $r) {
@@ -1120,6 +1133,7 @@ class RipartizioneCostiService {
                 $bilancioByVoce[$v] = (float)($dirTotByVoce[$v] ?? 0);
             }
         }
+
 
         return array(
             $dirByVoceByConv,
