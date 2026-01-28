@@ -26,10 +26,23 @@
                 <input type="number" step="0.01" name="TotAmmortamentoRadio" class="form-control" value="{{ $record->AmmortamentoImpiantiRadio ?? 0 }}">
             </div>
         </div>
+        <div class="row mb-3">
+            <div class="col-md-4">
+                <label for="note">Note</label>
+                <textarea
+                    name="note"
+                    id="note"
+                    class="form-control"
+                    rows="3"
+                    maxlength="2000"
+                    placeholder="Note...">{{ old('note', $record->note ?? '') }}</textarea>
+            </div>
+        </div>
+
 
         <div class="my-4 text-center">
-        <button type="submit" class="btn btn-anpas-green"><i class="fas fa-check me-1"></i>Salva</button>
-        <a href="{{ route('ripartizioni.costi_radio.index') }}" class="btn btn-secondary"><i class="fas fa-times me-1"></i>Annulla</a>
+            <button type="submit" class="btn btn-anpas-green"><i class="fas fa-check me-1"></i>Salva</button>
+            <a href="{{ route('ripartizioni.costi_radio.index') }}" class="btn btn-secondary"><i class="fas fa-times me-1"></i>Annulla</a>
         </div>
     </form>
 </div>

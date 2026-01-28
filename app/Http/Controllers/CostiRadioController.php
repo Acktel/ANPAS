@@ -117,7 +117,8 @@ class CostiRadioController extends Controller {
             'TotManutenzioneRadio' => 'required|numeric',
             'TotMontaggioRadio' => 'required|numeric',
             'TotLocazioneRadio' => 'required|numeric',
-            'TotAmmortamentoRadio' => 'required|numeric'
+            'TotAmmortamentoRadio' => 'required|numeric',
+            'note'                 => 'nullable|string|max:2000',
         ]);
 
         $anno = session('anno_riferimento', now()->year);
@@ -136,7 +137,8 @@ class CostiRadioController extends Controller {
                 'ManutenzioneApparatiRadio' => $data['TotManutenzioneRadio'],
                 'MontaggioSmontaggioRadio118' => $data['TotMontaggioRadio'],
                 'LocazionePonteRadio' => $data['TotLocazioneRadio'],
-                'AmmortamentoImpiantiRadio' => $data['TotAmmortamentoRadio']
+                'AmmortamentoImpiantiRadio' => $data['TotAmmortamentoRadio'],
+                'note' => isset($data['note']) ? trim((string)$data['note']) : null,
             ]
         );
         return redirect()->route('ripartizioni.costi_radio.index')->with('success', 'Totali aggiornati correttamente.');

@@ -311,23 +311,6 @@ class Automezzo {
     }
 
     /* ----------------------------------------
-     * Utility aggiornamento KM totali
-     * -------------------------------------- */
-    public static function refreshKmTotaliFor(int $idAutomezzo): void {
-        $sum = (int) DB::table('automezzi_km')
-            ->where('idAutomezzo', $idAutomezzo)
-            ->sum(DB::raw('COALESCE(KMPercorsi,0)'));
-
-        DB::table('automezzi')
-            ->where('idAutomezzo', $idAutomezzo)
-            ->update([
-                'KmTotali'   => $sum,
-                'updated_at' => now(),
-            ]);
-    }
-
-
-    /* ----------------------------------------
      * Filtri per ruolo
      * -------------------------------------- */
     public static function getFiltratiByUtente($anno): Collection {

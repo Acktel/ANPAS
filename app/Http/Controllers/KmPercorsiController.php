@@ -236,7 +236,7 @@ class KmPercorsiController extends Controller {
                     AutomezzoKm::upsert($idAutomezzo, (int)$idConvenzione, $km);
                 }
             }
-            Automezzo::refreshKmTotaliFor($idAutomezzo, $anno);
+            //Automezzo::refreshKmTotaliFor($idAutomezzo, $anno);
         });
 
         return redirect()->route('km-percorsi.index')->with('success', 'KM percorsi salvati con successo.');
@@ -320,7 +320,7 @@ class KmPercorsiController extends Controller {
             }
 
             // 4) Refresh totali del mezzo
-            Automezzo::refreshKmTotaliFor($idAutomezzo, $anno);
+            //Automezzo::refreshKmTotaliFor($idAutomezzo, $anno);
         });
 
         return redirect()->route('km-percorsi.index')->with('success', 'KM percorsi aggiornati con successo.');
@@ -335,7 +335,7 @@ class KmPercorsiController extends Controller {
 
         DB::transaction(function () use ($idAutomezzo, $anno) {
             AutomezzoKm::deleteByAutomezzo($idAutomezzo);
-            Automezzo::refreshKmTotaliFor($idAutomezzo, $anno);
+            //Automezzo::refreshKmTotaliFor($idAutomezzo, $anno);
         });
 
         return redirect()->route('km-percorsi.index')->with('success', 'KM percorsi eliminati.');

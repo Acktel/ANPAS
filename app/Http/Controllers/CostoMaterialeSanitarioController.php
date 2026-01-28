@@ -54,7 +54,8 @@ class CostoMaterialeSanitarioController extends Controller {
      */
     public function updateTotale(Request $request) {
         $request->validate([
-            'TotaleBilancio' => 'required|numeric|min:0'
+            'TotaleBilancio' => 'required|numeric|min:0',
+            'note'           => 'nullable|string|max:2000',
         ]);
 
         $anno = session('anno_riferimento', now()->year);
@@ -63,8 +64,12 @@ class CostoMaterialeSanitarioController extends Controller {
         $idAssociazione = $request->query('idAssociazione')
             ?? session('associazione_selezionata')
             ?? $user->IdAssociazione;
+        
+        $note = $request->has('note') ? trim((string)$request->input('note')) : null;
+        if ($note === '') $note = null;
+        if ($note !== null && strlen($note) > 2000) $note = substr($note, 0, 2000);
 
-        CostoMaterialeSanitario::upsertTotale($idAssociazione, $anno, $request->TotaleBilancio);
+        CostoMaterialeSanitario::upsertTotale($idAssociazione, $anno, $request->TotaleBilancio, $note);
 
         return redirect()
             ->route('imputazioni.materiale_sanitario.index')
@@ -184,19 +189,27 @@ class CostoMaterialeSanitarioController extends Controller {
     }
 
     public function editTotale(Request $request) {
-        $anno = session('anno_riferimento', now()->year);
-        $automezzi = Automezzo::getFiltratiByUtente($anno);
+        $anno = (int) session('anno_riferimento', now()->year);
 
         $user = Auth::user();
-        $idAssociazione = $request->query('idAssociazione')
+        $idAssociazione = (int) (
+            $request->query('idAssociazione')
             ?? session('associazione_selezionata')
-            ?? $user->IdAssociazione;
-            
+            ?? $user->IdAssociazione
+        );
+
         $totale = CostoMaterialeSanitario::getTotale($idAssociazione, $anno);
+
+        // Nota salvata (se non esiste record -> null)
+        $note = CostoMaterialeSanitario::where('idAssociazione', $idAssociazione)
+            ->where('idAnno', $anno)
+            ->value('note');
 
         return view('imputazioni.materiale_sanitario.edit_totale', [
             'totale' => $totale,
-            'anno'   => $anno
+            'note'   => $note,
+            'anno'   => $anno,
         ]);
     }
+
 }

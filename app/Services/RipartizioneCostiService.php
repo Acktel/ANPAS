@@ -269,7 +269,6 @@ class RipartizioneCostiService {
             'ASSICURAZIONI'                                             => 'Assicurazione',
             'MANUTENZIONE ORDINARIA'                                    => 'ManutenzioneOrdinaria',
             'MANUTENZIONE STRAORDINARIA AL NETTO RIMBORSI ASSICURATIVI' => 'ManutenzioneStraordinaria',
-            'RIMBORSI ASSICURAZIONE'                                    => 'RimborsiAssicurazione',
             'PULIZIA E DISINFEZIONE'                                    => 'PuliziaDisinfezione',
             'CARBURANTI AL NETTO RIMBORSI UTF'                          => 'Carburanti',
             'ADDITIVI'                                                  => 'Additivi',
@@ -1289,42 +1288,24 @@ class RipartizioneCostiService {
             $indPerConvCents = array_fill_keys($convIds, 0);
 
             if ($isGrigia) {
-                $indPerConvCents = array_fill_keys($convIds, null);
-            } elseif (in_array($idV, self::$IDS_PERSONALE_RETRIBUZIONI, true) && isset($persPerQualByConv[$idV])) {
+    $indPerConvCents = array_fill_keys($convIds, null);
 
-                // 1) totale target (centesimi) = somma riparto personale per conv
-                $targetTotCents = 0;
-                foreach ($convIds as $cid) {
-                    $targetTotCents += (int)($persPerQualByConv[$idV][$cid] ?? 0);
-                }
+} elseif (in_array($idV, self::$IDS_PERSONALE_RETRIBUZIONI, true)) {
 
-                // 2) totale diretti netti (centesimi)
-                $netDirTotCents = 0;
-                foreach ($convIds as $cid) {
-                    $dirL = (float)($dirByVoceByConv[$idV][$cid] ?? 0.0);
-                    $amm  = (float)($ammByVoceByConv[$idV][$cid] ?? 0.0);
-                    $netDirTotCents += (int)round(($dirL - $amm) * 100, 0, PHP_ROUND_HALF_UP);
-                }
+    // Excel: "TOTALE COSTI RIPARTITI" * %servizi
+    // Nel tuo flusso: baseIndirettiEuro è il totale da ripartire per la voce
+    $baseIndirettiCents = (int)round($baseIndirettiEuro * 100, 0, PHP_ROUND_HALF_UP);
 
-                // 3) residuo da ripartire (centesimi) (mai negativo)
-                $residuoCents = $targetTotCents - $netDirTotCents;
-                if ($residuoCents < 0) $residuoCents = 0;
+    // pesi 0..1 (percentuali)
+    $pesi = self::percentualiServiziByConvenzione($idAssociazione, $anno, $convIds);
 
-                // 4) pesi: usa il target per conv (se è 0/uguale per tutti, Hamilton gestisce comunque)
-                $pesi = [];
-                foreach ($convIds as $cid) {
-                    $pesi[$cid] = (float)($persPerQualByConv[$idV][$cid] ?? 0);
-                }
+    $split = self::splitByWeightsRawCents($baseIndirettiCents, $pesi);
 
-                // 5) split Hamilton in CENTESIMI
-                $split = self::splitByWeightsRawCents((int)$residuoCents, $pesi);
+    foreach ($convIds as $cid) {
+        $indPerConvCents[$cid] = (int)($split[$cid] ?? 0);
+    }
 
-                foreach ($convIds as $cid) {
-                    $indPerConvCents[$cid] = (int)($split[$cid] ?? 0);
-                }
-
-                // ---- 4.b) Servizio civile: splitByWeightsCents -> euro -> centesimi
-            } elseif ($idV === $VOCE_SCIV_ID) {
+}  elseif ($idV === $VOCE_SCIV_ID) {
                 $baseIndirettiCents = (int)round($baseIndirettiEuro * 100, 0, PHP_ROUND_HALF_UP);
 
                 // pesi = % servizio civile per convenzione (0..100 oppure 0..1, non importa: conta il rapporto)

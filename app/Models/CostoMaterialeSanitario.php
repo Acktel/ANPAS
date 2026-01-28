@@ -13,6 +13,7 @@ class CostoMaterialeSanitario extends Model {
         'idAssociazione',
         'idAnno',
         'TotaleBilancio',
+        'note',
     ];
 
     public $timestamps = true;
@@ -41,7 +42,7 @@ class CostoMaterialeSanitario extends Model {
     /**
      * Inserisce o aggiorna il totale a bilancio per l'associazione e l'anno specificati.
      */
-    public static function upsertTotale(int $idAssociazione, int $idAnno, float $valore): void {
+    public static function upsertTotale(int $idAssociazione, int $idAnno, float $valore, ?string $note = null): void {
         self::updateOrCreate(
             [
                 'idAssociazione' => $idAssociazione,
@@ -49,7 +50,14 @@ class CostoMaterialeSanitario extends Model {
             ],
             [
                 'TotaleBilancio' => $valore,
+                'note'           => $note,
             ]
         );
+    }
+
+    public static function getRecord(int $idAssociazione, int $anno): ?self {
+        return self::where('idAssociazione', $idAssociazione)
+            ->where('idAnno', $anno)
+            ->first();
     }
 }
